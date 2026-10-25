@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, ContactShadows, Html } from "@react-three/drei";
 import { Group, Vector3 } from "three";
@@ -87,6 +87,13 @@ const PLYWOOD_GHOST = (() => {
 })();
 
 // ═══════════════════════════════════════════════════════════════════════════
+// SNAP MODE — when true, animations jump straight to their targets so a
+// still frame can be captured right away (PDF step renders).
+// ═══════════════════════════════════════════════════════════════════════════
+
+const SnapContext = createContext(false);
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ANIMATED GROUP — lerps position via useFrame with opacity fade
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -99,10 +106,11 @@ interface AnimatedGroupProps {
 function AnimatedGroup({ targetPos, children, speed = 0.06 }: AnimatedGroupProps) {
   const ref = useRef<Group>(null);
   const target = useMemo(() => new Vector3(...targetPos), [targetPos]);
+  const snap = useContext(SnapContext);
 
   useFrame(() => {
     if (!ref.current) return;
-    ref.current.position.lerp(target, speed);
+    ref.current.position.lerp(target, snap ? 1 : speed);
   });
 
   return <group ref={ref}>{children}</group>;
@@ -123,6 +131,7 @@ function AnimatedRotation({
 }) {
   const ref = useRef<Group>(null);
   const target = useRef(new Vector3(...targetRot));
+  const k = useContext(SnapContext) ? 1 : speed;
 
   useEffect(() => {
     target.current.set(...targetRot);
@@ -131,9 +140,9 @@ function AnimatedRotation({
   useFrame(() => {
     if (!ref.current) return;
     const r = ref.current.rotation;
-    r.x += (target.current.x - r.x) * speed;
-    r.y += (target.current.y - r.y) * speed;
-    r.z += (target.current.z - r.z) * speed;
+    r.x += (target.current.x - r.x) * k;
+    r.y += (target.current.y - r.y) * k;
+    r.z += (target.current.z - r.z) * k;
   });
 
   return <group ref={ref}>{children}</group>;
@@ -972,12 +981,15 @@ function GuideCameraRig({
   toteType,
   cameraHint,
   hasWheels,
+  distanceScale = 1,
 }: {
   cols: number;
   rows: number;
   toteType: ToteType;
   cameraHint?: string;
   hasWheels: boolean;
+  /** < 1 frames the unit tighter (print renders have no zoom control) */
+  distanceScale?: number;
 }) {
   const { camera } = useThree();
   const controlsRef = useRef<any>(null);
@@ -996,7 +1008,7 @@ function GuideCameraRig({
   const sh = overallH * S;
   const sd = RACK_DEPTH * S;
   const maxDim = Math.max(sw, sh, sd);
-  const dist = maxDim * 2.8;
+  const dist = maxDim * 2.8 * distanceScale;
 
   useEffect(() => {
     let px: number, py: number, pz: number;
@@ -1487,6 +1499,147 @@ export default function AssemblyGuide({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STEP SNAPSHOTS — renders every guide step offscreen, one still per step
+//
+// Feeds the printable PDF the same scenes, camera angles and ghosting as
+// the interactive guide. Each step gets a fresh Canvas so the camera rig
+// places itself instantly, and SnapContext makes the parts land on their
+// targets on the first frame.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface AssemblyStepSnapshot {
+  stepId: string;
+  imageDataUrl: string;
+}
+
+const SNAPSHOT_SETTLE_FRAMES = 12;
+
+function FrameCapture({ onCapture }: { onCapture: (dataUrl: string) => void }) {
+  const { gl, scene, camera } = useThree();
+  const frames = useRef(0);
+  const done = useRef(false);
+
+  useFrame(() => {
+    if (done.current) return;
+    frames.current += 1;
+    if (frames.current < SNAPSHOT_SETTLE_FRAMES) return;
+    done.current = true;
+    gl.render(scene, camera);
+    onCapture(gl.domElement.toDataURL("image/jpeg", 0.9));
+  });
+
+  return null;
+}
+
+export function AssemblyStepSnapshots({
+  cols,
+  rows,
+  toteType,
+  hasWheels = true,
+  hasTop = false,
+  width = 1400,
+  height = 1050,
+  onProgress,
+  onComplete,
+}: {
+  cols: number;
+  rows: number;
+  toteType: ToteType;
+  hasWheels?: boolean;
+  hasTop?: boolean;
+  width?: number;
+  height?: number;
+  onProgress?: (done: number, total: number) => void;
+  onComplete: (snapshots: AssemblyStepSnapshot[]) => void;
+}) {
+  const steps = useMemo(
+    () => getStepsForConfig({ hasWheels, hasTop, toteType }),
+    [hasWheels, hasTop, toteType],
+  );
+  const [index, setIndex] = useState(0);
+  const results = useRef<AssemblyStepSnapshot[]>([]);
+
+  const handleCapture = useCallback(
+    (dataUrl: string) => {
+      const step = steps[index];
+      results.current.push({ stepId: step.id, imageDataUrl: dataUrl });
+      onProgress?.(results.current.length, steps.length);
+      if (index + 1 < steps.length) {
+        setIndex(index + 1);
+      } else {
+        onComplete(results.current);
+      }
+    },
+    [index, steps, onProgress, onComplete],
+  );
+
+  const step = steps[index];
+  if (!step || results.current.length >= steps.length) return null;
+
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: "fixed",
+        left: -10000,
+        top: 0,
+        width,
+        height,
+        pointerEvents: "none",
+      }}
+    >
+      <SnapContext.Provider value>
+        <Canvas
+          key={step.id}
+          shadows
+          dpr={1}
+          camera={{ fov: 40 }}
+          gl={{ antialias: true, alpha: false, preserveDrawingBuffer: true }}
+          style={{ width, height }}
+        >
+          <color attach="background" args={["#ffffff"]} />
+          <ambientLight intensity={0.85} />
+          <directionalLight
+            position={[12, 18, 12]}
+            intensity={1.0}
+            castShadow
+            shadow-mapSize={[2048, 2048]}
+            shadow-camera-left={-4}
+            shadow-camera-right={4}
+            shadow-camera-top={4}
+            shadow-camera-bottom={-4}
+            shadow-bias={-0.0002}
+          />
+          <directionalLight position={[-10, 12, -8]} intensity={0.5} />
+          <directionalLight position={[0, 6, -12]} intensity={0.3} />
+          <hemisphereLight args={["#ffffff", "#f5ead6", 0.5]} />
+          {/* No ContactShadows: its plane captures as a solid gray wedge. */}
+          <GuideCameraRig
+            cols={cols}
+            rows={rows}
+            toteType={toteType}
+            cameraHint={step.cameraHint}
+            hasWheels={hasWheels}
+            distanceScale={0.62}
+          />
+          <ExplodedAssembly
+            cols={cols}
+            rows={rows}
+            toteType={toteType}
+            mode="step"
+            stepIndex={index}
+            steps={steps}
+            hasWheels={hasWheels}
+            hasTop={hasTop}
+          />
+          <FrameCapture onCapture={handleCapture} />
+        </Canvas>
+      </SnapContext.Provider>
     </div>
   );
 }

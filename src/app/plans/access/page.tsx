@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { verifyAndCreatePlanAccess, validatePlanToken } from "@/app/actions/public-plans";
 import { getPlanById } from "@/lib/plans-config";
+import { TOTE_PLAN_ID } from "@/lib/tote-plans";
 import { Loader2, CheckCircle, AlertCircle, Maximize2, BookOpen } from "lucide-react";
 import Image from "next/image";
 
@@ -33,7 +34,9 @@ function PlansAccessInner() {
       if (tokenParam) {
         // Return visit via email link
         const result = await validatePlanToken(tokenParam);
-        if (result.valid && result.planId) {
+        if (result.valid && result.planId === TOTE_PLAN_ID) {
+          router.replace(`/plans/build?token=${tokenParam}`);
+        } else if (result.valid && result.planId) {
           setToken(tokenParam);
           setPlanId(result.planId);
           setState("ready");

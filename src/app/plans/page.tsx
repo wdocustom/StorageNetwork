@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Image from "next/image";
 import { PUBLIC_PLANS } from "@/lib/plans-config";
-import { CheckCircle, Mail, Loader2, BookOpen, ExternalLink } from "lucide-react";
+import { TOTE_PLAN_TIERS, formatPlanPrice } from "@/lib/tote-plans";
+import { CheckCircle, Mail, Loader2, BookOpen, ExternalLink, Box, FileText, ArrowRight } from "lucide-react";
 
 // ── Plan Card ────────────────────────────────────────────────────────────────
 
@@ -86,6 +87,57 @@ function PlanCard({ plan }: { plan: (typeof PUBLIC_PLANS)[number] }) {
             `Get the Plans — ${priceDisplay}`
           )}
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Tote Organizer Plans ─────────────────────────────────────────────────────
+// Sized to the customer's own design, so the purchase starts in the
+// configurator rather than here.
+
+function TotePlansCard() {
+  const tiers = [
+    { tier: TOTE_PLAN_TIERS.pdf, Icon: FileText },
+    { tier: TOTE_PLAN_TIERS.interactive, Icon: Box },
+  ];
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-yellow-400/30 bg-slate-900">
+      <div className="h-1 bg-gradient-to-r from-amber-400 to-yellow-500" />
+      <div className="pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full bg-yellow-400/5 blur-3xl" />
+
+      <div className="relative p-6">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-400">Made to your measurements</p>
+        <h2 className="mt-1 text-lg font-black text-white">Tote Organizer Plans</h2>
+        <p className="mt-1 text-sm text-stone-400">
+          Design your unit in 3D — size, tote brand, casters, worktop — and get plans generated for
+          exactly that build. The same cut lists and step-by-step guide our pro installers use.
+        </p>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          {tiers.map(({ tier, Icon }) => (
+            <div key={tier.id} className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+              <div className="flex items-center gap-2">
+                <Icon className="h-4 w-4 text-yellow-400" />
+                <span className="text-sm font-bold text-white">{tier.name}</span>
+                <span className="ml-auto text-base font-black text-yellow-400">{formatPlanPrice(tier.price)}</span>
+              </div>
+              <p className="mt-1.5 text-xs text-stone-500">{tier.tagline}</p>
+            </div>
+          ))}
+        </div>
+
+        <a
+          href="/design"
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 py-3.5 text-sm font-black uppercase tracking-wider text-gray-950 transition hover:from-amber-300 hover:to-yellow-400"
+        >
+          Design Your Unit
+          <ArrowRight className="h-4 w-4" />
+        </a>
+        <p className="mt-2 text-center text-[11px] text-stone-600">
+          Free to design. Pick your plan when you&apos;re happy with it.
+        </p>
       </div>
     </div>
   );
@@ -190,7 +242,7 @@ export default function PlansPage() {
         <div className="text-center">
           <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-400/5 px-4 py-1.5">
             <BookOpen className="h-3.5 w-3.5 text-amber-400" />
-            <span className="text-xs font-bold text-amber-400">Handmade furniture plans</span>
+            <span className="text-xs font-bold text-amber-400">DIY build plans</span>
           </div>
           <h2 className="mb-2 text-2xl font-black text-white">Build it yourself.</h2>
           <p className="text-sm text-stone-500">
@@ -201,6 +253,7 @@ export default function PlansPage() {
 
         {/* ── Plan cards ─────────────────────────────────────────── */}
         <div className="space-y-4">
+          <TotePlansCard />
           {PUBLIC_PLANS.map((plan) => (
             <PlanCard key={plan.id} plan={plan} />
           ))}

@@ -1,546 +1,526 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// DIY PDF GENERATOR — IKEA-Style Visual Blueprint PDF
+// DIY PDF GENERATOR — Printable tote organizer build plan
 //
-// Generates a multi-page PDF document using jsPDF with:
-//   Page 1: Cover page with completed unit render + parts/hardware list
-//   Page 2: Cut plan with color-coded board layout diagrams
-//   Pages 3-6: Assembly steps with 3D snapshots (60% of page) + instructions
+// Built from the same sources as the interactive 3D Assembly Guide:
+//   • CompleteDIYPlan (generate-plan.ts) — build-engine shopping list and
+//     cut plan, every guide step with materials, tools, fasteners, pro tips
+//   • AssemblyStepSnapshots — one 3D render per guide step
 //
-// The PDF is designed to be printed on standard letter paper (8.5" × 11")
-// and uses the same color palette as the cut list for visual consistency.
+// Layout (US Letter, portrait):
+//   1. Cover — finished unit render, at-a-glance numbers
+//   2. Before you start — tools + shopping checklists, safety, notes
+//   3. Cut plan — identical boards grouped, plywood ripping guide
+//   4. One page per assembly step — render, instructions, parts, tools,
+//      fastener callout, pro tip, step-complete checkbox
+//
+// Sections flow onto extra pages instead of being clipped, and every page
+// after the cover carries a running header and "Page X of Y" footer.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import jsPDF from "jspdf";
-import type { CutListResult } from "./diy-cut-list";
-import type { BlueprintSnapshotResult } from "@/components/visualizer/BlueprintVisualizer";
+import type { CompleteDIYPlan, PlanAssemblyStep, PlanCutDiagram } from "@/app/actions/generate-plan";
 
-// ── Layout constants (all in mm — jsPDF default) ───────────────────────
+// ── Layout constants (mm) ──────────────────────────────────────────────
 
-const PAGE_W = 215.9; // Letter width
-const PAGE_H = 279.4; // Letter height
-const MARGIN = 15;
+const PAGE_W = 215.9;
+const PAGE_H = 279.4;
+const MARGIN = 16;
 const CONTENT_W = PAGE_W - 2 * MARGIN;
-const CONTENT_H = PAGE_H - 2 * MARGIN;
+const BODY_TOP = 26; // below running header
+const BODY_BOTTOM = PAGE_H - 18; // above footer
 
-// ── Color palette ──────────────────────────────────────────────────────
+type RGB = [number, number, number];
 
 const COLORS = {
-  primary: [30, 64, 175] as [number, number, number],     // blue-800
-  dark: [15, 23, 42] as [number, number, number],         // slate-900
-  medium: [71, 85, 105] as [number, number, number],      // slate-500
-  light: [148, 163, 184] as [number, number, number],     // slate-400
-  bg: [241, 245, 249] as [number, number, number],        // slate-100
-  white: [255, 255, 255] as [number, number, number],
-  amber: [217, 119, 6] as [number, number, number],       // amber-600
-  green: [22, 163, 74] as [number, number, number],       // green-600
+  ink: [15, 23, 42] as RGB, // slate-900
+  body: [51, 65, 85] as RGB, // slate-700
+  muted: [100, 116, 139] as RGB, // slate-500
+  faint: [203, 213, 225] as RGB, // slate-300
+  panel: [241, 245, 249] as RGB, // slate-100
+  white: [255, 255, 255] as RGB,
+  accent: [250, 204, 21] as RGB, // yellow-400 (brand)
+  accentInk: [161, 98, 7] as RGB, // yellow-700
+  tipBg: [254, 249, 195] as RGB, // yellow-100
+  fastenerBg: [255, 237, 213] as RGB, // orange-100
+  fastenerInk: [194, 65, 12] as RGB, // orange-700
+  lumber: [217, 180, 130] as RGB,
+  lumberInk: [92, 64, 30] as RGB,
+  waste: [226, 232, 240] as RGB,
 };
 
-// ── Type ───────────────────────────────────────────────────────────────
+// ── Input ──────────────────────────────────────────────────────────────
 
 export interface DIYPDFInput {
-  /** Unit description (e.g., "4×4 Standard Tote Organizer") */
-  unitName: string;
-  /** Config summary */
-  cols: number;
-  rows: number;
-  toteType: "HDX" | "GM";
-  hasWheels: boolean;
-  hasTop: boolean;
-  /** Cut list result from generateCutList() */
-  cutList: CutListResult;
-  /** 3D snapshot images (4 steps, each as JPEG data URL) */
-  snapshots: BlueprintSnapshotResult[];
-  /** Installer branding (optional — shown on cover page when present) */
-  installerName?: string;
-  installerPhone?: string | null;
+  plan: CompleteDIYPlan;
+  /** One render per assembly step, matched to plan.assemblySteps by id */
+  snapshots: { stepId: string; imageDataUrl: string }[];
+  /** Shown under the title on the cover, e.g. "Purchased by jo@example.com" */
+  licensedTo?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Helper functions
+// Helpers
 // ═══════════════════════════════════════════════════════════════════════════
 
-function hexToRgb(hex: string): [number, number, number] {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return [r, g, b];
+// The built-in Helvetica only encodes WinAnsi; map the few characters the
+// build engine uses outside it and drop anything else unprintable.
+const CHAR_MAP: Record<string, string> = {
+  "⅛": "1/8", "¼": "1/4", "⅜": "3/8", "½": "1/2", "⅝": "5/8", "¾": "3/4", "⅞": "7/8",
+  "→": "->", "−": "-", "≤": "<=", "≥": ">=", "′": "'", "″": '"',
+};
+
+export function pdfText(text: string): string {
+  return text
+    .replace(/[⅛¼⅜½⅝¾⅞→−≤≥′″]/g, (ch) => CHAR_MAP[ch] ?? ch)
+    .replace(/[^\x20-\x7E -ÿ–—‘’“”•…×]/g, "");
 }
 
-function addPageNumber(doc: jsPDF, pageNum: number, totalPages: number) {
-  doc.setFontSize(8);
-  doc.setTextColor(...COLORS.light);
-  doc.text(
-    `Page ${pageNum} of ${totalPages}`,
-    PAGE_W / 2,
-    PAGE_H - 8,
-    { align: "center" }
-  );
+function setText(doc: jsPDF, size: number, color: RGB, style: "normal" | "bold" | "italic" = "normal") {
+  doc.setFont("helvetica", style);
+  doc.setFontSize(size);
+  doc.setTextColor(...color);
 }
 
-function addHeader(doc: jsPDF, title: string, y: number): number {
-  doc.setFontSize(16);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...COLORS.dark);
-  doc.text(title, MARGIN, y);
-
-  // Underline
-  doc.setDrawColor(...COLORS.primary);
-  doc.setLineWidth(0.8);
-  doc.line(MARGIN, y + 2, MARGIN + CONTENT_W, y + 2);
-
-  return y + 10;
+/** Line height in mm for a font size in pt. */
+function lineH(size: number): number {
+  return size * 0.3528 * 1.35;
 }
 
-function addSubHeader(doc: jsPDF, text: string, y: number): number {
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...COLORS.dark);
-  doc.text(text, MARGIN, y);
-  return y + 6;
+/** Wrap and draw text; returns the y below it. */
+function paragraph(doc: jsPDF, text: string, x: number, y: number, width: number, size: number): number {
+  const lines = doc.splitTextToSize(pdfText(text), width) as string[];
+  doc.text(lines, x, y);
+  return y + lines.length * lineH(size);
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// PAGE 1: Cover Page
-// ═══════════════════════════════════════════════════════════════════════════
-
-function renderCoverPage(
-  doc: jsPDF,
-  input: DIYPDFInput,
-  totalPages: number
-) {
-  const { cutList, snapshots, cols, rows, toteType, hasWheels, hasTop } = input;
-
-  // ── Title block ─────────────────────────────────────────────────────
-  doc.setFillColor(...COLORS.dark);
-  doc.rect(0, 0, PAGE_W, 45, "F");
-
-  doc.setFontSize(24);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...COLORS.white);
-  doc.text("DIY Assembly Blueprint", MARGIN, 22);
-
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(180, 200, 230);
-  doc.text(input.unitName, MARGIN, 34);
-
-  // Installer branding line (right-aligned in title block)
-  if (input.installerName) {
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(140, 160, 190);
-    const brandLine = input.installerPhone
-      ? `${input.installerName}  ·  ${input.installerPhone}`
-      : input.installerName;
-    const brandW = doc.getTextWidth(brandLine);
-    doc.text(brandLine, PAGE_W - MARGIN - brandW, 34);
-  }
-
-  // ── Unit info chips ─────────────────────────────────────────────────
-  let chipY = 55;
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-
-  const chips = [
-    `${cols}×${rows} (${cols * rows} totes)`,
-    toteType === "HDX" ? "HDX / Home Depot" : "Greenmade / Costco",
-    hasWheels ? "With Casters" : "Stationary",
-    hasTop ? "Plywood Worktop" : "Open Top",
-    `${cutList.dimensions.totalWStr} W × ${cutList.dimensions.totalHStr} H × ${cutList.dimensions.depthStr} D`,
-  ];
-
-  let chipX = MARGIN;
-  for (const chip of chips) {
-    const textW = doc.getTextWidth(chip) + 6;
-    doc.setFillColor(...COLORS.bg);
-    doc.roundedRect(chipX, chipY - 4, textW, 7, 1, 1, "F");
-    doc.setTextColor(...COLORS.medium);
-    doc.text(chip, chipX + 3, chipY + 0.5);
-    chipX += textW + 3;
-    if (chipX > PAGE_W - MARGIN - 30) {
-      chipX = MARGIN;
-      chipY += 10;
-    }
-  }
-
-  // ── Completed unit image (largest snapshot) ─────────────────────────
-  const completeSnapshot = snapshots[snapshots.length - 1];
-  if (completeSnapshot) {
-    const imgW = CONTENT_W * 0.7;
-    const imgH = imgW * 0.75;
-    const imgX = MARGIN + (CONTENT_W - imgW) / 2;
-    const imgY = chipY + 12;
-
-    try {
-      doc.addImage(
-        completeSnapshot.imageDataUrl,
-        "JPEG",
-        imgX,
-        imgY,
-        imgW,
-        imgH
-      );
-    } catch {
-      // Fallback: gray rectangle if image can't be embedded
-      doc.setFillColor(230, 230, 230);
-      doc.rect(imgX, imgY, imgW, imgH, "F");
-      doc.setFontSize(10);
-      doc.setTextColor(...COLORS.medium);
-      doc.text("3D Model Render", imgX + imgW / 2, imgY + imgH / 2, {
-        align: "center",
-      });
-    }
-
-    let listY = imgY + imgH + 12;
-
-    // ── Parts list ──────────────────────────────────────────────────
-    listY = addSubHeader(doc, "Parts List", listY);
-
-    doc.setFontSize(8);
-    for (const part of cutList.parts) {
-      // Color swatch
-      const [r, g, b] = hexToRgb(part.color.bg);
-      doc.setFillColor(r, g, b);
-      doc.circle(MARGIN + 3, listY - 1.2, 2, "F");
-
-      // Label
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...COLORS.dark);
-      doc.text(`Part ${part.label}`, MARGIN + 8, listY);
-
-      // Description
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...COLORS.medium);
-      doc.text(
-        `${part.qty}× ${part.name} — ${part.lengthStr} (${part.material})`,
-        MARGIN + 28,
-        listY
-      );
-
-      listY += 5;
-    }
-
-    // ── Hardware list ────────────────────────────────────────────────
-    listY += 4;
-    listY = addSubHeader(doc, "Hardware", listY);
-
-    doc.setFontSize(8);
-    for (const hw of cutList.hardware) {
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...COLORS.dark);
-      doc.text(`${hw.qty}×`, MARGIN + 3, listY);
-      doc.setTextColor(...COLORS.medium);
-      doc.text(`${hw.name} — ${hw.detail}`, MARGIN + 16, listY);
-      listY += 5;
-    }
-  }
-
-  addPageNumber(doc, 1, totalPages);
+function measure(doc: jsPDF, text: string, width: number, size: number): number {
+  doc.setFontSize(size);
+  return (doc.splitTextToSize(pdfText(text), width) as string[]).length * lineH(size);
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// PAGE 2: Cut Plan
-// ═══════════════════════════════════════════════════════════════════════════
-
-function renderCutPlanPage(
-  doc: jsPDF,
-  input: DIYPDFInput,
-  totalPages: number
-) {
-  const { cutList } = input;
-
-  let y = addHeader(doc, "Lumber Cut Plan", MARGIN + 8);
-  y += 2;
-
-  doc.setFontSize(8);
-  doc.setTextColor(...COLORS.medium);
-  doc.text(
-    `Each bar below represents one 2×4×8' board (96"). Colored sections are your cuts. Gray areas are waste.`,
-    MARGIN,
-    y
-  );
-  y += 6;
-
-  doc.setFontSize(8);
-  doc.setTextColor(...COLORS.dark);
-  doc.text(
-    `Total 2×4×8' boards needed: ${cutList.totalBoards}   |   Total plywood sheets: ${cutList.totalSheets}`,
-    MARGIN,
-    y
-  );
-  y += 8;
-
-  // ── Board layout diagrams ───────────────────────────────────────────
-  for (const board of cutList.boardLayouts) {
-    if (y > PAGE_H - 40) break; // Don't overflow page
-
-    // Board label
-    doc.setFontSize(7);
-    doc.setTextColor(...COLORS.medium);
-    doc.text(`Board #${board.boardIndex} — 8' (96")`, MARGIN, y);
-    y += 4;
-
-    // Draw board bar
-    const barH = 8;
-    const barW = CONTENT_W;
-
-    // Background (full board)
-    doc.setFillColor(230, 230, 230);
-    doc.rect(MARGIN, y, barW, barH, "F");
-    doc.setDrawColor(180, 180, 180);
-    doc.rect(MARGIN, y, barW, barH, "S");
-
-    // Draw each cut segment
-    let curX = MARGIN;
-    for (const cut of board.cuts) {
-      const pct = cut.length / board.stockLength;
-      const segW = pct * barW;
-
-      const [r, g, b] = hexToRgb(cut.color.bg);
-      doc.setFillColor(r, g, b);
-      doc.rect(curX, y, segW, barH, "F");
-
-      // Label inside segment
-      if (segW > 12) {
-        const [fr, fg, fb] = hexToRgb(cut.color.fg);
-        doc.setTextColor(fr, fg, fb);
-        doc.setFontSize(6);
-        doc.setFont("helvetica", "bold");
-        doc.text(
-          `${cut.label} (${cut.length}")`,
-          curX + segW / 2,
-          y + barH / 2 + 1.5,
-          { align: "center" }
-        );
-      }
-
-      // Separator line
-      doc.setDrawColor(255, 255, 255);
-      doc.setLineWidth(0.3);
-      doc.line(curX + segW, y, curX + segW, y + barH);
-
-      curX += segW;
-    }
-
-    // Waste label
-    if (board.remainder > 5) {
-      doc.setFontSize(5);
-      doc.setTextColor(160, 160, 160);
-      const wasteW = (board.remainder / board.stockLength) * barW;
-      if (wasteW > 8) {
-        doc.text(
-          `${Math.round(board.remainder * 10) / 10}" waste`,
-          curX + wasteW / 2,
-          y + barH / 2 + 1.2,
-          { align: "center" }
-        );
-      }
-    }
-
-    y += barH + 6;
-  }
-
-  // ── Plywood ripping notes ───────────────────────────────────────────
-  y += 4;
-  y = addSubHeader(doc, "Plywood Ripping Guide", y);
-
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...COLORS.medium);
-
-  for (let i = 0; i < cutList.plywoodNotes.length; i++) {
-    const note = cutList.plywoodNotes[i];
-    const lines = doc.splitTextToSize(note, CONTENT_W - 10);
-    doc.text(`${i + 1}.`, MARGIN, y);
-    doc.text(lines, MARGIN + 6, y);
-    y += lines.length * 4 + 2;
-  }
-
-  addPageNumber(doc, 2, totalPages);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// PAGES 3-6: Assembly Steps (3D Snapshot + Instructions)
-// ═══════════════════════════════════════════════════════════════════════════
-
-function renderAssemblyStepPage(
-  doc: jsPDF,
-  snapshot: BlueprintSnapshotResult,
-  stepIndex: number,
-  cutList: CutListResult,
-  totalPages: number
-) {
-  const pageNum = 3 + stepIndex;
-
-  // ── Step header ─────────────────────────────────────────────────────
-  let y = MARGIN + 4;
-
-  // Step number badge
-  doc.setFillColor(...COLORS.primary);
-  doc.circle(MARGIN + 5, y + 2, 5, "F");
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...COLORS.white);
-  doc.text(String(stepIndex + 1), MARGIN + 5, y + 3.5, { align: "center" });
-
-  // Step title
-  doc.setFontSize(16);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...COLORS.dark);
-  doc.text(snapshot.title.replace(/^Step \d+:\s*/, ""), MARGIN + 14, y + 4);
-
-  y += 14;
-
-  // ── 3D Snapshot (60% of content area) ──────────────────────────────
-  const imgH = CONTENT_H * 0.55;
-  const imgW = CONTENT_W;
-
-  try {
-    doc.addImage(
-      snapshot.imageDataUrl,
-      "JPEG",
-      MARGIN,
-      y,
-      imgW,
-      imgH
-    );
-  } catch {
-    doc.setFillColor(240, 240, 240);
-    doc.rect(MARGIN, y, imgW, imgH, "F");
-    doc.setFontSize(12);
-    doc.setTextColor(...COLORS.medium);
-    doc.text("3D Assembly View", MARGIN + imgW / 2, y + imgH / 2, {
-      align: "center",
-    });
-  }
-
-  // Thin border around image
-  doc.setDrawColor(200, 200, 200);
+function checkbox(doc: jsPDF, x: number, y: number, size = 3.2) {
+  doc.setDrawColor(...COLORS.muted);
   doc.setLineWidth(0.3);
-  doc.rect(MARGIN, y, imgW, imgH, "S");
+  doc.roundedRect(x, y - size + 0.4, size, size, 0.5, 0.5, "S");
+}
 
-  y += imgH + 8;
+function sectionTitle(doc: jsPDF, title: string, y: number): number {
+  doc.setFillColor(...COLORS.accent);
+  doc.rect(MARGIN, y - 4.6, 1.6, 6, "F");
+  setText(doc, 14, COLORS.ink, "bold");
+  doc.text(pdfText(title), MARGIN + 4, y);
+  return y + 8;
+}
 
-  // ── Instructions ───────────────────────────────────────────────────
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...COLORS.dark);
+/** Flowing page cursor: adds a page when the next block won't fit. */
+class Cursor {
+  y = BODY_TOP;
+  constructor(private doc: jsPDF) {}
+  newPage() {
+    this.doc.addPage("letter", "portrait");
+    this.y = BODY_TOP;
+  }
+  ensure(height: number) {
+    if (this.y + height > BODY_BOTTOM) this.newPage();
+  }
+}
 
-  const lines = doc.splitTextToSize(snapshot.description, CONTENT_W);
-  doc.text(lines, MARGIN, y);
-  y += lines.length * 4.5 + 6;
-
-  // ── Parts needed for this step ─────────────────────────────────────
-  // Map step IDs to relevant parts
-  const stepPartsMap: Record<string, string[]> = {
-    "base-frame": ["Bottom/Top Plate"],
-    "uprights": ["Upright Post"],
-    "rails": ["Plywood Rail Strip", "Back Support Brace"],
-    "complete": ["Plywood Top"],
-  };
-
-  const relevantPartNames = stepPartsMap[snapshot.stepId] || [];
-  const relevantParts = cutList.parts.filter((p) =>
-    relevantPartNames.some((name) => p.name.includes(name))
-  );
-
-  if (relevantParts.length > 0) {
-    // Parts box
-    doc.setFillColor(...COLORS.bg);
-    const boxH = 6 + relevantParts.length * 5.5;
-    doc.roundedRect(MARGIN, y, CONTENT_W, boxH, 2, 2, "F");
-
-    y += 5;
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...COLORS.dark);
-    doc.text("PARTS FOR THIS STEP:", MARGIN + 4, y);
-    y += 5;
-
-    for (const part of relevantParts) {
-      // Color swatch
-      const [r, g, b] = hexToRgb(part.color.bg);
-      doc.setFillColor(r, g, b);
-      doc.circle(MARGIN + 6, y - 1.2, 2, "F");
-
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...COLORS.dark);
-      doc.text(`Part ${part.label}`, MARGIN + 11, y);
-
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...COLORS.medium);
-      doc.text(
-        `${part.qty}× ${part.name} at ${part.lengthStr}`,
-        MARGIN + 30,
-        y
-      );
-
-      y += 5.5;
+function addImageSafe(doc: jsPDF, dataUrl: string | undefined, x: number, y: number, w: number, h: number, label: string) {
+  if (dataUrl) {
+    try {
+      doc.addImage(dataUrl, "JPEG", x, y, w, h);
+      return;
+    } catch {
+      // fall through to placeholder
     }
   }
-
-  // ── Hardware callout for specific steps ─────────────────────────────
-  const stepHardware: Record<string, string> = {
-    "base-frame":
-      "Fasten with #9 × 3\" star drive screws (2 per joint).",
-    "uprights":
-      "Fasten with #9 × 3\" star drive screws (2 per post-plate connection).",
-    "rails":
-      "Fasten with #9 × 1-5/8\" star drive screws (2 per rail end, 4 per rail total).",
-    "complete": "Fasten plywood top with #9 × 1-5/8\" screws at each post location.",
-  };
-
-  const hwNote = stepHardware[snapshot.stepId];
-  if (hwNote) {
-    y += 4;
-    doc.setFillColor(255, 251, 235); // amber-50
-    doc.roundedRect(MARGIN, y - 3, CONTENT_W, 8, 1, 1, "F");
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...COLORS.amber);
-    doc.text("FASTENER: ", MARGIN + 3, y + 1);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(...COLORS.dark);
-    doc.text(hwNote, MARGIN + 22, y + 1);
-  }
-
-  addPageNumber(doc, pageNum, totalPages);
+  doc.setFillColor(...COLORS.panel);
+  doc.rect(x, y, w, h, "F");
+  setText(doc, 10, COLORS.muted);
+  doc.text(label, x + w / 2, y + h / 2, { align: "center" });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Main PDF Generation Function
+// Cover
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderCover(doc: jsPDF, input: DIYPDFInput) {
+  const { plan } = input;
+
+  doc.setFillColor(...COLORS.ink);
+  doc.rect(0, 0, PAGE_W, 58, "F");
+  doc.setFillColor(...COLORS.accent);
+  doc.rect(0, 58, PAGE_W, 1.4, "F");
+
+  setText(doc, 9, COLORS.accent, "bold");
+  doc.text("STORAGE NETWORK  ·  DIY BUILD PLAN", MARGIN, 18);
+  setText(doc, 26, COLORS.white, "bold");
+  doc.text(pdfText(plan.unitName), MARGIN, 33);
+
+  const features = [
+    `${plan.toteCount} totes`,
+    plan.toteType === "HDX" ? "HDX / Home Depot 27-gal totes" : "Greenmade / Costco 27-gal totes",
+    plan.hasWheels ? "on casters" : "stationary",
+    plan.hasTop ? "plywood worktop" : "open top",
+  ];
+  setText(doc, 11, [203, 213, 225]);
+  doc.text(pdfText(features.join("  ·  ")), MARGIN, 43);
+  if (input.licensedTo) {
+    setText(doc, 8, [148, 163, 184]);
+    doc.text(pdfText(input.licensedTo), MARGIN, 51);
+  }
+
+  // Hero — the finished unit (last step render)
+  const hero = input.snapshots[input.snapshots.length - 1]?.imageDataUrl;
+  const heroW = CONTENT_W;
+  const heroH = heroW * 0.75;
+  const heroY = 68;
+  addImageSafe(doc, hero, MARGIN, heroY, heroW, heroH, "Finished unit");
+
+  // At a glance
+  const d = plan.dimensions;
+  const stats: [string, string][] = [
+    ["Width", d.totalWidth],
+    ["Height", d.totalHeightWithWheels ?? d.totalHeight],
+    ["Depth", d.depth],
+    ["2×4×8' boards", String(plan.totals.boards)],
+    ['3/4" plywood sheets', String(plan.totals.sheets)],
+    ["Assembly steps", String(plan.assemblySteps.length)],
+  ];
+  const statY = heroY + heroH + 8;
+  const cellW = CONTENT_W / 3;
+  const cellH = 17;
+  stats.forEach(([label, value], i) => {
+    const cx = MARGIN + (i % 3) * cellW;
+    const cy = statY + Math.floor(i / 3) * (cellH + 3);
+    doc.setFillColor(...COLORS.panel);
+    doc.roundedRect(cx + 1, cy, cellW - 2, cellH, 2, 2, "F");
+    setText(doc, 7.5, COLORS.muted, "bold");
+    doc.text(pdfText(label.toUpperCase()), cx + 5, cy + 6);
+    setText(doc, 14, COLORS.ink, "bold");
+    doc.text(pdfText(value), cx + 5, cy + 13.5);
+  });
+
+  setText(doc, 8, COLORS.muted);
+  paragraph(
+    doc,
+    "Read the whole plan once before you buy materials. Cut every piece first, then assemble in order — each step builds on the last.",
+    MARGIN,
+    PAGE_H - 16,
+    CONTENT_W,
+    8,
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Before you start — tools, shopping list, safety, notes
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderBeforeYouStart(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
+  cur.y = sectionTitle(doc, "Before You Start", cur.y);
+
+  // Tools — two-column checklist
+  setText(doc, 10, COLORS.ink, "bold");
+  doc.text("Tools", MARGIN, cur.y);
+  cur.y += 5.5;
+  const colW = CONTENT_W / 2;
+  const toolRows = Math.ceil(plan.allTools.length / 2);
+  plan.allTools.forEach((tool, i) => {
+    const x = MARGIN + (i < toolRows ? 0 : colW);
+    const y = cur.y + (i % toolRows) * 6;
+    checkbox(doc, x, y);
+    setText(doc, 9, COLORS.body);
+    doc.text(pdfText(tool), x + 5.5, y);
+  });
+  cur.y += toolRows * 6 + 5;
+
+  // Shopping list
+  cur.ensure(20);
+  setText(doc, 10, COLORS.ink, "bold");
+  doc.text("Shopping List", MARGIN, cur.y);
+  cur.y += 5.5;
+  for (const item of plan.shoppingList) {
+    cur.ensure(7);
+    checkbox(doc, MARGIN, cur.y);
+    setText(doc, 9, COLORS.ink, "bold");
+    doc.text(pdfText(String(item.qty)), MARGIN + 6, cur.y);
+    doc.text(pdfText(item.name), MARGIN + 24, cur.y);
+    setText(doc, 9, COLORS.muted);
+    doc.text(pdfText(item.detail), MARGIN + 82, cur.y);
+    doc.setDrawColor(...COLORS.panel);
+    doc.setLineWidth(0.2);
+    doc.line(MARGIN, cur.y + 2.2, MARGIN + CONTENT_W, cur.y + 2.2);
+    cur.y += 6.5;
+  }
+  cur.y += 4;
+
+  const bulletList = (title: string, items: string[]) => {
+    cur.ensure(14);
+    setText(doc, 10, COLORS.ink, "bold");
+    doc.text(title, MARGIN, cur.y);
+    cur.y += 5.5;
+    for (const item of items) {
+      const h = measure(doc, item, CONTENT_W - 6, 9);
+      cur.ensure(h + 1);
+      setText(doc, 9, COLORS.body);
+      doc.text("•", MARGIN + 1, cur.y);
+      cur.y = paragraph(doc, item, MARGIN + 5, cur.y, CONTENT_W - 6, 9) + 1;
+    }
+    cur.y += 3;
+  };
+
+  bulletList("Safety", plan.safetyNotes);
+  bulletList("Good to Know", plan.generalNotes);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Cut plan — identical boards grouped
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface BoardGroup {
+  count: number;
+  firstIndex: number;
+  board: PlanCutDiagram;
+}
+
+/** Collapse boards with the same cuts into "×N" groups, keeping order. */
+export function groupBoards(boards: PlanCutDiagram[]): BoardGroup[] {
+  const groups: BoardGroup[] = [];
+  const key = (b: PlanCutDiagram) => b.cuts.map((c) => `${c.label}:${c.length}`).join("|");
+  for (const board of boards) {
+    const existing = groups.find((g) => key(g.board) === key(board));
+    if (existing) existing.count += 1;
+    else groups.push({ count: 1, firstIndex: board.boardIndex, board });
+  }
+  return groups;
+}
+
+function renderCutPlan(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
+  cur.newPage();
+  cur.y = sectionTitle(doc, "Cut Plan", cur.y);
+
+  setText(doc, 9, COLORS.body);
+  cur.y = paragraph(
+    doc,
+    `Each bar is one 2×4×8' board (96"). Tan sections are your cuts, gray is offcut. ${plan.totals.boards} boards total. Cut everything before you assemble, and stack identical parts to check they match.`,
+    MARGIN,
+    cur.y,
+    CONTENT_W,
+    9,
+  ) + 4;
+
+  const barH = 9;
+  for (const group of groupBoards(plan.cutDiagrams)) {
+    cur.ensure(barH + 10);
+    const { board, count } = group;
+    setText(doc, 8.5, COLORS.ink, "bold");
+    doc.text(count > 1 ? `Cut ${count} boards like this` : "Cut 1 board like this", MARGIN, cur.y);
+    cur.y += 2.5;
+
+    doc.setFillColor(...COLORS.waste);
+    doc.rect(MARGIN, cur.y, CONTENT_W, barH, "F");
+    let x = MARGIN;
+    for (const cut of board.cuts) {
+      const w = (cut.length / board.stockLength) * CONTENT_W;
+      doc.setFillColor(...COLORS.lumber);
+      doc.rect(x, cur.y, w, barH, "F");
+      doc.setDrawColor(...COLORS.white);
+      doc.setLineWidth(0.6);
+      doc.line(x + w, cur.y, x + w, cur.y + barH);
+      if (w > 16) {
+        setText(doc, 7.5, COLORS.lumberInk, "bold");
+        doc.text(pdfText(`${cut.label} ${formatInches(cut.length)}`), x + w / 2, cur.y + barH / 2 + 1.3, { align: "center" });
+      }
+      x += w;
+    }
+    const wasteW = (board.remainder / board.stockLength) * CONTENT_W;
+    if (wasteW > 14) {
+      setText(doc, 7, COLORS.muted);
+      doc.text(pdfText(`${formatInches(board.remainder)} offcut`), x + wasteW / 2, cur.y + barH / 2 + 1.2, { align: "center" });
+    }
+    doc.setDrawColor(...COLORS.faint);
+    doc.setLineWidth(0.3);
+    doc.rect(MARGIN, cur.y, CONTENT_W, barH, "S");
+    cur.y += barH + 6;
+  }
+
+  cur.ensure(20);
+  cur.y += 2;
+  setText(doc, 10, COLORS.ink, "bold");
+  doc.text("Plywood Ripping Guide", MARGIN, cur.y);
+  cur.y += 5.5;
+  plan.plywoodNotes.forEach((note, i) => {
+    const h = measure(doc, note, CONTENT_W - 7, 9);
+    cur.ensure(h + 1.5);
+    setText(doc, 9, COLORS.ink, "bold");
+    doc.text(`${i + 1}.`, MARGIN, cur.y);
+    setText(doc, 9, COLORS.body);
+    cur.y = paragraph(doc, note, MARGIN + 6, cur.y, CONTENT_W - 7, 9) + 1.5;
+  });
+}
+
+function formatInches(n: number): string {
+  const whole = Math.floor(n);
+  const frac = Math.round((n - whole) * 16);
+  if (frac === 0) return `${whole}"`;
+  if (frac === 16) return `${whole + 1}"`;
+  let num = frac;
+  let den = 16;
+  while (num % 2 === 0) {
+    num /= 2;
+    den /= 2;
+  }
+  return whole ? `${whole}-${num}/${den}"` : `${num}/${den}"`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Assembly step pages
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderStep(doc: jsPDF, cur: Cursor, step: PlanAssemblyStep, total: number, image: string | undefined) {
+  cur.newPage();
+
+  // Header row
+  doc.setFillColor(...COLORS.ink);
+  doc.circle(MARGIN + 6, cur.y - 1.5, 6, "F");
+  setText(doc, 13, COLORS.accent, "bold");
+  doc.text(String(step.stepNumber), MARGIN + 6, cur.y + 0.4, { align: "center" });
+  setText(doc, 7.5, COLORS.muted, "bold");
+  doc.text(`STEP ${step.stepNumber} OF ${total}`, MARGIN + 15, cur.y - 3.5);
+  setText(doc, 16, COLORS.ink, "bold");
+  doc.text(pdfText(step.title), MARGIN + 15, cur.y + 2.5);
+  cur.y += 10;
+
+  // Render — 4:3, slightly narrower than the page so text fits below
+  const imgW = CONTENT_W;
+  const imgH = imgW * 0.62;
+  addImageSafe(doc, image, MARGIN, cur.y, imgW, imgH, `Step ${step.stepNumber}`);
+  doc.setDrawColor(...COLORS.faint);
+  doc.setLineWidth(0.3);
+  doc.rect(MARGIN, cur.y, imgW, imgH, "S");
+  cur.y += imgH + 7;
+
+  // Instruction
+  setText(doc, 10.5, COLORS.ink);
+  cur.y = paragraph(doc, step.instruction, MARGIN, cur.y, CONTENT_W, 10.5) + 4;
+
+  // Parts | Tools columns
+  const gap = 6;
+  const leftW = CONTENT_W * 0.58;
+  const rightW = CONTENT_W - leftW - gap;
+  const partLines = step.materials.map((m) => `${m.qty} × ${m.name}${m.detail ? ` — ${m.detail}` : ""}`);
+  const toolLines = step.tools.map((t) => (t.detail ? `${t.name} (${t.detail})` : t.name));
+  const colHeight = (lines: string[], w: number) =>
+    lines.reduce((h, l) => h + measure(doc, l, w - 6, 9) + 1, 0);
+  const boxH = 10 + Math.max(colHeight(partLines, leftW), colHeight(toolLines, rightW));
+
+  if (partLines.length || toolLines.length) {
+    cur.ensure(boxH);
+    const top = cur.y;
+    doc.setFillColor(...COLORS.panel);
+    doc.roundedRect(MARGIN, top, CONTENT_W, boxH, 2, 2, "F");
+
+    const column = (title: string, lines: string[], x: number, w: number) => {
+      setText(doc, 7.5, COLORS.muted, "bold");
+      doc.text(title, x + 3, top + 5.5);
+      let y = top + 10.5;
+      for (const line of lines) {
+        setText(doc, 9, COLORS.body);
+        doc.text("•", x + 3, y);
+        y = paragraph(doc, line, x + 6, y, w - 6, 9) + 1;
+      }
+    };
+    if (partLines.length) column("YOU'LL NEED", partLines, MARGIN, leftW);
+    if (toolLines.length) column("TOOLS", toolLines, MARGIN + leftW + gap, rightW);
+    cur.y = top + boxH + 4;
+  }
+
+  // Fastener callout
+  if (step.screwType) {
+    const text = `${step.screwType.label} — ${step.screwType.description}`;
+    const h = measure(doc, text, CONTENT_W - 30, 9) + 5;
+    cur.ensure(h);
+    doc.setFillColor(...COLORS.fastenerBg);
+    doc.roundedRect(MARGIN, cur.y, CONTENT_W, h, 2, 2, "F");
+    setText(doc, 7.5, COLORS.fastenerInk, "bold");
+    doc.text("FASTENER", MARGIN + 3, cur.y + 5.2);
+    setText(doc, 9, COLORS.ink);
+    paragraph(doc, text, MARGIN + 25, cur.y + 5.2, CONTENT_W - 30, 9);
+    cur.y += h + 3;
+  }
+
+  // Pro tip
+  if (step.proTip) {
+    const h = measure(doc, step.proTip, CONTENT_W - 30, 9) + 5;
+    cur.ensure(h);
+    doc.setFillColor(...COLORS.tipBg);
+    doc.roundedRect(MARGIN, cur.y, CONTENT_W, h, 2, 2, "F");
+    setText(doc, 7.5, COLORS.accentInk, "bold");
+    doc.text("PRO TIP", MARGIN + 3, cur.y + 5.2);
+    setText(doc, 9, COLORS.ink, "italic");
+    paragraph(doc, step.proTip, MARGIN + 25, cur.y + 5.2, CONTENT_W - 30, 9);
+    cur.y += h + 3;
+  }
+
+  // Step complete
+  cur.ensure(8);
+  cur.y += 2;
+  checkbox(doc, MARGIN, cur.y + 1, 4);
+  setText(doc, 9, COLORS.muted, "bold");
+  doc.text("Step complete", MARGIN + 6.5, cur.y + 0.6);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Running header / footer (stamped after all pages exist)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function stampPages(doc: jsPDF, plan: CompleteDIYPlan) {
+  const total = doc.getNumberOfPages();
+  for (let p = 2; p <= total; p++) {
+    doc.setPage(p);
+    setText(doc, 7.5, COLORS.muted, "bold");
+    doc.text("STORAGE NETWORK", MARGIN, 12);
+    setText(doc, 7.5, COLORS.muted);
+    doc.text(pdfText(`${plan.unitName} — Build Plan`), PAGE_W - MARGIN, 12, { align: "right" });
+    doc.setDrawColor(...COLORS.faint);
+    doc.setLineWidth(0.2);
+    doc.line(MARGIN, 14.5, PAGE_W - MARGIN, 14.5);
+
+    setText(doc, 7.5, COLORS.muted);
+    doc.text(`Page ${p} of ${total}`, PAGE_W / 2, PAGE_H - 9, { align: "center" });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Entry points
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function generateDIYPDF(input: DIYPDFInput): jsPDF {
-  const totalPages = 2 + input.snapshots.length; // cover + cut plan + N steps
-
-  const doc = new jsPDF({
-    orientation: "portrait",
-    unit: "mm",
-    format: "letter",
+  const { plan } = input;
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
+  doc.setProperties({
+    title: `${pdfText(plan.unitName)} — Build Plan`,
+    author: "Storage Network",
+    subject: "DIY tote organizer build plan",
   });
 
-  // ── Page 1: Cover ───────────────────────────────────────────────────
-  renderCoverPage(doc, input, totalPages);
+  renderCover(doc, input);
 
-  // ── Page 2: Cut Plan ────────────────────────────────────────────────
-  doc.addPage("letter", "portrait");
-  renderCutPlanPage(doc, input, totalPages);
+  const cur = new Cursor(doc);
+  cur.newPage();
+  renderBeforeYouStart(doc, cur, plan);
+  renderCutPlan(doc, cur, plan);
 
-  // ── Pages 3+: Assembly Steps ────────────────────────────────────────
-  for (let i = 0; i < input.snapshots.length; i++) {
-    doc.addPage("letter", "portrait");
-    renderAssemblyStepPage(doc, input.snapshots[i], i, input.cutList, totalPages);
+  const imageById = new Map(input.snapshots.map((s) => [s.stepId, s.imageDataUrl]));
+  for (const step of plan.assemblySteps) {
+    renderStep(doc, cur, step, plan.assemblySteps.length, imageById.get(step.id));
   }
 
+  stampPages(doc, plan);
   return doc;
 }
 
-/**
- * Generate and download the DIY blueprint PDF.
- */
 export function downloadDIYPDF(input: DIYPDFInput): void {
-  const doc = generateDIYPDF(input);
-  const filename = `DIY-Blueprint-${input.cols}x${input.rows}-${input.toteType}.pdf`;
-  doc.save(filename);
+  const { plan } = input;
+  generateDIYPDF(input).save(`Build-Plan-${plan.cols}x${plan.rows}-${plan.toteType}.pdf`);
 }
