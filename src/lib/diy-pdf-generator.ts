@@ -3,22 +3,41 @@
 //
 // Built from the same sources as the interactive 3D Assembly Guide:
 //   • CompleteDIYPlan (generate-plan.ts) — build-engine shopping list and
-//     cut plan, every guide step with materials, tools, fasteners, pro tips
-//   • AssemblyStepSnapshots — one 3D render per guide step
+//     board packing, guide steps per module type, unit assembly steps
+//   • AssemblyStepSnapshots — one 3D render per step of every module type
 //
 // Layout (US Letter, portrait):
-//   1. Cover — finished unit render, at-a-glance numbers
+//   1. Cover — finished unit render (or system map), at-a-glance numbers
 //   2. Before you start — tools + shopping checklists, safety, notes
-//   3. Cut plan — identical boards grouped, plywood ripping guide
-//   4. One page per assembly step — render, instructions, parts, tools,
-//      fastener callout, pro tip, step-complete checkbox
+//   3. Your system — elevation map, module types, build order (multi-module)
+//   4. Cut plan — parts per module type, identical boards grouped, plywood
+//   5. Per module type — overview page, then one page per step: render,
+//      instructions, parts, tools, fastener callout, pro tip, checkbox
+//   6. Per unit — joining / stacking / worktop / anchoring steps
+//   7. Back page — link to the interactive 3D guide (upgrade for PDF buyers)
 //
 // Sections flow onto extra pages instead of being clipped, and every page
 // after the cover carries a running header and "Page X of Y" footer.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import jsPDF from "jspdf";
-import type { CompleteDIYPlan, PlanAssemblyStep, PlanCutDiagram } from "@/app/actions/generate-plan";
+import type {
+  CompleteDIYPlan,
+  PlanAssemblyStep,
+  PlanCutBoard,
+  PlanModuleTypeBuild,
+  PlanUnit,
+} from "@/app/actions/generate-plan";
+import { AFFILIATE_DISCLOSURE } from "@/lib/plan-product-links";
+import { LADDER_JIG_OWNER_PRICE } from "@/lib/ladder-jig";
+import {
+  TOTE_PLAN_UPGRADE_PRICE,
+  designLayout,
+  formatPlanPrice,
+  planSnapshotKey,
+  type DesignLayout,
+  type LayoutModule,
+} from "@/lib/tote-plans";
 
 // ── Layout constants (mm) ──────────────────────────────────────────────
 
@@ -39,6 +58,7 @@ const COLORS = {
   panel: [241, 245, 249] as RGB, // slate-100
   white: [255, 255, 255] as RGB,
   accent: [250, 204, 21] as RGB, // yellow-400 (brand)
+  accentSoft: [254, 240, 138] as RGB, // yellow-200
   accentInk: [161, 98, 7] as RGB, // yellow-700
   tipBg: [254, 249, 195] as RGB, // yellow-100
   fastenerBg: [255, 237, 213] as RGB, // orange-100
@@ -46,16 +66,30 @@ const COLORS = {
   lumber: [217, 180, 130] as RGB,
   lumberInk: [92, 64, 30] as RGB,
   waste: [226, 232, 240] as RGB,
+  link: [29, 78, 216] as RGB, // blue-700
 };
 
 // ── Input ──────────────────────────────────────────────────────────────
 
 export interface DIYPDFInput {
   plan: CompleteDIYPlan;
-  /** One render per assembly step, matched to plan.assemblySteps by id */
-  snapshots: { stepId: string; imageDataUrl: string }[];
-  /** Shown under the title on the cover, e.g. "Purchased by jo@example.com" */
+  /** Step renders keyed by planSnapshotKey(typeLetter, stepId) */
+  snapshots: Record<string, string>;
+  /** Shown on the cover, e.g. "Licensed to jo@example.com" */
   licensedTo?: string;
+  /**
+   * Back-page call to action. upgradeUrl → PDF buyer, offer the 3D guide;
+   * guideUrl → they already own it, link straight to it.
+   */
+  links?: {
+    upgradeUrl?: string;
+    guideUrl?: string;
+    /** The buyer's My Builds library */
+    libraryUrl?: string;
+    /** Ladder jig: the $5 owner offer, or their own jig plans when jigOwned */
+    jigUrl?: string;
+    jigOwned?: boolean;
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -112,6 +146,20 @@ function sectionTitle(doc: jsPDF, title: string, y: number): number {
   return y + 8;
 }
 
+function formatInches(n: number): string {
+  const whole = Math.floor(n);
+  const frac = Math.round((n - whole) * 16);
+  if (frac === 0) return `${whole}"`;
+  if (frac === 16) return `${whole + 1}"`;
+  let num = frac;
+  let den = 16;
+  while (num % 2 === 0) {
+    num /= 2;
+    den /= 2;
+  }
+  return whole ? `${whole}-${num}/${den}"` : `${num}/${den}"`;
+}
+
 /** Flowing page cursor: adds a page when the next block won't fit. */
 class Cursor {
   y = BODY_TOP;
@@ -141,10 +189,77 @@ function addImageSafe(doc: jsPDF, dataUrl: string | undefined, x: number, y: num
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// System map — front elevation, drawn to scale
+// ═══════════════════════════════════════════════════════════════════════════
+
+function drawSystemMap(
+  doc: jsPDF,
+  layout: DesignLayout,
+  box: { x: number; y: number; w: number; h: number },
+  options: { highlight?: (m: LayoutModule) => boolean; dimensions?: boolean } = {},
+) {
+  const dimSpace = options.dimensions ? 9 : 2;
+  const scale = Math.min(box.w / layout.widthIn, (box.h - dimSpace) / layout.heightIn);
+  const drawW = layout.widthIn * scale;
+  const ox = box.x + (box.w - drawW) / 2;
+  const floorY = box.y + box.h - dimSpace;
+  const toX = (inches: number) => ox + inches * scale;
+  const toY = (inches: number) => floorY - inches * scale;
+
+  // Floor
+  doc.setDrawColor(...COLORS.faint);
+  doc.setLineWidth(0.4);
+  doc.line(box.x, floorY, box.x + box.w, floorY);
+
+  // Casters, under the uprights they're fastened to
+  const casterR = Math.max(0.6, 1.4 * scale);
+  doc.setFillColor(...COLORS.body);
+  for (const unit of layout.units) {
+    for (const cx of unit.casters) doc.circle(toX(cx), floorY - casterR, casterR, "F");
+  }
+
+  for (const m of layout.modules) {
+    const lit = options.highlight?.(m) ?? false;
+    const x = toX(m.x);
+    const y = toY(m.y + m.h);
+    const w = m.w * scale;
+    const h = m.h * scale;
+    doc.setFillColor(...(lit ? COLORS.accentSoft : COLORS.panel));
+    doc.setDrawColor(...(lit ? COLORS.accentInk : COLORS.muted));
+    doc.setLineWidth(lit ? 0.6 : 0.3);
+    doc.rect(x, y, w, h, "FD");
+
+    // Tote openings
+    const cellW = w / m.cols;
+    const cellH = h / m.rows;
+    doc.setDrawColor(...COLORS.faint);
+    doc.setLineWidth(0.15);
+    for (let c = 1; c < m.cols; c++) doc.line(x + c * cellW, y + 0.6, x + c * cellW, y + h - 0.6);
+    for (let r = 1; r < m.rows; r++) doc.line(x + 0.6, y + r * cellH, x + w - 0.6, y + r * cellH);
+
+    // Letter
+    const size = Math.max(7, Math.min(22, Math.min(w, h) * 0.9));
+    setText(doc, size, lit ? COLORS.accentInk : COLORS.ink, "bold");
+    doc.text(m.type, x + w / 2, y + h / 2 + size * 0.12, { align: "center" });
+  }
+
+  for (const unit of layout.units) {
+    if (unit.hasTop) {
+      doc.setFillColor(...COLORS.lumber);
+      doc.rect(toX(unit.x) - 0.3, toY(unit.h) - 1.1, unit.w * scale + 0.6, 1.1, "F");
+    }
+    if (options.dimensions) {
+      setText(doc, 7, COLORS.muted);
+      doc.text(formatInches(unit.w), toX(unit.x + unit.w / 2), floorY + 4.5, { align: "center" });
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Cover
 // ═══════════════════════════════════════════════════════════════════════════
 
-function renderCover(doc: jsPDF, input: DIYPDFInput) {
+function renderCover(doc: jsPDF, input: DIYPDFInput, layout: DesignLayout) {
   const { plan } = input;
 
   doc.setFillColor(...COLORS.ink);
@@ -154,40 +269,42 @@ function renderCover(doc: jsPDF, input: DIYPDFInput) {
 
   setText(doc, 9, COLORS.accent, "bold");
   doc.text("STORAGE NETWORK  ·  DIY BUILD PLAN", MARGIN, 18);
-  setText(doc, 26, COLORS.white, "bold");
-  doc.text(pdfText(plan.unitName), MARGIN, 33);
-
-  const features = [
-    `${plan.toteCount} totes`,
-    plan.toteType === "HDX" ? "HDX / Home Depot 27-gal totes" : "Greenmade / Costco 27-gal totes",
-    plan.hasWheels ? "on casters" : "stationary",
-    plan.hasTop ? "plywood worktop" : "open top",
-  ];
-  setText(doc, 11, [203, 213, 225]);
-  doc.text(pdfText(features.join("  ·  ")), MARGIN, 43);
+  setText(doc, plan.name.length > 28 ? 20 : 26, COLORS.white, "bold");
+  doc.text(pdfText(plan.name), MARGIN, 33);
+  setText(doc, 10.5, [203, 213, 225]);
+  paragraph(doc, plan.summary.replace(/ · /g, "  ·  "), MARGIN, 43, CONTENT_W, 10.5);
   if (input.licensedTo) {
     setText(doc, 8, [148, 163, 184]);
-    doc.text(pdfText(input.licensedTo), MARGIN, 51);
+    doc.text(pdfText(input.licensedTo), MARGIN, 53);
   }
 
-  // Hero — the finished unit (last step render)
-  const hero = input.snapshots[input.snapshots.length - 1]?.imageDataUrl;
-  const heroW = CONTENT_W;
-  const heroH = heroW * 0.75;
+  // Hero — the finished module when the design is one module; otherwise
+  // the whole system drawn to scale.
   const heroY = 68;
-  addImageSafe(doc, hero, MARGIN, heroY, heroW, heroH, "Finished unit");
+  const heroH = CONTENT_W * 0.72;
+  if (plan.moduleCount === 1) {
+    const t = plan.moduleTypes[0];
+    const last = t.steps[t.steps.length - 1];
+    addImageSafe(doc, input.snapshots[planSnapshotKey(t.letter, last.id)], MARGIN, heroY, CONTENT_W, heroH, "Finished unit");
+  } else {
+    doc.setFillColor(250, 250, 250);
+    doc.rect(MARGIN, heroY, CONTENT_W, heroH, "F");
+    drawSystemMap(doc, layout, { x: MARGIN + 8, y: heroY + 10, w: CONTENT_W - 16, h: heroH - 16 }, { dimensions: true });
+    setText(doc, 8, COLORS.muted, "bold");
+    doc.text("FRONT VIEW — letters mark identical modules", MARGIN + 4, heroY + 6);
+  }
 
   // At a glance
   const d = plan.dimensions;
   const stats: [string, string][] = [
     ["Width", d.totalWidth],
-    ["Height", d.totalHeightWithWheels ?? d.totalHeight],
+    ["Height", d.totalHeight],
     ["Depth", d.depth],
+    ["Totes", String(plan.toteCount)],
     ["2×4×8' boards", String(plan.totals.boards)],
-    ['3/4" plywood sheets', String(plan.totals.sheets)],
-    ["Assembly steps", String(plan.assemblySteps.length)],
+    plan.moduleCount > 1 ? ["Modules to build", String(plan.moduleCount)] : ["2×4 rails", String(plan.railBoards.rails)],
   ];
-  const statY = heroY + heroH + 8;
+  const statY = heroY + heroH + 7;
   const cellW = CONTENT_W / 3;
   const cellH = 17;
   stats.forEach(([label, value], i) => {
@@ -216,10 +333,31 @@ function renderCover(doc: jsPDF, input: DIYPDFInput) {
 // Before you start — tools, shopping list, safety, notes
 // ═══════════════════════════════════════════════════════════════════════════
 
-function renderBeforeYouStart(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
+/** Small green "ladder jig" box; returns nothing when there's no link. */
+function jigCallout(doc: jsPDF, cur: Cursor, links: DIYPDFInput["links"]) {
+  if (!links?.jigUrl) return;
+  const h = 15;
+  cur.ensure(h + 2);
+  const top = cur.y;
+  doc.setFillColor(220, 252, 231); // green-100
+  doc.roundedRect(MARGIN, top, CONTENT_W, h, 2, 2, "F");
+  setText(doc, 7.5, [21, 128, 61], "bold"); // green-700
+  doc.text("LADDER JIG", MARGIN + 4, top + 5.5);
+  setText(doc, 9.5, COLORS.ink, "bold");
+  doc.text(
+    links.jigOwned ? "You have the ladder jig plans — build it before your ladder frames." : "Build a ladder jig first — every ladder frame square and identical.",
+    MARGIN + 26,
+    top + 5.5,
+  );
+  setText(doc, 8.5, COLORS.link, "bold");
+  const label = links.jigOwned ? "Open my jig plans" : `Get the jig plans — ${formatPlanPrice(LADDER_JIG_OWNER_PRICE)} for plan owners`;
+  doc.textWithLink(label, MARGIN + 26, top + 11, { url: links.jigUrl });
+  cur.y = top + h + 4;
+}
+
+function renderBeforeYouStart(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan, links: DIYPDFInput["links"]) {
   cur.y = sectionTitle(doc, "Before You Start", cur.y);
 
-  // Tools — two-column checklist
   setText(doc, 10, COLORS.ink, "bold");
   doc.text("Tools", MARGIN, cur.y);
   cur.y += 5.5;
@@ -234,23 +372,34 @@ function renderBeforeYouStart(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
   });
   cur.y += toolRows * 6 + 5;
 
-  // Shopping list
   cur.ensure(20);
   setText(doc, 10, COLORS.ink, "bold");
   doc.text("Shopping List", MARGIN, cur.y);
   cur.y += 5.5;
+  const hasLinks = plan.shoppingList.some((i) => i.url);
   for (const item of plan.shoppingList) {
     cur.ensure(7);
     checkbox(doc, MARGIN, cur.y);
     setText(doc, 9, COLORS.ink, "bold");
     doc.text(pdfText(String(item.qty)), MARGIN + 6, cur.y);
     doc.text(pdfText(item.name), MARGIN + 24, cur.y);
-    setText(doc, 9, COLORS.muted);
-    doc.text(pdfText(item.detail), MARGIN + 82, cur.y);
+    setText(doc, 8.5, COLORS.muted);
+    const detailW = hasLinks ? CONTENT_W - 82 - 26 : CONTENT_W - 82;
+    const detail = (doc.splitTextToSize(pdfText(item.detail), detailW) as string[])[0];
+    doc.text(detail, MARGIN + 82, cur.y);
+    if (item.url) {
+      setText(doc, 8.5, COLORS.link, "bold");
+      const label = `Buy ${item.store === "Amazon" ? "on" : "at"} ${item.store}`;
+      doc.textWithLink(label, MARGIN + CONTENT_W - doc.getTextWidth(label), cur.y, { url: item.url });
+    }
     doc.setDrawColor(...COLORS.panel);
     doc.setLineWidth(0.2);
     doc.line(MARGIN, cur.y + 2.2, MARGIN + CONTENT_W, cur.y + 2.2);
     cur.y += 6.5;
+  }
+  if (hasLinks) {
+    setText(doc, 7, COLORS.muted, "italic");
+    cur.y = paragraph(doc, AFFILIATE_DISCLOSURE, MARGIN, cur.y + 1, CONTENT_W, 7);
   }
   cur.y += 4;
 
@@ -271,26 +420,97 @@ function renderBeforeYouStart(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
 
   bulletList("Safety", plan.safetyNotes);
   bulletList("Good to Know", plan.generalNotes);
+  jigCallout(doc, cur, links);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Cut plan — identical boards grouped
+// Your system (multi-module designs)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderSystemOverview(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan, layout: DesignLayout) {
+  cur.newPage();
+  cur.y = sectionTitle(doc, "Your System", cur.y);
+  setText(doc, 9, COLORS.body);
+  cur.y = paragraph(
+    doc,
+    "Your build is made of self-contained modules — each one a complete frame. Modules with the same letter are identical: build one, then repeat it. Then join them into units in the order below.",
+    MARGIN,
+    cur.y,
+    CONTENT_W,
+    9,
+  ) + 3;
+
+  const mapH = 86;
+  doc.setFillColor(250, 250, 250);
+  doc.rect(MARGIN, cur.y, CONTENT_W, mapH, "F");
+  drawSystemMap(doc, layout, { x: MARGIN + 6, y: cur.y + 5, w: CONTENT_W - 12, h: mapH - 9 }, { dimensions: true });
+  cur.y += mapH + 8;
+
+  // Module types table
+  setText(doc, 10, COLORS.ink, "bold");
+  doc.text("Modules to Build", MARGIN, cur.y);
+  cur.y += 6;
+  const cols = [MARGIN, MARGIN + 16, MARGIN + 48, MARGIN + 92, MARGIN + 132];
+  setText(doc, 7.5, COLORS.muted, "bold");
+  ["TYPE", "SIZE", "OUTSIDE (W × H)", "INCLUDES", "BUILD"].forEach((h, i) => doc.text(h, cols[i], cur.y));
+  cur.y += 5;
+  for (const t of plan.moduleTypes) {
+    cur.ensure(8);
+    doc.setFillColor(...COLORS.accentSoft);
+    doc.roundedRect(cols[0], cur.y - 4.2, 9, 6, 1, 1, "F");
+    setText(doc, 10, COLORS.accentInk, "bold");
+    doc.text(t.letter, cols[0] + 4.5, cur.y, { align: "center" });
+    setText(doc, 9, COLORS.ink, "bold");
+    doc.text(`${t.cols} wide × ${t.rows} tall`, cols[1], cur.y);
+    setText(doc, 9, COLORS.body);
+    doc.text(pdfText(`${formatInches(t.widthIn)} × ${formatInches(t.frameHeightIn)}`), cols[2], cur.y);
+    const extras = [t.hasWheels ? "casters" : "", t.hasTop ? "worktop" : ""].filter(Boolean).join(" + ") || "frame";
+    doc.text(extras, cols[3], cur.y);
+    setText(doc, 10, COLORS.ink, "bold");
+    doc.text(`× ${t.count}`, cols[4], cur.y);
+    cur.y += 7.5;
+  }
+  cur.y += 3;
+
+  // Build order
+  cur.ensure(20);
+  setText(doc, 10, COLORS.ink, "bold");
+  doc.text("Build Order", MARGIN, cur.y);
+  cur.y += 6;
+  const order = [
+    "Cut every part on the cut plan.",
+    ...plan.moduleTypes.map((t) => `Build Module ${t.letter} (${t.cols}×${t.rows})${t.count > 1 ? ` — ${t.count} times` : ""}.`),
+    ...plan.units
+      .filter((u) => u.assemblySteps.length > 0)
+      .map((u) => `Assemble Unit ${u.index + 1} (${u.label}): ${u.assemblySteps.map((s) => s.title.toLowerCase()).join(", ")}.`),
+  ];
+  order.forEach((line, i) => {
+    const h = measure(doc, line, CONTENT_W - 8, 9);
+    cur.ensure(h + 1);
+    setText(doc, 9, COLORS.ink, "bold");
+    doc.text(`${i + 1}.`, MARGIN, cur.y);
+    setText(doc, 9, COLORS.body);
+    cur.y = paragraph(doc, line, MARGIN + 7, cur.y, CONTENT_W - 8, 9) + 1.5;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Cut plan
 // ═══════════════════════════════════════════════════════════════════════════
 
 export interface BoardGroup {
   count: number;
-  firstIndex: number;
-  board: PlanCutDiagram;
+  board: PlanCutBoard;
 }
 
 /** Collapse boards with the same cuts into "×N" groups, keeping order. */
-export function groupBoards(boards: PlanCutDiagram[]): BoardGroup[] {
+export function groupBoards(boards: PlanCutBoard[]): BoardGroup[] {
   const groups: BoardGroup[] = [];
-  const key = (b: PlanCutDiagram) => b.cuts.map((c) => `${c.label}:${c.length}`).join("|");
+  const key = (b: PlanCutBoard) => b.cuts.map((c) => `${c.label}:${c.length}`).join("|");
   for (const board of boards) {
     const existing = groups.find((g) => key(g.board) === key(board));
     if (existing) existing.count += 1;
-    else groups.push({ count: 1, firstIndex: board.boardIndex, board });
+    else groups.push({ count: 1, board });
   }
   return groups;
 }
@@ -299,10 +519,42 @@ function renderCutPlan(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
   cur.newPage();
   cur.y = sectionTitle(doc, "Cut Plan", cur.y);
 
+  // Parts per module type
+  setText(doc, 10, COLORS.ink, "bold");
+  doc.text("Parts to Cut", MARGIN, cur.y);
+  cur.y += 5.5;
+  for (const t of plan.moduleTypes) {
+    cur.ensure(8 + t.parts.length * 5.5);
+    setText(doc, 8.5, COLORS.ink, "bold");
+    doc.text(
+      plan.moduleTypes.length > 1 || t.count > 1
+        ? `Module ${t.letter} (${t.cols}×${t.rows}) — for each of ${t.count} module${t.count > 1 ? "s" : ""}`
+        : `Module ${t.letter} (${t.cols}×${t.rows})`,
+      MARGIN,
+      cur.y,
+    );
+    cur.y += 5;
+    for (const p of t.parts) {
+      setText(doc, 9, COLORS.ink, "bold");
+      doc.text(`${p.qty} ×`, MARGIN + 4, cur.y);
+      setText(doc, 9, COLORS.body);
+      doc.text(pdfText(p.name), MARGIN + 16, cur.y);
+      doc.text(pdfText(p.length), MARGIN + 52, cur.y);
+      setText(doc, 9, COLORS.muted);
+      doc.text(pdfText(p.material), MARGIN + 120, cur.y);
+      cur.y += 5;
+    }
+    cur.y += 3;
+  }
+
+  cur.ensure(30);
+  setText(doc, 10, COLORS.ink, "bold");
+  doc.text("2×4 Board Layout", MARGIN, cur.y);
+  cur.y += 5;
   setText(doc, 9, COLORS.body);
   cur.y = paragraph(
     doc,
-    `Each bar is one 2×4×8' board (96"). Tan sections are your cuts, gray is offcut. ${plan.totals.boards} boards total. Cut everything before you assemble, and stack identical parts to check they match.`,
+    `Uprights and plates: each bar is one 2×4×8' board (96"). Tan sections are your cuts (letter = module type), gray is offcut. ${plan.cutBoards.length} boards, plus ${plan.railBoards.boards} more ripped into rails below. Stack identical parts to check they match.`,
     MARGIN,
     cur.y,
     CONTENT_W,
@@ -310,7 +562,7 @@ function renderCutPlan(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
   ) + 4;
 
   const barH = 9;
-  for (const group of groupBoards(plan.cutDiagrams)) {
+  for (const group of groupBoards(plan.cutBoards)) {
     cur.ensure(barH + 10);
     const { board, count } = group;
     setText(doc, 8.5, COLORS.ink, "bold");
@@ -321,7 +573,7 @@ function renderCutPlan(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
     doc.rect(MARGIN, cur.y, CONTENT_W, barH, "F");
     let x = MARGIN;
     for (const cut of board.cuts) {
-      const w = (cut.length / board.stockLength) * CONTENT_W;
+      const w = (cut.length / 96) * CONTENT_W;
       doc.setFillColor(...COLORS.lumber);
       doc.rect(x, cur.y, w, barH, "F");
       doc.setDrawColor(...COLORS.white);
@@ -333,7 +585,7 @@ function renderCutPlan(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
       }
       x += w;
     }
-    const wasteW = (board.remainder / board.stockLength) * CONTENT_W;
+    const wasteW = (board.remainder / 96) * CONTENT_W;
     if (wasteW > 14) {
       setText(doc, 7, COLORS.muted);
       doc.text(pdfText(`${formatInches(board.remainder)} offcut`), x + wasteW / 2, cur.y + barH / 2 + 1.2, { align: "center" });
@@ -344,10 +596,44 @@ function renderCutPlan(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
     cur.y += barH + 6;
   }
 
-  cur.ensure(20);
+  // Rail boards — one 2×4 ripped in half, three 30" rails per half
+  cur.ensure(36);
   cur.y += 2;
   setText(doc, 10, COLORS.ink, "bold");
-  doc.text("Plywood Ripping Guide", MARGIN, cur.y);
+  doc.text("2×4 Rail Boards", MARGIN, cur.y);
+  cur.y += 5;
+  setText(doc, 8.5, COLORS.ink, "bold");
+  doc.text(`Rip ${plan.railBoards.boards} board${plan.railBoards.boards === 1 ? "" : "s"} like this — 6 rails each`, MARGIN, cur.y);
+  cur.y += 2.5;
+  const halfH = 5.5;
+  for (let half = 0; half < 2; half++) {
+    const y = cur.y + half * (halfH + 0.8);
+    doc.setFillColor(...COLORS.waste);
+    doc.rect(MARGIN, y, CONTENT_W, halfH, "F");
+    let x = MARGIN;
+    for (let r = 0; r < 3; r++) {
+      const w = (30 / 96) * CONTENT_W;
+      doc.setFillColor(...COLORS.lumber);
+      doc.rect(x, y, w, halfH, "F");
+      doc.setDrawColor(...COLORS.white);
+      doc.setLineWidth(0.6);
+      doc.line(x + w, y, x + w, y + halfH);
+      setText(doc, 7, COLORS.lumberInk, "bold");
+      doc.text('Rail 30"', x + w / 2, y + halfH / 2 + 1.1, { align: "center" });
+      x += w;
+    }
+    doc.setDrawColor(...COLORS.faint);
+    doc.setLineWidth(0.3);
+    doc.rect(MARGIN, y, CONTENT_W, halfH, "S");
+  }
+  cur.y += halfH * 2 + 0.8 + 4;
+  setText(doc, 7.5, COLORS.muted);
+  doc.text('Rip down the middle (fence at 1-11/16"), then crosscut each half into 3 rails at 30" — about 5-5/8" offcut per half.', MARGIN, cur.y);
+  cur.y += 7;
+
+  cur.ensure(20);
+  setText(doc, 10, COLORS.ink, "bold");
+  doc.text("Rails & Plywood", MARGIN, cur.y);
   cur.y += 5.5;
   plan.plywoodNotes.forEach((note, i) => {
     const h = measure(doc, note, CONTENT_W - 7, 9);
@@ -359,60 +645,144 @@ function renderCutPlan(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
   });
 }
 
-function formatInches(n: number): string {
-  const whole = Math.floor(n);
-  const frac = Math.round((n - whole) * 16);
-  if (frac === 0) return `${whole}"`;
-  if (frac === 16) return `${whole + 1}"`;
-  let num = frac;
-  let den = 16;
-  while (num % 2 === 0) {
-    num /= 2;
-    den /= 2;
+// ═══════════════════════════════════════════════════════════════════════════
+// Module sections
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderModuleIntro(
+  doc: jsPDF,
+  cur: Cursor,
+  t: PlanModuleTypeBuild,
+  layout: DesignLayout,
+  hero: string | undefined,
+) {
+  cur.newPage();
+  setText(doc, 8, COLORS.accentInk, "bold");
+  doc.text(`MODULE ${t.letter}`, MARGIN, cur.y);
+  setText(doc, 20, COLORS.ink, "bold");
+  doc.text(`${t.cols} wide × ${t.rows} tall`, MARGIN, cur.y + 9);
+  setText(doc, 10, COLORS.body);
+  doc.text(
+    pdfText(
+      `Build ${t.count === 1 ? "1" : `${t.count} identical`} · ${formatInches(t.widthIn)} W × ${formatInches(t.frameHeightIn)} H × 30" D` +
+        `${t.hasWheels ? " · on casters" : ""}${t.hasTop ? " · with worktop" : ""}`,
+    ),
+    MARGIN,
+    cur.y + 16,
+  );
+  cur.y += 22;
+
+  // Where it goes
+  const mapH = 42;
+  doc.setFillColor(250, 250, 250);
+  doc.rect(MARGIN, cur.y, CONTENT_W, mapH, "F");
+  setText(doc, 7, COLORS.muted, "bold");
+  doc.text("WHERE IT GOES", MARGIN + 3, cur.y + 4.5);
+  drawSystemMap(doc, layout, { x: MARGIN + 4, y: cur.y + 6, w: CONTENT_W - 8, h: mapH - 8 }, { highlight: (m) => m.type === t.letter });
+  cur.y += mapH + 6;
+
+  const imgH = CONTENT_W * 0.55;
+  addImageSafe(doc, hero, MARGIN, cur.y, CONTENT_W, imgH, `Module ${t.letter}`);
+  cur.y += imgH + 6;
+
+  if (t.count > 1) {
+    doc.setFillColor(...COLORS.tipBg);
+    doc.roundedRect(MARGIN, cur.y, CONTENT_W, 10, 2, 2, "F");
+    setText(doc, 9, COLORS.ink, "bold");
+    doc.text(
+      `You need ${t.count} of these. Quantities on the next pages are for ONE module — repeat the steps ${t.count} times.`,
+      MARGIN + 4,
+      cur.y + 6.3,
+    );
   }
-  return whole ? `${whole}-${num}/${den}"` : `${num}/${den}"`;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Assembly step pages
-// ═══════════════════════════════════════════════════════════════════════════
-
-function renderStep(doc: jsPDF, cur: Cursor, step: PlanAssemblyStep, total: number, image: string | undefined) {
+function renderStep(
+  doc: jsPDF,
+  cur: Cursor,
+  step: PlanAssemblyStep,
+  total: number,
+  image: string | undefined,
+  eyebrow: string,
+  links?: DIYPDFInput["links"],
+) {
+  const jigLine = step.id === "build-ladders" && links?.jigUrl;
   cur.newPage();
 
-  // Header row
   doc.setFillColor(...COLORS.ink);
   doc.circle(MARGIN + 6, cur.y - 1.5, 6, "F");
   setText(doc, 13, COLORS.accent, "bold");
   doc.text(String(step.stepNumber), MARGIN + 6, cur.y + 0.4, { align: "center" });
   setText(doc, 7.5, COLORS.muted, "bold");
-  doc.text(`STEP ${step.stepNumber} OF ${total}`, MARGIN + 15, cur.y - 3.5);
+  doc.text(pdfText(`${eyebrow}STEP ${step.stepNumber} OF ${total}`), MARGIN + 15, cur.y - 3.5);
   setText(doc, 16, COLORS.ink, "bold");
   doc.text(pdfText(step.title), MARGIN + 15, cur.y + 2.5);
   cur.y += 10;
 
-  // Render — 4:3, slightly narrower than the page so text fits below
+  // Shrink the render (never below ~half size) so the whole step fits on its page
   const imgW = CONTENT_W;
-  const imgH = imgW * 0.62;
+  const room = BODY_BOTTOM - cur.y - 7 - stepBodyHeight(doc, step) - (jigLine ? 7 : 0);
+  const imgH = Math.max(imgW * 0.34, Math.min(imgW * 0.62, room));
   addImageSafe(doc, image, MARGIN, cur.y, imgW, imgH, `Step ${step.stepNumber}`);
   doc.setDrawColor(...COLORS.faint);
   doc.setLineWidth(0.3);
   doc.rect(MARGIN, cur.y, imgW, imgH, "S");
   cur.y += imgH + 7;
 
-  // Instruction
+  renderStepBody(doc, cur, step);
+  if (jigLine) {
+    setText(doc, 8.5, COLORS.link, "bold");
+    doc.textWithLink(
+      links!.jigOwned ? "Faster with your ladder jig — open the jig plans" : `Build these faster with a ladder jig — ${formatPlanPrice(LADDER_JIG_OWNER_PRICE)} for plan owners`,
+      MARGIN,
+      cur.y,
+      { url: links!.jigUrl! },
+    );
+    cur.y += 6;
+  }
+}
+
+const STEP_BOX_GAP = 6;
+const STEP_BOX_LEFT = CONTENT_W * 0.58;
+
+function stepLines(step: PlanAssemblyStep) {
+  return {
+    partLines: step.materials.map((m) => `${m.qty} × ${m.name}${m.detail ? ` — ${m.detail}` : ""}`),
+    toolLines: step.tools.map((t) => (t.detail ? `${t.name} (${t.detail})` : t.name)),
+  };
+}
+
+function stepBoxHeight(doc: jsPDF, step: PlanAssemblyStep): number {
+  const { partLines, toolLines } = stepLines(step);
+  if (!partLines.length && !toolLines.length) return 0;
+  const rightW = CONTENT_W - STEP_BOX_LEFT - STEP_BOX_GAP;
+  const colHeight = (lines: string[], w: number) => lines.reduce((h, l) => h + measure(doc, l, w - 6, 9) + 1, 0);
+  return 10 + Math.max(colHeight(partLines, STEP_BOX_LEFT), colHeight(toolLines, rightW));
+}
+
+/** Height renderStepBody will use — keep in step with it. */
+function stepBodyHeight(doc: jsPDF, step: PlanAssemblyStep): number {
+  let h = measure(doc, step.instruction, CONTENT_W, 10.5) + 4;
+  const box = stepBoxHeight(doc, step);
+  if (box) h += box + 4;
+  if (step.screwType) h += measure(doc, `${step.screwType.label} — ${step.screwType.description}`, CONTENT_W - 30, 9) + 5 + 3;
+  if (step.proTip) h += measure(doc, step.proTip, CONTENT_W - 30, 9) + 5 + 3;
+  return h + 10;
+}
+
+/** Instruction, parts/tools box, fastener, pro tip, checkbox. */
+function renderStepBody(doc: jsPDF, cur: Cursor, step: PlanAssemblyStep) {
+  setText(doc, 10.5, COLORS.ink);
+  const instrH = measure(doc, step.instruction, CONTENT_W, 10.5);
+  cur.ensure(instrH);
   setText(doc, 10.5, COLORS.ink);
   cur.y = paragraph(doc, step.instruction, MARGIN, cur.y, CONTENT_W, 10.5) + 4;
 
-  // Parts | Tools columns
-  const gap = 6;
-  const leftW = CONTENT_W * 0.58;
+  const gap = STEP_BOX_GAP;
+  const leftW = STEP_BOX_LEFT;
   const rightW = CONTENT_W - leftW - gap;
-  const partLines = step.materials.map((m) => `${m.qty} × ${m.name}${m.detail ? ` — ${m.detail}` : ""}`);
-  const toolLines = step.tools.map((t) => (t.detail ? `${t.name} (${t.detail})` : t.name));
-  const colHeight = (lines: string[], w: number) =>
-    lines.reduce((h, l) => h + measure(doc, l, w - 6, 9) + 1, 0);
-  const boxH = 10 + Math.max(colHeight(partLines, leftW), colHeight(toolLines, rightW));
+  const { partLines, toolLines } = stepLines(step);
+  const boxH = stepBoxHeight(doc, step);
 
   if (partLines.length || toolLines.length) {
     cur.ensure(boxH);
@@ -435,7 +805,6 @@ function renderStep(doc: jsPDF, cur: Cursor, step: PlanAssemblyStep, total: numb
     cur.y = top + boxH + 4;
   }
 
-  // Fastener callout
   if (step.screwType) {
     const text = `${step.screwType.label} — ${step.screwType.description}`;
     const h = measure(doc, text, CONTENT_W - 30, 9) + 5;
@@ -449,7 +818,6 @@ function renderStep(doc: jsPDF, cur: Cursor, step: PlanAssemblyStep, total: numb
     cur.y += h + 3;
   }
 
-  // Pro tip
   if (step.proTip) {
     const h = measure(doc, step.proTip, CONTENT_W - 30, 9) + 5;
     cur.ensure(h);
@@ -462,12 +830,119 @@ function renderStep(doc: jsPDF, cur: Cursor, step: PlanAssemblyStep, total: numb
     cur.y += h + 3;
   }
 
-  // Step complete
   cur.ensure(8);
   cur.y += 2;
   checkbox(doc, MARGIN, cur.y + 1, 4);
   setText(doc, 9, COLORS.muted, "bold");
   doc.text("Step complete", MARGIN + 6.5, cur.y + 0.6);
+  cur.y += 8;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Unit assembly (joining, stacking, worktop, anchoring)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderUnitAssembly(doc: jsPDF, cur: Cursor, unit: PlanUnit, layout: DesignLayout, unitCount: number) {
+  cur.newPage();
+  setText(doc, 8, COLORS.accentInk, "bold");
+  doc.text(unitCount > 1 ? `UNIT ${unit.index + 1} OF ${unitCount}` : "FINAL ASSEMBLY", MARGIN, cur.y);
+  setText(doc, 20, COLORS.ink, "bold");
+  doc.text(pdfText(`Assemble the ${unit.label} Unit`), MARGIN, cur.y + 9);
+  setText(doc, 10, COLORS.body);
+  doc.text(
+    pdfText(`Modules ${unit.modules.map((m) => m.type).join(" + ")} · ${formatInches(unit.widthIn)} W × ${formatInches(unit.heightIn)} H × 30" D`),
+    MARGIN,
+    cur.y + 16,
+  );
+  cur.y += 22;
+
+  const mapH = 56;
+  doc.setFillColor(250, 250, 250);
+  doc.rect(MARGIN, cur.y, CONTENT_W, mapH, "F");
+  drawSystemMap(doc, layout, { x: MARGIN + 4, y: cur.y + 4, w: CONTENT_W - 8, h: mapH - 6 }, {
+    highlight: (m) => m.unitIndex === unit.index,
+    dimensions: true,
+  });
+  cur.y += mapH + 8;
+
+  for (const step of unit.assemblySteps) {
+    // Keep each heading with at least its instruction
+    cur.ensure(9 + measure(doc, step.instruction, CONTENT_W, 10.5) + 12);
+    doc.setFillColor(...COLORS.ink);
+    doc.circle(MARGIN + 5, cur.y - 1.3, 5, "F");
+    setText(doc, 11, COLORS.accent, "bold");
+    doc.text(String(step.stepNumber), MARGIN + 5, cur.y + 0.4, { align: "center" });
+    setText(doc, 13, COLORS.ink, "bold");
+    doc.text(pdfText(step.title), MARGIN + 13, cur.y + 0.8);
+    cur.y += 9;
+    renderStepBody(doc, cur, step);
+    cur.y += 2;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Back page — the interactive guide
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderGuidePage(doc: jsPDF, cur: Cursor, links: NonNullable<DIYPDFInput["links"]>) {
+  const url = links.upgradeUrl ?? links.guideUrl;
+  if (!url) return;
+  const upgrade = !!links.upgradeUrl;
+
+  cur.ensure(70);
+  if (cur.y > BODY_TOP) cur.y += 6;
+  const top = cur.y;
+  const h = 62;
+  doc.setFillColor(...COLORS.ink);
+  doc.roundedRect(MARGIN, top, CONTENT_W, h, 3, 3, "F");
+  doc.setFillColor(...COLORS.accent);
+  doc.rect(MARGIN, top, CONTENT_W, 1.4, "F");
+
+  setText(doc, 8, COLORS.accent, "bold");
+  doc.text(upgrade ? "SEE IT IN 3D" : "YOUR INTERACTIVE GUIDE", MARGIN + 8, top + 12);
+  setText(doc, 17, COLORS.white, "bold");
+  doc.text(
+    upgrade
+      ? `Add the Interactive 3D Build Guide — ${formatPlanPrice(TOTE_PLAN_UPGRADE_PRICE)}`
+      : "Build along with the interactive 3D guide",
+    MARGIN + 8,
+    top + 22,
+  );
+  setText(doc, 10, [203, 213, 225]);
+  paragraph(
+    doc,
+    upgrade
+      ? "Rotate, zoom and step through every module on your phone, with a live map of your whole system showing which module you're on. Pay only the difference."
+      : "Rotate, zoom and step through every module on your phone, with a live map of your system showing which module you're on.",
+    MARGIN + 8,
+    top + 30,
+    CONTENT_W - 16,
+    10,
+  );
+
+  const btnW = 76;
+  const btnY = top + h - 17;
+  doc.setFillColor(...COLORS.accent);
+  doc.roundedRect(MARGIN + 8, btnY, btnW, 10, 2, 2, "F");
+  setText(doc, 10, COLORS.ink, "bold");
+  doc.text(upgrade ? "Upgrade my plan" : "Open my guide", MARGIN + 8 + btnW / 2, btnY + 6.6, { align: "center" });
+  doc.link(MARGIN + 8, btnY, btnW, 10, { url });
+
+  setText(doc, 7.5, [148, 163, 184]);
+  doc.textWithLink(pdfText(url.replace(/^https?:\/\//, "")), MARGIN + 8 + btnW + 6, btnY + 6.3, { url });
+  cur.y = top + h + 4;
+
+  if (links.libraryUrl) {
+    setText(doc, 9, COLORS.body);
+    const lead = "All your plans and guides live in My Builds: ";
+    doc.text(lead, MARGIN, cur.y + 4);
+    const leadW = doc.getTextWidth(lead);
+    setText(doc, 9, COLORS.link, "bold");
+    doc.textWithLink("Open My Builds", MARGIN + leadW, cur.y + 4, {
+      url: links.libraryUrl,
+    });
+    cur.y += 9;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -481,7 +956,7 @@ function stampPages(doc: jsPDF, plan: CompleteDIYPlan) {
     setText(doc, 7.5, COLORS.muted, "bold");
     doc.text("STORAGE NETWORK", MARGIN, 12);
     setText(doc, 7.5, COLORS.muted);
-    doc.text(pdfText(`${plan.unitName} — Build Plan`), PAGE_W - MARGIN, 12, { align: "right" });
+    doc.text(pdfText(`${plan.name} — Build Plan`), PAGE_W - MARGIN, 12, { align: "right" });
     doc.setDrawColor(...COLORS.faint);
     doc.setLineWidth(0.2);
     doc.line(MARGIN, 14.5, PAGE_W - MARGIN, 14.5);
@@ -497,30 +972,50 @@ function stampPages(doc: jsPDF, plan: CompleteDIYPlan) {
 
 export function generateDIYPDF(input: DIYPDFInput): jsPDF {
   const { plan } = input;
+  const layout = designLayout(plan.design);
+  const multi = plan.moduleCount > 1;
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
   doc.setProperties({
-    title: `${pdfText(plan.unitName)} — Build Plan`,
+    title: `${pdfText(plan.name)} — Build Plan`,
     author: "Storage Network",
     subject: "DIY tote organizer build plan",
   });
 
-  renderCover(doc, input);
+  renderCover(doc, input, layout);
 
   const cur = new Cursor(doc);
   cur.newPage();
-  renderBeforeYouStart(doc, cur, plan);
+  renderBeforeYouStart(doc, cur, plan, input.links);
+  if (multi) renderSystemOverview(doc, cur, plan, layout);
   renderCutPlan(doc, cur, plan);
 
-  const imageById = new Map(input.snapshots.map((s) => [s.stepId, s.imageDataUrl]));
-  for (const step of plan.assemblySteps) {
-    renderStep(doc, cur, step, plan.assemblySteps.length, imageById.get(step.id));
+  for (const t of plan.moduleTypes) {
+    const last = t.steps[t.steps.length - 1];
+    if (multi) renderModuleIntro(doc, cur, t, layout, input.snapshots[planSnapshotKey(t.letter, last.id)]);
+    for (const step of t.steps) {
+      renderStep(
+        doc,
+        cur,
+        step,
+        t.steps.length,
+        input.snapshots[planSnapshotKey(t.letter, step.id)],
+        multi ? `MODULE ${t.letter} · ` : "",
+        input.links,
+      );
+    }
   }
+
+  for (const unit of plan.units) {
+    if (unit.assemblySteps.length > 0) renderUnitAssembly(doc, cur, unit, layout, plan.units.length);
+  }
+
+  if (input.links) renderGuidePage(doc, cur, input.links);
 
   stampPages(doc, plan);
   return doc;
 }
 
 export function downloadDIYPDF(input: DIYPDFInput): void {
-  const { plan } = input;
-  generateDIYPDF(input).save(`Build-Plan-${plan.cols}x${plan.rows}-${plan.toteType}.pdf`);
+  const slug = input.plan.name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "Tote-Organizer";
+  generateDIYPDF(input).save(`Build-Plan-${slug}.pdf`);
 }

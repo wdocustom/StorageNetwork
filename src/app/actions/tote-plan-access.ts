@@ -8,9 +8,9 @@
 //                  records the purchase (idempotent on stripe_session_id)
 //                  and emails the permanent access link.
 //   • token      — return visit from that email link.
-//   • proConfig  — paid Pro installer or admin; re-checked server-side.
+//   • proDesign  — paid Pro installer or admin; re-checked server-side.
 //
-// The config is always read from Stripe metadata or the purchase row,
+// The design is always read from Stripe metadata or the purchase row,
 // never trusted from the URL, and the full plan (shopping list, cut plan,
 // steps) is only generated after access is established.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -25,13 +25,16 @@ import {
   enforceActionRateLimit,
   RateLimitError,
 } from "@/lib/server/action-rate-limit";
+import { LADDER_JIG_PLAN_ID, ladderJigHref } from "@/lib/ladder-jig";
 import {
   TOTE_PLAN_ID,
   TOTE_PLAN_UPGRADE_PRICE,
+  TOTE_PLAN_LIMITS,
+  decodeTotePlanDesign,
   isTotePlanTier,
-  parseTotePlanConfig,
+  parseTotePlanDesign,
   totePlanName,
-  type TotePlanConfig,
+  type TotePlanDesign,
   type TotePlanTier,
 } from "@/lib/tote-plans";
 
@@ -46,19 +49,21 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export type OpenTotePlanInput =
   | { sessionId: string }
   | { token: string; upgradeSessionId?: string }
-  | { proConfig: unknown };
+  | { proDesign: unknown };
 
 export type OpenTotePlanResult =
   | {
       ok: true;
       tier: TotePlanTier;
-      config: TotePlanConfig;
+      design: TotePlanDesign;
       plan: CompleteDIYPlan;
       /** Permanent access token — absent for Pro/admin access */
       token?: string;
       /** Buyer email — present on the first visit so the page can confirm it */
       emailSentTo?: string;
       access: "purchase" | "pro" | "admin";
+      /** Ladder jig link: their own jig plans if bought, else the $5 owner offer (purchases only) */
+      jig?: { owned: boolean; href: string };
     }
   | { ok: false; error: string };
 
@@ -74,18 +79,30 @@ async function buildResult(
   row: PurchaseRow,
   extras: { emailSentTo?: string } = {},
 ): Promise<OpenTotePlanResult> {
-  const config = parseTotePlanConfig(row.build_config);
-  if (row.plan_id !== TOTE_PLAN_ID || !config || !isTotePlanTier(row.tier)) {
+  // build_config is a design ({units, name}) or, for purchases made before
+  // multi-unit plans, a single unit config — parseTotePlanDesign reads both.
+  const design = parseTotePlanDesign(row.build_config);
+  if (row.plan_id !== TOTE_PLAN_ID || !design || !isTotePlanTier(row.tier)) {
     return { ok: false, error: "This link isn't for a tote organizer plan." };
   }
-  const plan = await generateDIYPlan({ ...config, unitType: "standard", orientation: "standard" }, totePlanName(config));
+  const plan = await generateDIYPlan(design);
+  const { data: jigRow } = await getServiceClient()
+    .from("public_plan_purchases")
+    .select("access_token")
+    .eq("email", row.email)
+    .eq("plan_id", LADDER_JIG_PLAN_ID)
+    .limit(1)
+    .maybeSingle();
   return {
     ok: true,
     tier: row.tier,
-    config,
+    design,
     plan,
     token: row.access_token,
     access: "purchase",
+    jig: jigRow
+      ? { owned: true, href: `/plans/jig?token=${jigRow.access_token}` }
+      : { owned: false, href: ladderJigHref(row.access_token) },
     ...extras,
   };
 }
@@ -102,7 +119,7 @@ async function findByToken(token: string): Promise<PurchaseRow | null> {
 
 export async function openTotePlan(input: OpenTotePlanInput): Promise<OpenTotePlanResult> {
   try {
-    if ("proConfig" in input) return await openForPro(input.proConfig);
+    if ("proDesign" in input) return await openForPro(input.proDesign);
     if ("sessionId" in input) return await openFromCheckout(input.sessionId);
     return await openFromToken(input.token, input.upgradeSessionId);
   } catch (err) {
@@ -111,15 +128,30 @@ export async function openTotePlan(input: OpenTotePlanInput): Promise<OpenTotePl
   }
 }
 
-async function openForPro(rawConfig: unknown): Promise<OpenTotePlanResult> {
+async function openForPro(rawDesign: unknown): Promise<OpenTotePlanResult> {
   const access = await checkDIYPlanAccess();
   if (!access.hasFreeAccess || !access.reason) {
     return { ok: false, error: "Sign in with a Pro account to use included plans." };
   }
-  const config = parseTotePlanConfig(rawConfig);
-  if (!config) return { ok: false, error: "Plans are available for single units up to 4 wide × 6 tall." };
-  const plan = await generateDIYPlan({ ...config, unitType: "standard", orientation: "standard" }, totePlanName(config));
-  return { ok: true, tier: "interactive", config, plan, access: access.reason };
+  const design = parseTotePlanDesign(rawDesign);
+  if (!design) {
+    return {
+      ok: false,
+      error: `Plans cover up to ${TOTE_PLAN_LIMITS.maxUnits} standard tote units, each up to ${TOTE_PLAN_LIMITS.maxCols} wide × ${TOTE_PLAN_LIMITS.maxRows} tall.`,
+    };
+  }
+  const plan = await generateDIYPlan(design);
+  return { ok: true, tier: "interactive", design, plan, access: access.reason };
+}
+
+/** Design recorded on a paid session: compact `design` (current) or `config` JSON (single-unit legacy). */
+function designFromSessionMetadata(metadata: Stripe.Metadata): TotePlanDesign | null {
+  if (metadata.design) return decodeTotePlanDesign(metadata.design, metadata.design_name);
+  try {
+    return parseTotePlanDesign(JSON.parse(metadata.config ?? "null"));
+  } catch {
+    return null;
+  }
 }
 
 async function openFromCheckout(sessionId: string): Promise<OpenTotePlanResult> {
@@ -138,18 +170,12 @@ async function openFromCheckout(sessionId: string): Promise<OpenTotePlanResult> 
     return { ok: false, error: "We couldn't confirm that payment." };
   }
 
-  let parsedConfig: unknown = null;
-  try {
-    parsedConfig = JSON.parse(session.metadata.config ?? "null");
-  } catch {
-    parsedConfig = null;
-  }
-  const config = parseTotePlanConfig(parsedConfig);
+  const design = designFromSessionMetadata(session.metadata);
   // Sessions created before tiers existed carry no tier — they bought the PDF.
   const tier: TotePlanTier = isTotePlanTier(session.metadata.tier) ? session.metadata.tier : "pdf";
   const email = (session.customer_details?.email ?? session.customer_email ?? "").toLowerCase();
-  if (!config || !email) {
-    console.error("[TotePlanAccess] Paid session missing config or email:", sessionId);
+  if (!design || !email) {
+    console.error("[TotePlanAccess] Paid session missing design or email:", sessionId);
     return { ok: false, error: "Your payment went through but the order is incomplete. Reply to your receipt and we'll sort it out." };
   }
 
@@ -159,7 +185,7 @@ async function openFromCheckout(sessionId: string): Promise<OpenTotePlanResult> 
       email,
       plan_id: TOTE_PLAN_ID,
       tier,
-      build_config: config,
+      build_config: design,
       stripe_session_id: sessionId,
       email_sent: false,
       referred_by_promoter_id: session.metadata.promoter_id || null,
@@ -183,7 +209,7 @@ async function openFromCheckout(sessionId: string): Promise<OpenTotePlanResult> 
   }
 
   const row = inserted as PurchaseRow;
-  sendTotePlanAccessEmail(email, config, tier, row.access_token)
+  sendTotePlanAccessEmail(email, design, tier, row.access_token)
     .then(() =>
       db.from("public_plan_purchases").update({ email_sent: true }).eq("access_token", row.access_token),
     )
@@ -246,8 +272,8 @@ export async function createTotePlanUpgradeCheckout(
   }
 
   const row = await findByToken(token);
-  const config = row ? parseTotePlanConfig(row.build_config) : null;
-  if (!row || !config || row.plan_id !== TOTE_PLAN_ID) {
+  const design = row ? parseTotePlanDesign(row.build_config) : null;
+  if (!row || !design || row.plan_id !== TOTE_PLAN_ID) {
     return { success: false, error: "We couldn't find that purchase." };
   }
   if (row.tier === "interactive") {
@@ -264,7 +290,7 @@ export async function createTotePlanUpgradeCheckout(
           price_data: {
             currency: "usd",
             product_data: {
-              name: `Upgrade to Interactive Build Guide — ${totePlanName(config)}`,
+              name: `Upgrade to Interactive Build Guide — ${totePlanName(design)}`,
               description: "Interactive 3D assembly guide for the plan you already own.",
             },
             unit_amount: TOTE_PLAN_UPGRADE_PRICE,

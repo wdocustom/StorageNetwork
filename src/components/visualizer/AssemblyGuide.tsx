@@ -8,13 +8,16 @@ import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
 import { createDougFirMaterial, createPlywoodMaterial } from "./woodTextures";
 import ConstructionScrew from "./ConstructionScrew";
 import {
+  RAILS_2X4,
   getStepsForConfig,
   computeMaterials,
   resolveTokens,
+  upright2x4,
   type AssemblyStep,
   type PartGroup,
   type PartVisibility,
   type BuildConfig,
+  type RailStyle,
 } from "./assemblySteps";
 import { toFraction } from "@/lib/utils";
 import {
@@ -61,6 +64,57 @@ function getPostX(i: number, bayW: number): number {
 }
 
 const MIN_FIRST_RAIL_Y = 13; // First rail at 13" from bottom of upright
+
+/** Frame dimensions for either rail style (inches). */
+interface FrameGeometry {
+  bayW: number;
+  totalW: number;
+  /** Structural plate length */
+  plateLen: number;
+  /** Rail CENTER heights above the bottom of the upright */
+  railCenters: number[];
+  postH: number;
+  /** Bottom plate + upright + top plate */
+  frameH: number;
+  /** Rail thickness off the upright face × rail height */
+  railW: number;
+  railH: number;
+}
+
+function frameGeometry(cols: number, rows: number, toteType: ToteType, rails: RailStyle): FrameGeometry {
+  if (rails === "2x4") {
+    // Ripped 2×4 rails, universal 21" bays — mirrors buildEngine / Rack3D
+    const bayW = RAILS_2X4.opening;
+    const totalW = cols * bayW + (cols + 1) * POST_W;
+    const postH = upright2x4(rows);
+    return {
+      bayW,
+      totalW,
+      plateLen: totalW,
+      railCenters: RAILS_2X4.positions.slice(0, Math.min(rows, RAILS_2X4.maxRows)),
+      postH,
+      frameH: PLATE_H + postH + PLATE_H,
+      railW: RAILS_2X4.railW,
+      railH: RAILS_2X4.railH,
+    };
+  }
+  const bayW = getBayWidth(toteType);
+  // Correct structural plate length (uses actual tote opening, not visual bay width)
+  const opening = toteType === "HDX" ? TOTE_FULL_W_HDX : TOTE_FULL_W_GM;
+  const firstRailY = Math.max(MIN_FIRST_RAIL_Y, PLATE_H + 2);
+  const lastRailY = firstRailY + (rows - 1) * TIER_SPACING;
+  const frameH = PLATE_H + lastRailY + 3 + PLATE_H;
+  return {
+    bayW,
+    totalW: cols * bayW + (cols + 1) * POST_W,
+    plateLen: cols * opening + (cols + 1) * POST_W,
+    railCenters: Array.from({ length: rows }, (_, r) => firstRailY + r * TIER_SPACING),
+    postH: frameH - PLATE_H * 2,
+    frameH,
+    railW: RAIL_THICKNESS,
+    railH: RAIL_HEIGHT,
+  };
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MATERIALS
@@ -319,6 +373,7 @@ interface ExplodedAssemblyProps {
   steps: AssemblyStep[];
   hasWheels: boolean;
   hasTop: boolean;
+  rails: RailStyle;
 }
 
 function ExplodedAssembly({
@@ -330,32 +385,39 @@ function ExplodedAssembly({
   steps,
   hasWheels,
   hasTop,
+  rails,
 }: ExplodedAssemblyProps) {
-  const bayW = getBayWidth(toteType);
-  const totalW = cols * bayW + (cols + 1) * POST_W;
-  // Correct structural plate length (uses actual tote opening, not visual bay width)
-  const opening = toteType === "HDX" ? TOTE_FULL_W_HDX : TOTE_FULL_W_GM;
-  const plateLen = cols * opening + (cols + 1) * POST_W;
-  const firstRailY = Math.max(MIN_FIRST_RAIL_Y, PLATE_H + 2);
-  const lastRailY = firstRailY + (rows - 1) * TIER_SPACING;
-  const topGap = 3;
-  const frameH = PLATE_H + lastRailY + topGap + PLATE_H;
+  const is2x4 = rails === "2x4";
+  const { bayW, totalW, plateLen, railCenters, postH, frameH, railW, railH } = useMemo(
+    () => frameGeometry(cols, rows, toteType, rails),
+    [cols, rows, toteType, rails],
+  );
   const lift = hasWheels ? CASTER_HEIGHT : 0;
   const overallH = frameH + lift;
-  const uprightH = rows * TIER_SPACING;
 
   const cx = totalW / 2;
   const cy = overallH / 2;
   const cz = RACK_DEPTH / 2;
 
   const railLen = RACK_DEPTH;
-  const postH = frameH - PLATE_H * 2;
+  const railScrewLen = is2x4 ? 3.0 : 1.625;
+  const railScrewLabel = is2x4
+    ? '#9 × 3" Star Drive — through 2×4 rail into upright'
+    : '#9 × 1-5/8" Star Drive — through rail into post';
 
   // Current step data
   const step = steps[stepIndex] ?? steps[0];
 
   function vis(group: PartGroup): PartVisibility {
-    if (mode === "exploded") return "visible";
+    if (mode === "exploded") {
+      // Exploded view shows every part this build has — and only those
+      if (group === "casters" || group === "casterScrews") return hasWheels ? "visible" : "hidden";
+      if (group === "plyTop") return hasTop ? "visible" : "hidden";
+      if (group === "backSupports") return is2x4 ? "hidden" : "visible";
+      return "visible";
+    }
+    // 2×4-rail frames have no plywood back supports
+    if (group === "backSupports" && is2x4) return "hidden";
     return step.partStates[group];
   }
 
@@ -492,66 +554,66 @@ function ExplodedAssembly({
       const screwOffsetY = 0.5; // ±0.5" from rail center — 2 screws per rail end
       for (let i = 0; i <= cols; i++) {
         const px = getPostX(i, bayW);
-        for (let r = 0; r < rows; r++) {
-          const railY = PLATE_H + firstRailY + r * TIER_SPACING;
+        for (let r = 0; r < railCenters.length; r++) {
+          const railY = PLATE_H + railCenters[r];
           // Right-face rail screws — 2 per end (top & bottom of rail strip)
           if (i < cols) {
-            const sx = px + POST_W / 2 + RAIL_THICKNESS + 0.5;
+            const sx = px + POST_W / 2 + railW + 0.5;
             // Front end — 2 screws
             screws.push({
               pos: [sx, railY + screwOffsetY + lift, 2],
               rot: [0, 0, -Math.PI / 2],
-              len: 1.625,
-              label: '#9 × 1-5/8" Star Drive — through rail into post',
+              len: railScrewLen,
+              label: railScrewLabel,
             });
             screws.push({
               pos: [sx, railY - screwOffsetY + lift, 2],
               rot: [0, 0, -Math.PI / 2],
-              len: 1.625,
-              label: '#9 × 1-5/8" Star Drive — through rail into post',
+              len: railScrewLen,
+              label: railScrewLabel,
             });
             // Back end — 2 screws
             screws.push({
               pos: [sx, railY + screwOffsetY + lift, RACK_DEPTH - 2],
               rot: [0, 0, -Math.PI / 2],
-              len: 1.625,
-              label: '#9 × 1-5/8" Star Drive — through rail into post',
+              len: railScrewLen,
+              label: railScrewLabel,
             });
             screws.push({
               pos: [sx, railY - screwOffsetY + lift, RACK_DEPTH - 2],
               rot: [0, 0, -Math.PI / 2],
-              len: 1.625,
-              label: '#9 × 1-5/8" Star Drive — through rail into post',
+              len: railScrewLen,
+              label: railScrewLabel,
             });
           }
           // Left-face rail screws — 2 per end (top & bottom of rail strip)
           if (i > 0) {
-            const sx = px - POST_W / 2 - RAIL_THICKNESS - 0.5;
+            const sx = px - POST_W / 2 - railW - 0.5;
             // Front end — 2 screws
             screws.push({
               pos: [sx, railY + screwOffsetY + lift, 2],
               rot: [0, 0, Math.PI / 2],
-              len: 1.625,
-              label: '#9 × 1-5/8" Star Drive — through rail into post',
+              len: railScrewLen,
+              label: railScrewLabel,
             });
             screws.push({
               pos: [sx, railY - screwOffsetY + lift, 2],
               rot: [0, 0, Math.PI / 2],
-              len: 1.625,
-              label: '#9 × 1-5/8" Star Drive — through rail into post',
+              len: railScrewLen,
+              label: railScrewLabel,
             });
             // Back end — 2 screws
             screws.push({
               pos: [sx, railY + screwOffsetY + lift, RACK_DEPTH - 2],
               rot: [0, 0, Math.PI / 2],
-              len: 1.625,
-              label: '#9 × 1-5/8" Star Drive — through rail into post',
+              len: railScrewLen,
+              label: railScrewLabel,
             });
             screws.push({
               pos: [sx, railY - screwOffsetY + lift, RACK_DEPTH - 2],
               rot: [0, 0, Math.PI / 2],
-              len: 1.625,
-              label: '#9 × 1-5/8" Star Drive — through rail into post',
+              len: railScrewLen,
+              label: railScrewLabel,
             });
           }
         }
@@ -559,7 +621,7 @@ function ExplodedAssembly({
     }
 
     return screws;
-  }, [cols, rows, bayW, firstRailY, lift, mode, step.id]);
+  }, [cols, bayW, railCenters, railW, railScrewLen, railScrewLabel, lift, mode, step.id]);
 
   // Plate screws (separate group for step-level control)
   const plateScrewPositions = useMemo(() => {
@@ -727,7 +789,7 @@ function ExplodedAssembly({
                       position={[px, PLATE_H + postH / 2, POST_D / 2]}
                       size={[POST_W, postH, POST_D]}
                       vis={vis("posts")}
-                      label={`2×4 Upright (front) — ${toFraction(postH)}" tall, cut from 2×4×8' stud`}
+                      label={`2×4 Upright (front) — ${toFraction(postH)}" tall, ${postH >= 96 ? "full 2×4×8' stud, no cut" : "cut from 2×4×8' stud"}`}
                     />
                     <Lumber
                       position={[
@@ -737,17 +799,16 @@ function ExplodedAssembly({
                       ]}
                       size={[POST_W, postH, POST_D]}
                       vis={vis("posts")}
-                      label={`2×4 Upright (back) — ${toFraction(postH)}" tall, cut from 2×4×8' stud`}
+                      label={`2×4 Upright (back) — ${toFraction(postH)}" tall, ${postH >= 96 ? "full 2×4×8' stud, no cut" : "cut from 2×4×8' stud"}`}
                     />
                   </AnimatedGroup>
                 </FadeGroup>
 
                 {/* Right-face rails */}
                 {i < cols &&
-                  Array.from({ length: rows }).map((_, r) => {
-                    const railY = PLATE_H + firstRailY + r * TIER_SPACING;
-                    const railX = px + POST_W / 2 + RAIL_THICKNESS / 2;
-                    const railFromBottom = firstRailY + r * TIER_SPACING;
+                  railCenters.map((railFromBottom, r) => {
+                    const railY = PLATE_H + railFromBottom;
+                    const railX = px + POST_W / 2 + railW / 2;
                     return (
                       <FadeGroup key={`rr-${i}-${r}`} vis={vis("rails")}>
                         <AnimatedGroup
@@ -757,12 +818,21 @@ function ExplodedAssembly({
                             0,
                           ]}
                         >
-                          <PlywoodStrip
-                            position={[railX, railY, RACK_DEPTH / 2]}
-                            length={railLen}
-                            vis={vis("rails")}
-                            label={`3/4" Plywood Rail — 1-7/8" × ${railLen}" long, ${toFraction(railFromBottom)}" from bottom`}
-                          />
+                          {is2x4 ? (
+                            <Lumber
+                              position={[railX, railY, RACK_DEPTH / 2]}
+                              size={[railW, railH, railLen]}
+                              vis={vis("rails")}
+                              label={`2×4 Rail (ripped) — 1-1/2" × 1-11/16" × ${railLen}" long, top edge ${toFraction(railFromBottom + railH / 2)}" from bottom of upright`}
+                            />
+                          ) : (
+                            <PlywoodStrip
+                              position={[railX, railY, RACK_DEPTH / 2]}
+                              length={railLen}
+                              vis={vis("rails")}
+                              label={`3/4" Plywood Rail — 1-7/8" × ${railLen}" long, ${toFraction(railFromBottom)}" from bottom`}
+                            />
+                          )}
                         </AnimatedGroup>
                       </FadeGroup>
                     );
@@ -770,10 +840,9 @@ function ExplodedAssembly({
 
                 {/* Left-face rails */}
                 {i > 0 &&
-                  Array.from({ length: rows }).map((_, r) => {
-                    const railY = PLATE_H + firstRailY + r * TIER_SPACING;
-                    const railX = px - POST_W / 2 - RAIL_THICKNESS / 2;
-                    const railFromBottom = firstRailY + r * TIER_SPACING;
+                  railCenters.map((railFromBottom, r) => {
+                    const railY = PLATE_H + railFromBottom;
+                    const railX = px - POST_W / 2 - railW / 2;
                     return (
                       <FadeGroup key={`rl-${i}-${r}`} vis={vis("rails")}>
                         <AnimatedGroup
@@ -783,12 +852,21 @@ function ExplodedAssembly({
                             0,
                           ]}
                         >
-                          <PlywoodStrip
-                            position={[railX, railY, RACK_DEPTH / 2]}
-                            length={railLen}
-                            vis={vis("rails")}
-                            label={`3/4" Plywood Rail — 1-7/8" × ${railLen}" long, ${toFraction(railFromBottom)}" from bottom`}
-                          />
+                          {is2x4 ? (
+                            <Lumber
+                              position={[railX, railY, RACK_DEPTH / 2]}
+                              size={[railW, railH, railLen]}
+                              vis={vis("rails")}
+                              label={`2×4 Rail (ripped) — 1-1/2" × 1-11/16" × ${railLen}" long, top edge ${toFraction(railFromBottom + railH / 2)}" from bottom of upright`}
+                            />
+                          ) : (
+                            <PlywoodStrip
+                              position={[railX, railY, RACK_DEPTH / 2]}
+                              length={railLen}
+                              vis={vis("rails")}
+                              label={`3/4" Plywood Rail — 1-7/8" × ${railLen}" long, ${toFraction(railFromBottom)}" from bottom`}
+                            />
+                          )}
                         </AnimatedGroup>
                       </FadeGroup>
                     );
@@ -982,6 +1060,7 @@ function GuideCameraRig({
   cameraHint,
   hasWheels,
   distanceScale = 1,
+  rails,
 }: {
   cols: number;
   rows: number;
@@ -990,6 +1069,7 @@ function GuideCameraRig({
   hasWheels: boolean;
   /** < 1 frames the unit tighter (print renders have no zoom control) */
   distanceScale?: number;
+  rails: RailStyle;
 }) {
   const { camera } = useThree();
   const controlsRef = useRef<any>(null);
@@ -997,11 +1077,7 @@ function GuideCameraRig({
   const isFirstRender = useRef(true);
   const isAnimating = useRef(false);
 
-  const bayW = getBayWidth(toteType);
-  const totalW = cols * bayW + (cols + 1) * POST_W;
-  const firstRailY = Math.max(MIN_FIRST_RAIL_Y, PLATE_H + 2);
-  const lastRailY = firstRailY + (rows - 1) * TIER_SPACING;
-  const frameH = PLATE_H + lastRailY + 3 + PLATE_H;
+  const { totalW, frameH } = frameGeometry(cols, rows, toteType, rails);
   const overallH = frameH + (hasWheels ? CASTER_HEIGHT : 0);
 
   const sw = totalW * S;
@@ -1317,6 +1393,12 @@ interface AssemblyGuideProps {
   hasWheels?: boolean;
   hasTop?: boolean;
   onClose?: () => void;
+  /** Replaces the "{cols}×{rows} {tote} Storage Unit" title (e.g. "Module A") */
+  label?: string;
+  /** Extra panel stacked under the top-left badge (e.g. a module map) */
+  hud?: React.ReactNode;
+  /** Rail construction — installers default to plywood; DIY plans use 2×4 */
+  rails?: RailStyle;
 }
 
 export default function AssemblyGuide({
@@ -1326,9 +1408,12 @@ export default function AssemblyGuide({
   hasWheels = true,
   hasTop = false,
   onClose,
+  label,
+  hud,
+  rails = "plywood",
 }: AssemblyGuideProps) {
-  const config: BuildConfig = { hasWheels, hasTop, toteType };
-  const steps = useMemo(() => getStepsForConfig(config), [hasWheels, hasTop]);
+  const config: BuildConfig = { hasWheels, hasTop, toteType, rails };
+  const steps = useMemo(() => getStepsForConfig(config), [hasWheels, hasTop, toteType, rails]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [mode, setMode] = useState<"exploded" | "step">("exploded");
   const [stepIndex, setStepIndex] = useState(0);
@@ -1397,6 +1482,7 @@ export default function AssemblyGuide({
             mode === "step" ? currentStep?.cameraHint : "overview"
           }
           hasWheels={hasWheels}
+          rails={rails}
         />
 
         <ExplodedAssembly
@@ -1408,6 +1494,7 @@ export default function AssemblyGuide({
           steps={steps}
           hasWheels={hasWheels}
           hasTop={hasTop}
+          rails={rails}
         />
       </Canvas>
 
@@ -1438,13 +1525,13 @@ export default function AssemblyGuide({
         {/* Exploded mode — top-left label + bottom-center Start button */}
         {mode === "exploded" && (
           <>
-            <div className="pointer-events-none absolute left-4 top-4">
+            <div className="pointer-events-none absolute left-4 top-4 max-w-[calc(100%-5.5rem)]">
               <div className="rounded-xl bg-slate-900/90 px-5 py-3 shadow-xl backdrop-blur">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-400">
                   Exploded View
                 </p>
                 <p className="mt-0.5 text-sm font-semibold text-white">
-                  {cols}×{rows} {toteType} Storage Unit
+                  {label ?? `${cols}×${rows} ${toteType} Storage Unit`}
                 </p>
                 <p className="text-xs text-stone-400">
                   Hover any piece for dimensions
@@ -1452,6 +1539,7 @@ export default function AssemblyGuide({
                   {hasTop ? " — with top" : ""}
                 </p>
               </div>
+              {hud && <div className="pointer-events-auto mt-2">{hud}</div>}
             </div>
 
             <div className="absolute inset-x-0 bottom-8 flex justify-center">
@@ -1470,18 +1558,25 @@ export default function AssemblyGuide({
         {mode === "step" && currentStep && (
           <>
             {/* Config badge — top left */}
-            <div className="pointer-events-none absolute left-4 top-4">
+            <div className="pointer-events-none absolute left-4 top-4 max-w-[calc(100%-5.5rem)]">
               <div className="rounded-lg bg-slate-900/80 px-3 py-1.5 shadow-lg backdrop-blur">
                 <p className="text-[10px] font-bold text-stone-400">
+                  {label ? `${label} · ` : ""}
                   {cols}×{rows} {toteType}
                   {hasWheels ? " + Wheels" : ""}
                   {hasTop ? " + Top" : ""}
                 </p>
               </div>
+              {hud && <div className="pointer-events-auto mt-2">{hud}</div>}
             </div>
 
             {/* Floating Step Card — bottom left on desktop, bottom full-width on mobile */}
-            <div className="pointer-events-auto absolute bottom-4 left-4 right-4 flex max-h-[70vh] flex-col sm:right-auto sm:w-[400px]">
+            <div
+              className={`pointer-events-auto absolute bottom-4 left-4 right-4 flex flex-col sm:right-auto sm:w-[400px] ${
+                // Leave the top-left badge + hud panel uncovered on short screens
+                hud ? "max-h-[min(70vh,calc(100dvh-15rem))]" : "max-h-[70vh]"
+              }`}
+            >
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900/95 shadow-2xl backdrop-blur-sm">
                 <StepCard
                   step={currentStep}
@@ -1544,6 +1639,7 @@ export function AssemblyStepSnapshots({
   hasTop = false,
   width = 1400,
   height = 1050,
+  rails = "plywood",
   onProgress,
   onComplete,
 }: {
@@ -1554,12 +1650,13 @@ export function AssemblyStepSnapshots({
   hasTop?: boolean;
   width?: number;
   height?: number;
+  rails?: RailStyle;
   onProgress?: (done: number, total: number) => void;
   onComplete: (snapshots: AssemblyStepSnapshot[]) => void;
 }) {
   const steps = useMemo(
-    () => getStepsForConfig({ hasWheels, hasTop, toteType }),
-    [hasWheels, hasTop, toteType],
+    () => getStepsForConfig({ hasWheels, hasTop, toteType, rails }),
+    [hasWheels, hasTop, toteType, rails],
   );
   const [index, setIndex] = useState(0);
   const results = useRef<AssemblyStepSnapshot[]>([]);
@@ -1626,6 +1723,7 @@ export function AssemblyStepSnapshots({
             cameraHint={step.cameraHint}
             hasWheels={hasWheels}
             distanceScale={0.62}
+            rails={rails}
           />
           <ExplodedAssembly
             cols={cols}
@@ -1636,6 +1734,7 @@ export function AssemblyStepSnapshots({
             steps={steps}
             hasWheels={hasWheels}
             hasTop={hasTop}
+            rails={rails}
           />
           <FrameCapture onCapture={handleCapture} />
         </Canvas>

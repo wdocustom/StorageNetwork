@@ -1,6 +1,7 @@
 import { sendTransactionalEmail, type SendEmailResult } from "./core";
 import { depositPercentLabel } from "@/lib/deposit-label";
 import { masterEmailLayout } from "./components/masterEmailLayout";
+import { diyPlansEmailBlock } from "./plansTemplates";
 import { getAppUrl } from "@/lib/url-helper";
 import { formatInstallDate } from "@/utils/installDate";
 
@@ -559,6 +560,7 @@ export async function sendWaitlistCustomerConfirmation(
     installerBusinessName: string;
     zip: string;
     quoteData?: Array<{ desc?: string; cols?: number; rows?: number; price?: number }>;
+    diyPlansUrl?: string | null;
   }
 ): Promise<SendEmailResult> {
   const firstName = (data.customerName || "").split(" ")[0] || "there";
@@ -620,6 +622,8 @@ export async function sendWaitlistCustomerConfirmation(
       </tr>
     </table>
 
+    ${diyPlansEmailBlock(data.diyPlansUrl)}
+
     <p style="margin:0 0 6px;color:#ffffff;font-size:13px;text-align:center;font-weight:600;">
       No payment has been charged. You&rsquo;re under no obligation.
     </p>
@@ -650,10 +654,12 @@ export interface QuoteEmailData {
   estimatedTax?: { amount: number; rate: number; stateCode: string } | null;
   deliveryFee?: number;
   buildSnapshotUrl?: string;
+  /** /plans/checkout link for this exact build (DIY plans footer) */
+  diyPlansUrl?: string | null;
 }
 
 export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
-  const { customerName, businessName, installerFirstName, installerPhone, quoteItems, totalPrice, depositAmount, checkoutUrl, cleanoutServices, estimatedTax, deliveryFee, buildSnapshotUrl } = data;
+  const { customerName, businessName, installerFirstName, installerPhone, quoteItems, totalPrice, depositAmount, checkoutUrl, cleanoutServices, estimatedTax, deliveryFee, buildSnapshotUrl, diyPlansUrl } = data;
   const taxAmount = estimatedTax?.amount && estimatedTax.amount > 0 ? estimatedTax.amount : 0;
   const deliveryAmount = deliveryFee && deliveryFee > 0 ? deliveryFee : 0;
   // totalPrice already includes the delivery fee (createQuote's finalTotal),
@@ -795,6 +801,8 @@ export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
       </div>
     </div>
 
+    ${diyPlansEmailBlock(diyPlansUrl)}
+
     <!-- Disclaimer -->
     <p style="margin:0 0 20px;color:#555;font-size:12px;text-align:center;font-style:italic;">
       ${taxAmount > 0
@@ -813,6 +821,7 @@ export async function sendAbandonedCartEmail(
     depositAmount: number;
     resumeUrl: string;
     installerName?: string | null;
+    diyPlansUrl?: string | null;
   }
 ): Promise<SendEmailResult> {
   const firstName = (data.customerName || "").split(" ")[0] || "there";
@@ -855,6 +864,8 @@ export async function sendAbandonedCartEmail(
         <td style="text-align:center;padding:6px 8px;">&#9989; Built to Spec</td>
       </tr>
     </table>
+
+    ${diyPlansEmailBlock(data.diyPlansUrl)}
 
     <p style="margin:0;color:#555;font-size:12px;text-align:center;">
       Changed your mind? Just ignore this email &mdash; your hold expires automatically.
@@ -1208,6 +1219,7 @@ export async function sendTrialCapCustomerConfirmation(
     installerBusinessName: string;
     grandTotal: number;
     quoteData?: Array<{ desc?: string; cols?: number; rows?: number; price?: number }>;
+    diyPlansUrl?: string | null;
   }
 ): Promise<SendEmailResult> {
   const firstName = (data.customerName || "").split(" ")[0] || "there";
@@ -1246,6 +1258,8 @@ export async function sendTrialCapCustomerConfirmation(
 
     ${buildSummaryHtml}
 
+    ${diyPlansEmailBlock(data.diyPlansUrl)}
+
     <p style="margin:0;color:#555;font-size:12px;text-align:center;">
       No payment has been charged. Your installer will contact you directly.
     </p>
@@ -1268,6 +1282,7 @@ export async function sendWaitlistedLeadPaymentReady(
     depositAmount: number;
     leadId: string;
     quoteData?: Array<{ desc?: string; cols?: number; rows?: number; price?: number }>;
+    diyPlansUrl?: string | null;
   }
 ): Promise<SendEmailResult> {
   const baseUrl = getAppUrl();
@@ -1322,6 +1337,8 @@ export async function sendWaitlistedLeadPaymentReady(
       <p style="margin:0 0 16px;color:#facc15;font-size:18px;font-weight:800;">Lock in Your Spot</p>
       ${ctaButton(payUrl, "Pay Deposit & Book")}
     </div>
+
+    ${diyPlansEmailBlock(data.diyPlansUrl)}
 
     <p style="margin:0;color:#555;font-size:12px;text-align:center;">
       No obligation until you pay. Your installer reaches out once the deposit is received.

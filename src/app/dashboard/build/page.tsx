@@ -1807,6 +1807,7 @@ export default function BuildConfiguratorPage() {
               toteType={toteType}
               hasWheels={hasWheels}
               hasTop={hasTop}
+              rails={installerPricing?.use_2x4_rails === true ? "2x4" : "plywood"}
               onClose={() => setShowAssemblyGuide(false)}
             />
           </Suspense>

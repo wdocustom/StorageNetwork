@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { verifyAndCreatePlanAccess, validatePlanToken } from "@/app/actions/public-plans";
 import { getPlanById } from "@/lib/plans-config";
 import { TOTE_PLAN_ID } from "@/lib/tote-plans";
+import { LADDER_JIG_PLAN_ID } from "@/lib/ladder-jig";
 import { Loader2, CheckCircle, AlertCircle, Maximize2, BookOpen } from "lucide-react";
 import Image from "next/image";
 
@@ -36,6 +37,8 @@ function PlansAccessInner() {
         const result = await validatePlanToken(tokenParam);
         if (result.valid && result.planId === TOTE_PLAN_ID) {
           router.replace(`/plans/build?token=${tokenParam}`);
+        } else if (result.valid && result.planId === LADDER_JIG_PLAN_ID) {
+          router.replace(`/plans/jig?token=${tokenParam}`);
         } else if (result.valid && result.planId) {
           setToken(tokenParam);
           setPlanId(result.planId);

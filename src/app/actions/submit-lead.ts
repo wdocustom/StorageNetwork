@@ -1,5 +1,6 @@
 "use server";
 
+import { diyPlansEmailUrl } from "@/lib/emails/plansTemplates";
 import { z } from "zod/v4";
 import { calculateWeight } from "@/utils/scheduling";
 import { validateServiceArea } from "@/app/actions/installer";
@@ -426,6 +427,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
             installerBusinessName: installerName,
             grandTotal: input.grand_total,
             quoteData: quoteDataForEmail,
+            diyPlansUrl: diyPlansEmailUrl(input.quote_data, "saved_build_email"),
           }).catch((err) => console.error("[TrialCap] Customer email failed:", err));
         } catch (err) {
           console.error("[TrialCap] Email flow error:", err);

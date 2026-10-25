@@ -4,7 +4,8 @@ import { useState } from "react";
 import Image from "next/image";
 import { PUBLIC_PLANS } from "@/lib/plans-config";
 import { TOTE_PLAN_TIERS, formatPlanPrice } from "@/lib/tote-plans";
-import { CheckCircle, Mail, Loader2, BookOpen, ExternalLink, Box, FileText, ArrowRight } from "lucide-react";
+import { CheckCircle, Mail, Loader2, BookOpen, ExternalLink, Box, FileText, ArrowRight, Wrench } from "lucide-react";
+import { LADDER_JIG_NAME, LADDER_JIG_OWNER_PRICE, LADDER_JIG_PRICE, LADDER_JIG_TAGLINE } from "@/lib/ladder-jig";
 
 // ── Plan Card ────────────────────────────────────────────────────────────────
 
@@ -143,6 +144,29 @@ function TotePlansCard() {
   );
 }
 
+// ── Ladder Jig Plans ─────────────────────────────────────────────────────────
+
+function LadderJigCard() {
+  return (
+    <a
+      href="/plans/jig"
+      className="group flex items-center gap-4 rounded-2xl border border-emerald-500/20 bg-slate-900 p-5 transition hover:border-emerald-400/50"
+    >
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10">
+        <Wrench className="h-6 w-6 text-emerald-400" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-bold text-white">{LADDER_JIG_NAME}</p>
+        <p className="mt-0.5 text-xs text-stone-400">{LADDER_JIG_TAGLINE}</p>
+        <p className="mt-1 text-[11px] text-stone-500">
+          {formatPlanPrice(LADDER_JIG_PRICE)} · {formatPlanPrice(LADDER_JIG_OWNER_PRICE)} with any tote organizer plan
+        </p>
+      </div>
+      <ArrowRight className="h-5 w-5 shrink-0 text-emerald-400 transition group-hover:translate-x-0.5" />
+    </a>
+  );
+}
+
 // ── Resend Link Panel ────────────────────────────────────────────────────────
 
 function ResendLinkPanel() {
@@ -254,6 +278,7 @@ export default function PlansPage() {
         {/* ── Plan cards ─────────────────────────────────────────── */}
         <div className="space-y-4">
           <TotePlansCard />
+          <LadderJigCard />
           {PUBLIC_PLANS.map((plan) => (
             <PlanCard key={plan.id} plan={plan} />
           ))}

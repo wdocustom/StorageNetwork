@@ -1,5 +1,6 @@
 "use server";
 
+import { diyPlansEmailUrl } from "@/lib/emails/plansTemplates";
 import { siteConfig } from "@/config/site";
 import {
   sendTransactionalEmail,
@@ -363,6 +364,7 @@ export async function createQuote(
             installerBusinessName: effectiveBusinessName || "Your Installer",
             zip: deliveryZip,
             quoteData: quote_data as Array<{ desc?: string; cols?: number; rows?: number; price?: number }>,
+            diyPlansUrl: diyPlansEmailUrl(quote_data, "waitlist_email"),
           }).catch((err) => {
             console.error("[Quote] Waitlist customer confirmation email failed (non-fatal):", err);
           });
@@ -688,6 +690,7 @@ export async function createQuote(
           : null,
         deliveryFee: delivery_fee || 0,
         buildSnapshotUrl: build_snapshot_url || undefined,
+        diyPlansUrl: diyPlansEmailUrl(effectiveQuoteData, "quote_email"),
       });
 
       const bizName = effectiveBusinessName || "Your Installer";
