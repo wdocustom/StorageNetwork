@@ -9,16 +9,27 @@ import {
   enforceActionRateLimit,
   RateLimitError,
 } from "@/lib/server/action-rate-limit";
+import {
+  TOTE_PLAN_ID,
+  TOTE_PLAN_TIERS,
+  encodeTotePlanConfig,
+  isTotePlanTier,
+  parseTotePlanConfig,
+  totePlanName,
+  totePlanSummary,
+} from "@/lib/tote-plans";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// DIY Plan Checkout — Stripe Checkout Session for custom blueprint PDFs
+// DIY Plan Checkout — Stripe Checkout Sessions for retail tote plans
 //
 // Purchase flow:
-//   1. User configures a unit on /design, clicks "Buy DIY Plans ($19)"
-//   2. Config is serialized and passed to /plans/checkout?config=[data]
-//   3. createDIYPlanCheckout() creates a Stripe Checkout Session
-//   4. On success redirect, user lands on /plans/checkout/success with
-//      the config re-hydrated so the PDF generator can run client-side
+//   1. Retail customer designs a unit on /design, clicks "DIY Plans"
+//   2. /plans/checkout?config=[data] — picks a tier (PDF or Interactive)
+//   3. createDIYPlanCheckout() creates a Stripe Checkout Session; the
+//      validated config + tier ride in session metadata
+//   4. Stripe returns to /plans/build?session_id=… where
+//      tote-plan-access.ts verifies payment, records the purchase in
+//      public_plan_purchases and emails a permanent access link
 //
 // Paid Pro subscribers and admins get free access (no Stripe checkout).
 // No Stripe Connect — all revenue goes to platform.
@@ -27,27 +38,6 @@ import {
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-12-15.clover",
 });
-
-const DIY_PLAN_PRICE_CENTS = 1900; // $19.00
-
-export interface DIYPlanCheckoutConfig {
-  cols: number;
-  rows: number;
-  toteType: "HDX" | "GM";
-  unitType: "standard" | "mini";
-  orientation: "standard" | "sideways";
-  hasWheels: boolean;
-  hasTop: boolean;
-  hasTotes: boolean;
-  totalW: number;
-  totalH: number;
-  depth: number;
-  /** Installer context — carried through to PDF branding */
-  installerId?: string;
-  installerSlug?: string | null;
-  installerPhone?: string | null;
-  installerName?: string;
-}
 
 /**
  * Check if the current user has free DIY plan access.
@@ -84,7 +74,8 @@ export async function checkDIYPlanAccess(): Promise<{
 }
 
 export async function createDIYPlanCheckout(
-  config: DIYPlanCheckoutConfig
+  rawConfig: unknown,
+  rawTier: unknown,
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   // SECURITY (H-3): each call provisions a Stripe Checkout Session. Cap
   // per identity to prevent scripted abuse of Stripe's session API.
@@ -102,6 +93,15 @@ export async function createDIYPlanCheckout(
     throw err;
   }
 
+  const config = parseTotePlanConfig(rawConfig);
+  if (!config) {
+    return { success: false, error: "Plans are available for single units up to 4 wide × 6 tall." };
+  }
+  if (!isTotePlanTier(rawTier)) {
+    return { success: false, error: "Pick a plan option." };
+  }
+  const tier = TOTE_PLAN_TIERS[rawTier];
+
   try {
     const baseUrl = siteConfig.baseUrl;
 
@@ -111,9 +111,8 @@ export async function createDIYPlanCheckout(
     const buyer = await getAuthenticatedUser();
     const attribution = await resolvePromoterAttributionForCheckout(buyer?.id ?? null);
 
-    // Serialize config into the success URL so the PDF generator can use it
-    const configParam = encodeURIComponent(JSON.stringify(config));
-    const desc = `${config.cols}×${config.rows} ${config.unitType === "mini" ? "Mini" : "Standard"} Tote Organizer`;
+    const configParam = encodeTotePlanConfig(config);
+    const name = totePlanName(config);
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -122,21 +121,21 @@ export async function createDIYPlanCheckout(
           price_data: {
             currency: "usd",
             product_data: {
-              name: `DIY Blueprint — ${desc}`,
-              description: `Complete visual build plan: 3D assembly diagrams, cut list, shopping list, and step-by-step instructions for a ${desc}.`,
+              name: `${tier.name} — ${name}`,
+              description: `${totePlanSummary(config)}. ${tier.tagline}`,
             },
-            unit_amount: DIY_PLAN_PRICE_CENTS,
+            unit_amount: tier.price,
           },
           quantity: 1,
         },
       ],
-      success_url: `${baseUrl}/plans/checkout/success?config=${configParam}&session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${baseUrl}/plans/build?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/plans/checkout?config=${configParam}&cancelled=1`,
       metadata: {
         type: "diy_plan",
+        plan_id: TOTE_PLAN_ID,
+        tier: tier.id,
         config: JSON.stringify(config),
-        ...(config.installerId ? { installer_id: config.installerId } : {}),
-        ...(config.installerSlug ? { installer_slug: config.installerSlug } : {}),
         ...(attribution
           ? { promoter_id: attribution.promoterId, promoter_referral_code: attribution.code }
           : {}),
@@ -154,31 +153,5 @@ export async function createDIYPlanCheckout(
       success: false,
       error: "Failed to create checkout. Please try again.",
     };
-  }
-}
-
-/**
- * Verify a completed Stripe checkout session for a DIY plan purchase.
- */
-export async function verifyDIYPlanPurchase(
-  sessionId: string
-): Promise<{ success: boolean; verified: boolean; config?: DIYPlanCheckoutConfig }> {
-  try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-
-    if (
-      session.payment_status === "paid" &&
-      session.metadata?.type === "diy_plan"
-    ) {
-      const config = session.metadata.config
-        ? (JSON.parse(session.metadata.config) as DIYPlanCheckoutConfig)
-        : undefined;
-
-      return { success: true, verified: true, config };
-    }
-
-    return { success: true, verified: false };
-  } catch {
-    return { success: false, verified: false };
   }
 }

@@ -1,12 +1,15 @@
-"use server";
+import "server-only";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GENERATE DIY PLAN — Server action that produces a complete, printable
+// GENERATE DIY PLAN — Server module that produces a complete, printable
 // build plan for any tote organizer configuration.
 //
 // Combines the build engine (cut lists, shopping lists, bin-packing)
 // with the assembly step system (instructions, tools, pro tips)
 // into a single comprehensive plan document ready for rendering.
+//
+// Deliberately NOT a "use server" action: the plan is a paid product, so
+// callers (tote-plan-access.ts) check the purchase before generating it.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { generateBuildManifest } from "@/lib/buildEngine";
@@ -42,6 +45,8 @@ export interface PlanDimensions {
 }
 
 export interface PlanAssemblyStep {
+  /** Guide step id — matches AssemblyStepSnapshots output */
+  id: string;
   stepNumber: number;
   title: string;
   instruction: string;
@@ -205,11 +210,15 @@ export async function generateDIYPlan(
   const buildConfig: BuildConfig = { hasWheels, hasTop, toteType };
   const rawSteps = getStepsForConfig(buildConfig);
   const assemblySteps: PlanAssemblyStep[] = rawSteps.map((step, idx) => ({
+    id: step.id,
     stepNumber: idx + 1,
     title: resolveTokens(step.title, cols, rows, buildConfig),
     instruction: resolveTokens(step.instruction, cols, rows, buildConfig),
     materials: computeMaterials(step, cols, rows, buildConfig),
-    tools: step.tools,
+    tools: step.tools.map((tool) => ({
+      ...tool,
+      detail: tool.detail ? resolveTokens(tool.detail, cols, rows, buildConfig) : undefined,
+    })),
     screwType: step.screwType,
     proTip: step.proTip ? resolveTokens(step.proTip, cols, rows, buildConfig) : undefined,
   }));

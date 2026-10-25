@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase-server";
 import { getPlanById } from "@/lib/plans-config";
-import { sendPlanAccessEmail } from "@/lib/emails/plansTemplates";
+import { sendPlanAccessEmail, sendTotePlanAccessEmail } from "@/lib/emails/plansTemplates";
+import { TOTE_PLAN_ID, isTotePlanTier, parseTotePlanConfig } from "@/lib/tote-plans";
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
     // Find all purchases for this email (optionally filtered by plan)
     let query = supabase
       .from("public_plan_purchases")
-      .select("access_token, plan_id")
+      .select("access_token, plan_id, tier, build_config")
       .eq("email", email.toLowerCase().trim());
 
     if (planId) query = query.eq("plan_id", planId);
@@ -29,6 +30,13 @@ export async function POST(request: NextRequest) {
 
     // Send one email per purchased plan
     for (const purchase of purchases) {
+      if (purchase.plan_id === TOTE_PLAN_ID) {
+        const config = parseTotePlanConfig(purchase.build_config);
+        if (config && isTotePlanTier(purchase.tier)) {
+          await sendTotePlanAccessEmail(email.toLowerCase().trim(), config, purchase.tier, purchase.access_token);
+        }
+        continue;
+      }
       const plan = getPlanById(purchase.plan_id);
       if (!plan) continue;
       await sendPlanAccessEmail(email.toLowerCase().trim(), plan, purchase.access_token);

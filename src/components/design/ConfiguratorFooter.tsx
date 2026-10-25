@@ -19,6 +19,7 @@ import { useState, useEffect } from "react";
 import type { ConfiguratorSidebarProps } from "./configurator-types";
 import { RollingPrice } from "./configurator-primitives";
 import { checkDIYPlanAccess } from "@/app/actions/diy-plan-checkout";
+import { TOTE_PLAN_TIERS, encodeTotePlanConfig, formatPlanPrice, parseTotePlanConfig } from "@/lib/tote-plans";
 import { formatCurrency } from "@/utils/paymentHelpers";
 import { getChairDescription } from "@/lib/chairs";
 
@@ -240,38 +241,18 @@ export default function ConfiguratorFooter({
         </p>
       )}
 
-      {/* DIY Plans CTA — temporarily disabled */}
-      {/* <DIYPlansCTA
-        build={props.build}
-        orderItems={props.orderItems}
-        installerId={props.installerId}
-        installerSlug={props.installerSlug}
-        installerPhone={props.installerPhone}
-        brandingTitle={props.brandingTitle}
-      /> */}
+      {/* DIY plans — retail only: never on an installer's own booking flow */}
+      {(!props.installerId || props.zipOutOfArea) && <DIYPlansCTA props={props} activeStep={activeStep} />}
     </div>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// DIY Plans CTA — "Buy DIY Plans ($19)" secondary button
+// DIY Plans CTA — retail customers buy plans for the unit on screen
+// (PDF or Interactive Build Guide, chosen on /plans/checkout)
 // ═══════════════════════════════════════════════════════════════════════════
 
-function DIYPlansCTA({
-  build,
-  orderItems,
-  installerId,
-  installerSlug,
-  installerPhone,
-  brandingTitle,
-}: {
-  build: ConfiguratorSidebarProps["build"];
-  orderItems: ConfiguratorSidebarProps["orderItems"];
-  installerId: string;
-  installerSlug: string | null;
-  installerPhone: string | null;
-  brandingTitle: string;
-}) {
+function DIYPlansCTA({ props, activeStep }: { props: ConfiguratorSidebarProps; activeStep: number }) {
   const router = useRouter();
   const [freeAccess, setFreeAccess] = useState(false);
 
@@ -279,54 +260,42 @@ function DIYPlansCTA({
     checkDIYPlanAccess().then((result) => setFreeAccess(result.hasFreeAccess));
   }, []);
 
-  const item = orderItems[0];
-  const config = {
-    cols: item?.cols ?? build.cols,
-    rows: item?.rows ?? build.rows,
-    toteType: (item?.toteType ?? "HDX") as "HDX" | "GM",
-    unitType: (item?.unitType ?? build.unitType) as "standard" | "mini",
-    orientation: (item?.orientation ?? build.orientation) as "standard" | "sideways",
-    hasWheels: item?.hasWheels ?? false,
-    hasTop: item?.hasTop ?? false,
-    hasTotes: item?.hasTotes ?? true,
-    totalW: item?.totalW ?? build.totalW,
-    totalH: item?.totalH ?? build.totalH,
-    depth: item?.depth ?? 30,
-    ...(installerSlug || installerId
-      ? {
-          installerId,
-          installerSlug,
-          installerPhone,
-          installerName: brandingTitle,
-        }
-      : {}),
-  };
+  // Plans model the plywood-rail tote organizer only — not shelving,
+  // chairs, planters, or the 2×4-rail construction mode.
+  const otherProduct =
+    props.chairSelected ||
+    props.use2x4Rails ||
+    (activeStep === 1 && (props.shelvingConfigId || props.raisedBedPreviewPrice != null));
+  const config = parseTotePlanConfig({
+    cols: props.build.cols,
+    rows: props.build.rows,
+    toteType: props.toteType,
+    unitType: props.unitType,
+    orientation: props.orientation,
+    hasWheels: props.hasWheels,
+    hasTop: props.effectiveHasTop,
+  });
+  if (otherProduct || !config) return null;
 
-  const isStandardUnit = !item?.shelvingConfigId && !item?.overheadStorageConfig;
-  if (!isStandardUnit && orderItems.length > 0) return null;
-
-  const handleClick = () => {
-    const encoded = encodeURIComponent(JSON.stringify(config));
-    router.push(`/plans/checkout?config=${encoded}`);
-  };
+  const lowest = formatPlanPrice(TOTE_PLAN_TIERS.pdf.price);
 
   return (
     <div className="mt-3 border-t border-zinc-800/50 pt-3">
       <button
-        onClick={handleClick}
+        onClick={() => router.push(`/plans/checkout?config=${encodeTotePlanConfig(config)}`)}
         className={`flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${
           freeAccess
             ? "border-green-500/30 bg-green-500/10 text-green-400 hover:border-green-400/50 hover:bg-green-500/20 hover:text-green-300"
-            : "border-blue-500/30 bg-blue-500/10 text-blue-400 hover:border-blue-400/50 hover:bg-blue-500/20 hover:text-blue-300"
+            : "border-yellow-400/30 bg-yellow-400/10 text-yellow-400 hover:border-yellow-400/50 hover:bg-yellow-400/20 hover:text-yellow-300"
         }`}
       >
         <Hammer className="h-3.5 w-3.5" />
-        {freeAccess ? "Get DIY Plans" : "Buy DIY Plans ($19)"}
+        {freeAccess ? "Get DIY Plans" : `Build It Yourself — Plans from ${lowest}`}
       </button>
       <p className="mt-1.5 text-center text-[9px] text-zinc-600">
         {freeAccess
-          ? "Included with your subscription — PDF with cut lists"
-          : "Build it yourself — visual step-by-step PDF with cut lists"}
+          ? "Included with your subscription — PDF + interactive 3D guide"
+          : "Printable PDF or interactive 3D build guide, sized to this design"}
       </p>
     </div>
   );
