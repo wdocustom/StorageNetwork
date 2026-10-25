@@ -71,3 +71,23 @@ describe("tiers", () => {
     expect(formatPlanPrice(1950)).toBe("$19.50");
   });
 });
+
+describe("wall fit", () => {
+  it("matches the plan generator's finished size", async () => {
+    const { totePlanOuterSize } = await import("./tote-plans");
+    // 4×4 HDX on casters: 86-1/2" W × 72-1/4" H (same as the PDF cover)
+    expect(totePlanOuterSize({ cols: 4, rows: 4, toteType: "HDX", hasWheels: true, hasTop: true })).toEqual({
+      widthIn: 86.5,
+      heightIn: 72.25,
+    });
+  });
+
+  it("picks the largest grid that fits, capped at plan limits", async () => {
+    const { fitTotePlanToWall } = await import("./tote-plans");
+    expect(fitTotePlanToWall(86.5, 72.25, { toteType: "HDX", hasWheels: true })).toEqual({ cols: 4, rows: 4 });
+    expect(fitTotePlanToWall(86, 72, { toteType: "HDX", hasWheels: true })).toEqual({ cols: 3, rows: 3 });
+    expect(fitTotePlanToWall(400, 200, { toteType: "GM", hasWheels: false })).toEqual({ cols: 4, rows: 6 });
+    expect(fitTotePlanToWall(15, 100, { toteType: "HDX", hasWheels: false })).toBeNull();
+    expect(fitTotePlanToWall(NaN, 100, { toteType: "HDX", hasWheels: false })).toBeNull();
+  });
+});

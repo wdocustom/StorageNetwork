@@ -151,3 +151,51 @@ function safeDecode(value: string): string | null {
     return null;
   }
 }
+
+// ── Wall fit ─────────────────────────────────────────────────────────────
+// Same geometry as the plan generator: each tote bay is the tote opening
+// plus one 1-1/2" upright, each tier is 16", plates and top gap add 5-1/2",
+// casters add 2-3/4".
+
+const OPENING_IN = { HDX: 19.75, GM: 20.75 } as const;
+const POST_IN = 1.5;
+const TIER_IN = 16;
+const FRAME_EXTRA_H_IN = 5.5;
+const CASTER_IN = 2.75;
+
+export function totePlanOuterSize(config: TotePlanConfig): { widthIn: number; heightIn: number } {
+  return {
+    widthIn: config.cols * OPENING_IN[config.toteType] + (config.cols + 1) * POST_IN,
+    heightIn: config.rows * TIER_IN + FRAME_EXTRA_H_IN + (config.hasWheels ? CASTER_IN : 0),
+  };
+}
+
+/**
+ * Largest grid (within plan limits) that fits a wall opening. Returns null
+ * when not even a 1×1 fits.
+ */
+export function fitTotePlanToWall(
+  wallWidthIn: number,
+  wallHeightIn: number,
+  options: Pick<TotePlanConfig, "toteType" | "hasWheels">,
+): { cols: number; rows: number } | null {
+  if (!(wallWidthIn > 0) || !(wallHeightIn > 0)) return null;
+  const cols = Math.min(
+    TOTE_PLAN_LIMITS.maxCols,
+    Math.floor((wallWidthIn - POST_IN) / (OPENING_IN[options.toteType] + POST_IN)),
+  );
+  const rows = Math.min(
+    TOTE_PLAN_LIMITS.maxRows,
+    Math.floor((wallHeightIn - FRAME_EXTRA_H_IN - (options.hasWheels ? CASTER_IN : 0)) / TIER_IN),
+  );
+  if (cols < 1 || rows < 1) return null;
+  return { cols, rows };
+}
+
+export const DEFAULT_TOTE_PLAN_CONFIG: TotePlanConfig = {
+  cols: 4,
+  rows: 4,
+  toteType: "HDX",
+  hasWheels: true,
+  hasTop: true,
+};
