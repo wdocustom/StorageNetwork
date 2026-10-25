@@ -122,7 +122,7 @@ export default function RackPage() {
   // Job-linked racks: ask the same installer for a quote instead of the
   // self-serve configurator.
   const [requestQuoteUrl, setRequestQuoteUrl] = useState<string | null>(null);
-  const [otherRacksTotals, setOtherRacksTotals] = useState({ slots: 0, filledSlots: 0 });
+  const [otherRacksTotals, setOtherRacksTotals] = useState({ slots: 0, filledSlots: 0, items: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -193,7 +193,7 @@ export default function RackPage() {
       setRack(result.rack);
       setSlots(result.slots);
       setLinkedRacks(result.linkedRacks);
-      setOtherRacksTotals(result.otherRacksTotals ?? { slots: 0, filledSlots: 0 });
+      setOtherRacksTotals(result.otherRacksTotals ?? { slots: 0, filledSlots: 0, items: 0 });
       setInstaller(result.installer);
       setRequestQuoteUrl(result.requestQuoteUrl ?? null);
     }
@@ -1022,8 +1022,10 @@ export default function RackPage() {
   // "Running out of space" looks at every rack the customer has, not just
   // this one — a full Rack 1 with 21 empty racks beside it isn't out of space.
   const allSlots = totalSlots + otherRacksTotals.slots;
+  const allFilledSlots = filledSlots + otherRacksTotals.filledSlots;
+  const allItems = totalItems + otherRacksTotals.items;
   const customerUtilizationPct = allSlots > 0
-    ? Math.round(((filledSlots + otherRacksTotals.filledSlots) / allSlots) * 100)
+    ? Math.round((allFilledSlots / allSlots) * 100)
     : 0;
   const scoreMsg = getScoreMessage(utilizationPct);
   const designUrl =
@@ -1103,6 +1105,14 @@ export default function RackPage() {
                 </a>
               ))}
             </div>
+          )}
+          {linkedRacks.length > 0 && (
+            <p className="mt-2 text-xs text-slate-400">
+              All {linkedRacks.length + 1} racks:{" "}
+              <span className="font-semibold text-white">{allFilledSlots}</span> of {allSlots} totes cataloged
+              {" "}&middot;{" "}
+              <span className="font-semibold text-white">{allItems}</span> {allItems === 1 ? "item" : "items"}
+            </p>
           )}
         </div>
       </header>
@@ -1208,7 +1218,11 @@ export default function RackPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={totalItems > 0 ? `Search ${totalItems} items across ${filledSlots} totes...` : "Search items across totes..."}
+            placeholder={
+              searchAll && linkedRacks.length > 0
+                ? `Search ${allItems} items across all ${linkedRacks.length + 1} racks...`
+                : totalItems > 0 ? `Search ${totalItems} items across ${filledSlots} totes...` : "Search items across totes..."
+            }
             className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-yellow-400"
           />
           {linkedRacks.length > 0 && (

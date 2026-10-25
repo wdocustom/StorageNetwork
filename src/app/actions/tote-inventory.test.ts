@@ -114,14 +114,14 @@ describe("getRackByToken linkedRacks", () => {
       inventory_racks: Array.from({ length: 22 }, (_, i) => rack(i + 1, { lead_id: "lead-kash", customer_email: null })),
       // Only filled slots come back from the !inner join
       inventory_slots: [
-        { id: "s-2-1", rack_id: "rack-2" },
-        { id: "s-2-2", rack_id: "rack-2" },
-        { id: "s-9-1", rack_id: "rack-9" },
+        { id: "s-2-1", rack_id: "rack-2", inventory_items: [{ id: "i1" }, { id: "i2" }] },
+        { id: "s-2-2", rack_id: "rack-2", inventory_items: [{ id: "i3" }] },
+        { id: "s-9-1", rack_id: "rack-9", inventory_items: [{ id: "i4" }] },
       ],
     };
 
     const result = await getRackByToken("token-1-xxxxxxxxxxxxxxxx");
 
-    expect(result.otherRacksTotals).toEqual({ slots: 21 * 8, filledSlots: 3 });
+    expect(result.otherRacksTotals).toEqual({ slots: 21 * 8, filledSlots: 3, items: 4 });
   });
 });
