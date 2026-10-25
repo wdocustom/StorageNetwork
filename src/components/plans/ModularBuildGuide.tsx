@@ -109,7 +109,7 @@ function ModuleHud({
   if (section.kind !== "module") return null;
   const t = section.type;
   return (
-    <div className="w-[180px] rounded-xl border border-yellow-400/30 bg-slate-900/95 p-2.5 shadow-xl backdrop-blur sm:w-[230px]">
+    <div className="w-[170px] rounded-xl border border-yellow-400/30 bg-slate-900/95 p-2 shadow-xl backdrop-blur sm:w-[230px] sm:p-2.5">
       <div className="mb-1.5 flex items-baseline justify-between gap-2">
         <p className="text-xs font-black text-white">
           Building <span className="text-yellow-400">Module {t.letter}</span>
@@ -121,7 +121,7 @@ function ModuleHud({
       <SystemMap
         design={plan.design}
         highlight={(m) => m.type === t.letter}
-        className="mb-1.5 h-16 w-full sm:h-20"
+        className="mb-1.5 h-11 w-full sm:h-20"
         title={`Module ${t.letter} highlighted in your system`}
       />
       <p className="mb-2 text-[10px] leading-snug text-stone-400">
