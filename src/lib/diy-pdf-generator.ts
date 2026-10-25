@@ -297,7 +297,7 @@ function renderCover(doc: jsPDF, input: DIYPDFInput, layout: DesignLayout) {
     ["Depth", d.depth],
     ["Totes", String(plan.toteCount)],
     ["2×4×8' boards", String(plan.totals.boards)],
-    [plan.moduleCount > 1 ? "Modules to build" : '3/4" plywood sheets', String(plan.moduleCount > 1 ? plan.moduleCount : plan.totals.sheets)],
+    plan.moduleCount > 1 ? ["Modules to build", String(plan.moduleCount)] : ["2×4 rails", String(plan.railBoards.rails)],
   ];
   const statY = heroY + heroH + 7;
   const cellW = CONTENT_W / 3;
@@ -514,7 +514,7 @@ function renderCutPlan(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
   setText(doc, 9, COLORS.body);
   cur.y = paragraph(
     doc,
-    `Each bar is one 2×4×8' board (96"). Tan sections are your cuts (letter = module type), gray is offcut. ${plan.totals.boards} boards total. Stack identical parts to check they match.`,
+    `Uprights and plates: each bar is one 2×4×8' board (96"). Tan sections are your cuts (letter = module type), gray is offcut. ${plan.cutBoards.length} boards, plus ${plan.railBoards.boards} more ripped into rails below. Stack identical parts to check they match.`,
     MARGIN,
     cur.y,
     CONTENT_W,
@@ -556,10 +556,44 @@ function renderCutPlan(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
     cur.y += barH + 6;
   }
 
-  cur.ensure(20);
+  // Rail boards — one 2×4 ripped in half, three 30" rails per half
+  cur.ensure(36);
   cur.y += 2;
   setText(doc, 10, COLORS.ink, "bold");
-  doc.text("Plywood Ripping Guide", MARGIN, cur.y);
+  doc.text("2×4 Rail Boards", MARGIN, cur.y);
+  cur.y += 5;
+  setText(doc, 8.5, COLORS.ink, "bold");
+  doc.text(`Rip ${plan.railBoards.boards} board${plan.railBoards.boards === 1 ? "" : "s"} like this — 6 rails each`, MARGIN, cur.y);
+  cur.y += 2.5;
+  const halfH = 5.5;
+  for (let half = 0; half < 2; half++) {
+    const y = cur.y + half * (halfH + 0.8);
+    doc.setFillColor(...COLORS.waste);
+    doc.rect(MARGIN, y, CONTENT_W, halfH, "F");
+    let x = MARGIN;
+    for (let r = 0; r < 3; r++) {
+      const w = (30 / 96) * CONTENT_W;
+      doc.setFillColor(...COLORS.lumber);
+      doc.rect(x, y, w, halfH, "F");
+      doc.setDrawColor(...COLORS.white);
+      doc.setLineWidth(0.6);
+      doc.line(x + w, y, x + w, y + halfH);
+      setText(doc, 7, COLORS.lumberInk, "bold");
+      doc.text('Rail 30"', x + w / 2, y + halfH / 2 + 1.1, { align: "center" });
+      x += w;
+    }
+    doc.setDrawColor(...COLORS.faint);
+    doc.setLineWidth(0.3);
+    doc.rect(MARGIN, y, CONTENT_W, halfH, "S");
+  }
+  cur.y += halfH * 2 + 0.8 + 4;
+  setText(doc, 7.5, COLORS.muted);
+  doc.text('Rip down the middle (fence at 1-11/16"), then crosscut each half into 3 rails at 30" — about 5-5/8" offcut per half.', MARGIN, cur.y);
+  cur.y += 7;
+
+  cur.ensure(20);
+  setText(doc, 10, COLORS.ink, "bold");
+  doc.text("Rails & Plywood", MARGIN, cur.y);
   cur.y += 5.5;
   plan.plywoodNotes.forEach((note, i) => {
     const h = measure(doc, note, CONTENT_W - 7, 9);
@@ -643,8 +677,10 @@ function renderStep(
   doc.text(pdfText(step.title), MARGIN + 15, cur.y + 2.5);
   cur.y += 10;
 
+  // Shrink the render (never below ~half size) so the whole step fits on its page
   const imgW = CONTENT_W;
-  const imgH = imgW * 0.62;
+  const room = BODY_BOTTOM - cur.y - 7 - stepBodyHeight(doc, step);
+  const imgH = Math.max(imgW * 0.34, Math.min(imgW * 0.62, room));
   addImageSafe(doc, image, MARGIN, cur.y, imgW, imgH, `Step ${step.stepNumber}`);
   doc.setDrawColor(...COLORS.faint);
   doc.setLineWidth(0.3);
@@ -652,6 +688,34 @@ function renderStep(
   cur.y += imgH + 7;
 
   renderStepBody(doc, cur, step);
+}
+
+const STEP_BOX_GAP = 6;
+const STEP_BOX_LEFT = CONTENT_W * 0.58;
+
+function stepLines(step: PlanAssemblyStep) {
+  return {
+    partLines: step.materials.map((m) => `${m.qty} × ${m.name}${m.detail ? ` — ${m.detail}` : ""}`),
+    toolLines: step.tools.map((t) => (t.detail ? `${t.name} (${t.detail})` : t.name)),
+  };
+}
+
+function stepBoxHeight(doc: jsPDF, step: PlanAssemblyStep): number {
+  const { partLines, toolLines } = stepLines(step);
+  if (!partLines.length && !toolLines.length) return 0;
+  const rightW = CONTENT_W - STEP_BOX_LEFT - STEP_BOX_GAP;
+  const colHeight = (lines: string[], w: number) => lines.reduce((h, l) => h + measure(doc, l, w - 6, 9) + 1, 0);
+  return 10 + Math.max(colHeight(partLines, STEP_BOX_LEFT), colHeight(toolLines, rightW));
+}
+
+/** Height renderStepBody will use — keep in step with it. */
+function stepBodyHeight(doc: jsPDF, step: PlanAssemblyStep): number {
+  let h = measure(doc, step.instruction, CONTENT_W, 10.5) + 4;
+  const box = stepBoxHeight(doc, step);
+  if (box) h += box + 4;
+  if (step.screwType) h += measure(doc, `${step.screwType.label} — ${step.screwType.description}`, CONTENT_W - 30, 9) + 5 + 3;
+  if (step.proTip) h += measure(doc, step.proTip, CONTENT_W - 30, 9) + 5 + 3;
+  return h + 10;
 }
 
 /** Instruction, parts/tools box, fastener, pro tip, checkbox. */
@@ -662,13 +726,11 @@ function renderStepBody(doc: jsPDF, cur: Cursor, step: PlanAssemblyStep) {
   setText(doc, 10.5, COLORS.ink);
   cur.y = paragraph(doc, step.instruction, MARGIN, cur.y, CONTENT_W, 10.5) + 4;
 
-  const gap = 6;
-  const leftW = CONTENT_W * 0.58;
+  const gap = STEP_BOX_GAP;
+  const leftW = STEP_BOX_LEFT;
   const rightW = CONTENT_W - leftW - gap;
-  const partLines = step.materials.map((m) => `${m.qty} × ${m.name}${m.detail ? ` — ${m.detail}` : ""}`);
-  const toolLines = step.tools.map((t) => (t.detail ? `${t.name} (${t.detail})` : t.name));
-  const colHeight = (lines: string[], w: number) => lines.reduce((h, l) => h + measure(doc, l, w - 6, 9) + 1, 0);
-  const boxH = 10 + Math.max(colHeight(partLines, leftW), colHeight(toolLines, rightW));
+  const { partLines, toolLines } = stepLines(step);
+  const boxH = stepBoxHeight(doc, step);
 
   if (partLines.length || toolLines.length) {
     cur.ensure(boxH);

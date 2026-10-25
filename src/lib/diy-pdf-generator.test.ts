@@ -13,7 +13,8 @@ describe("generateDIYPlan", () => {
   it("cuts exactly the boards the build engine counts, for every module", async () => {
     for (const code of ["H4x4wt", "H6x6t", "H2x4t.H2x2t.H2x4t", "H9x10t", "G4x8w"]) {
       const p = await plan(code);
-      expect(p.cutBoards.length).toBe(p.totals.boards);
+      // uprights + plates (packed) and rail boards add up to the engine's 2×4 total
+      expect(p.cutBoards.length + p.railBoards.boards).toBe(p.totals.boards);
       const labels = new Set(p.cutBoards.flatMap((b) => b.cuts.map((c) => c.label.split(" ")[0])));
       expect([...labels].sort()).toEqual(p.moduleTypes.map((t) => t.letter).sort());
     }
@@ -23,6 +24,7 @@ describe("generateDIYPlan", () => {
     for (const code of ["H6x6t", "H9x10t", "H2x4t.H2x2t.H2x4t"]) {
       const design = decodeTotePlanDesign(code)!;
       const p = await generateDIYPlan(design);
+      // Plywood-mode engine run: same module split rules, and it stacks tiers
       const manifest = generateBuildManifest(
         design.units.map((u) => ({
           ...u,
@@ -77,10 +79,46 @@ describe("generateDIYPlan", () => {
     expect(p.moduleTypes[0].steps.some((s) => s.id === "attach-top")).toBe(true);
   });
 
+  it("builds every module with 2×4 rails, never plywood strips or back supports", async () => {
+    for (const code of ["H4x4wt", "H6x6t", "G4x8w"]) {
+      const p = await plan(code);
+      for (const t of p.moduleTypes) {
+        const ids = t.steps.map((s) => s.id);
+        expect(ids).not.toContain("install-back-supports");
+        const rip = t.steps.find((s) => s.id === "rip-rails")!;
+        expect(rip.title).toBe("Rip the 2×4 Rails");
+        expect(rip.instruction).toContain('1-11/16"');
+        const ladders = t.steps.find((s) => s.id === "build-ladders")!;
+        expect(ladders.screwType?.label).toBe('#9 × 3" Star Drive');
+        expect(ladders.materials.find((m) => m.name === '#9 × 3" Screws')?.qty).toBe(String(t.cols * t.rows * 2 * 4));
+        expect(t.parts.map((x) => x.name)).toEqual(t.hasTop ? ["Upright", "Plate", "Rail", "Worktop"] : ["Upright", "Plate", "Rail"]);
+      }
+      expect(JSON.stringify(p)).not.toMatch(/plywood (rail|strip)|back support/i);
+    }
+  });
+
+  it("marks rail top edges on a 15-3/4 inch pitch and uses full studs at 6 high", async () => {
+    const four = (await plan("H4x4")).moduleTypes[0];
+    expect(four.steps.find((s) => s.id === "mark-posts")!.instruction).toContain('14-5/8", 30-3/8", 46-1/8" and 61-7/8"');
+    expect(four.steps.find((s) => s.id === "cut-uprights")!.instruction).toContain('63-3/4"');
+    const six = (await plan("H4x6")).moduleTypes[0];
+    expect(six.steps.find((s) => s.id === "cut-uprights")!.instruction).toContain("no cut needed");
+    expect(six.parts[0].length).toContain("full stud");
+  });
+
+  it("counts rail boards at 6 rails per board and only buys plywood for worktops", async () => {
+    const p = await plan("H4x4");
+    expect(p.railBoards).toEqual({ boards: 6, rails: 32 });
+    expect(p.shoppingList.some((i) => i.name === "Plywood")).toBe(false);
+    expect(p.shoppingList.some((i) => i.name.includes('1-5/8"'))).toBe(false);
+    const withTop = await plan("H4x4t");
+    expect(withTop.shoppingList.find((i) => i.name === "Plywood")?.qty).toBe(1);
+  });
+
   it("resolves every template token in the text customers read", async () => {
     const p = await plan("H9x10t");
     const text = JSON.stringify([p.moduleTypes, p.units]);
-    expect(text).not.toMatch(/OPENING_SPAN|PLATE_LENGTH|UPRIGHT_HEIGHT|_QTY|RAIL_LENGTH|UNIT_WIDTH/);
+    expect(text).not.toMatch(/OPENING_SPAN|PLATE_LENGTH|UPRIGHT_HEIGHT|UPRIGHT_CUT|UPRIGHT_DETAIL|RAIL_MARKS|_QTY|RAIL_LENGTH|UNIT_WIDTH/);
   });
 });
 

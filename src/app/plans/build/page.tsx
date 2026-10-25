@@ -105,6 +105,7 @@ function PlanSnapshots({
       toteType={type.toteType}
       hasWheels={type.hasWheels}
       hasTop={type.hasTop}
+      rails="2x4"
       onProgress={handleProgress}
       onComplete={handleComplete}
     />

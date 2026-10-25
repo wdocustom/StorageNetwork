@@ -226,6 +226,7 @@ export default function ModularBuildGuide({ plan, onClose }: { plan: CompleteDIY
       toteType={t.toteType}
       hasWheels={t.hasWheels}
       hasTop={t.hasTop}
+      rails="2x4"
       onClose={onClose}
       label={multi ? `Module ${t.letter}` : undefined}
       hud={multi ? <ModuleHud plan={plan} sections={sections} index={index} onChange={go} /> : undefined}

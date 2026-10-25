@@ -23,6 +23,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { BESTSELLER_PRESETS } from "@/lib/presets";
+import { RAILS_2X4, upright2x4 } from "@/components/visualizer/assemblySteps";
 
 export const TOTE_PLAN_ID = "tote-organizer";
 
@@ -46,7 +47,7 @@ export const TOTE_PLAN_TIERS: Record<TotePlanTier, TotePlanTierInfo> = {
     includes: [
       "Every assembly step rendered in 3D for your exact build",
       "Shopping list with exact quantities",
-      "Board-by-board cut diagrams and plywood ripping guide",
+      "Board-by-board cut diagrams, including the 2×4 rail rips",
       "Tools checklist, fastener callouts, and pro tips",
     ],
   },
@@ -105,9 +106,10 @@ export const TOTE_PLAN_LIMITS = {
   maxUnits: 8,
 };
 
-/** Build-engine split points (must match buildEngine.ts). */
+/** Build-engine split points (must match buildEngine.ts): plates fit an
+ *  8' board up to 4 wide; a 2×4-rail upright is a full 8' stud at 6 high. */
 export const MODULE_MAX_COLS = 4;
-export const MODULE_MAX_ROWS = 6;
+export const MODULE_MAX_ROWS = RAILS_2X4.maxRows;
 
 const MAX_NAME_LENGTH = 40;
 
@@ -230,14 +232,15 @@ function safeDecode(value: string): string | null {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Geometry — same numbers as the build engine and plan generator
+// Geometry — DIY plans are built with 2×4 RAILS (the plans standard).
+// Same numbers as the build engine / Rack3D in 2×4-rail mode.
 // ═══════════════════════════════════════════════════════════════════════════
 
-export const TOTE_OPENING_IN: Record<TotePlanToteType, number> = { HDX: 19.75, GM: 20.75 };
+/** Universal 21" bay between uprights — fits HDX and Greenmade 27-gal totes */
+export const BAY_OPENING_IN = RAILS_2X4.opening;
 export const POST_IN = 1.5;
-export const TIER_IN = 16;
-/** Two 2×4 plates (1-1/2" each) plus the 2-1/2" gap above the top rail */
-export const FRAME_EXTRA_H_IN = 5.5;
+/** Bottom plate + top plate, 1-1/2" each */
+export const PLATES_H_IN = 3;
 export const CASTER_IN = 2.75;
 export const UNIT_DEPTH_IN = 30;
 
@@ -265,17 +268,19 @@ export function splitHeight(rows: number): number[] {
   return tiers;
 }
 
-export function moduleWidthIn(cols: number, toteType: TotePlanToteType): number {
-  return cols * TOTE_OPENING_IN[toteType] + (cols + 1) * POST_IN;
+/** Outside width of one module. Tote brand doesn't matter: the 21" bay fits both. */
+export function moduleWidthIn(cols: number): number {
+  return cols * BAY_OPENING_IN + (cols + 1) * POST_IN;
 }
 
+/** Frame height of one module (plates + upright), without casters. */
 export function moduleFrameHeightIn(rows: number): number {
-  return rows * TIER_IN + FRAME_EXTRA_H_IN;
+  return PLATES_H_IN + upright2x4(rows);
 }
 
 export function unitOuterSize(unit: TotePlanUnit): { widthIn: number; heightIn: number; depthIn: number } {
   return {
-    widthIn: splitWidth(unit.cols).reduce((s, c) => s + moduleWidthIn(c, unit.toteType), 0),
+    widthIn: splitWidth(unit.cols).reduce((s, c) => s + moduleWidthIn(c), 0),
     heightIn:
       splitHeight(unit.rows).reduce((s, r) => s + moduleFrameHeightIn(r), 0) + (unit.hasWheels ? CASTER_IN : 0),
     depthIn: UNIT_DEPTH_IN,
@@ -598,7 +603,7 @@ export function designLayout(design: TotePlanDesign, unitGapIn = 8): DesignLayou
     const colX: number[] = [];
     widths.reduce((x, c, i) => {
       colX[i] = x;
-      return x + moduleWidthIn(c, unit.toteType);
+      return x + moduleWidthIn(c);
     }, unitX);
     const tierY: number[] = [];
     tiers.reduce((y, r, i) => {
@@ -615,7 +620,7 @@ export function designLayout(design: TotePlanDesign, unitGapIn = 8): DesignLayou
         rows: m.rows,
         x: colX[m.widthIndex],
         y: tierY[m.tierIndex],
-        w: moduleWidthIn(m.cols, unit.toteType),
+        w: moduleWidthIn(m.cols),
         h: moduleFrameHeightIn(m.rows),
       });
     }

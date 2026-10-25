@@ -61,11 +61,49 @@ export interface AssemblyStep {
   proTip?: string;
 }
 
+/** How the totes are carried: 3/4" plywood strips or ripped 2×4 rails */
+export type RailStyle = "plywood" | "2x4";
+
 /** Configuration for the assembly guide */
 export interface BuildConfig {
   hasWheels: boolean;
   hasTop: boolean;
   toteType?: "HDX" | "GM";
+  /** Defaults to "plywood" (the installer standard); DIY plans use "2x4" */
+  rails?: RailStyle;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 2×4-rail construction — must mirror buildEngine.ts / Rack3D.tsx
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const RAILS_2X4 = {
+  /** Universal bay opening between uprights — fits HDX and Greenmade totes */
+  opening: 21,
+  /** Rail CENTER heights, measured up from the bottom end of the upright */
+  positions: [13.75, 29.5, 45.25, 61, 76.75, 92.5],
+  /** Upright extends this far above the top rail's center (rows 1-5) */
+  topGap: 2.75,
+  /** At 6 high the upright is a full, uncut 8' stud */
+  stock: 96,
+  maxRows: 6,
+  /** Ripped rail: 1-1/2" wide (screwed face) × 1-3/4" tall (nominal) */
+  railW: 1.5,
+  railH: 1.75,
+  /** Rip width for half a 2×4: (3-1/2" − 1/8" kerf) / 2 */
+  ripWidth: 1.6875,
+  /** Rails per 2×4×8': 2 strips × 3 rails at 30" */
+  railsPerBoard: 6,
+} as const;
+
+/** Upright length for a 2×4-rail module of `rows` tiers (rows <= 6). */
+export function upright2x4(rows: number): number {
+  return rows >= RAILS_2X4.maxRows ? RAILS_2X4.stock : RAILS_2X4.positions[rows - 1] + RAILS_2X4.topGap;
+}
+
+/** Height of each rail's TOP edge above the bottom of the upright — what the builder marks. */
+export function railTopMarks2x4(rows: number): number[] {
+  return RAILS_2X4.positions.slice(0, Math.min(rows, RAILS_2X4.maxRows)).map((c) => c + RAILS_2X4.railH / 2);
 }
 
 // Default hidden state for all groups
@@ -402,16 +440,89 @@ const ALL_STEPS: AssemblyStep[] = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 2×4-rail versions of the rail steps (ids match so the 3D guide animates
+// them the same way). Back supports are plywood offcuts — 2×4-rail units
+// don't use them; the plates squared in the top-plate step keep it rigid.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const RAILS_2X4_STEPS: Partial<Record<string, Partial<AssemblyStep>>> = {
+  "cut-uprights": {
+    instruction: "UPRIGHT_CUT",
+    materials: [{ name: "2×4 × 8' Studs", qty: "POSTS_QTY", detail: "UPRIGHT_DETAIL" }],
+    proTip:
+      "Pick the straightest studs in the pile for uprights — sight down each edge. Cut one, then use it as the template to mark the rest so every upright is identical.",
+  },
+  "rip-rails": {
+    title: "Rip the 2×4 Rails",
+    instruction:
+      "Each tote hangs by its rim on two rails, one on each side. Make them from straight 2×4×8' boards: set the table saw fence to 1-11/16\" and rip each board down the middle into two strips. Then crosscut each strip into (3) rails at RAIL_LENGTH. Every 2×4 gives you 6 rails — you need RAILS_QTY rails from RAIL_BOARDS_QTY boards.",
+    tools: [
+      { name: "Table Saw", detail: 'fence at 1-11/16"' },
+      { name: "Miter Saw", detail: "crosscut rails to RAIL_LENGTH" },
+      { name: "Safety Glasses" },
+      { name: "Push Stick" },
+    ],
+    materials: [
+      { name: "2×4 × 8' Boards", qty: "RAIL_BOARDS_QTY", detail: "Rip in half, then 3 rails per half" },
+      { name: "2×4 Rails", qty: "RAILS_QTY", detail: 'About 1-1/2" × 1-11/16" × RAIL_LENGTH' },
+    ],
+    proTip:
+      "Knock the sharp top edges off each rail with a sanding block — tote rims glide in and out without catching.",
+  },
+  "mark-posts": {
+    instruction:
+      "Measuring up from the BOTTOM end of each upright, mark the top edge of every rail at RAIL_MARKS — a 15-3/4\" step between rails. Square each mark across the inside face with a combination square and put an X just below the line so you know which side the rail goes.",
+    materials: [{ name: "Cut Uprights", qty: "POSTS_QTY", detail: "Mark rail top edges on the inside face" }],
+    proTip:
+      "Clamp all the uprights together side by side with their bottom ends flush and mark them in one pass — every rail lands at exactly the same height.",
+  },
+  "build-ladders": {
+    instruction:
+      "Pair a front and a back upright, inside faces up. Lay each rail with its top edge on its mark and its ends flush with the outside faces of both uprights (RAIL_LENGTH overall). Drive #9 × 3\" screws through the rail into each upright — 2 per end, 4 per rail. End uprights get rails on one face; middle uprights carry rails on both faces. Each finished pair is a \"ladder frame.\"",
+    screwType: {
+      label: '#9 × 3" Star Drive',
+      length: 3.0,
+      description: "Construction screw — through the 2×4 rail into the upright. No pilot hole required; keep screws 3/4\" in from the rail ends.",
+    },
+    tools: [
+      { name: "Drill/Driver" },
+      { name: "T-25 Star Bit", detail: "for #9 screws" },
+      { name: "Clamps", detail: "hold each rail on its line while driving" },
+      { name: "Speed Square", detail: "keep rails square to the uprights" },
+    ],
+    materials: [
+      { name: "2×4 Rails", qty: "RAILS_QTY", detail: "4 screws each" },
+      { name: '#9 × 3" Screws', qty: "RAIL_SCREWS_QTY", detail: "2 per rail end" },
+    ],
+    proTip:
+      "On middle uprights, shift the second side's screws about 1/2\" up or down from the first side's so they don't meet inside the upright.",
+  },
+  "attach-top-plates": {
+    proTip:
+      "This step is what makes a 2×4-rail frame rigid. Measure corner-to-corner diagonals — when they match within 1/8\", you're square. If not, push the long-diagonal corner before driving the last screws.",
+  },
+  final: {
+    proTip:
+      "If a tote drags, check that its two rails sit level on their marks and the screw heads are flush. A quick pass with a sanding block on the rail's top edge fixes minor catches.",
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Runtime: filter steps by build configuration
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function getStepsForConfig(config: BuildConfig): AssemblyStep[] {
+  const is2x4 = config.rails === "2x4";
   return ALL_STEPS.filter((step) => {
+    if (is2x4 && step.id === "install-back-supports") return false;
     if (!step.condition) return true;
     if (step.condition === "hasWheels") return config.hasWheels;
     if (step.condition === "hasTop") return config.hasTop;
     return true;
-  }).map((step) => {
+  }).map((base) => {
+    const step: AssemblyStep = is2x4
+      ? { ...base, ...RAILS_2X4_STEPS[base.id], partStates: { ...base.partStates, backSupports: "hidden" } }
+      : base;
     // For the final step, adjust caster/plyTop visibility based on config
     if (step.id === "final") {
       return {
@@ -435,6 +546,81 @@ export function getStepsForConfig(config: BuildConfig): AssemblyStep[] {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Token values — every quantity / dimension a step's text can reference
+// ═══════════════════════════════════════════════════════════════════════════
+
+const STOCK = 96;
+const KERF = 0.125;
+
+/** Boards needed for uprights + plates (first-fit decreasing, like the engine). */
+function packBoards(parts: number[]): number {
+  const bins: number[] = [];
+  for (const len of [...parts].sort((a, b) => b - a)) {
+    const i = bins.findIndex((rem) => rem >= len + KERF);
+    if (i >= 0) bins[i] -= len + KERF;
+    else bins.push(STOCK - len);
+  }
+  return bins.length;
+}
+
+function joinMarks(marks: number[]): string {
+  const s = marks.map((m) => `${toFraction(m)}"`);
+  return s.length <= 1 ? (s[0] ?? "") : `${s.slice(0, -1).join(", ")} and ${s[s.length - 1]}`;
+}
+
+function tokenValues(cols: number, rows: number, config: BuildConfig): Record<string, string> {
+  const is2x4 = config.rails === "2x4";
+  const opening = is2x4 ? RAILS_2X4.opening : config.toteType === "GM" ? 20.75 : 19.75;
+  const openingStr = `${toFraction(opening)}"`;
+  const uprightH = is2x4 ? upright2x4(rows) : rows * 16; // rows × TIER_SPACING
+  const plateLen = cols * opening + (cols + 1) * 1.5;
+  const plateLenStr = toFraction(plateLen) + '"';
+
+  const numPosts = (cols + 1) * 2; // front + back
+  const numRails = cols * rows * 2; // left + right per bay per tier
+  const railScrews = numRails * 4; // 2 screws per rail end × 2 ends
+  // 2 screws per connection × 2 plates (front+back) × (cols+1) posts
+  const perPlateScrews = (cols + 1) * 2 * 2;
+  const backSupports = cols <= 4 ? 4 : 6;
+  const topSheets = plateLen > 192 ? 3 : plateLen > 96 ? 2 : 1;
+  // Top screws: 1 per post location × 2 plates (front + back)
+  const topScrews = (cols + 1) * 2;
+
+  const uprightCut = is2x4
+    ? uprightH >= STOCK
+      ? "Use full-length 2×4×8' studs (96\") as uprights — no cut needed. Check that the factory ends are square; trim a hair off any that aren't and keep every upright the same length."
+      : `Cut all 2×4×8' studs to ${toFraction(uprightH)}". Use a speed square to mark a clean line around the board, then make your cut. Stack finished pieces to verify equal length.`
+    : "";
+
+  return {
+    POSTS_QTY: String(numPosts),
+    RAILS_QTY: String(numRails),
+    RAIL_SCREWS_QTY: String(railScrews),
+    PLATE_SCREWS_QTY: String(perPlateScrews),
+    BOTTOM_PLATE_SCREWS_QTY: String(perPlateScrews),
+    TOP_PLATE_SCREWS_QTY: String(perPlateScrews),
+    TOTES_QTY: String(cols * rows),
+    BOARDS_QTY: String(packBoards([...Array(numPosts).fill(uprightH), ...Array(4).fill(plateLen)])),
+    RAIL_BOARDS_QTY: String(Math.ceil(numRails / RAILS_2X4.railsPerBoard)),
+    UPRIGHT_HEIGHT: `${toFraction(uprightH)}"`,
+    UPRIGHT_DETAIL: is2x4 && uprightH >= STOCK ? 'Full 96" — no cut' : `Cut to ${toFraction(uprightH)}"`,
+    UPRIGHT_CUT: uprightCut,
+    PLATE_LENGTH: plateLenStr,
+    RAIL_LENGTH: '30"',
+    RAIL_MARKS: joinMarks(railTopMarks2x4(rows)),
+    UNIT_WIDTH: plateLenStr,
+    TOP_SHEETS_QTY: String(topSheets),
+    TOP_SCREWS_QTY: String(topScrews),
+    BACK_SUPPORTS_QTY: String(backSupports),
+    BACK_SUPPORT_SCREWS_QTY: String(backSupports * 4),
+    OPENING_SPAN: openingStr,
+  };
+}
+
+// Longest names first so e.g. UPRIGHT_HEIGHT isn't clipped by a shorter token
+const TOKEN_RE = /UPRIGHT_DETAIL|UPRIGHT_HEIGHT|UPRIGHT_CUT|BOTTOM_PLATE_SCREWS_QTY|TOP_PLATE_SCREWS_QTY|PLATE_SCREWS_QTY|BACK_SUPPORT_SCREWS_QTY|BACK_SUPPORTS_QTY|RAIL_BOARDS_QTY|RAIL_SCREWS_QTY|RAILS_QTY|POSTS_QTY|TOTES_QTY|BOARDS_QTY|TOP_SHEETS_QTY|TOP_SCREWS_QTY|PLATE_LENGTH|RAIL_LENGTH|RAIL_MARKS|UNIT_WIDTH|OPENING_SPAN/g;
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Runtime quantity calculator
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -444,79 +630,11 @@ export function computeMaterials(
   rows: number,
   config: BuildConfig
 ): MaterialItem[] {
-  const opening = config.toteType === "GM" ? 20.75 : 19.75;
-  const openingStr = config.toteType === "GM" ? '20-3/4"' : '19-3/4"';
-
-  const numPosts = (cols + 1) * 2; // front + back
-  const numRails = cols * rows * 2; // left + right per bay per tier
-  const railScrews = numRails * 4; // 2 screws per rail end × 2 ends
-  // 2 screws per connection × 2 plates (front+back) × (cols+1) posts
-  const perPlateScrews = (cols + 1) * 2 * 2;
-  const backSupports = cols <= 4 ? 4 : 6;
-  const totes = cols * rows;
-  const uprightH = rows * 16; // rows × TIER_SPACING
-  const plateLen = cols * opening + (cols + 1) * 1.5;
-  const plateLenStr = toFraction(plateLen) + '"';
-
-  // Board count: bin-packing for accuracy
-  const STOCK = 96;
-  const KERF = 0.125;
-  const parts: number[] = [];
-  // Uprights
-  for (let i = 0; i < numPosts; i++) parts.push(uprightH);
-  // Plates (4 total: 2 top, 2 bottom)
-  for (let k = 0; k < 4; k++) parts.push(plateLen);
-  parts.sort((a, b) => b - a);
-  const bins: number[] = [];
-  for (const len of parts) {
-    let placed = false;
-    for (let b = 0; b < bins.length; b++) {
-      if (bins[b] >= len + KERF) {
-        bins[b] -= len + KERF;
-        placed = true;
-        break;
-      }
-    }
-    if (!placed) bins.push(STOCK - len);
-  }
-  const totalBoards = bins.length;
-
-  // Top sheet count
-  const totalW = plateLen;
-  const topSheets = totalW > 192 ? 3 : totalW > 96 ? 2 : 1;
-
-  // Top screws: 1 per post location × 2 plates (front + back)
-  const topScrews = (cols + 1) * 2;
-
-  const qtyMap: Record<string, string> = {
-    POSTS_QTY: String(numPosts),
-    RAILS_QTY: String(numRails),
-    RAIL_SCREWS_QTY: String(railScrews),
-    PLATE_SCREWS_QTY: String(perPlateScrews),
-    BOTTOM_PLATE_SCREWS_QTY: String(perPlateScrews),
-    TOP_PLATE_SCREWS_QTY: String(perPlateScrews),
-    TOTES_QTY: String(totes),
-    BOARDS_QTY: String(totalBoards),
-    UPRIGHT_HEIGHT: `${uprightH}"`,
-    PLATE_LENGTH: plateLenStr,
-    RAIL_LENGTH: '30"',
-    UNIT_WIDTH: plateLenStr,
-    TOP_SHEETS_QTY: String(topSheets),
-    TOP_SCREWS_QTY: String(topScrews),
-    BACK_SUPPORTS_QTY: String(backSupports),
-    BACK_SUPPORT_SCREWS_QTY: String(backSupports * 4),
-    OPENING_SPAN: openingStr,
-  };
-
+  const values = tokenValues(cols, rows, config);
   return step.materials.map((m) => ({
     ...m,
-    qty: qtyMap[m.qty] ?? m.qty,
-    detail: m.detail.replace(/UPRIGHT_HEIGHT/g, `${uprightH}"`)
-                     .replace(/PLATE_LENGTH/g, plateLenStr)
-                     .replace(/RAIL_LENGTH/g, '30"')
-                     .replace(/UNIT_WIDTH/g, plateLenStr)
-                     .replace(/OPENING_SPAN/g, openingStr)
-                     .replace(/TOP_SCREWS_QTY/g, String(topScrews)),
+    qty: values[m.qty] ?? m.qty,
+    detail: m.detail.replace(TOKEN_RE, (t) => values[t] ?? t),
   }));
 }
 
@@ -530,18 +648,8 @@ export function resolveTokens(
   rows: number,
   config: BuildConfig
 ): string {
-  const opening = config.toteType === "GM" ? 20.75 : 19.75;
-  const openingStr = config.toteType === "GM" ? '20-3/4"' : '19-3/4"';
-  const plateLen = cols * opening + (cols + 1) * 1.5;
-  const plateLenStr = toFraction(plateLen) + '"';
-  const uprightH = rows * 16;
-  const topScrews = (cols + 1) * 2;
-
-  return text
-    .replace(/PLATE_LENGTH/g, plateLenStr)
-    .replace(/OPENING_SPAN/g, openingStr)
-    .replace(/UPRIGHT_HEIGHT/g, `${uprightH}"`)
-    .replace(/TOP_SCREWS_QTY/g, String(topScrews));
+  const values = tokenValues(cols, rows, config);
+  return text.replace(TOKEN_RE, (t) => values[t] ?? t);
 }
 
 // Re-export for backward compat
