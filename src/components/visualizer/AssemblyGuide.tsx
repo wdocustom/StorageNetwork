@@ -1195,6 +1195,8 @@ function StepCard({
   onNext,
   onPrev,
   onReset,
+  expanded,
+  onToggleExpanded,
 }: {
   step: AssemblyStep;
   stepIndex: number;
@@ -1205,6 +1207,9 @@ function StepCard({
   onNext: () => void;
   onPrev: () => void;
   onReset: () => void;
+  /** Collapsed = compact bar (title, 2-line instruction, nav) so the 3D view stays usable */
+  expanded: boolean;
+  onToggleExpanded: () => void;
 }) {
   const materials = computeMaterials(step, cols, rows, config);
   const isLast = stepIndex === totalSteps - 1;
@@ -1215,7 +1220,7 @@ function StepCard({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Step header */}
-      <div className="shrink-0 border-b border-slate-700 px-5 py-4">
+      <div className={`shrink-0 border-b border-slate-700 ${expanded ? "px-5 py-4" : "px-4 py-3"}`}>
         <div className="mb-1 flex items-center gap-2">
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-yellow-400 text-xs font-black text-gray-950">
             {stepIndex + 1}
@@ -1223,8 +1228,22 @@ function StepCard({
           <span className="text-[10px] font-bold uppercase tracking-widest text-stone-500">
             Step {stepIndex + 1} of {totalSteps}
           </span>
+          <button
+            type="button"
+            onClick={onToggleExpanded}
+            aria-expanded={expanded}
+            className="ml-auto flex items-center gap-1 rounded-lg border border-slate-700 px-2.5 py-1 text-[11px] font-bold text-stone-300 transition hover:border-yellow-400/50 hover:text-yellow-300"
+          >
+            {expanded ? "Hide details" : "Details"}
+            <ChevronRight className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-90" : "-rotate-90"}`} />
+          </button>
         </div>
-        <h3 className="text-lg font-extrabold text-white">{step.title}</h3>
+        <h3 className={`${expanded ? "text-lg" : "text-base"} font-extrabold text-white`}>{step.title}</h3>
+        {!expanded && (
+          <button type="button" onClick={onToggleExpanded} className="mt-1 block text-left">
+            <span className="line-clamp-2 text-xs leading-snug text-stone-400">{resolvedInstruction}</span>
+          </button>
+        )}
         {/* Progress bar */}
         <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-slate-800">
           <div
@@ -1235,7 +1254,7 @@ function StepCard({
       </div>
 
       {/* Scrollable content area */}
-      <div className="scrollbar-dark min-h-0 flex-1 overflow-y-auto">
+      <div className={`scrollbar-dark min-h-0 flex-1 overflow-y-auto ${expanded ? "" : "hidden"}`}>
         {/* Instruction */}
         <div className="border-b border-slate-800 px-5 py-4">
           <div className="flex items-start gap-2">
@@ -1337,7 +1356,7 @@ function StepCard({
       </div>
 
       {/* Navigation — always visible at bottom */}
-      <div className="shrink-0 border-t border-slate-700 px-5 py-4">
+      <div className={`shrink-0 border-t border-slate-700 ${expanded ? "px-5 py-4" : "px-4 py-2.5"}`}>
         <div className="flex gap-2">
           {stepIndex > 0 ? (
             <button
@@ -1416,6 +1435,11 @@ export default function AssemblyGuide({
   const steps = useMemo(() => getStepsForConfig(config), [hasWheels, hasTop, toteType, rails]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [mode, setMode] = useState<"exploded" | "step">("exploded");
+  // Phones start with the compact step bar so the 3D view stays usable;
+  // wider screens have room beside the model for the full card.
+  const [detailsOpen, setDetailsOpen] = useState(
+    () => typeof window === "undefined" || window.matchMedia("(min-width: 640px)").matches,
+  );
   const [stepIndex, setStepIndex] = useState(0);
 
   const currentStep = steps[stepIndex];
@@ -1588,6 +1612,8 @@ export default function AssemblyGuide({
                   onNext={handleNext}
                   onPrev={handlePrev}
                   onReset={handleReset}
+                  expanded={detailsOpen}
+                  onToggleExpanded={() => setDetailsOpen((v) => !v)}
                 />
               </div>
             </div>
