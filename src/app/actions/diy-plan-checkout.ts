@@ -11,10 +11,12 @@ import {
 } from "@/lib/server/action-rate-limit";
 import {
   TOTE_PLAN_ID,
+  TOTE_PLAN_LIMITS,
   TOTE_PLAN_TIERS,
-  encodeTotePlanConfig,
+  encodeTotePlanDesign,
   isTotePlanTier,
-  parseTotePlanConfig,
+  parseTotePlanDesign,
+  totePlanDesignHref,
   totePlanName,
   totePlanSummary,
 } from "@/lib/tote-plans";
@@ -23,10 +25,11 @@ import {
 // DIY Plan Checkout — Stripe Checkout Sessions for retail tote plans
 //
 // Purchase flow:
-//   1. Retail customer designs a unit on /design, clicks "DIY Plans"
-//   2. /plans/checkout?config=[data] — picks a tier (PDF or Interactive)
+//   1. A customer sizes a design on /plans/checkout — directly, or handed
+//      over from any installer's designer, quote page or quote email
+//   2. They pick a tier (PDF or Interactive)
 //   3. createDIYPlanCheckout() creates a Stripe Checkout Session; the
-//      validated config + tier ride in session metadata
+//      validated design (compact form) + tier ride in session metadata
 //   4. Stripe returns to /plans/build?session_id=… where
 //      tote-plan-access.ts verifies payment, records the purchase in
 //      public_plan_purchases and emails a permanent access link
@@ -74,8 +77,9 @@ export async function checkDIYPlanAccess(): Promise<{
 }
 
 export async function createDIYPlanCheckout(
-  rawConfig: unknown,
+  rawDesign: unknown,
   rawTier: unknown,
+  source?: string,
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   // SECURITY (H-3): each call provisions a Stripe Checkout Session. Cap
   // per identity to prevent scripted abuse of Stripe's session API.
@@ -93,14 +97,18 @@ export async function createDIYPlanCheckout(
     throw err;
   }
 
-  const config = parseTotePlanConfig(rawConfig);
-  if (!config) {
-    return { success: false, error: "Plans are available for single units up to 4 wide × 6 tall." };
+  const design = parseTotePlanDesign(rawDesign);
+  if (!design) {
+    return {
+      success: false,
+      error: `Plans cover up to ${TOTE_PLAN_LIMITS.maxUnits} standard tote units, each up to ${TOTE_PLAN_LIMITS.maxCols} wide × ${TOTE_PLAN_LIMITS.maxRows} tall.`,
+    };
   }
   if (!isTotePlanTier(rawTier)) {
     return { success: false, error: "Pick a plan option." };
   }
   const tier = TOTE_PLAN_TIERS[rawTier];
+  const sourceTag = typeof source === "string" ? source.replace(/[^a-z0-9_-]/gi, "").slice(0, 40) : "";
 
   try {
     const baseUrl = siteConfig.baseUrl;
@@ -111,8 +119,8 @@ export async function createDIYPlanCheckout(
     const buyer = await getAuthenticatedUser();
     const attribution = await resolvePromoterAttributionForCheckout(buyer?.id ?? null);
 
-    const configParam = encodeTotePlanConfig(config);
-    const name = totePlanName(config);
+    const name = totePlanName(design);
+    const cancelHref = totePlanDesignHref(design, sourceTag || undefined);
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -122,7 +130,7 @@ export async function createDIYPlanCheckout(
             currency: "usd",
             product_data: {
               name: `${tier.name} — ${name}`,
-              description: `${totePlanSummary(config)}. ${tier.tagline}`,
+              description: `${totePlanSummary(design)}. ${tier.tagline}`,
             },
             unit_amount: tier.price,
           },
@@ -130,12 +138,14 @@ export async function createDIYPlanCheckout(
         },
       ],
       success_url: `${baseUrl}/plans/build?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/plans/checkout?config=${configParam}&cancelled=1`,
+      cancel_url: `${baseUrl}${cancelHref}${cancelHref.includes("?") ? "&" : "?"}cancelled=1`,
       metadata: {
         type: "diy_plan",
         plan_id: TOTE_PLAN_ID,
         tier: tier.id,
-        config: JSON.stringify(config),
+        design: encodeTotePlanDesign(design),
+        ...(design.name ? { design_name: design.name } : {}),
+        ...(sourceTag ? { source: sourceTag } : {}),
         ...(attribution
           ? { promoter_id: attribution.promoterId, promoter_referral_code: attribution.code }
           : {}),

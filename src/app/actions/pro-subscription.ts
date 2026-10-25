@@ -1,5 +1,6 @@
 "use server";
 
+import { diyPlansEmailUrl } from "@/lib/emails/plansTemplates";
 import { getServiceClient } from "@/lib/supabase-server";
 import { slugify } from "@/lib/utils";
 import { getAppUrl } from "@/lib/url-helper";
@@ -252,6 +253,7 @@ export async function activateProSubscription(
                 depositAmount: depositAmt,
                 leadId: lead.id,
                 quoteData: quoteItems,
+                diyPlansUrl: diyPlansEmailUrl(lead.quote_data, "installer_ready_email"),
               }).catch((err) =>
                 console.error(`[ProSubscription] Customer payment email failed for lead ${lead.id}:`, err)
               );

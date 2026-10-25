@@ -4,11 +4,45 @@ import { getAppUrl } from "@/lib/url-helper";
 import type { PublicPlan } from "@/lib/plans-config";
 import {
   TOTE_PLAN_TIERS,
+  designFromItems,
+  formatPlanPrice,
+  totePlanDesignHref,
   totePlanName,
   totePlanSummary,
-  type TotePlanConfig,
+  type PlanSourceItem,
+  type TotePlanDesign,
   type TotePlanTier,
 } from "@/lib/tote-plans";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DIY plans footer for build / quote emails
+//
+// Every pre-purchase email that carries a customer's build (quote, saved
+// build, waitlist, abandoned cart, "your installer is ready") ends with a
+// small "prefer to build it yourself?" link that opens /plans/checkout with
+// that exact design. Post-purchase emails (booking confirmation, receipts)
+// deliberately don't — the customer already chose installation.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Absolute plans link for a lead's quote_data, or null if nothing in it is plannable. */
+export function diyPlansEmailUrl(quoteData: unknown, source: string): string | null {
+  if (!Array.isArray(quoteData) || quoteData.length === 0) return null;
+  const { design } = designFromItems(quoteData as PlanSourceItem[]);
+  return design ? `${getAppUrl()}${totePlanDesignHref(design, source)}` : null;
+}
+
+/** Quiet footer block; empty string when there's no link. */
+export function diyPlansEmailBlock(url: string | null | undefined): string {
+  if (!url) return "";
+  return `
+    <div style="border-top:1px solid #222;padding:18px 0 6px;margin-bottom:20px;text-align:center;">
+      <p style="margin:0 0 6px;color:#737373;font-size:12px;">Prefer to build it yourself?</p>
+      <a href="${url}" style="color:#facc15;font-size:13px;font-weight:700;text-decoration:none;">
+        Get DIY build plans for this design &mdash; from ${formatPlanPrice(TOTE_PLAN_TIERS.pdf.price)} &rarr;
+      </a>
+      <p style="margin:6px 0 0;color:#555;font-size:11px;">Printable PDF or interactive 3D build guide, sized to your build.</p>
+    </div>`;
+}
 
 export async function sendPlanAccessEmail(
   email: string,
@@ -59,20 +93,20 @@ export async function sendPlanAccessEmail(
 
 export async function sendTotePlanAccessEmail(
   email: string,
-  config: TotePlanConfig,
+  design: TotePlanDesign,
   tier: TotePlanTier,
   accessToken: string,
 ): Promise<void> {
   const appUrl = getAppUrl();
   const accessUrl = `${appUrl}/plans/build?token=${accessToken}`;
-  const name = totePlanName(config);
+  const name = totePlanName(design);
   const info = TOTE_PLAN_TIERS[tier];
 
   const body = `
     <div style="background:#111;border-radius:12px;padding:28px 24px;margin-bottom:20px;border:1px solid #222;">
       <p style="margin:0 0 6px;color:#facc15;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">${info.name}</p>
       <h2 style="margin:0 0 8px;color:#fff;font-size:20px;font-weight:800;">${name}</h2>
-      <p style="margin:0;color:#888;font-size:13px;">${totePlanSummary(config)}</p>
+      <p style="margin:0;color:#888;font-size:13px;">${totePlanSummary(design)}</p>
     </div>
 
     <div style="text-align:center;margin-bottom:28px;">

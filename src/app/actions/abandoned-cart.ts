@@ -1,5 +1,6 @@
 "use server";
 
+import { diyPlansEmailUrl } from "@/lib/emails/plansTemplates";
 import { getServiceClient } from "@/lib/supabase-server";
 import { sendAbandonedCartEmail } from "@/lib/email";
 import { siteConfig } from "@/config/site";
@@ -178,7 +179,8 @@ export async function processAbandonedCarts(): Promise<{
         estimated_price,
         deposit_amount,
         installer_id,
-        created_at
+        created_at,
+        quote_data
       `)
       .eq("status", "pending_payment")
       .lt("created_at", eighteenHoursAgo)
@@ -226,6 +228,7 @@ export async function processAbandonedCarts(): Promise<{
           depositAmount: lead.deposit_amount,
           resumeUrl,
           installerName,
+          diyPlansUrl: diyPlansEmailUrl(lead.quote_data, "abandoned_cart_email"),
         });
 
         // Mark as sent

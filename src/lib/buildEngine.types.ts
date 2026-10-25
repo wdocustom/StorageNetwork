@@ -73,6 +73,13 @@ export interface Board {
   laterLabel?: string; // e.g., "→ Mod 2" showing which module uses the offcut
 }
 
+/** One 8' board from the global packing, each cut tagged with its module
+ *  key ("unitIdx-widthModIndex-heightTierIndex", or "shelving-N"). */
+export interface StockBoard {
+  cuts: (CutPart & { modKey: string })[];
+  rem: number;
+}
+
 export interface CutPlanModule {
   unitIndex: number;
   moduleIndex: number;
@@ -164,6 +171,8 @@ export function expandPresetUnits<T extends { presetUnits?: PresetSubUnitConfig[
 export interface BuildManifest {
   shopping_list: ShoppingItem[];
   cut_plan_visuals: CutPlanModule[];
+  /** Global FFD packing behind totals.boards (2×4 structural lumber only) */
+  stock_boards?: StockBoard[];
   shelving_cut_plans?: ShelvingCutPlanModule[];
   overhead_cut_plans?: OverheadCutPlanModule[];
   financials: Financials;

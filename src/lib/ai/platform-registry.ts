@@ -188,8 +188,8 @@ export const FEATURES: PlatformFeature[] = [
     id: "diy-plans",
     name: "DIY Cut Plan Downloads",
     audience: "both",
-    description: "Customers can buy downloadable DIY cut plans for $19 instead of hiring an installer.",
-    details: "After designing a build in the 3D configurator, customers see a 'DIY Plans' option. They get a professional PDF with board-by-board cuts, material list, and assembly instructions. Available at /plans/checkout. Pro subscribers and admins get free access.",
+    description: "Customers can buy DIY build plans for their exact design — a $19 printable PDF or the $29 interactive 3D build guide — instead of hiring an installer.",
+    details: "Offered as a small 'build it yourself' option in every installer's 3D configurator (step 3 onward), at the bottom of quote pages, and in quote/saved-build emails; also sold directly at /plans/checkout. Plans cover any size and every bestseller: big units are split into 8'-stock modules exactly like installer cut plans, and identical modules are grouped (Module A ×2…). The PDF has a shopping list, cut plan, and a 3D-rendered page per step; the interactive guide builds one module at a time with a live map of the system. PDF buyers can upgrade to the interactive guide for $10. Pro subscribers and admins get free access.",
   },
   {
     id: "jig-plans",

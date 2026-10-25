@@ -563,7 +563,7 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
   // FFD sorts longest-first so tall uprights fill boards first, then shorter
   // rails/braces/plates fill the remaining offcuts — across unit types.
   allParts.sort((a, b) => b.len - a.len);
-  const globalBoards: Board[] = [];
+  const globalBoards: { cuts: (CutPart & { modKey: string })[]; rem: number }[] = [];
 
   for (const p of allParts) {
     let placed = false;
@@ -858,6 +858,10 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
   return {
     shopping_list,
     cut_plan_visuals: cutPlans,
+    stock_boards: globalBoards.map((b) => ({
+      cuts: b.cuts.map((c) => ({ len: c.len, name: c.name, type: c.type, modKey: c.modKey })),
+      rem: b.rem,
+    })),
     ...(shelvingCutPlans.length > 0 ? { shelving_cut_plans: shelvingCutPlans } : {}),
     ...(overheadCutPlans.length > 0 ? { overhead_cut_plans: overheadCutPlans } : {}),
     financials: {

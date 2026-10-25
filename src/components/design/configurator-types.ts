@@ -36,6 +36,10 @@ export interface UnitConfig {
   overheadStorageConfig?: import("@/lib/overhead-storage").OverheadStorageConfig;
   /** When set, this order item is a raised bed planter */
   raisedBedConfig?: import("@/lib/raised-beds").RaisedBedConfig;
+  /** When set, this order item is a compound bestseller (e.g. Indiana Joe) */
+  presetUnits?: import("@/lib/buildEngine.types").PresetSubUnitConfig[];
+  /** When set, this order item is an Adirondack chair */
+  chairConfig?: import("@/lib/chairs").ChairConfig;
   /** Quantity of this item (defaults to 1) */
   quantity?: number;
   /** When true, customer wants this item delivered inside the home */

@@ -1,5 +1,6 @@
 "use server";
 
+import { diyPlansEmailUrl } from "@/lib/emails/plansTemplates";
 import { getServiceClient } from "@/lib/supabase-server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import zipcodes from "zipcodes";
@@ -300,6 +301,7 @@ export async function submitWaitlistRequest(input: WaitlistInput): Promise<{
       installerBusinessName: installer.business_name || "Storage Network",
       zip: input.customer_zip.trim(),
       quoteData: input.quote_data as Array<{ desc?: string; cols?: number; rows?: number; price?: number }>,
+      diyPlansUrl: diyPlansEmailUrl(input.quote_data, "waitlist_email"),
     }).catch((err) => {
       console.error("[Waitlist] Customer confirmation email failed (non-fatal):", err);
     });

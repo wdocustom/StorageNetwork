@@ -355,7 +355,12 @@ function ExplodedAssembly({
   const step = steps[stepIndex] ?? steps[0];
 
   function vis(group: PartGroup): PartVisibility {
-    if (mode === "exploded") return "visible";
+    if (mode === "exploded") {
+      // Exploded view shows every part this build has — and only those
+      if (group === "casters" || group === "casterScrews") return hasWheels ? "visible" : "hidden";
+      if (group === "plyTop") return hasTop ? "visible" : "hidden";
+      return "visible";
+    }
     return step.partStates[group];
   }
 
@@ -1317,6 +1322,10 @@ interface AssemblyGuideProps {
   hasWheels?: boolean;
   hasTop?: boolean;
   onClose?: () => void;
+  /** Replaces the "{cols}×{rows} {tote} Storage Unit" title (e.g. "Module A") */
+  label?: string;
+  /** Extra panel stacked under the top-left badge (e.g. a module map) */
+  hud?: React.ReactNode;
 }
 
 export default function AssemblyGuide({
@@ -1326,6 +1335,8 @@ export default function AssemblyGuide({
   hasWheels = true,
   hasTop = false,
   onClose,
+  label,
+  hud,
 }: AssemblyGuideProps) {
   const config: BuildConfig = { hasWheels, hasTop, toteType };
   const steps = useMemo(() => getStepsForConfig(config), [hasWheels, hasTop]);
@@ -1444,7 +1455,7 @@ export default function AssemblyGuide({
                   Exploded View
                 </p>
                 <p className="mt-0.5 text-sm font-semibold text-white">
-                  {cols}×{rows} {toteType} Storage Unit
+                  {label ?? `${cols}×${rows} ${toteType} Storage Unit`}
                 </p>
                 <p className="text-xs text-stone-400">
                   Hover any piece for dimensions
@@ -1452,6 +1463,7 @@ export default function AssemblyGuide({
                   {hasTop ? " — with top" : ""}
                 </p>
               </div>
+              {hud && <div className="pointer-events-auto mt-2">{hud}</div>}
             </div>
 
             <div className="absolute inset-x-0 bottom-8 flex justify-center">
@@ -1473,15 +1485,22 @@ export default function AssemblyGuide({
             <div className="pointer-events-none absolute left-4 top-4">
               <div className="rounded-lg bg-slate-900/80 px-3 py-1.5 shadow-lg backdrop-blur">
                 <p className="text-[10px] font-bold text-stone-400">
+                  {label ? `${label} · ` : ""}
                   {cols}×{rows} {toteType}
                   {hasWheels ? " + Wheels" : ""}
                   {hasTop ? " + Top" : ""}
                 </p>
               </div>
+              {hud && <div className="pointer-events-auto mt-2">{hud}</div>}
             </div>
 
             {/* Floating Step Card — bottom left on desktop, bottom full-width on mobile */}
-            <div className="pointer-events-auto absolute bottom-4 left-4 right-4 flex max-h-[70vh] flex-col sm:right-auto sm:w-[400px]">
+            <div
+              className={`pointer-events-auto absolute bottom-4 left-4 right-4 flex flex-col sm:right-auto sm:w-[400px] ${
+                // Leave the top-left badge + hud panel uncovered on short screens
+                hud ? "max-h-[min(70vh,calc(100dvh-15rem))]" : "max-h-[70vh]"
+              }`}
+            >
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900/95 shadow-2xl backdrop-blur-sm">
                 <StepCard
                   step={currentStep}

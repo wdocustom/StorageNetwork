@@ -10,6 +10,8 @@ import {
   Package,
   ShieldCheck,
   ArrowLeft,
+  ArrowRight,
+  Hammer,
   MapPin,
   ChevronRight,
   Receipt,
@@ -19,6 +21,7 @@ import {
   Send,
   CalendarCheck,
 } from "lucide-react";
+import { TOTE_PLAN_TIERS, designFromItems, formatPlanPrice, totePlanDesignHref, type PlanSourceItem } from "@/lib/tote-plans";
 import { getStripePromise } from "@/lib/stripe/client";
 import { SavedCardDisclosure } from "@/components/payments/SavedCardDisclosure";
 import {
@@ -553,6 +556,8 @@ export default function ResumePaymentPage() {
     units.map((u: any) => u.desc?.match(presetNamePattern)?.[1]).filter(Boolean)
   );
   const unitCount = units.length - units.filter((u: any) => u.desc?.match(presetNamePattern)).length + uniquePresetNames.size;
+  // DIY plans for this same build — a quiet alternative under the quote
+  const diyDesign = designFromItems(units as PlanSourceItem[]).design;
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -1245,6 +1250,26 @@ export default function ResumePaymentPage() {
               />
             </Elements>
           </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════════
+            DIY PLANS — small alternative to installation (never mid-payment)
+        ═══════════════════════════════════════════════════════════════════ */}
+        {diyDesign && step !== "payment" && (
+          <a
+            href={totePlanDesignHref(diyDesign, "quote_page")}
+            className="group mt-8 flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3 transition hover:border-yellow-400/40"
+          >
+            <Hammer className="h-4 w-4 shrink-0 text-stone-500 group-hover:text-yellow-400" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs font-semibold text-stone-300">Prefer to build it yourself?</span>
+              <span className="block text-[11px] text-stone-500">
+                DIY build plans for this exact design — printable PDF or interactive 3D guide, from{" "}
+                {formatPlanPrice(TOTE_PLAN_TIERS.pdf.price)}.
+              </span>
+            </span>
+            <ArrowRight className="h-4 w-4 shrink-0 text-stone-600 group-hover:text-yellow-400" />
+          </a>
         )}
       </main>
     </div>

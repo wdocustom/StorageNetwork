@@ -19,7 +19,7 @@ import { useState, useEffect } from "react";
 import type { ConfiguratorSidebarProps } from "./configurator-types";
 import { RollingPrice } from "./configurator-primitives";
 import { checkDIYPlanAccess } from "@/app/actions/diy-plan-checkout";
-import { TOTE_PLAN_TIERS, encodeTotePlanConfig, formatPlanPrice, parseTotePlanConfig } from "@/lib/tote-plans";
+import { TOTE_PLAN_TIERS, designFromItems, formatPlanPrice, totePlanDesignHref, type PlanTranslation } from "@/lib/tote-plans";
 import { formatCurrency } from "@/utils/paymentHelpers";
 import { getChairDescription } from "@/lib/chairs";
 
@@ -241,16 +241,66 @@ export default function ConfiguratorFooter({
         </p>
       )}
 
-      {/* DIY plans — retail only: never on an installer's own booking flow */}
-      {(!props.installerId || props.zipOutOfArea) && <DIYPlansCTA props={props} activeStep={activeStep} />}
+      {/* DIY plans — a small alternative to booking, once the design has taken shape */}
+      {activeStep >= 3 && <DIYPlansCTA props={props} activeStep={activeStep} />}
     </div>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// DIY Plans CTA — retail customers buy plans for the unit on screen
-// (PDF or Interactive Build Guide, chosen on /plans/checkout)
+// DIY Plans CTA — "build it yourself" alternative to booking, on every
+// installer's designer. Hands the customer's design to /plans/checkout:
+// the whole cart (bestsellers break out into their sub-units, quantities
+// repeat), or the unit / bestseller on screen when the cart is empty.
 // ═══════════════════════════════════════════════════════════════════════════
+
+/** Exported for tests. */
+export function designerPlanTranslation(props: ConfiguratorSidebarProps, activeStep: number): PlanTranslation {
+  if (props.orderItems.length > 0) {
+    const presetItems = props.orderItems.filter((it) => it.presetUnits && it.presetUnits.length > 0);
+    // A cart that is just one bestseller keeps its name ("Indiana Joe").
+    const name =
+      props.orderItems.length === 1 && presetItems.length === 1 ? presetItems[0].desc.split(" (")[0] : undefined;
+    return designFromItems(props.orderItems, name);
+  }
+
+  if (props.chairSelected || (activeStep <= 3 && (props.shelvingConfigId || props.raisedBedPreviewPrice != null))) {
+    return { design: null, covered: 0, skipped: 1 };
+  }
+
+  if (props.activePreset && props.compoundBuild && props.activePresetObj) {
+    const preset = props.presetOptions.find((p) => p.id === props.activePreset);
+    const flags = props.activePresetObj.units;
+    return designFromItems(
+      [
+        {
+          toteType: preset?.toteModel ?? "HDX",
+          unitType: "standard",
+          orientation: "standard",
+          presetUnits: props.compoundBuild.subUnits.map((su, i) => ({
+            cols: su.cols,
+            rows: su.rows,
+            hasTop: flags[i]?.hasTop ?? false,
+            hasWheels: flags[i]?.hasWheels ?? false,
+          })),
+        },
+      ],
+      props.compoundBuild.presetName,
+    );
+  }
+
+  return designFromItems([
+    {
+      cols: props.build.cols,
+      rows: props.build.rows,
+      toteType: props.toteType,
+      unitType: props.unitType,
+      orientation: props.orientation,
+      hasWheels: props.hasWheels,
+      hasTop: props.effectiveHasTop,
+    },
+  ]);
+}
 
 function DIYPlansCTA({ props, activeStep }: { props: ConfiguratorSidebarProps; activeStep: number }) {
   const router = useRouter();
@@ -260,42 +310,30 @@ function DIYPlansCTA({ props, activeStep }: { props: ConfiguratorSidebarProps; a
     checkDIYPlanAccess().then((result) => setFreeAccess(result.hasFreeAccess));
   }, []);
 
-  // Plans model the plywood-rail tote organizer only — not shelving,
-  // chairs, planters, or the 2×4-rail construction mode.
-  const otherProduct =
-    props.chairSelected ||
-    props.use2x4Rails ||
-    (activeStep === 1 && (props.shelvingConfigId || props.raisedBedPreviewPrice != null));
-  const config = parseTotePlanConfig({
-    cols: props.build.cols,
-    rows: props.build.rows,
-    toteType: props.toteType,
-    unitType: props.unitType,
-    orientation: props.orientation,
-    hasWheels: props.hasWheels,
-    hasTop: props.effectiveHasTop,
-  });
-  if (otherProduct || !config) return null;
+  const { design, skipped } = designerPlanTranslation(props, activeStep);
+  if (!design) return null;
 
   const lowest = formatPlanPrice(TOTE_PLAN_TIERS.pdf.price);
 
   return (
     <div className="mt-3 border-t border-zinc-800/50 pt-3">
       <button
-        onClick={() => router.push(`/plans/checkout?config=${encodeTotePlanConfig(config)}`)}
-        className={`flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${
+        onClick={() => router.push(totePlanDesignHref(design, "designer"))}
+        className={`flex w-full items-center justify-center gap-2 rounded-xl border py-2 text-[11px] font-bold uppercase tracking-wider transition-all ${
           freeAccess
             ? "border-green-500/30 bg-green-500/10 text-green-400 hover:border-green-400/50 hover:bg-green-500/20 hover:text-green-300"
-            : "border-yellow-400/30 bg-yellow-400/10 text-yellow-400 hover:border-yellow-400/50 hover:bg-yellow-400/20 hover:text-yellow-300"
+            : "border-zinc-700 bg-transparent text-zinc-300 hover:border-yellow-400/50 hover:text-yellow-300"
         }`}
       >
         <Hammer className="h-3.5 w-3.5" />
-        {freeAccess ? "Get DIY Plans" : `Build It Yourself — Plans from ${lowest}`}
+        {freeAccess ? "Get DIY Build Plans" : `Or build it yourself — DIY plans from ${lowest}`}
       </button>
       <p className="mt-1.5 text-center text-[9px] text-zinc-600">
         {freeAccess
           ? "Included with your subscription — PDF + interactive 3D guide"
-          : "Printable PDF or interactive 3D build guide, sized to this design"}
+          : skipped > 0
+            ? "Printable PDF or interactive 3D guide for the tote organizers in this design"
+            : "Printable PDF or interactive 3D guide for exactly this design"}
       </p>
     </div>
   );

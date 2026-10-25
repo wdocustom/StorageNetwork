@@ -1,12 +1,16 @@
 "use client";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// DIY PLANS — design a tote organizer and buy its plans on one page
+// DIY PLANS — design a tote organizer system and buy its plans on one page
 //
-// Retail buyers never touch the installer configurator: size, tote brand,
-// casters and worktop are picked here against a live 3D preview, with the
-// two plan tiers right underneath. ?config=… (from the /design CTA or a
-// cancelled Stripe checkout) pre-fills the design.
+// Customers size each unit (any size the designer allows — big walls are
+// split into 8'-stock modules automatically) against a live 3D preview and
+// a module map, with the two plan tiers right underneath.
+//
+// Arrives pre-filled from every hand-off point:
+//   ?design=H2x4t.H2x2t.H2x4t&name=Indiana%20Joe   designer / quote / email
+//   ?config={…}                                     legacy single-unit links
+//   &utm_source=designer|quote_page|quote_email…    carried to Stripe metadata
 //
 // Pro subscribers and admins skip Stripe; /plans/build re-verifies them.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -15,21 +19,29 @@ import { useSearchParams } from "next/navigation";
 import { useState, useMemo, useEffect, Suspense, lazy } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Box, CheckCircle, Crown, FileText, Loader2, Minus, Plus, Ruler } from "lucide-react";
+import { Box, CheckCircle, Crown, FileText, Layers, Loader2, Minus, Plus, Ruler, Trash2 } from "lucide-react";
 import { createDIYPlanCheckout, checkDIYPlanAccess } from "@/app/actions/diy-plan-checkout";
 import { toFraction } from "@/lib/utils";
+import SystemMap from "@/components/plans/SystemMap";
 import {
-  DEFAULT_TOTE_PLAN_CONFIG,
+  DEFAULT_TOTE_PLAN_DESIGN,
+  DEFAULT_TOTE_PLAN_UNIT,
   TOTE_PLAN_LIMITS,
   TOTE_PLAN_TIERS,
-  decodeTotePlanConfig,
-  encodeTotePlanConfig,
+  designFromSearchParams,
+  designModules,
+  designOuterSize,
+  encodeTotePlanDesign,
   fitTotePlanToWall,
   formatPlanPrice,
+  splitHeight,
+  splitWidth,
+  totePlanDesignHref,
   totePlanName,
-  totePlanOuterSize,
-  type TotePlanConfig,
+  totePlanSummary,
+  type TotePlanDesign,
   type TotePlanTier,
+  type TotePlanUnit,
 } from "@/lib/tote-plans";
 
 const Rack3D = lazy(() => import("@/components/visualizer/Rack3D"));
@@ -119,10 +131,10 @@ function Segmented<T extends string | boolean>({
 }
 
 function WallFit({
-  config,
+  unit,
   onFit,
 }: {
-  config: TotePlanConfig;
+  unit: TotePlanUnit;
   onFit: (size: { cols: number; rows: number }) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -131,7 +143,7 @@ function WallFit({
   const [msg, setMsg] = useState("");
 
   const fit = () => {
-    const result = fitTotePlanToWall(Number(w), Number(h), config);
+    const result = fitTotePlanToWall(Number(w), Number(h), unit);
     if (!result) {
       setMsg("That space is too small for even one tote.");
       return;
@@ -187,17 +199,30 @@ function WallFit({
   );
 }
 
+function moduleNote(unit: TotePlanUnit): string | null {
+  const widths = splitWidth(unit.cols);
+  const tiers = splitHeight(unit.rows);
+  if (widths.length === 1 && tiers.length === 1) return null;
+  const parts: string[] = [];
+  if (widths.length > 1) parts.push(`${widths.length} modules side by side (${widths.join(" + ")} wide)`);
+  if (tiers.length > 1) parts.push(`${tiers.length} stacked tiers (${tiers.join(" + ")} tall)`);
+  return `Built as ${parts.join(" and ")} so every part fits an 8' board. Your plan walks you through each module.`;
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────
 
 function PlansDesigner() {
   const searchParams = useSearchParams();
-  const [config, setConfig] = useState<TotePlanConfig>(
-    () => decodeTotePlanConfig(searchParams.get("config")) ?? DEFAULT_TOTE_PLAN_CONFIG,
+  const [design, setDesign] = useState<TotePlanDesign>(
+    () => designFromSearchParams(searchParams) ?? DEFAULT_TOTE_PLAN_DESIGN,
   );
+  const [selected, setSelected] = useState(0);
   const [loadingTier, setLoadingTier] = useState<TotePlanTier | null>(null);
   const [error, setError] = useState("");
   const [freeAccess, setFreeAccess] = useState<{ hasFreeAccess: boolean; reason?: "pro" | "admin" } | null>(null);
-  const cancelled = searchParams.get("cancelled") === "1";
+  // Read once: the URL is rewritten as the design changes
+  const [cancelled] = useState(() => searchParams.get("cancelled") === "1");
+  const [source] = useState(() => searchParams.get("utm_source") ?? undefined);
 
   useEffect(() => {
     checkDIYPlanAccess().then(setFreeAccess);
@@ -205,19 +230,33 @@ function PlansDesigner() {
 
   // Keep the URL in step with the design so a refresh or shared link keeps it.
   useEffect(() => {
-    const url = `/plans/checkout?config=${encodeTotePlanConfig(config)}`;
-    window.history.replaceState(null, "", url);
-  }, [config]);
+    window.history.replaceState(null, "", totePlanDesignHref(design, source));
+  }, [design, source]);
 
-  const update = (patch: Partial<TotePlanConfig>) => setConfig((c) => ({ ...c, ...patch }));
+  const unitIndex = Math.min(selected, design.units.length - 1);
+  const unit = design.units[unitIndex];
 
-  const size = useMemo(() => totePlanOuterSize(config), [config]);
+  // Any edit makes it the customer's own design, so a bestseller name no longer applies.
+  const updateUnit = (patch: Partial<TotePlanUnit>) =>
+    setDesign((d) => ({ units: d.units.map((u, i) => (i === unitIndex ? { ...u, ...patch } : u)) }));
+  const addUnit = () => {
+    setDesign((d) => ({ units: [...d.units, { ...(d.units[d.units.length - 1] ?? DEFAULT_TOTE_PLAN_UNIT) }] }));
+    setSelected(design.units.length);
+  };
+  const removeUnit = () => {
+    setDesign((d) => ({ units: d.units.filter((_, i) => i !== unitIndex) }));
+    setSelected(Math.max(0, unitIndex - 1));
+  };
+
+  const size = useMemo(() => designOuterSize(design), [design]);
+  const moduleCount = useMemo(() => designModules(design).modules.length, [design]);
   const hasFree = freeAccess?.hasFreeAccess === true;
+  const note = moduleNote(unit);
 
   const handleBuy = async (tier: TotePlanTier) => {
     setLoadingTier(tier);
     setError("");
-    const result = await createDIYPlanCheckout(config, tier);
+    const result = await createDIYPlanCheckout(design, tier, source);
     if (result.success && result.url) {
       window.location.href = result.url;
     } else {
@@ -261,47 +300,112 @@ function PlansDesigner() {
               }
             >
               <Rack3D
-                cols={config.cols}
-                rows={config.rows}
-                toteType={config.toteType}
+                cols={unit.cols}
+                rows={unit.rows}
+                toteType={unit.toteType}
                 toteColor="black"
                 unitType="standard"
                 orientation="standard"
                 hasTotes={false}
-                hasWheels={config.hasWheels}
-                hasTop={config.hasTop}
+                hasWheels={unit.hasWheels}
+                hasTop={unit.hasTop}
               />
             </Suspense>
             <div className="pointer-events-none absolute left-3 top-3 rounded-lg bg-slate-900/85 px-3 py-1.5 backdrop-blur">
-              <p className="text-xs font-bold text-white">{totePlanName(config)}</p>
+              <p className="text-xs font-bold text-white">
+                {design.units.length > 1 ? `Unit ${unitIndex + 1}: ` : ""}
+                {unit.cols}×{unit.rows}
+              </p>
               <p className="font-mono text-[11px] text-stone-300">
-                {toFraction(size.widthIn)}&quot; W × {toFraction(size.heightIn)}&quot; H × 30&quot; D
+                {(() => {
+                  const s = designOuterSize({ units: [unit] });
+                  return `${toFraction(s.widthIn)}" W × ${toFraction(s.heightIn)}" H × 30" D`;
+                })()}
               </p>
             </div>
           </div>
 
+          {/* Whole system */}
+          <div className="border-b border-slate-800 bg-slate-950/40 px-4 py-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="flex items-center gap-1.5 text-xs font-bold text-white">
+                <Layers className="h-3.5 w-3.5 text-yellow-400" />
+                {totePlanName(design)}
+              </p>
+              <p className="font-mono text-[11px] text-stone-400">
+                {toFraction(size.widthIn)}&quot; × {toFraction(size.heightIn)}&quot; · {moduleCount} module{moduleCount === 1 ? "" : "s"}
+              </p>
+            </div>
+            <SystemMap
+              design={design}
+              highlight={(m) => design.units.length > 1 && m.unitIndex === unitIndex}
+              className="h-24 w-full"
+            />
+            <div className="mt-3 flex flex-wrap gap-2">
+              {design.units.map((u, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setSelected(i)}
+                  aria-pressed={i === unitIndex}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition ${
+                    i === unitIndex
+                      ? "border-yellow-400/60 bg-yellow-400/10 text-white"
+                      : "border-slate-700 text-stone-400 hover:border-slate-600"
+                  }`}
+                >
+                  Unit {i + 1} · {u.cols}×{u.rows}
+                </button>
+              ))}
+              {design.units.length < TOTE_PLAN_LIMITS.maxUnits && (
+                <button
+                  type="button"
+                  onClick={addUnit}
+                  className="flex items-center gap-1 rounded-lg border border-dashed border-slate-600 px-3 py-1.5 text-xs font-semibold text-stone-400 transition hover:border-yellow-400/50 hover:text-yellow-400"
+                >
+                  <Plus className="h-3 w-3" />
+                  Add a unit
+                </button>
+              )}
+            </div>
+          </div>
+
           <div className="space-y-4 p-4">
+            {design.units.length > 1 && (
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-white">Editing Unit {unitIndex + 1}</p>
+                <button
+                  type="button"
+                  onClick={removeUnit}
+                  className="flex items-center gap-1 text-[11px] font-semibold text-stone-500 transition hover:text-red-400"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Remove unit
+                </button>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <Stepper
                 label="Totes wide"
-                value={config.cols}
+                value={unit.cols}
                 min={TOTE_PLAN_LIMITS.minCols}
                 max={TOTE_PLAN_LIMITS.maxCols}
-                onChange={(cols) => update({ cols })}
+                onChange={(cols) => updateUnit({ cols })}
               />
               <Stepper
                 label="Totes tall"
-                value={config.rows}
+                value={unit.rows}
                 min={TOTE_PLAN_LIMITS.minRows}
                 max={TOTE_PLAN_LIMITS.maxRows}
-                onChange={(rows) => update({ rows })}
+                onChange={(rows) => updateUnit({ rows })}
               />
             </div>
-            <WallFit config={config} onFit={update} />
+            {note && <p className="rounded-xl bg-yellow-400/5 px-3 py-2 text-[11px] text-yellow-200/80">{note}</p>}
+            <WallFit unit={unit} onFit={updateUnit} />
             <Segmented
-              label="Your totes (27 gallon)"
-              value={config.toteType}
-              onChange={(toteType) => update({ toteType })}
+              label="Totes (27 gallon)"
+              value={unit.toteType}
+              onChange={(toteType) => updateUnit({ toteType })}
               options={[
                 { value: "HDX", label: "HDX", hint: "Home Depot, Walmart, Menards" },
                 { value: "GM", label: "Greenmade", hint: "Costco" },
@@ -310,8 +414,8 @@ function PlansDesigner() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Segmented
                 label="Casters"
-                value={config.hasWheels}
-                onChange={(hasWheels) => update({ hasWheels })}
+                value={unit.hasWheels}
+                onChange={(hasWheels) => updateUnit({ hasWheels })}
                 options={[
                   { value: true, label: "Rolling" },
                   { value: false, label: "Stationary" },
@@ -319,17 +423,15 @@ function PlansDesigner() {
               />
               <Segmented
                 label="Top"
-                value={config.hasTop}
-                onChange={(hasTop) => update({ hasTop })}
+                value={unit.hasTop}
+                onChange={(hasTop) => updateUnit({ hasTop })}
                 options={[
                   { value: true, label: "Plywood worktop" },
                   { value: false, label: "Open" },
                 ]}
               />
             </div>
-            <p className="text-[11px] text-stone-600">
-              {config.cols * config.rows} totes. Need more storage? Build two of the same unit side by side from one plan.
-            </p>
+            <p className="text-[11px] text-stone-600">{totePlanSummary(design)}</p>
           </div>
         </section>
 
@@ -346,7 +448,7 @@ function PlansDesigner() {
             </div>
             <p className="mb-4 text-xs text-stone-400">PDF plan and the interactive build guide, no charge.</p>
             <Link
-              href={`/plans/build?access=pro&config=${encodeTotePlanConfig(config)}`}
+              href={`/plans/build?access=pro&design=${encodeTotePlanDesign(design)}${design.name ? `&name=${encodeURIComponent(design.name)}` : ""}`}
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-emerald-500"
             >
               Open My Build Plan
@@ -399,8 +501,8 @@ function PlansDesigner() {
         )}
 
         <p className="pb-4 text-center text-[11px] text-stone-600">
-          One-time purchase. We email you a permanent link — no account needed.
-          Start with the PDF and you can upgrade to the interactive guide later.
+          One price for your whole design, any size. One-time purchase — we email you a permanent link, no account needed.
+          Start with the PDF and you can upgrade to the interactive guide later for {formatPlanPrice(TOTE_PLAN_TIERS.interactive.price - TOTE_PLAN_TIERS.pdf.price)}.
         </p>
       </div>
     </main>
