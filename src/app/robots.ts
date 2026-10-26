@@ -38,6 +38,8 @@ const BLOCKED_PATHS = [
   "/community/*",
   "/upgrade",
   "/demo",
+  "/rack/",
+  "/review/",
   "/_next/",
 ];
 
@@ -73,6 +75,13 @@ const BLOCKED_AI_BOTS = [
   "Google-Extended",
   "ClaudeBot",
   "PerplexityBot",
+  "Cohere-ai",
+  "Bytespider",
+  "Diffbot",
+  "FacebookBot",
+  "Omgilibot",
+  "Amazonbot",
+  "YouBot",
 ];
 
 // Traditional search engine bots — ALLOWED for indexing
