@@ -6,7 +6,8 @@
 // actually charges and what the plans actually build.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { PUBLIC_PLANS } from "@/lib/plans-config";
+import { PUBLIC_PLANS, type PublicPlan } from "@/lib/plans-config";
+import { planPageHref, type PlanPageContent } from "@/lib/plan-pages";
 import {
   BAY_OPENING_IN,
   MODULE_MAX_COLS,
@@ -138,17 +139,64 @@ export function ladderJigProductJsonLd() {
   };
 }
 
-export function publicPlanProductsJsonLd() {
-  return PUBLIC_PLANS.map((plan) => ({
+function publicPlanProductJsonLd(plan: PublicPlan, description?: string) {
+  const url = `${BASE}${planPageHref(plan.id) ?? "/plans"}`;
+  return {
     "@context": "https://schema.org",
     "@type": "Product",
-    "@id": `${BASE}/plans#${plan.id}`,
+    "@id": `${url}#product`,
     name: `${plan.name} Plans`,
-    description: `${plan.tagline} ${plan.includes.join(". ")}.`,
+    description: description ?? `${plan.tagline} ${plan.includes.join(". ")}.`,
     image: [`${BASE}${plan.previewImage}`],
     category: "DIY Woodworking Plans",
     brand: { "@id": ORGANIZATION_ID },
+    url,
+    offers: offer(`${plan.name} Plans`, plan.price, url),
+  };
+}
+
+export function publicPlanProductsJsonLd() {
+  return PUBLIC_PLANS.map((plan) => publicPlanProductJsonLd(plan));
+}
+
+/** Product + FAQPage for a /plans/[slug] page. */
+export function planPageJsonLd(page: PlanPageContent, plan: PublicPlan) {
+  return [
+    publicPlanProductJsonLd(plan, page.metaDescription),
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: page.faqs.map((f) => ({
+        "@type": "Question",
+        name: f.question,
+        acceptedAnswer: { "@type": "Answer", text: f.answer },
+      })),
+    },
+  ];
+}
+
+/** Bump when the /plans copy or offers change — read as a freshness signal. */
+export const PLANS_UPDATED = "2026-10-26";
+
+export function plansWebPageJsonLd(description: string) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "@id": `${BASE}/plans#webpage`,
     url: `${BASE}/plans`,
-    offers: offer(`${plan.name} Plans`, plan.price, `${BASE}/plans`),
-  }));
+    name: "DIY Tote Rack Plans",
+    description,
+    dateModified: PLANS_UPDATED,
+    inLanguage: "en-US",
+    isPartOf: { "@id": `${BASE}/#website` },
+    publisher: { "@id": ORGANIZATION_ID },
+    mainEntity: {
+      "@type": "ItemList",
+      itemListElement: [
+        `${BASE}/plans#tote-organizer-plans`,
+        `${BASE}/plans/jig#product`,
+        ...PUBLIC_PLANS.map((plan) => `${BASE}${planPageHref(plan.id) ?? "/plans"}#product`),
+      ].map((id, i) => ({ "@type": "ListItem", position: i + 1, item: { "@id": id } })),
+    },
+  };
 }

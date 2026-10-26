@@ -3,14 +3,25 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, BookOpen, Box, CheckCircle, ChevronDown, ExternalLink, FileText, Wrench } from "lucide-react";
 import { PUBLIC_PLANS } from "@/lib/plans-config";
-import { BAY_OPENING_IN, MODULE_MAX_COLS, MODULE_MAX_ROWS, TOTE_PLAN_LIMITS, TOTE_PLAN_TIERS, formatPlanPrice } from "@/lib/tote-plans";
+import {
+  BAY_OPENING_IN,
+  MODULE_MAX_COLS,
+  MODULE_MAX_ROWS,
+  TOTE_PLAN_LIMITS,
+  TOTE_PLAN_TIERS,
+  UNIT_DEPTH_IN,
+  formatPlanPrice,
+} from "@/lib/tote-plans";
 import { LADDER_JIG_NAME, LADDER_JIG_TAGLINE } from "@/lib/ladder-jig";
 import { generateBreadcrumbJsonLd } from "@/lib/schema/breadcrumb";
+import { planPageHref } from "@/lib/plan-pages";
 import {
   PLANS_FAQS,
   PLANS_PRICES,
   ladderJigProductJsonLd,
+  PLANS_UPDATED,
   plansFaqJsonLd,
+  plansWebPageJsonLd,
   publicPlanProductsJsonLd,
   totePlansProductJsonLd,
 } from "@/lib/schema/plans";
@@ -62,6 +73,7 @@ export const metadata: Metadata = {
 };
 
 const jsonLd = [
+  plansWebPageJsonLd(DESCRIPTION),
   generateBreadcrumbJsonLd([{ name: "DIY Build Plans", path: "/plans" }]),
   totePlansProductJsonLd(),
   ladderJigProductJsonLd(),
@@ -160,10 +172,27 @@ const PLAN_DETAILS: { title: string; body: string }[] = [
   },
 ];
 
+// ── At a glance ──────────────────────────────────────────────────────────────
+// A plain spec table: the format answer engines quote most readily.
+
+const AT_A_GLANCE: [string, string][] = [
+  ["Totes", "27-gallon HDX (Home Depot) and Greenmade (Costco)"],
+  ["Bay opening", `${BAY_OPENING_IN}" between uprights, one tote per bay`],
+  ["Depth", `${UNIT_DEPTH_IN}"`],
+  ["Lumber", "2×4×8' boards; rails ripped from 2×4s"],
+  ["Size", `1×1 up to ${TOTE_PLAN_LIMITS.maxCols} wide × ${TOTE_PLAN_LIMITS.maxRows} high, up to ${TOTE_PLAN_LIMITS.maxUnits} units`],
+  ["Modules", `Up to ${MODULE_MAX_COLS} wide × ${MODULE_MAX_ROWS} high, so every part fits an 8' board`],
+  ["Options", "Swivel casters, plywood worktop"],
+  ["Includes", "Cut list, shopping list, every assembly step in 3D, tools checklist"],
+  ["Price", `PDF ${PLANS_PRICES.pdf} · Interactive 3D guide ${PLANS_PRICES.interactive} · Upgrade ${PLANS_PRICES.upgrade}`],
+  ["Delivery", "Instant access, permanent link by email"],
+];
+
 // ── Fixed-price plans (e.g. Adirondack chair) ────────────────────────────────
 
 function PlanCard({ plan }: { plan: (typeof PUBLIC_PLANS)[number] }) {
   const priceDisplay = formatPlanPrice(plan.price);
+  const href = planPageHref(plan.id);
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-slate-900">
@@ -183,7 +212,15 @@ function PlanCard({ plan }: { plan: (typeof PUBLIC_PLANS)[number] }) {
           </div>
 
           <div className="min-w-0 flex-1">
-            <h3 className="text-base font-bold text-white">{plan.name} Plans</h3>
+            <h3 className="text-base font-bold text-white">
+              {href ? (
+                <Link href={href} className="hover:text-yellow-300">
+                  {plan.name} Plans
+                </Link>
+              ) : (
+                `${plan.name} Plans`
+              )}
+            </h3>
             <p className="mt-0.5 text-sm text-stone-400">{plan.tagline}</p>
             <div className="mt-2 flex items-center gap-2">
               <span className="text-2xl font-black text-yellow-400">{priceDisplay}</span>
@@ -200,6 +237,16 @@ function PlanCard({ plan }: { plan: (typeof PUBLIC_PLANS)[number] }) {
             </li>
           ))}
         </ul>
+
+        {href && (
+          <Link
+            href={href}
+            className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-yellow-400 hover:text-yellow-300"
+          >
+            {plan.name} plan details: materials, parts and steps
+            <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+          </Link>
+        )}
 
         <BuyPlanButton planId={plan.id} priceDisplay={priceDisplay} />
       </div>
@@ -282,6 +329,31 @@ export default function PlansPage() {
               className="object-cover object-left"
             />
           </div>
+        </section>
+
+        {/* ── At a glance ────────────────────────────────────────── */}
+        <section>
+          <h2 className="mb-4 text-xl font-black text-white">Tote Rack Plans at a Glance</h2>
+          <div className="overflow-hidden rounded-xl border border-slate-800">
+            <table className="w-full text-left text-xs">
+              <tbody className="divide-y divide-slate-800">
+                {AT_A_GLANCE.map(([label, value]) => (
+                  <tr key={label}>
+                    <th scope="row" className="w-28 bg-slate-900/60 px-4 py-2.5 align-top font-semibold text-stone-400">
+                      {label}
+                    </th>
+                    <td className="px-4 py-2.5 text-stone-200">{value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2 text-[11px] text-stone-600">
+            Storage Network DIY plans · Updated{" "}
+            <time dateTime={PLANS_UPDATED}>
+              {new Date(`${PLANS_UPDATED}T00:00:00Z`).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}
+            </time>
+          </p>
         </section>
 
         {/* ── Tote organizer plans ───────────────────────────────── */}
