@@ -91,6 +91,8 @@ Allow: /p/
 Allow: /p/*
 Allow: /legal/
 Allow: /legal/*
+Allow: /plans
+Allow: /plans/*
 
 # Block proprietary tools, dashboard, API, and internal routes
 Disallow: /api/

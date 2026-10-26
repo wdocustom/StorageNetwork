@@ -98,6 +98,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/installer-network`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
     { url: `${BASE}/invite`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
 
+    // DIY plans storefront (build / library / access are token-gated + noindex)
+    { url: `${BASE}/plans`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },
+    { url: `${BASE}/plans/checkout`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${BASE}/plans/jig`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
+
     // About / E-E-A-T cluster
     { url: `${BASE}/about`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${BASE}/about/scheduling`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },

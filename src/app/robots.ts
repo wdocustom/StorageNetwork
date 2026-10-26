@@ -57,6 +57,8 @@ const ALLOWED_PATHS = [
   "/become-installer/*",
   "/legal/",
   "/legal/*",
+  "/plans",
+  "/plans/*",
   "/llms.txt",
 ];
 
