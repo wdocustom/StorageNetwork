@@ -34,6 +34,7 @@ import {
   TOTE_PLAN_UPGRADE_PRICE,
   designLayout,
   formatPlanPrice,
+  moduleTypeTitle,
   planSnapshotKey,
   type DesignLayout,
   type LayoutModule,
@@ -237,10 +238,10 @@ function drawSystemMap(
     for (let c = 1; c < m.cols; c++) doc.line(x + c * cellW, y + 0.6, x + c * cellW, y + h - 0.6);
     for (let r = 1; r < m.rows; r++) doc.line(x + 0.6, y + r * cellH, x + w - 0.6, y + r * cellH);
 
-    // Letter
-    const size = Math.max(7, Math.min(22, Math.min(w, h) * 0.9));
+    // Name: A, B… or A1, A2… (mm → pt is ×2.83; a glyph is ~0.6 em wide)
+    const size = Math.max(6, Math.min(22, h * 0.9, (w * 0.8 * 2.83) / (m.name.length * 0.62)));
     setText(doc, size, lit ? COLORS.accentInk : COLORS.ink, "bold");
-    doc.text(m.type, x + w / 2, y + h / 2 + size * 0.12, { align: "center" });
+    doc.text(m.name, x + w / 2, y + h / 2 + size * 0.12, { align: "center" });
   }
 
   for (const unit of layout.units) {
@@ -291,7 +292,7 @@ function renderCover(doc: jsPDF, input: DIYPDFInput, layout: DesignLayout) {
     doc.rect(MARGIN, heroY, CONTENT_W, heroH, "F");
     drawSystemMap(doc, layout, { x: MARGIN + 8, y: heroY + 10, w: CONTENT_W - 16, h: heroH - 16 }, { dimensions: true });
     setText(doc, 8, COLORS.muted, "bold");
-    doc.text("FRONT VIEW — letters mark identical modules", MARGIN + 4, heroY + 6);
+    doc.text("FRONT VIEW — units A, B, C…; modules A1, A2…", MARGIN + 4, heroY + 6);
   }
 
   // At a glance
@@ -433,7 +434,7 @@ function renderSystemOverview(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan, la
   setText(doc, 9, COLORS.body);
   cur.y = paragraph(
     doc,
-    "Your build is made of self-contained modules — each one a complete frame. Modules with the same letter are identical: build one, then repeat it. Then join them into units in the order below.",
+    "Your build is made of self-contained modules — each one a complete frame. Units are lettered A, B, C…; a unit made of several modules numbers them A1, A2… Identical modules are grouped below: build one, then repeat it. Then join them into units in the order below.",
     MARGIN,
     cur.y,
     CONTENT_W,
@@ -450,16 +451,18 @@ function renderSystemOverview(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan, la
   setText(doc, 10, COLORS.ink, "bold");
   doc.text("Modules to Build", MARGIN, cur.y);
   cur.y += 6;
-  const cols = [MARGIN, MARGIN + 16, MARGIN + 48, MARGIN + 92, MARGIN + 132];
+  const cols = [MARGIN, MARGIN + 30, MARGIN + 60, MARGIN + 100, MARGIN + 138];
   setText(doc, 7.5, COLORS.muted, "bold");
-  ["TYPE", "SIZE", "OUTSIDE (W × H)", "INCLUDES", "BUILD"].forEach((h, i) => doc.text(h, cols[i], cur.y));
+  ["MODULES", "SIZE", "OUTSIDE (W × H)", "INCLUDES", "BUILD"].forEach((h, i) => doc.text(h, cols[i], cur.y));
   cur.y += 5;
   for (const t of plan.moduleTypes) {
     cur.ensure(8);
+    const label = t.label.length > 14 ? `${t.moduleNames[0]}…` : t.label;
+    setText(doc, label.length > 7 ? 8 : 10, COLORS.accentInk, "bold");
+    const chipW = Math.min(28, doc.getTextWidth(label) + 4);
     doc.setFillColor(...COLORS.accentSoft);
-    doc.roundedRect(cols[0], cur.y - 4.2, 9, 6, 1, 1, "F");
-    setText(doc, 10, COLORS.accentInk, "bold");
-    doc.text(t.letter, cols[0] + 4.5, cur.y, { align: "center" });
+    doc.roundedRect(cols[0], cur.y - 4.2, chipW, 6, 1, 1, "F");
+    doc.text(label, cols[0] + chipW / 2, cur.y, { align: "center" });
     setText(doc, 9, COLORS.ink, "bold");
     doc.text(`${t.cols} wide × ${t.rows} tall`, cols[1], cur.y);
     setText(doc, 9, COLORS.body);
@@ -479,10 +482,10 @@ function renderSystemOverview(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan, la
   cur.y += 6;
   const order = [
     "Cut every part on the cut plan.",
-    ...plan.moduleTypes.map((t) => `Build Module ${t.letter} (${t.cols}×${t.rows})${t.count > 1 ? ` — ${t.count} times` : ""}.`),
+    ...plan.moduleTypes.map((t) => `Build ${moduleTypeTitle(t)} (${t.cols}×${t.rows})${t.count > 1 ? ` — ${t.count} identical` : ""}.`),
     ...plan.units
       .filter((u) => u.assemblySteps.length > 0)
-      .map((u) => `Assemble Unit ${u.index + 1} (${u.label}): ${u.assemblySteps.map((s) => s.title.toLowerCase()).join(", ")}.`),
+      .map((u) => `Assemble Unit ${u.letter} (${u.label}): ${u.assemblySteps.map((s) => s.title.toLowerCase()).join(", ")}.`),
   ];
   order.forEach((line, i) => {
     const h = measure(doc, line, CONTENT_W - 8, 9);
@@ -528,8 +531,8 @@ function renderCutPlan(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
     setText(doc, 8.5, COLORS.ink, "bold");
     doc.text(
       plan.moduleTypes.length > 1 || t.count > 1
-        ? `Module ${t.letter} (${t.cols}×${t.rows}) — for each of ${t.count} module${t.count > 1 ? "s" : ""}`
-        : `Module ${t.letter} (${t.cols}×${t.rows})`,
+        ? `${moduleTypeTitle(t)} (${t.cols}×${t.rows}) — for each of ${t.count} module${t.count > 1 ? "s" : ""}`
+        : `${moduleTypeTitle(t)} (${t.cols}×${t.rows})`,
       MARGIN,
       cur.y,
     );
@@ -554,7 +557,7 @@ function renderCutPlan(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
   setText(doc, 9, COLORS.body);
   cur.y = paragraph(
     doc,
-    `Uprights and plates: each bar is one 2×4×8' board (96"). Tan sections are your cuts (letter = module type), gray is offcut. ${plan.cutBoards.length} boards, plus ${plan.railBoards.boards} more ripped into rails below. Stack identical parts to check they match.`,
+    `Uprights and plates: each bar is one 2×4×8' board (96"). Tan sections are your cuts, labeled with the modules they're for; gray is offcut. ${plan.cutBoards.length} boards, plus ${plan.railBoards.boards} more ripped into rails below. Stack identical parts to check they match.`,
     MARGIN,
     cur.y,
     CONTENT_W,
@@ -658,7 +661,7 @@ function renderModuleIntro(
 ) {
   cur.newPage();
   setText(doc, 8, COLORS.accentInk, "bold");
-  doc.text(`MODULE ${t.letter}`, MARGIN, cur.y);
+  doc.text(pdfText(moduleTypeTitle(t).toUpperCase()), MARGIN, cur.y);
   setText(doc, 20, COLORS.ink, "bold");
   doc.text(`${t.cols} wide × ${t.rows} tall`, MARGIN, cur.y + 9);
   setText(doc, 10, COLORS.body);
@@ -682,7 +685,7 @@ function renderModuleIntro(
   cur.y += mapH + 6;
 
   const imgH = CONTENT_W * 0.55;
-  addImageSafe(doc, hero, MARGIN, cur.y, CONTENT_W, imgH, `Module ${t.letter}`);
+  addImageSafe(doc, hero, MARGIN, cur.y, CONTENT_W, imgH, moduleTypeTitle(t));
   cur.y += imgH + 6;
 
   if (t.count > 1) {
@@ -845,12 +848,12 @@ function renderStepBody(doc: jsPDF, cur: Cursor, step: PlanAssemblyStep) {
 function renderUnitAssembly(doc: jsPDF, cur: Cursor, unit: PlanUnit, layout: DesignLayout, unitCount: number) {
   cur.newPage();
   setText(doc, 8, COLORS.accentInk, "bold");
-  doc.text(unitCount > 1 ? `UNIT ${unit.index + 1} OF ${unitCount}` : "FINAL ASSEMBLY", MARGIN, cur.y);
+  doc.text(unitCount > 1 ? `UNIT ${unit.letter} · ${unit.index + 1} OF ${unitCount}` : "FINAL ASSEMBLY", MARGIN, cur.y);
   setText(doc, 20, COLORS.ink, "bold");
-  doc.text(pdfText(`Assemble the ${unit.label} Unit`), MARGIN, cur.y + 9);
+  doc.text(pdfText(`Assemble Unit ${unit.letter} (${unit.label})`), MARGIN, cur.y + 9);
   setText(doc, 10, COLORS.body);
   doc.text(
-    pdfText(`Modules ${unit.modules.map((m) => m.type).join(" + ")} · ${formatInches(unit.widthIn)} W × ${formatInches(unit.heightIn)} H × 30" D`),
+    pdfText(`Modules ${unit.modules.map((m) => m.name).join(" + ")} · ${formatInches(unit.widthIn)} W × ${formatInches(unit.heightIn)} H × 30" D`),
     MARGIN,
     cur.y + 16,
   );
@@ -999,7 +1002,7 @@ export function generateDIYPDF(input: DIYPDFInput): jsPDF {
         step,
         t.steps.length,
         input.snapshots[planSnapshotKey(t.letter, step.id)],
-        multi ? `MODULE ${t.letter} · ` : "",
+        multi ? `${moduleTypeTitle(t).toUpperCase()} · ` : "",
         input.links,
       );
     }

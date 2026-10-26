@@ -10,6 +10,7 @@ import {
   designModules,
   encodeTotePlanDesign,
   fitTotePlanToWall,
+  formatModuleNames,
   formatPlanPrice,
   isTotePlanTier,
   parseTotePlanDesign,
@@ -108,6 +109,32 @@ describe("modules — must match the build engine's split", () => {
       ["B", "2x2", 1, true],
     ]);
     expect(modules.map((m) => m.type)).toEqual(["A", "B", "A"]);
+  });
+
+  it("names units A, B, C and labels each type by the modules it covers (Indiana Joe)", () => {
+    const { modules, types } = designModules(decodeTotePlanDesign("H2x4t.H2x2t.H2x4t")!);
+    expect(modules.map((m) => m.name)).toEqual(["A", "B", "C"]);
+    expect(types.map((t) => t.label)).toEqual(["A, C", "B"]);
+  });
+
+  it("numbers a multi-module unit's modules in build order (bottom tier first, left to right)", () => {
+    const { modules, types } = designModules(decodeTotePlanDesign("H4x4.H6x8wt")!);
+    expect(modules.map((m) => [m.name, m.key])).toEqual([
+      ["A", "0-0-0"],
+      ["B1", "1-0-0"],
+      ["B2", "1-1-0"],
+      ["B3", "1-0-1"],
+      ["B4", "1-1-1"],
+    ]);
+    expect(designLayout(decodeTotePlanDesign("H4x4.H6x8wt")!).modules.map((m) => m.name)).toEqual(["A", "B1", "B2", "B3", "B4"]);
+    expect(types.map((t) => t.label)).toEqual(["A", "B1", "B2", "B3", "B4"]);
+  });
+
+  it("collapses consecutive module names", () => {
+    expect(formatModuleNames(["A1", "A2", "A3", "C1"])).toEqual("A1–A3, C1");
+    expect(formatModuleNames(["A1", "A2"])).toEqual("A1, A2");
+    expect(formatModuleNames(["A", "C", "D"])).toEqual("A, C, D");
+    expect(formatModuleNames(["B2", "B4"])).toEqual("B2, B4");
   });
 
   it("moves casters and the top to the unit when it's wider than one module", () => {

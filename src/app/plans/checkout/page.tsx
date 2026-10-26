@@ -23,6 +23,7 @@ import { Box, CheckCircle, Crown, FileText, Layers, Loader2, Minus, Plus, Ruler,
 import { createDIYPlanCheckout, checkDIYPlanAccess } from "@/app/actions/diy-plan-checkout";
 import { toFraction } from "@/lib/utils";
 import SystemMap from "@/components/plans/SystemMap";
+import { BestsellersButton, BestsellersLightbox } from "@/components/plans/PlanBestsellers";
 import {
   DEFAULT_TOTE_PLAN_DESIGN,
   DEFAULT_TOTE_PLAN_UNIT,
@@ -39,6 +40,7 @@ import {
   totePlanDesignHref,
   totePlanName,
   totePlanSummary,
+  unitLetter,
   type TotePlanDesign,
   type TotePlanTier,
   type TotePlanUnit,
@@ -217,6 +219,7 @@ function PlansDesigner() {
     () => designFromSearchParams(searchParams) ?? DEFAULT_TOTE_PLAN_DESIGN,
   );
   const [selected, setSelected] = useState(0);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [loadingTier, setLoadingTier] = useState<TotePlanTier | null>(null);
   const [error, setError] = useState("");
   const [freeAccess, setFreeAccess] = useState<{ hasFreeAccess: boolean; reason?: "pro" | "admin" } | null>(null);
@@ -247,6 +250,13 @@ function PlansDesigner() {
     setDesign((d) => ({ units: d.units.filter((_, i) => i !== unitIndex) }));
     setSelected(Math.max(0, unitIndex - 1));
   };
+  const pickBestseller = (picked: TotePlanDesign) => {
+    setDesign(picked);
+    setSelected(0);
+    setPickerOpen(false);
+  };
+  const multi = design.units.length > 1;
+  const letter = unitLetter(unitIndex);
 
   const size = useMemo(() => designOuterSize(design), [design]);
   const moduleCount = useMemo(() => designModules(design).modules.length, [design]);
@@ -299,6 +309,7 @@ function PlansDesigner() {
                 </div>
               }
             >
+              {/* Every unit, side by side — like the design configurator */}
               <Rack3D
                 cols={unit.cols}
                 rows={unit.rows}
@@ -309,19 +320,20 @@ function PlansDesigner() {
                 hasTotes={false}
                 hasWheels={unit.hasWheels}
                 hasTop={unit.hasTop}
+                presetUnits={
+                  multi
+                    ? design.units.map((u) => ({ cols: u.cols, rows: u.rows, hasTop: u.hasTop, hasWheels: u.hasWheels, totalW: 0, totalH: 0 }))
+                    : undefined
+                }
               />
             </Suspense>
             <div className="pointer-events-none absolute left-3 top-3 rounded-lg bg-slate-900/85 px-3 py-1.5 backdrop-blur">
-              <p className="text-xs font-bold text-white">
-                {design.units.length > 1 ? `Unit ${unitIndex + 1}: ` : ""}
-                {unit.cols}×{unit.rows}
-              </p>
               <p className="font-mono text-[11px] text-stone-300">
-                {(() => {
-                  const s = designOuterSize({ units: [unit] });
-                  return `${toFraction(s.widthIn)}" W × ${toFraction(s.heightIn)}" H × 30" D`;
-                })()}
+                {toFraction(size.widthIn)}&quot; W × {toFraction(size.heightIn)}&quot; H × 30&quot; D
               </p>
+            </div>
+            <div className="absolute right-3 top-3">
+              <BestsellersButton onClick={() => setPickerOpen(true)} />
             </div>
           </div>
 
@@ -332,48 +344,39 @@ function PlansDesigner() {
                 <Layers className="h-3.5 w-3.5 text-yellow-400" />
                 {totePlanName(design)}
               </p>
-              <p className="font-mono text-[11px] text-stone-400">
-                {toFraction(size.widthIn)}&quot; × {toFraction(size.heightIn)}&quot; · {moduleCount} module{moduleCount === 1 ? "" : "s"}
+              <p className="shrink-0 font-mono text-[11px] text-stone-400">
+                {design.units.length} unit{multi ? "s" : ""} · {moduleCount} module{moduleCount === 1 ? "" : "s"}
               </p>
             </div>
-            <SystemMap
-              design={design}
-              highlight={(m) => design.units.length > 1 && m.unitIndex === unitIndex}
-              className="h-24 w-full"
-            />
-            <div className="mt-3 flex flex-wrap gap-2">
-              {design.units.map((u, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setSelected(i)}
-                  aria-pressed={i === unitIndex}
-                  className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition ${
-                    i === unitIndex
-                      ? "border-yellow-400/60 bg-yellow-400/10 text-white"
-                      : "border-slate-700 text-stone-400 hover:border-slate-600"
-                  }`}
-                >
-                  Unit {i + 1} · {u.cols}×{u.rows}
-                </button>
-              ))}
+            <div className="flex items-end justify-center gap-2">
+              <SystemMap
+                design={design}
+                highlight={(m) => multi && m.unitIndex === unitIndex}
+                onSelectUnit={setSelected}
+                className="h-24 min-w-0 max-w-full"
+                title="Your units — tap one to edit it"
+              />
               {design.units.length < TOTE_PLAN_LIMITS.maxUnits && (
                 <button
                   type="button"
                   onClick={addUnit}
-                  className="flex items-center gap-1 rounded-lg border border-dashed border-slate-600 px-3 py-1.5 text-xs font-semibold text-stone-400 transition hover:border-yellow-400/50 hover:text-yellow-400"
+                  aria-label="Add a unit"
+                  title="Add a unit"
+                  className="mb-1 flex h-14 w-9 shrink-0 items-center justify-center rounded-md border border-dashed border-slate-600 text-stone-400 transition hover:border-yellow-400 hover:text-yellow-400"
                 >
-                  <Plus className="h-3 w-3" />
-                  Add a unit
+                  <Plus className="h-4 w-4" />
                 </button>
               )}
             </div>
+            {multi && <p className="mt-1 text-center text-[10px] text-stone-600">Tap a unit to edit it</p>}
           </div>
 
           <div className="space-y-4 p-4">
-            {design.units.length > 1 && (
+            {multi && (
               <div className="flex items-center justify-between">
-                <p className="text-xs font-bold text-white">Editing Unit {unitIndex + 1}</p>
+                <p className="text-xs font-bold text-white">
+                  Editing Unit <span className="text-yellow-400">{letter}</span>
+                </p>
                 <button
                   type="button"
                   onClick={removeUnit}
@@ -434,6 +437,13 @@ function PlansDesigner() {
             <p className="text-[11px] text-stone-600">{totePlanSummary(design)}</p>
           </div>
         </section>
+
+        <BestsellersLightbox
+          open={pickerOpen}
+          currentName={design.name}
+          onClose={() => setPickerOpen(false)}
+          onPick={pickBestseller}
+        />
 
         {error && (
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-400">{error}</div>

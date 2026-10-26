@@ -369,9 +369,51 @@ export function fitTotePlanToWall(
 // Modules and module types
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Naming: units are lettered A, B, C… left to right. A unit built from
+// several modules numbers them in build order (bottom tier first, left to
+// right): A1, A2… A one-module unit is just its letter. Identical modules
+// still share a TYPE (internal letter, used for snapshots and grouping) so
+// the customer builds each type once and repeats it; people see the type
+// by the module names it covers, e.g. "A1–A3, C1".
+
+/** Unit letter for a unit index: 0 → "A". */
+export function unitLetter(index: number): string {
+  return String.fromCharCode(65 + index);
+}
+
+/** "A1","A2","A3","C1" → "A1–A3, C1" (consecutive numbers collapse). */
+export function formatModuleNames(names: string[]): string {
+  const parsed = names.map((n) => {
+    const m = /^([A-Z])(\d*)$/.exec(n);
+    return m ? { unit: m[1], num: m[2] ? Number(m[2]) : null } : { unit: n, num: null };
+  });
+  const out: string[] = [];
+  for (let i = 0; i < parsed.length; i++) {
+    const start = parsed[i];
+    if (start.num === null) {
+      out.push(start.unit);
+      continue;
+    }
+    let end = i;
+    while (
+      end + 1 < parsed.length &&
+      parsed[end + 1].unit === start.unit &&
+      parsed[end + 1].num === (parsed[end].num as number) + 1
+    ) {
+      end++;
+    }
+    out.push(end > i + 1 ? `${start.unit}${start.num}–${start.unit}${parsed[end].num}` : `${start.unit}${start.num}`);
+    if (end === i + 1) out.push(`${start.unit}${parsed[end].num}`);
+    i = end;
+  }
+  return out.join(", ");
+}
+
 export interface PlanModule {
   /** Build-engine key: "<unitIdx>-<widthModIndex>-<heightTierIndex>" */
   key: string;
+  /** What people see: "A" for a one-module unit, else "A1", "A2"… */
+  name: string;
   unitIndex: number;
   widthIndex: number;
   widthCount: number;
@@ -384,7 +426,7 @@ export interface PlanModule {
   hasWheels: boolean;
   /** Worktop is part of the module build only when the module IS the unit */
   hasTop: boolean;
-  /** Module type letter, A, B, C… */
+  /** Internal type letter, shared by identical modules (see "Naming" above) */
   type: string;
 }
 
@@ -397,6 +439,15 @@ export interface PlanModuleType {
   hasTop: boolean;
   /** How many of this module the design needs */
   count: number;
+  /** Names of every module of this type, in build order */
+  moduleNames: string[];
+  /** Display label, e.g. "A1–A3, C1" */
+  label: string;
+}
+
+/** "Module B" / "Modules A, C" / "Modules A1–A3" */
+export function moduleTypeTitle(t: Pick<PlanModuleType, "moduleNames" | "label">): string {
+  return `${t.moduleNames.length > 1 ? "Modules" : "Module"} ${t.label}`;
 }
 
 export interface DesignModules {
@@ -417,6 +468,8 @@ export function designModules(design: TotePlanDesign): DesignModules {
     const widths = splitWidth(unit.cols);
     const tiers = splitHeight(unit.rows);
     const single = widths.length === 1 && tiers.length === 1;
+    const letter = unitLetter(unitIndex);
+    let moduleNumber = 0;
     // Build order matches the engine: bottom tier first, left to right.
     tiers.forEach((rows, tierIndex) => {
       widths.forEach((cols, widthIndex) => {
@@ -430,27 +483,32 @@ export function designModules(design: TotePlanDesign): DesignModules {
           hasTop: unit.hasTop && single,
         };
         const k = typeKey(spec);
-        let letter = letterByKey.get(k);
-        if (!letter) {
-          letter = String.fromCharCode(65 + types.length);
-          letterByKey.set(k, letter);
-          types.push({ letter, ...spec, count: 0 });
+        let typeLetter = letterByKey.get(k);
+        if (!typeLetter) {
+          typeLetter = String.fromCharCode(65 + types.length);
+          letterByKey.set(k, typeLetter);
+          types.push({ letter: typeLetter, ...spec, count: 0, moduleNames: [], label: "" });
         }
-        types.find((t) => t.letter === letter)!.count += 1;
+        const name = single ? letter : `${letter}${++moduleNumber}`;
+        const type = types.find((t) => t.letter === typeLetter)!;
+        type.count += 1;
+        type.moduleNames.push(name);
         modules.push({
           key: `${unitIndex}-${widthIndex}-${tierIndex}`,
+          name,
           unitIndex,
           widthIndex,
           widthCount: widths.length,
           tierIndex,
           tierCount: tiers.length,
           ...spec,
-          type: letter,
+          type: typeLetter,
         });
       });
     });
   });
 
+  for (const t of types) t.label = formatModuleNames(t.moduleNames);
   return { modules, types };
 }
 
@@ -611,6 +669,8 @@ export function designFromItems(items: PlanSourceItem[], name?: string): PlanTra
 
 export interface LayoutModule {
   key: string;
+  /** Display name, "A" / "A1" */
+  name: string;
   unitIndex: number;
   type: string;
   cols: number;
@@ -666,6 +726,7 @@ export function designLayout(design: TotePlanDesign, unitGapIn = 8): DesignLayou
     for (const m of modules.filter((mm) => mm.unitIndex === unitIndex)) {
       out.push({
         key: m.key,
+        name: m.name,
         unitIndex,
         type: m.type,
         cols: m.cols,

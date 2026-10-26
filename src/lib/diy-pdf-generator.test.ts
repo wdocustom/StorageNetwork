@@ -15,8 +15,10 @@ describe("generateDIYPlan", () => {
       const p = await plan(code);
       // uprights + plates (packed) and rail boards add up to the engine's 2×4 total
       expect(p.cutBoards.length + p.railBoards.boards).toBe(p.totals.boards);
-      const labels = new Set(p.cutBoards.flatMap((b) => b.cuts.map((c) => c.label.split(" ")[0])));
-      expect([...labels].sort()).toEqual(p.moduleTypes.map((t) => t.letter).sort());
+      // every cut is labeled with the modules it's for ("A, C Upright")
+      const labels = new Set(p.cutBoards.flatMap((b) => b.cuts.map((c) => c.label.replace(/ \S+$/, ""))));
+      const typeLabels = p.moduleTypes.map((t) => (t.label.length > 12 ? `${t.moduleNames[0]}…` : t.label));
+      expect([...labels].sort()).toEqual(typeLabels.sort());
     }
   });
 
