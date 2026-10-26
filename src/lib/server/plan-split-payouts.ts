@@ -142,3 +142,82 @@ export async function processPlanSplits(
 
   return results;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// retryPlanSplitPayout — owner-triggered retry of a 'failed' share
+//
+// Safe to click twice: the row is claimed failed → pending first, and if
+// Stripe already holds a plan-split transfer for this sale + account (e.g.
+// the original call timed out after succeeding) it's recorded, not repaid.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function retryPlanSplitPayout(
+  rowId: string,
+  { stripe, db }: { stripe: Stripe; db: SupabaseClient },
+): Promise<{ ok: boolean; status?: "paid" | "failed"; error?: string }> {
+  const { data: row } = await db
+    .from("plan_split_payouts")
+    .select("id, stripe_session_id, recipient_id, amount_cents, reason, bestsellers, status")
+    .eq("id", rowId)
+    .single();
+  if (!row) return { ok: false, error: "Payout not found." };
+  if (row.status !== "failed") return { ok: false, error: "Only failed payouts can be retried." };
+
+  const { data: profile } = await db
+    .from("profiles")
+    .select("stripe_account_id, stripe_details_submitted")
+    .eq("id", row.recipient_id)
+    .single();
+  if (!profile?.stripe_account_id || !profile.stripe_details_submitted) {
+    return { ok: false, error: "This installer hasn't finished connecting Stripe yet." };
+  }
+
+  // Claim it so a double click can't pay twice
+  const { data: claimed } = await db
+    .from("plan_split_payouts")
+    .update({ status: "pending", failure_reason: null, updated_at: new Date().toISOString() })
+    .eq("id", row.id)
+    .eq("status", "failed")
+    .select("id");
+  if (!claimed || claimed.length === 0) return { ok: false, error: "Already being retried." };
+
+  const markPaid = async (transferId: string) => {
+    const now = new Date().toISOString();
+    await db
+      .from("plan_split_payouts")
+      .update({ status: "paid", stripe_transfer_id: transferId, paid_at: now, updated_at: now })
+      .eq("id", row.id);
+    return { ok: true, status: "paid" as const };
+  };
+
+  try {
+    const existing = await stripe.transfers.list({ transfer_group: row.stripe_session_id, destination: profile.stripe_account_id, limit: 20 });
+    const already = existing.data.find((t) => t.metadata?.type === "plan_split");
+    if (already) return await markPaid(already.id);
+
+    const session = await stripe.checkout.sessions.retrieve(row.stripe_session_id);
+    const chargeId = await chargeIdFor(stripe, session);
+    const transfer = await stripe.transfers.create({
+      amount: row.amount_cents,
+      currency: "usd",
+      destination: profile.stripe_account_id,
+      transfer_group: row.stripe_session_id,
+      ...(chargeId ? { source_transaction: chargeId } : {}),
+      description: `DIY plan sale — ${row.reason} share (retry)`,
+      metadata: {
+        type: "plan_split",
+        stripe_session_id: row.stripe_session_id,
+        reason: row.reason,
+        bestsellers: (row.bestsellers ?? []).join(","),
+      },
+    });
+    return await markPaid(transfer.id);
+  } catch (err) {
+    const reason = `transfer_error: ${err instanceof Error ? err.message.slice(0, 200) : "unknown"}`;
+    await db
+      .from("plan_split_payouts")
+      .update({ status: "failed", failure_reason: reason, updated_at: new Date().toISOString() })
+      .eq("id", row.id);
+    return { ok: false, status: "failed", error: reason };
+  }
+}

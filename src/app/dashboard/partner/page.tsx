@@ -58,6 +58,7 @@ import {
 } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import ProPill from "@/components/dashboard/ProPill";
+import PlanSplitsAdmin from "@/components/dashboard/PlanSplitsAdmin";
 import InstallerOutreachModal from "@/components/admin/InstallerOutreachModal";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -771,6 +772,9 @@ export default function PartnerDashboardPage() {
             </div>
           </section>
         )}
+
+        {/* DIY plan splits — the server only answers for the platform owner */}
+        {isAdmin && <PlanSplitsAdmin />}
 
         {/* ═══════════════════════════════════════════════════════════════
             ADMIN: All Platform Users (admin only)

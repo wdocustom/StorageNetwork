@@ -1,5 +1,6 @@
 "use client";
 
+import PlanEarningsCard from "@/components/dashboard/PlanEarningsCard";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -1879,6 +1880,9 @@ function ProfilePageInner() {
                 </button>
               </div>
             </div>
+
+            {/* ── DIY plan earnings (only for installers who've received a split) ── */}
+            <PlanEarningsCard />
 
             {/* ── Affiliate Program — Phase 2 + 4 ──────────────────── */}
             {/* Hidden for legacy partners (Joe Long et al.) — they still
