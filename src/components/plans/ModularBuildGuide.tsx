@@ -5,8 +5,8 @@
 //
 // Walks the customer through the plan one section at a time:
 //   1. each MODULE TYPE in the installer AssemblyGuide (3D, step by step),
-//      with a module map under the top-left badge highlighting where every
-//      module of that type goes and how many to build
+//      titled by the modules it covers ("Modules A, C"), with a module map
+//      under the top-left badge highlighting where each one goes
 //   2. each UNIT that needs joining / stacking / a full-width worktop /
 //      wall anchoring, as an illustrated checklist around the same map
 //
@@ -21,6 +21,7 @@ import AssemblyGuide from "@/components/visualizer/AssemblyGuide";
 import SystemMap from "@/components/plans/SystemMap";
 import type { CompleteDIYPlan, PlanModuleTypeBuild, PlanUnit } from "@/app/actions/generate-plan";
 import { toFraction } from "@/lib/utils";
+import { moduleTypeTitle } from "@/lib/tote-plans";
 
 type Section = { kind: "module"; type: PlanModuleTypeBuild } | { kind: "unit"; unit: PlanUnit };
 
@@ -56,7 +57,7 @@ function GuideToolbar({ links }: { links: GuideLinks }) {
 }
 
 function sectionTitle(s: Section): string {
-  return s.kind === "module" ? `Module ${s.type.letter}` : `Assemble Unit ${s.unit.index + 1}`;
+  return s.kind === "module" ? moduleTypeTitle(s.type) : `Assemble Unit ${s.unit.letter}`;
 }
 
 function SectionNav({
@@ -112,7 +113,7 @@ function ModuleHud({
     <div className="w-[170px] rounded-xl border border-yellow-400/30 bg-slate-900/95 p-2 shadow-xl backdrop-blur sm:w-[230px] sm:p-2.5">
       <div className="mb-1.5 flex items-baseline justify-between gap-2">
         <p className="text-xs font-black text-white">
-          Building <span className="text-yellow-400">Module {t.letter}</span>
+          Building <span className="text-yellow-400">{moduleTypeTitle(t)}</span>
         </p>
         <p className="shrink-0 text-[10px] font-bold text-stone-500">
           {index + 1}/{sections.length}
@@ -122,7 +123,7 @@ function ModuleHud({
         design={plan.design}
         highlight={(m) => m.type === t.letter}
         className="mb-1.5 h-11 w-full sm:h-20"
-        title={`Module ${t.letter} highlighted in your system`}
+        title={`${moduleTypeTitle(t)} highlighted in your system`}
       />
       <p className="mb-2 text-[10px] leading-snug text-stone-400">
         {t.cols}×{t.rows}
@@ -160,11 +161,13 @@ function UnitAssembly({
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-400">
               Section {index + 1} of {sections.length}
-              {plan.units.length > 1 ? ` · Unit ${unit.index + 1} of ${plan.units.length}` : ""}
+              {plan.units.length > 1 ? ` · Unit ${unit.letter} · ${unit.index + 1} of ${plan.units.length}` : ""}
             </p>
-            <h2 className="text-xl font-black text-white">Assemble the {unit.label} Unit</h2>
+            <h2 className="text-xl font-black text-white">
+              Assemble Unit {unit.letter} <span className="text-stone-400">({unit.label})</span>
+            </h2>
             <p className="text-xs text-stone-400">
-              Modules {unit.modules.map((m) => m.type).join(" + ")} · {toFraction(unit.widthIn)}&quot; W ×{" "}
+              Modules {unit.modules.map((m) => m.name).join(" + ")} · {toFraction(unit.widthIn)}&quot; W ×{" "}
               {toFraction(unit.heightIn)}&quot; H × 30&quot; D
             </p>
           </div>
@@ -186,7 +189,7 @@ function UnitAssembly({
             highlight={(m) => m.unitIndex === unit.index}
             dimensions
             className="h-44 w-full sm:h-56"
-            title={`Unit ${unit.index + 1} highlighted in your system`}
+            title={`Unit ${unit.letter} highlighted in your system`}
           />
         </div>
 
@@ -275,7 +278,7 @@ export default function ModularBuildGuide({
       hasTop={t.hasTop}
       rails="2x4"
       onClose={onClose}
-      label={multi ? `Module ${t.letter}` : undefined}
+      label={multi ? moduleTypeTitle(t) : undefined}
       hud={
         <div className="space-y-2">
           <GuideToolbar links={links} />

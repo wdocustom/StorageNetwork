@@ -19,8 +19,10 @@ describe("DIY plans links in build / quote emails", () => {
         { cols: 6, rows: 6, toteType: "HDX", unitType: "standard", orientation: "standard", hasWheels: false, hasTop: true },
       ],
       "quote_email",
+      "inst-123",
     );
-    expect(url).toMatch(/\/plans\/checkout\?design=H2x4t\.H2x2t\.H2x4t\.H6x6t&utm_source=quote_email$/);
+    // the bestseller keeps its tag (_ij) so its installer can be credited; ref credits the sender
+    expect(url).toMatch(/\/plans\/checkout\?design=H2x4t_ij\.H2x2t_ij\.H2x4t_ij\.H6x6t&utm_source=quote_email&ref=inst-123$/);
   });
 
   it("has no link when nothing in the quote is plannable", () => {

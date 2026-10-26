@@ -3,13 +3,14 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // SYSTEM MAP — front elevation of a tote plan design, drawn to scale
 //
-// Same layout as the PDF's map (designLayout). Modules show their type
-// letter and tote openings; highlighted modules glow in brand yellow.
-// Used by the plans designer, the build page and the 3D guide's corner map.
+// Same layout as the PDF's map (designLayout). Modules show their name
+// (A, B… or A1, A2… inside a multi-module unit) and tote openings;
+// highlighted modules glow in brand yellow. With onSelectUnit, each unit is
+// a button. Used by the plans designer, the build page and the 3D guide.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useMemo } from "react";
-import { designLayout, type LayoutModule, type TotePlanDesign } from "@/lib/tote-plans";
+import { designLayout, unitLetter, type LayoutModule, type TotePlanDesign } from "@/lib/tote-plans";
 import { toFraction } from "@/lib/utils";
 
 export default function SystemMap({
@@ -19,6 +20,7 @@ export default function SystemMap({
   tone = "dark",
   className,
   title,
+  onSelectUnit,
 }: {
   design: TotePlanDesign;
   highlight?: (m: LayoutModule) => boolean;
@@ -26,6 +28,8 @@ export default function SystemMap({
   tone?: "dark" | "light";
   className?: string;
   title?: string;
+  /** Makes each unit tappable */
+  onSelectUnit?: (unitIndex: number) => void;
 }) {
   const layout = useMemo(() => designLayout(design), [design]);
   const pad = 4;
@@ -44,9 +48,11 @@ export default function SystemMap({
     <svg
       viewBox={`0 0 ${vbW} ${vbH}`}
       className={className}
-      role="img"
+      role={onSelectUnit ? "group" : "img"}
       aria-label={title ?? "Map of your storage system"}
       preserveAspectRatio="xMidYMid meet"
+      // Lets callers size by height alone (width follows the drawing)
+      style={{ aspectRatio: `${vbW} / ${vbH}` }}
     >
       <line x1={0} x2={vbW} y1={floor} y2={floor} stroke={c.floor} strokeWidth={stroke} />
 
@@ -62,7 +68,7 @@ export default function SystemMap({
         const y = floor - m.y - m.h;
         const cellW = m.w / m.cols;
         const cellH = m.h / m.rows;
-        const fontSize = Math.min(m.w, m.h) * 0.42;
+        const fontSize = Math.min(m.h * 0.42, (m.w * 0.8) / (m.name.length * 0.62));
         return (
           <g key={m.key}>
             <rect
@@ -91,7 +97,7 @@ export default function SystemMap({
               fill={lit ? c.litText : c.text}
               style={{ fontFamily: "system-ui, sans-serif" }}
             >
-              {m.type}
+              {m.name}
             </text>
           </g>
         );
@@ -102,6 +108,29 @@ export default function SystemMap({
           <rect key={`top-${u.unitIndex}`} x={pad + u.x - 0.5} y={floor - u.h - 1.6} width={u.w + 1} height={1.6} fill="#d9b482" />
         ) : null,
       )}
+
+      {onSelectUnit &&
+        layout.units.map((u) => (
+          <rect
+            key={`hit-${u.unitIndex}`}
+            x={pad + u.x}
+            y={floor - u.h - 2}
+            width={u.w}
+            height={u.h + 2}
+            fill="transparent"
+            role="button"
+            tabIndex={0}
+            aria-label={`Edit unit ${unitLetter(u.unitIndex)}`}
+            style={{ cursor: "pointer", outline: "none" }}
+            onClick={() => onSelectUnit(u.unitIndex)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelectUnit(u.unitIndex);
+              }
+            }}
+          />
+        ))}
 
       {dimensions &&
         layout.units.map((u) => (

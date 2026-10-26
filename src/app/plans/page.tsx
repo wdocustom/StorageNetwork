@@ -1,311 +1,289 @@
-"use client";
-
-import { useState } from "react";
+import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight, Box, ChevronDown, FileText, Star, Wrench } from "lucide-react";
 import { PUBLIC_PLANS } from "@/lib/plans-config";
-import { TOTE_PLAN_TIERS, formatPlanPrice } from "@/lib/tote-plans";
-import { CheckCircle, Mail, Loader2, BookOpen, ExternalLink, Box, FileText, ArrowRight, Wrench } from "lucide-react";
-import { LADDER_JIG_NAME, LADDER_JIG_OWNER_PRICE, LADDER_JIG_PRICE, LADDER_JIG_TAGLINE } from "@/lib/ladder-jig";
+import {
+  BAY_OPENING_IN,
+  MODULE_MAX_COLS,
+  MODULE_MAX_ROWS,
+  TOTE_PLAN_LIMITS,
+  TOTE_PLAN_TIERS,
+  UNIT_DEPTH_IN,
+  formatPlanPrice,
+} from "@/lib/tote-plans";
+import { LADDER_JIG_NAME, LADDER_JIG_TAGLINE } from "@/lib/ladder-jig";
+import { generateBreadcrumbJsonLd } from "@/lib/schema/breadcrumb";
+import { planPageHref } from "@/lib/plan-pages";
+import { PLAN_BESTSELLERS } from "@/lib/plan-bestsellers";
+import {
+  PLANS_FAQS,
+  PLANS_PRICES,
+  ladderJigProductJsonLd,
+  PLANS_UPDATED,
+  plansFaqJsonLd,
+  plansWebPageJsonLd,
+  publicPlanProductsJsonLd,
+  totePlansProductJsonLd,
+} from "@/lib/schema/plans";
+import { ResendLinkPanel } from "@/components/plans/PlansStorefront";
 
-// ── Plan Card ────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// DIY PLANS STOREFRONT — /plans
+//
+// Server-rendered so search engines see the copy, FAQ and structured data;
+// only the resend form is a client component. Kept lean: one pitch and a
+// CTA up top, facts in the spec table, detail in the collapsed FAQ.
+// Prices and dimensions all come from the plan constants.
+// ═══════════════════════════════════════════════════════════════════════════
 
-function PlanCard({ plan }: { plan: (typeof PUBLIC_PLANS)[number] }) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+const TITLE = "DIY Tote Rack Plans for 27-Gal HDX & Greenmade Totes | Storage Network";
+const DESCRIPTION = `Tote rack plans sized to your wall: a 2×4 build for 27-gallon HDX and Greenmade totes with a cut list, shopping list and every step in 3D. PDF ${PLANS_PRICES.pdf}, or ${PLANS_PRICES.interactive} with the interactive 3D guide.`;
 
-  async function handleBuy() {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/plans/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId: plan.id }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.url) throw new Error(data.error || "Checkout failed");
-      window.location.href = data.url;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
-      setLoading(false);
-    }
-  }
+export const metadata: Metadata = {
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: {
+    canonical: "/plans",
+  },
+  keywords: [
+    "tote rack plans",
+    "27 gallon tote rack plans",
+    "DIY tote rack plans",
+    "tote storage rack plans",
+    "HDX tote rack plans",
+    "Greenmade tote rack plans",
+    "2x4 tote rack plans",
+    "rolling tote rack plans",
+    "tote organizer plans",
+    "tote rack cut list",
+    "garage storage shelf plans",
+  ],
+  openGraph: {
+    title: "DIY Tote Rack Plans, Sized to Your Wall",
+    description: DESCRIPTION,
+    url: "/plans",
+    type: "website",
+    siteName: "Storage Network",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "DIY Tote Rack Plans, Sized to Your Wall",
+    description: DESCRIPTION,
+  },
+};
 
-  const priceDisplay = `$${(plan.price / 100).toFixed(0)}`;
+const jsonLd = [
+  plansWebPageJsonLd(DESCRIPTION),
+  generateBreadcrumbJsonLd([{ name: "DIY Build Plans", path: "/plans" }]),
+  totePlansProductJsonLd(),
+  ladderJigProductJsonLd(),
+  ...publicPlanProductsJsonLd(),
+  plansFaqJsonLd(),
+];
 
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-slate-900">
-      <div className="h-1 bg-gradient-to-r from-amber-400 to-yellow-500" />
-      <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-amber-400/5 blur-3xl" />
+// ── At a glance ──────────────────────────────────────────────────────────────
+// A plain spec table: the format answer engines quote most readily.
 
-      <div className="relative p-6">
-        <div className="flex items-start gap-4">
-          {/* Preview image */}
-          <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-800">
-            <Image
-              src={plan.previewImage}
-              alt={plan.name}
-              fill
-              className="object-cover"
-            />
-          </div>
+const AT_A_GLANCE: [string, string][] = [
+  ["Totes", "27-gal HDX (Home Depot) or Greenmade (Costco)"],
+  ["Build", `2×4s · ${BAY_OPENING_IN}" bays · ${UNIT_DEPTH_IN}" deep`],
+  ["Size", `Up to ${TOTE_PLAN_LIMITS.maxCols} wide × ${TOTE_PLAN_LIMITS.maxRows} high, ${TOTE_PLAN_LIMITS.maxUnits} units; split into ${MODULE_MAX_COLS}×${MODULE_MAX_ROWS} modules`],
+  ["Options", "Casters · plywood worktop"],
+  ["Includes", "Cut list · shopping list · every step in 3D"],
+];
 
-          <div className="min-w-0 flex-1">
-            <h2 className="text-base font-bold text-white">{plan.name}</h2>
-            <p className="mt-0.5 text-sm text-stone-400">{plan.tagline}</p>
-            <div className="mt-2 flex items-center gap-2">
-              <span className="text-2xl font-black text-yellow-400">{priceDisplay}</span>
-              <span className="text-xs text-stone-600">one-time · instant access</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Includes */}
-        <ul className="mt-5 space-y-2">
-          {plan.includes.map((item) => (
-            <li key={item} className="flex items-start gap-2.5">
-              <CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
-              <span className="text-sm text-stone-300">{item}</span>
-            </li>
-          ))}
-        </ul>
-
-        {error && (
-          <p className="mt-3 text-xs font-medium text-red-400">{error}</p>
-        )}
-
-        <button
-          onClick={handleBuy}
-          disabled={loading}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 py-3.5 text-sm font-black uppercase tracking-wider text-gray-950 transition hover:from-amber-300 hover:to-yellow-400 disabled:opacity-60"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Redirecting…
-            </>
-          ) : (
-            `Get the Plans — ${priceDisplay}`
-          )}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── Tote Organizer Plans ─────────────────────────────────────────────────────
-// Sized to the customer's own design, so the purchase starts in the
-// configurator rather than here.
-
-function TotePlansCard() {
-  const tiers = [
-    { tier: TOTE_PLAN_TIERS.pdf, Icon: FileText },
-    { tier: TOTE_PLAN_TIERS.interactive, Icon: Box },
-  ];
-
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-yellow-400/30 bg-slate-900">
-      <div className="h-1 bg-gradient-to-r from-amber-400 to-yellow-500" />
-      <div className="pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full bg-yellow-400/5 blur-3xl" />
-
-      <div className="relative p-6">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-400">Made to your measurements</p>
-        <h2 className="mt-1 text-lg font-black text-white">Tote Organizer Plans</h2>
-        <p className="mt-1 text-sm text-stone-400">
-          Pick your size, tote brand, casters and worktop, and get plans generated for exactly
-          that build. The same cut lists and step-by-step guide our pro installers use.
-        </p>
-
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          {tiers.map(({ tier, Icon }) => (
-            <div key={tier.id} className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-              <div className="flex items-center gap-2">
-                <Icon className="h-4 w-4 text-yellow-400" />
-                <span className="text-sm font-bold text-white">{tier.name}</span>
-                <span className="ml-auto text-base font-black text-yellow-400">{formatPlanPrice(tier.price)}</span>
-              </div>
-              <p className="mt-1.5 text-xs text-stone-500">{tier.tagline}</p>
-            </div>
-          ))}
-        </div>
-
-        <a
-          href="/plans/checkout"
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 py-3.5 text-sm font-black uppercase tracking-wider text-gray-950 transition hover:from-amber-300 hover:to-yellow-400"
-        >
-          Size Yours &amp; Get Plans
-          <ArrowRight className="h-4 w-4" />
-        </a>
-        <p className="mt-2 text-center text-[11px] text-stone-600">
-          Pick your size, see it in 3D, then choose PDF or interactive guide.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ── Ladder Jig Plans ─────────────────────────────────────────────────────────
-
-function LadderJigCard() {
-  return (
-    <a
-      href="/plans/jig"
-      className="group flex items-center gap-4 rounded-2xl border border-emerald-500/20 bg-slate-900 p-5 transition hover:border-emerald-400/50"
-    >
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10">
-        <Wrench className="h-6 w-6 text-emerald-400" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold text-white">{LADDER_JIG_NAME}</p>
-        <p className="mt-0.5 text-xs text-stone-400">{LADDER_JIG_TAGLINE}</p>
-        <p className="mt-1 text-[11px] text-stone-500">
-          {formatPlanPrice(LADDER_JIG_PRICE)} · {formatPlanPrice(LADDER_JIG_OWNER_PRICE)} with any tote organizer plan
-        </p>
-      </div>
-      <ArrowRight className="h-5 w-5 shrink-0 text-emerald-400 transition group-hover:translate-x-0.5" />
-    </a>
-  );
-}
-
-// ── Resend Link Panel ────────────────────────────────────────────────────────
-
-function ResendLinkPanel() {
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
-
-  async function handleResend(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email.trim()) return;
-    setLoading(true);
-    try {
-      await fetch("/api/plans/resend-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
-      });
-      setSent(true);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-      <div className="mb-3 flex items-center gap-2">
-        <Mail className="h-4 w-4 text-stone-500" />
-        <h3 className="text-sm font-bold text-white">Already purchased?</h3>
-      </div>
-      <p className="mb-4 text-xs text-stone-500">
-        Lost your access link? Enter your purchase email and we&apos;ll resend it.
-      </p>
-
-      {sent ? (
-        <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 px-4 py-3">
-          <CheckCircle className="h-4 w-4 shrink-0 text-emerald-400" />
-          <p className="text-sm font-semibold text-emerald-300">
-            If we have a purchase on file for that email, the link is on its way.
-          </p>
-        </div>
-      ) : (
-        <form onSubmit={handleResend} className="flex gap-2">
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="your@email.com"
-            required
-            className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-stone-600 outline-none focus:border-yellow-400"
-          />
-          <button
-            type="submit"
-            disabled={loading || !email.trim()}
-            className="shrink-0 rounded-lg bg-slate-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-slate-600 disabled:opacity-50"
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Resend"}
-          </button>
-        </form>
-      )}
-    </div>
-  );
-}
+const TIERS = [
+  { tier: TOTE_PLAN_TIERS.pdf, Icon: FileText },
+  { tier: TOTE_PLAN_TIERS.interactive, Icon: Box },
+];
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PlansPage() {
+  const otherPlans = [
+    {
+      href: "/plans/jig",
+      title: `${LADDER_JIG_NAME} Plans`,
+      line: `${PLANS_PRICES.jig} · ${PLANS_PRICES.jigOwner} with a tote plan`,
+      Icon: Wrench,
+    },
+    ...PUBLIC_PLANS.map((plan) => ({
+      href: planPageHref(plan.id) ?? "/plans",
+      title: `${plan.name} Plans`,
+      line: `${formatPlanPrice(plan.price)} · ${plan.tagline}`,
+      Icon: null,
+      image: plan.previewImage,
+    })),
+  ];
+
   return (
     <div className="min-h-screen bg-slate-950">
-      {/* ── Header ─────────────────────────────────────────────── */}
-      <header className="border-b border-slate-800 bg-slate-900 px-4 py-4">
+      {jsonLd.map((schema, i) => (
+        <script
+          key={i}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+        />
+      ))}
+
+      <header className="border-b border-slate-800 bg-slate-900 px-4 py-3">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
-          <a href="/">
-            <Image
-              src="/landing_page_logo.png"
-              alt="Storage Network"
-              width={36}
-              height={36}
-              className="rounded"
-            />
-          </a>
-          <div className="flex-1">
-            <h1 className="text-sm font-bold text-white">DIY Build Plans</h1>
-            <p className="text-[10px] text-stone-500">Digital plans · Instant access · Yours forever</p>
-          </div>
-          <a
-            href="/"
-            className="hidden items-center gap-1 text-[11px] font-semibold text-stone-500 transition hover:text-stone-300 sm:flex"
-          >
-            <ExternalLink className="h-3 w-3" />
-            Storage Network
-          </a>
+          <Link href="/">
+            <Image src="/landing_page_logo.png" alt="Storage Network home" width={32} height={32} className="rounded" />
+          </Link>
+          <nav aria-label="Breadcrumb" className="flex-1 text-[11px] text-stone-500">
+            <ol className="flex items-center gap-1.5">
+              <li>
+                <Link href="/" className="hover:text-stone-300">Home</Link>
+              </li>
+              <li aria-hidden>›</li>
+              <li aria-current="page" className="font-bold text-white">DIY Build Plans</li>
+            </ol>
+          </nav>
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl space-y-6 px-4 py-8">
-        {/* ── Intro ──────────────────────────────────────────────── */}
-        <div className="text-center">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-400/5 px-4 py-1.5">
-            <BookOpen className="h-3.5 w-3.5 text-amber-400" />
-            <span className="text-xs font-bold text-amber-400">DIY build plans</span>
-          </div>
-          <h2 className="mb-2 text-2xl font-black text-white">Build it yourself.</h2>
-          <p className="text-sm text-stone-500">
-            Professional-quality plans for woodworkers and DIYers.
-            Buy once, access forever — we email you a permanent link.
+      <main className="mx-auto max-w-2xl space-y-7 px-4 py-6">
+        {/* ── Hero ───────────────────────────────────────────────── */}
+        <section>
+          <h1 className="text-2xl font-black leading-tight text-white sm:text-3xl">
+            DIY Tote Rack Plans, Sized to Your Wall
+          </h1>
+          <p className="mt-2 text-sm text-stone-400">
+            A 2×4 rack for 27-gallon HDX or Greenmade totes, any size. Design it free in 3D, get a plan with
+            every cut and step.
           </p>
-        </div>
+          <div className="relative mt-4 aspect-[16/9] w-full overflow-hidden rounded-2xl border border-slate-800">
+            <Image
+              src="/hero-rack.webp"
+              alt="Rolling 2×4 tote storage rack, 4 totes wide by 4 high, holding 27-gallon yellow-lid totes on casters"
+              fill
+              priority
+              sizes="(max-width: 672px) 100vw, 640px"
+              className="object-cover object-left"
+            />
+          </div>
+          <Link
+            href="/plans/checkout"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 py-3.5 text-sm font-black uppercase tracking-wider text-gray-950 transition hover:from-amber-300 hover:to-yellow-400"
+          >
+            Design Yours &amp; Get Plans
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </Link>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {TIERS.map(({ tier, Icon }) => (
+              <div key={tier.id} className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5">
+                <div className="flex items-center gap-1.5">
+                  <Icon className="h-3.5 w-3.5 text-yellow-400" aria-hidden />
+                  <h2 className="text-xs font-bold text-white">{tier.name}</h2>
+                </div>
+                <p className="mt-0.5 text-lg font-black text-yellow-400">{formatPlanPrice(tier.price)}</p>
+                <p className="text-[11px] text-stone-500">{tier.tagline}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-center text-[11px] text-stone-600">
+            One-time · permanent link by email · PDF owners upgrade for {PLANS_PRICES.upgrade}
+          </p>
+        </section>
 
-        {/* ── Plan cards ─────────────────────────────────────────── */}
-        <div className="space-y-4">
-          <TotePlansCard />
-          <LadderJigCard />
-          {PUBLIC_PLANS.map((plan) => (
-            <PlanCard key={plan.id} plan={plan} />
-          ))}
-        </div>
+        {/* ── Bestsellers ────────────────────────────────────────── */}
+        {PLAN_BESTSELLERS.length > 0 && (
+          <section>
+            <h2 className="mb-2 flex items-center gap-1.5 text-sm font-black text-white">
+              <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" aria-hidden />
+              Start From a Bestseller
+            </h2>
+            <ul className="flex flex-wrap gap-2">
+              {PLAN_BESTSELLERS.map((b) => (
+                <li key={b.preset.id}>
+                  <Link
+                    href={b.href}
+                    className="block rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-stone-300 transition hover:border-yellow-400/60 hover:text-white"
+                  >
+                    <span className="font-bold text-white">{b.preset.name}</span> · {b.totes} totes
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
-        {/* ── Coming soon ────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-dashed border-slate-700 p-5 text-center">
-          <p className="text-xs font-bold uppercase tracking-wider text-stone-600">More plans coming soon</p>
-          <p className="mt-1 text-xs text-stone-700">Workbenches, planter boxes, overhead storage, and more.</p>
-        </div>
+        {/* ── At a glance ────────────────────────────────────────── */}
+        <section>
+          <h2 className="mb-2 text-sm font-black text-white">Tote Rack Plans at a Glance</h2>
+          <div className="overflow-hidden rounded-xl border border-slate-800">
+            <table className="w-full text-left text-xs">
+              <tbody className="divide-y divide-slate-800">
+                {AT_A_GLANCE.map(([label, value]) => (
+                  <tr key={label}>
+                    <th scope="row" className="w-20 bg-slate-900/60 px-3 py-2 align-top font-semibold text-stone-500">
+                      {label}
+                    </th>
+                    <td className="px-3 py-2 text-stone-200">{value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
 
-        {/* ── Resend link ────────────────────────────────────────── */}
+        {/* ── More plans ─────────────────────────────────────────── */}
+        <section>
+          <h2 className="mb-2 text-sm font-black text-white">More DIY Plans</h2>
+          <div className="divide-y divide-slate-800 overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
+            {otherPlans.map((p) => (
+              <Link key={p.href} href={p.href} className="group flex items-center gap-3 px-3 py-3 transition hover:bg-slate-800/60">
+                <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-emerald-400/10">
+                  {"image" in p && p.image ? (
+                    <Image src={p.image} alt="" fill sizes="40px" className="object-cover" />
+                  ) : p.Icon ? (
+                    <p.Icon className="h-5 w-5 text-emerald-400" aria-hidden />
+                  ) : null}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate text-sm font-bold text-white">{p.title}</h3>
+                  <p className="truncate text-[11px] text-stone-500">{p.line}</p>
+                </div>
+                <ArrowRight className="h-4 w-4 shrink-0 text-stone-500 transition group-hover:translate-x-0.5 group-hover:text-yellow-400" aria-hidden />
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* ── FAQ ────────────────────────────────────────────────── */}
+        <section>
+          <h2 className="mb-2 text-sm font-black text-white">Tote Rack Plans FAQ</h2>
+          <div className="divide-y divide-slate-800 rounded-xl border border-slate-800 bg-slate-900">
+            {PLANS_FAQS.map((faq) => (
+              <details key={faq.question} className="group px-4 py-3">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-bold text-white">
+                  <h3>{faq.question}</h3>
+                  <ChevronDown className="h-4 w-4 shrink-0 text-stone-500 transition group-open:rotate-180" aria-hidden />
+                </summary>
+                <p className="mt-2 text-xs leading-relaxed text-stone-400">{faq.answer}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+
         <ResendLinkPanel />
 
-        {/* ── Pro installer CTA ──────────────────────────────────── */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5 text-center">
-          <p className="mb-1 text-xs font-bold text-stone-500">Are you a professional installer?</p>
-          <p className="mb-3 text-xs text-stone-600">
-            Installers get plans included with their dashboard plus quoting tools, pay links, and job management.
-          </p>
-          <a
-            href="/invite"
-            className="inline-block rounded-xl border border-yellow-400/30 px-5 py-2.5 text-xs font-bold text-yellow-400 transition hover:bg-yellow-400/10"
-          >
-            Join as an Installer
-          </a>
-        </div>
+        <p className="pb-2 text-center text-[11px] text-stone-600">
+          Rather have it built?{" "}
+          <Link href="/design" className="text-stone-400 underline hover:text-stone-200">Design it in 3D</Link> and{" "}
+          <Link href="/installer-network" className="text-stone-400 underline hover:text-stone-200">
+            find a tote rack installer
+          </Link>
+          {" · "}
+          <Link href="/invite" className="text-stone-400 underline hover:text-stone-200">Installers: join</Link>
+          {" · "}Updated{" "}
+          <time dateTime={PLANS_UPDATED}>
+            {new Date(`${PLANS_UPDATED}T00:00:00Z`).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}
+          </time>
+        </p>
       </main>
     </div>
   );

@@ -1257,7 +1257,7 @@ export default function ResumePaymentPage() {
         ═══════════════════════════════════════════════════════════════════ */}
         {diyDesign && step !== "payment" && (
           <a
-            href={totePlanDesignHref(diyDesign, "quote_page")}
+            href={totePlanDesignHref(diyDesign, "quote_page", lead.installer_id)}
             className="group mt-8 flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3 transition hover:border-yellow-400/40"
           >
             <Hammer className="h-4 w-4 shrink-0 text-stone-500 group-hover:text-yellow-400" />

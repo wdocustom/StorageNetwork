@@ -56,7 +56,7 @@ describe("designer → DIY plans", () => {
           ],
         },
       } as Partial<ConfiguratorSidebarProps>),
-    ).toBe('H2x4t.H4x2t "The Long Ranger"');
+    ).toBe('H2x4t_lr.H4x2t_lr "The Long Ranger"');
   });
 
   it("translates the whole cart once there is one", () => {

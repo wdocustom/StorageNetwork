@@ -90,6 +90,8 @@ export interface TotePlanUnit {
   toteType: TotePlanToteType;
   hasWheels: boolean;
   hasTop: boolean;
+  /** Bestseller preset id when this unit is part of one (see normalizeBestsellers) */
+  bestseller?: string;
 }
 
 export interface TotePlanDesign {
@@ -135,13 +137,83 @@ export function parseTotePlanUnit(raw: unknown): TotePlanUnit | null {
   if (rows < TOTE_PLAN_LIMITS.minRows || rows > TOTE_PLAN_LIMITS.maxRows) return null;
   if (c.toteType !== "HDX" && c.toteType !== "GM") return null;
 
-  return {
+  const unit: TotePlanUnit = {
     cols,
     rows,
     toteType: c.toteType,
     hasWheels: c.hasWheels === true,
     hasTop: c.hasTop === true,
   };
+  if (typeof c.bestseller === "string" && c.bestseller in BESTSELLER_CODES) unit.bestseller = c.bestseller;
+  return unit;
+}
+
+// ── Bestseller membership ────────────────────────────────────────────────
+// A unit remembers which bestseller it came from so a plan built from, say,
+// Indiana Joe + Rack City Roller knows both are in it. A bestseller counts
+// only while its units are consecutive and still the preset's sizes (cols ×
+// rows, in order); tote brand, casters and worktop may change. Anything else
+// loses the tag — that's how "change its size and it's yours" works.
+
+/** Preset id → short code for the compact design string. */
+export const BESTSELLER_CODES: Record<string, string> = {
+  "indiana-joe": "ij",
+  "long-ranger": "lr",
+  "gas-station": "gs",
+  "track-norris": "tn",
+  "rack-city-roller": "rcr",
+  "mayor-of-rack-city": "mrc",
+};
+const BESTSELLER_BY_CODE = Object.fromEntries(Object.entries(BESTSELLER_CODES).map(([id, code]) => [code, id]));
+
+export interface BestsellerInstance {
+  presetId: string;
+  /** Index of its first unit */
+  start: number;
+  count: number;
+}
+
+/** Valid bestseller runs in a unit list (see the section note). */
+export function bestsellerInstances(units: TotePlanUnit[]): BestsellerInstance[] {
+  const out: BestsellerInstance[] = [];
+  let i = 0;
+  while (i < units.length) {
+    const id = units[i].bestseller;
+    const preset = id ? BESTSELLER_PRESETS.find((p) => p.id === id) : undefined;
+    const n = preset?.units.length ?? 0;
+    const matches =
+      !!preset &&
+      i + n <= units.length &&
+      preset.units.every((pu, k) => {
+        const u = units[i + k];
+        return u.bestseller === id && u.cols === pu.cols && u.rows === pu.rows;
+      });
+    if (matches) {
+      out.push({ presetId: id!, start: i, count: n });
+      i += n;
+    } else {
+      i += 1;
+    }
+  }
+  return out;
+}
+
+/** Drops every bestseller tag that isn't part of a valid run. */
+export function normalizeBestsellers(units: TotePlanUnit[]): TotePlanUnit[] {
+  const keep = new Set<number>();
+  for (const inst of bestsellerInstances(units)) for (let k = 0; k < inst.count; k++) keep.add(inst.start + k);
+  return units.map((u, i) => {
+    if (!u.bestseller || keep.has(i)) return u;
+    const { bestseller: _dropped, ...rest } = u;
+    return rest;
+  });
+}
+
+/** Preset id for a bestseller name ("Indiana Joe"), if it is one. */
+export function bestsellerIdForName(name: string | null | undefined): string | undefined {
+  if (!name) return undefined;
+  const lower = name.trim().toLowerCase();
+  return BESTSELLER_PRESETS.find((p) => p.name.toLowerCase() === lower)?.id;
 }
 
 /**
@@ -164,18 +236,24 @@ export function parseTotePlanDesign(raw: unknown): TotePlanDesign | null {
     units.push(unit);
   }
   const name = cleanName(c.name);
-  return name ? { units, name } : { units };
+  const normalized = normalizeBestsellers(units);
+  return name ? { units: normalized, name } : { units: normalized };
 }
 
 // ── Compact string form (URLs, Stripe metadata) ──────────────────────────
-// Unit token: <H|G><cols>x<rows>[w][t]   e.g. "H4x4wt", "G2x6"
-// Design:     tokens joined by "."      e.g. "H2x4t.H2x2t.H2x4t"
+// Unit token: <H|G><cols>x<rows>[w][t][_<bestseller code>]
+//             e.g. "H4x4wt", "G2x6", "H2x4t_ij"
+// Design:     tokens joined by "."      e.g. "H2x4t_ij.H2x2t_ij.H2x4t_ij"
 
-const UNIT_TOKEN = /^([HG])(\d{1,2})x(\d{1,2})(w?)(t?)$/;
+const UNIT_TOKEN = /^([HG])(\d{1,2})x(\d{1,2})(w?)(t?)(?:_([a-z]{2,3}))?$/;
 
 export function encodeTotePlanDesign(design: TotePlanDesign): string {
   return design.units
-    .map((u) => `${u.toteType === "HDX" ? "H" : "G"}${u.cols}x${u.rows}${u.hasWheels ? "w" : ""}${u.hasTop ? "t" : ""}`)
+    .map(
+      (u) =>
+        `${u.toteType === "HDX" ? "H" : "G"}${u.cols}x${u.rows}${u.hasWheels ? "w" : ""}${u.hasTop ? "t" : ""}` +
+        (u.bestseller && BESTSELLER_CODES[u.bestseller] ? `_${BESTSELLER_CODES[u.bestseller]}` : ""),
+    )
     .join(".");
 }
 
@@ -193,16 +271,22 @@ export function decodeTotePlanDesign(value: string | null | undefined, name?: st
       rows: Number(m[3]),
       hasWheels: m[4] === "w",
       hasTop: m[5] === "t",
+      ...(m[6] && BESTSELLER_BY_CODE[m[6]] ? { bestseller: BESTSELLER_BY_CODE[m[6]] } : {}),
     });
   }
   return parseTotePlanDesign({ units, name: name ?? undefined });
 }
 
-/** Relative link to the plans designer pre-filled with a design. */
-export function totePlanDesignHref(design: TotePlanDesign, source?: string): string {
+/**
+ * Relative link to the plans designer pre-filled with a design. `ref` is
+ * the installer whose link the customer came through (designer, quote page,
+ * quote email) — they get the plan-sale split (see plan-splits.ts).
+ */
+export function totePlanDesignHref(design: TotePlanDesign, source?: string, ref?: string | null): string {
   const params = new URLSearchParams({ design: encodeTotePlanDesign(design) });
   if (design.name) params.set("name", design.name);
   if (source) params.set("utm_source", source);
+  if (ref) params.set("ref", ref);
   return `/plans/checkout?${params.toString()}`;
 }
 
@@ -369,9 +453,51 @@ export function fitTotePlanToWall(
 // Modules and module types
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Naming: units are lettered A, B, C… left to right. A unit built from
+// several modules numbers them in build order (bottom tier first, left to
+// right): A1, A2… A one-module unit is just its letter. Identical modules
+// still share a TYPE (internal letter, used for snapshots and grouping) so
+// the customer builds each type once and repeats it; people see the type
+// by the module names it covers, e.g. "A1–A3, C1".
+
+/** Unit letter for a unit index: 0 → "A". */
+export function unitLetter(index: number): string {
+  return String.fromCharCode(65 + index);
+}
+
+/** "A1","A2","A3","C1" → "A1–A3, C1" (consecutive numbers collapse). */
+export function formatModuleNames(names: string[]): string {
+  const parsed = names.map((n) => {
+    const m = /^([A-Z])(\d*)$/.exec(n);
+    return m ? { unit: m[1], num: m[2] ? Number(m[2]) : null } : { unit: n, num: null };
+  });
+  const out: string[] = [];
+  for (let i = 0; i < parsed.length; i++) {
+    const start = parsed[i];
+    if (start.num === null) {
+      out.push(start.unit);
+      continue;
+    }
+    let end = i;
+    while (
+      end + 1 < parsed.length &&
+      parsed[end + 1].unit === start.unit &&
+      parsed[end + 1].num === (parsed[end].num as number) + 1
+    ) {
+      end++;
+    }
+    out.push(end > i + 1 ? `${start.unit}${start.num}–${start.unit}${parsed[end].num}` : `${start.unit}${start.num}`);
+    if (end === i + 1) out.push(`${start.unit}${parsed[end].num}`);
+    i = end;
+  }
+  return out.join(", ");
+}
+
 export interface PlanModule {
   /** Build-engine key: "<unitIdx>-<widthModIndex>-<heightTierIndex>" */
   key: string;
+  /** What people see: "A" for a one-module unit, else "A1", "A2"… */
+  name: string;
   unitIndex: number;
   widthIndex: number;
   widthCount: number;
@@ -384,7 +510,7 @@ export interface PlanModule {
   hasWheels: boolean;
   /** Worktop is part of the module build only when the module IS the unit */
   hasTop: boolean;
-  /** Module type letter, A, B, C… */
+  /** Internal type letter, shared by identical modules (see "Naming" above) */
   type: string;
 }
 
@@ -397,6 +523,15 @@ export interface PlanModuleType {
   hasTop: boolean;
   /** How many of this module the design needs */
   count: number;
+  /** Names of every module of this type, in build order */
+  moduleNames: string[];
+  /** Display label, e.g. "A1–A3, C1" */
+  label: string;
+}
+
+/** "Module B" / "Modules A, C" / "Modules A1–A3" */
+export function moduleTypeTitle(t: Pick<PlanModuleType, "moduleNames" | "label">): string {
+  return `${t.moduleNames.length > 1 ? "Modules" : "Module"} ${t.label}`;
 }
 
 export interface DesignModules {
@@ -417,6 +552,8 @@ export function designModules(design: TotePlanDesign): DesignModules {
     const widths = splitWidth(unit.cols);
     const tiers = splitHeight(unit.rows);
     const single = widths.length === 1 && tiers.length === 1;
+    const letter = unitLetter(unitIndex);
+    let moduleNumber = 0;
     // Build order matches the engine: bottom tier first, left to right.
     tiers.forEach((rows, tierIndex) => {
       widths.forEach((cols, widthIndex) => {
@@ -430,27 +567,32 @@ export function designModules(design: TotePlanDesign): DesignModules {
           hasTop: unit.hasTop && single,
         };
         const k = typeKey(spec);
-        let letter = letterByKey.get(k);
-        if (!letter) {
-          letter = String.fromCharCode(65 + types.length);
-          letterByKey.set(k, letter);
-          types.push({ letter, ...spec, count: 0 });
+        let typeLetter = letterByKey.get(k);
+        if (!typeLetter) {
+          typeLetter = String.fromCharCode(65 + types.length);
+          letterByKey.set(k, typeLetter);
+          types.push({ letter: typeLetter, ...spec, count: 0, moduleNames: [], label: "" });
         }
-        types.find((t) => t.letter === letter)!.count += 1;
+        const name = single ? letter : `${letter}${++moduleNumber}`;
+        const type = types.find((t) => t.letter === typeLetter)!;
+        type.count += 1;
+        type.moduleNames.push(name);
         modules.push({
           key: `${unitIndex}-${widthIndex}-${tierIndex}`,
+          name,
           unitIndex,
           widthIndex,
           widthCount: widths.length,
           tierIndex,
           tierCount: tiers.length,
           ...spec,
-          type: letter,
+          type: typeLetter,
         });
       });
     });
   });
 
+  for (const t of types) t.label = formatModuleNames(t.moduleNames);
   return { modules, types };
 }
 
@@ -569,6 +711,13 @@ export function designFromItems(items: PlanSourceItem[], name?: string): PlanTra
       orientation: item.orientation,
     };
     let presetUnits = item.presetUnits && item.presetUnits.length > 0 ? item.presetUnits : null;
+    // Which bestseller this line is, if any — "Indiana Joe (2x4 + …)" in a
+    // designer cart, the collapsed quote line, or an expanded old-format
+    // sub-unit "Indiana Joe — 2x4". Sizes are checked later (normalizeBestsellers).
+    const bestseller =
+      bestsellerIdForName(collapsedPresetName(item.desc)) ??
+      bestsellerIdForName(EXPANDED_PRESET_DESC.exec(item.desc ?? "")?.[1]) ??
+      (presetUnits ? bestsellerIdForName(item.desc?.split(" (")[0]) : undefined);
     if (!presetUnits) {
       const collapsed = collapsedPresetName(item.desc);
       if (collapsed !== null) {
@@ -583,9 +732,10 @@ export function designFromItems(items: PlanSourceItem[], name?: string): PlanTra
         presetUnits = preset.units;
       }
     }
+    const tag = bestseller ? { bestseller } : {};
     const subUnits = presetUnits
-      ? presetUnits.map((su) => ({ ...base, ...su }))
-      : [{ ...base, cols: item.cols, rows: item.rows, hasWheels: item.hasWheels, hasTop: item.hasTop }];
+      ? presetUnits.map((su) => ({ ...base, ...su, ...tag }))
+      : [{ ...base, cols: item.cols, rows: item.rows, hasWheels: item.hasWheels, hasTop: item.hasTop, ...tag }];
 
     const parsed = subUnits.map(parseTotePlanUnit);
     if (parsed.some((u) => !u)) {
@@ -601,8 +751,12 @@ export function designFromItems(items: PlanSourceItem[], name?: string): PlanTra
     return { design: null, covered: units.length > 0 ? covered : 0, skipped };
   }
   const clean = cleanName(name);
-  return { design: clean ? { units, name: clean } : { units }, covered, skipped };
+  const tagged = normalizeBestsellers(units);
+  return { design: clean ? { units: tagged, name: clean } : { units: tagged }, covered, skipped };
 }
+
+/** Old-format quote sub-unit: "Indiana Joe — 2x4" */
+const EXPANDED_PRESET_DESC = /^(.+?) — \d+\s*[×x]\s*\d+$/;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Layout — front elevation of the whole design, in inches
@@ -611,6 +765,8 @@ export function designFromItems(items: PlanSourceItem[], name?: string): PlanTra
 
 export interface LayoutModule {
   key: string;
+  /** Display name, "A" / "A1" */
+  name: string;
   unitIndex: number;
   type: string;
   cols: number;
@@ -666,6 +822,7 @@ export function designLayout(design: TotePlanDesign, unitGapIn = 8): DesignLayou
     for (const m of modules.filter((mm) => mm.unitIndex === unitIndex)) {
       out.push({
         key: m.key,
+        name: m.name,
         unitIndex,
         type: m.type,
         cols: m.cols,

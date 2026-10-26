@@ -25,11 +25,15 @@ import {
 // deliberately don't — the customer already chose installation.
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** Absolute plans link for a lead's quote_data, or null if nothing in it is plannable. */
-export function diyPlansEmailUrl(quoteData: unknown, source: string): string | null {
+/**
+ * Absolute plans link for a lead's quote_data, or null if nothing in it is
+ * plannable. `referralInstallerId` credits that installer with the
+ * plan-sale split (installer-sent quotes only).
+ */
+export function diyPlansEmailUrl(quoteData: unknown, source: string, referralInstallerId?: string | null): string | null {
   if (!Array.isArray(quoteData) || quoteData.length === 0) return null;
   const { design } = designFromItems(quoteData as PlanSourceItem[]);
-  return design ? `${getAppUrl()}${totePlanDesignHref(design, source)}` : null;
+  return design ? `${getAppUrl()}${totePlanDesignHref(design, source, referralInstallerId)}` : null;
 }
 
 /** Quiet footer block; empty string when there's no link. */

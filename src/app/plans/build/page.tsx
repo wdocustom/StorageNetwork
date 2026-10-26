@@ -514,7 +514,7 @@ function BuildPlanInner() {
               <div className="mt-3 flex flex-wrap gap-2">
                 {plan.moduleTypes.map((t) => (
                   <span key={t.letter} className="rounded-full bg-slate-800 px-3 py-1 text-[11px] text-stone-300">
-                    <strong className="text-yellow-400">{t.letter}</strong> · {t.cols}×{t.rows} · build {t.count}
+                    <strong className="text-yellow-400">{t.label}</strong> · {t.cols}×{t.rows} · build {t.count}
                   </span>
                 ))}
               </div>

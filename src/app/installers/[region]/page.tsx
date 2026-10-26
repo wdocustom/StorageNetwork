@@ -744,6 +744,12 @@ export default async function InstallerRegionPage({ params }: PageProps) {
           >
             {primaryInstaller ? "Design My Storage" : "Check Availability in Your ZIP"}
           </Link>
+          <p className="mt-6 text-xs text-stone-500">
+            Rather build it yourself?{" "}
+            <Link href="/plans" className="font-semibold text-stone-300 underline hover:text-yellow-300">
+              Get DIY tote rack plans sized to your wall
+            </Link>
+          </p>
         </section>
       </main>
     </div>

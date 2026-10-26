@@ -690,7 +690,7 @@ export async function createQuote(
           : null,
         deliveryFee: delivery_fee || 0,
         buildSnapshotUrl: build_snapshot_url || undefined,
-        diyPlansUrl: diyPlansEmailUrl(effectiveQuoteData, "quote_email"),
+        diyPlansUrl: diyPlansEmailUrl(effectiveQuoteData, "quote_email", installer_id),
       });
 
       const bizName = effectiveBusinessName || "Your Installer";

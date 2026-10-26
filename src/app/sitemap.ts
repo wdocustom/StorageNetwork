@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { createClient } from "@supabase/supabase-js";
+import { planPageSlugs } from "@/lib/plan-pages";
 import {
   getInstallerDerivedRegions,
   getInstallersForRegionSlug,
@@ -97,6 +98,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Public pages
     { url: `${BASE}/installer-network`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
     { url: `${BASE}/invite`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+
+    // DIY plans storefront (build / library / access are token-gated + noindex)
+    { url: `${BASE}/plans`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },
+    { url: `${BASE}/plans/checkout`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${BASE}/plans/jig`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
+    ...planPageSlugs().map((slug) => ({
+      url: `${BASE}/plans/${slug}`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
 
     // About / E-E-A-T cluster
     { url: `${BASE}/about`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },

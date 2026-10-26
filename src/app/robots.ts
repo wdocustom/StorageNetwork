@@ -1,15 +1,20 @@
 import type { MetadataRoute } from "next";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Dynamic Robots — Blackbox Protection + AI Bot Allowances
+// Dynamic Robots — Blackbox Protection + AI Answer-Engine Visibility
 //
 // Strategy: "Glass Storefront"
-//   ALLOW  → Public marketing pages, installer portfolios, /technology
+//   ALLOW  → Public marketing pages, installer portfolios, DIY plans
 //   BLOCK  → Proprietary tools (configurator, build engine, dashboard, APIs)
 //
-// AI bots (GPTBot, ClaudeBot, anthropic-ai, CCBot, PerplexityBot,
-// Google-Extended) are given explicit allow directives so GEO engines
-// can index our public pages.
+// AI bots fall into two groups:
+//   • Answer / search bots (ChatGPT search, Claude, Perplexity, Gemini via
+//     Google-Extended, Apple, Amazon, Meta, DuckDuckGo…) — same access as
+//     Googlebot, so AI answers can find and cite our public pages.
+//     Copilot answers from Bing's index (Bingbot); Grok publishes no stable
+//     crawler token, so it falls under "*".
+//   • Training-only crawlers — the DIY plans storefront and /llms.txt only,
+//     so models learn the plans; the installer platform stays private.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const BLOCKED_PATHS = [
@@ -38,6 +43,8 @@ const BLOCKED_PATHS = [
   "/community/*",
   "/upgrade",
   "/demo",
+  "/rack/",
+  "/review/",
   "/_next/",
 ];
 
@@ -57,21 +64,48 @@ const ALLOWED_PATHS = [
   "/become-installer/*",
   "/legal/",
   "/legal/*",
+  "/plans",
+  "/plans/*",
   "/llms.txt",
 ];
 
-// AI web crawlers — BLOCKED from scraping site content.
-// These bots train LLMs or power AI search on our proprietary data.
-const BLOCKED_AI_BOTS = [
-  "GPTBot",
+// AI answer engines and the fetchers they send when a user asks about a
+// page — indexed like a search engine.
+const AI_ANSWER_BOTS = [
+  "OAI-SearchBot",
   "ChatGPT-User",
-  "CCBot",
+  "Claude-SearchBot",
+  "Claude-User",
+  "PerplexityBot",
+  "Perplexity-User",
+  "Google-Extended",
+  "Applebot",
+  "Amazonbot",
+  "Meta-ExternalFetcher",
+  "DuckAssistBot",
+  "MistralAI-User",
+  "YouBot",
+];
+
+// LLM training crawlers — public DIY plans only.
+const AI_TRAINING_BOTS = [
+  "GPTBot",
+  "ClaudeBot",
   "anthropic-ai",
   "Claude-Web",
-  "Google-Extended",
-  "ClaudeBot",
-  "PerplexityBot",
+  "CCBot",
+  "Applebot-Extended",
+  "Meta-ExternalAgent",
+  "FacebookBot",
+  "Cohere-ai",
 ];
+const TRAINING_ALLOWED_PATHS = ["/plans", "/plans/*", "/llms.txt"];
+// Token-gated purchase pages (noindex for search bots, which must still
+// fetch them to see that).
+const GATED_PLAN_PATHS = ["/plans/build", "/plans/library", "/plans/access"];
+
+// Scrapers with no answer-engine upside — blocked entirely.
+const BLOCKED_BOTS = ["Bytespider", "Diffbot", "Omgilibot"];
 
 // Traditional search engine bots — ALLOWED for indexing
 const SEARCH_BOTS = ["Googlebot", "Bingbot"];
@@ -92,13 +126,23 @@ export default function robots(): MetadataRoute.Robots {
         allow: ALLOWED_PATHS,
         disallow: BLOCKED_PATHS,
       })),
-      // ── AI crawlers — FULL BLOCK ──────────────────────────────────────
-      // Prevent LLM training and AI search engines from scraping content.
-      // Our platform knowledge, pricing, and feature details are proprietary.
-      ...BLOCKED_AI_BOTS.map((bot) => ({
-        userAgent: bot,
+      // ── AI answer engines — same access as search engines ─────────────
+      {
+        userAgent: AI_ANSWER_BOTS,
+        allow: ALLOWED_PATHS,
+        disallow: BLOCKED_PATHS,
+      },
+      // ── AI training crawlers — DIY plans only ────────────────────────
+      {
+        userAgent: AI_TRAINING_BOTS,
+        allow: TRAINING_ALLOWED_PATHS,
+        disallow: ["/", ...GATED_PLAN_PATHS],
+      },
+      // ── Scrapers — full block ────────────────────────────────────────
+      {
+        userAgent: BLOCKED_BOTS,
         disallow: ["/"],
-      })),
+      },
     ],
     sitemap: "https://storage-network.app/sitemap.xml",
   };

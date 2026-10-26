@@ -48,6 +48,7 @@ import {
   totePlanName,
   totePlanSummary,
   totePlanUnitLabel,
+  unitLetter,
   unitOuterSize,
   type PlanModule,
   type PlanModuleType,
@@ -99,6 +100,9 @@ export interface PlanModuleTypeBuild extends PlanModuleType {
 
 export interface PlanUnit {
   index: number;
+  /** "A", "B"… */
+  letter: string;
+  /** Size, e.g. "2×4" */
   label: string;
   cols: number;
   rows: number;
@@ -212,7 +216,7 @@ function unitSteps(unit: PlanUnit): PlanAssemblyStep[] {
   const steps: Omit<PlanAssemblyStep, "stepNumber">[] = [];
   const seams = widths.length - 1;
   const letters = (tier: number) =>
-    unit.modules.filter((m) => m.tierIndex === tier).map((m) => m.type).join(" + ");
+    unit.modules.filter((m) => m.tierIndex === tier).map((m) => m.name).join(" + ");
 
   const joinStep = (tier: number, tierLabel: string): Omit<PlanAssemblyStep, "stepNumber"> => ({
     id: `join-tier-${tier + 1}`,
@@ -342,7 +346,10 @@ function unitSteps(unit: PlanUnit): PlanAssemblyStep[] {
 
 export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteDIYPlan> {
   const { modules, types } = designModules(design);
-  const letterByKey = new Map(modules.map((m) => [m.key, m.type]));
+  // Cut labels name the module type by the modules it covers ("A, C"),
+  // shortened when long so it fits on the board bar.
+  const typeLabel = new Map(types.map((t) => [t.letter, t.label.length > 12 ? `${t.moduleNames[0]}…` : t.label]));
+  const letterByKey = new Map(modules.map((m) => [m.key, typeLabel.get(m.type) ?? m.name]));
 
   // ── Build engine in 2×4-rail mode — what an installer building with 2×4
   //    rails gets. The engine keeps 2×4-rail units to one tier, so each
@@ -406,6 +413,7 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
     const size = unitOuterSize(u);
     const unit: PlanUnit = {
       index,
+      letter: unitLetter(index),
       label: totePlanUnitLabel(u),
       cols: u.cols,
       rows: u.rows,
@@ -530,7 +538,7 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
   ];
   if (modules.length > 1) {
     generalNotes.push(
-      "Big walls are built from self-contained modules: no more than 4 totes wide (so plates fit an 8' board) and 6 tall (so uprights do). Identical modules share a letter — build one, then repeat it.",
+      "Big walls are built from self-contained modules: no more than 4 totes wide (so plates fit an 8' board) and 6 tall (so uprights do). Units are lettered A, B, C…; a unit made of several modules numbers them A1, A2… Identical modules are grouped so you build one, then repeat it.",
     );
   }
   if (casterCount > 0) {

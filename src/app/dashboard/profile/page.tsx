@@ -1,5 +1,6 @@
 "use client";
 
+import PlanEarningsCard from "@/components/dashboard/PlanEarningsCard";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -137,7 +138,11 @@ function ProfilePageInner() {
   const [loading, setLoading] = useState(true);
 
   // ── Coordinated section collapse — only one open at a time ──────────
-  const [activeTab, setActiveTab] = useState<"business" | "pricing" | "portfolio" | "account">("business");
+  // ?tab=account deep-links to a tab (e.g. from the DIY plan earnings email)
+  const [activeTab, setActiveTab] = useState<"business" | "pricing" | "portfolio" | "account">(() => {
+    const tab = searchParams.get("tab");
+    return tab === "pricing" || tab === "portfolio" || tab === "account" ? tab : "business";
+  });
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const toggleSection = (id: string) => (open: boolean) => {
     setActiveSection(open ? id : null);
@@ -1879,6 +1884,9 @@ function ProfilePageInner() {
                 </button>
               </div>
             </div>
+
+            {/* ── DIY plan earnings (only for installers who've received a split) ── */}
+            <PlanEarningsCard />
 
             {/* ── Affiliate Program — Phase 2 + 4 ──────────────────── */}
             {/* Hidden for legacy partners (Joe Long et al.) — they still

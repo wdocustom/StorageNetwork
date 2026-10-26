@@ -228,6 +228,21 @@ export default function LandingPage() {
               </p>
             </div>
           </div>
+
+          <div className="mt-8 rounded-2xl border border-stone-800 bg-gray-900/60 p-6">
+            <h2 className="mb-3 text-lg font-extrabold text-white">
+              DIY Tote Rack Plans
+            </h2>
+            <p className="text-sm leading-relaxed text-stone-400">
+              Rather build it yourself? Get{" "}
+              <a href="/plans" className="font-semibold text-yellow-400 hover:underline">
+                DIY tote rack plans sized to your wall
+              </a>{" "}
+              &mdash; a 2&times;4 build for 27-gallon HDX and Greenmade
+              totes with a cut list, shopping list, and every assembly
+              step in 3D, generated from the same build engine our pros use.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -247,6 +262,12 @@ export default function LandingPage() {
             &copy; {new Date().getFullYear()} Storage-Network.app. All rights reserved.
           </p>
           <div className="flex items-center gap-4">
+            <a
+              href="/plans"
+              className="text-[11px] font-semibold text-stone-600 transition-colors hover:text-yellow-400"
+            >
+              DIY Tote Rack Plans
+            </a>
             <a
               href="/invite"
               className="text-[11px] font-semibold text-stone-600 transition-colors hover:text-yellow-400"
