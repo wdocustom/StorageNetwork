@@ -43,6 +43,7 @@ import type {
 
 import { roundMoney, calculateBalanceDue } from "@/utils/mathHelpers";
 import { getShelvingConfig } from "@/lib/shelving";
+import { braceLayout2x4 } from "@/components/visualizer/assemblySteps";
 import {
   OVERHEAD_GRID_PRESETS,
   calculateOverheadStorage,
@@ -442,12 +443,12 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
         let numRails: number;
         let backSupports: number;
         if (is2x4) {
-          // 2x4 rail mode: 2 rails per slot (front + back) — no plywood strips or back supports
+          // 2x4 rail mode: 2 rails per slot (front + back) plus the diagonal
+          // back braces, all the same ripped 2x4 piece — no plywood strips
           numRails = 0;
           backSupports = 0;
           modStrips = 0;
-          // Each slot has 2 rail pieces (front + back), counted globally
-          global2x4RailCount += slots * 2;
+          global2x4RailCount += slots * 2 + braceLayout2x4(cols, tierRows).segments.length;
         } else {
           numRails = slots * 2;
           backSupports = cols <= 4 ? 4 : 6;
@@ -459,6 +460,8 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
         if (is2x4) {
           // 2x4 rails: 3" screws for rail-to-post attachment (4 per rail piece)
           gScrew3 += slots * 2 * 4;
+          // Back braces: 2 screws per end
+          gScrew3 += braceLayout2x4(cols, tierRows).segments.length * 4;
           // Structural: posts to plates
           gScrew3 += (cols + 1) * 20;
         } else {

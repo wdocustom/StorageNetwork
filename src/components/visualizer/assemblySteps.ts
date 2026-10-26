@@ -101,6 +101,68 @@ export function upright2x4(rows: number): number {
   return rows >= RAILS_2X4.maxRows ? RAILS_2X4.stock : RAILS_2X4.positions[rows - 1] + RAILS_2X4.topGap;
 }
 
+/** Diagonal back braces per module — same count the installer calculator uses. */
+export function backSupportsFor(cols: number): number {
+  return cols <= 4 ? 4 : 6;
+}
+
+/** A back brace's centerline, in back-face inches: x from the first upright's
+ *  center (uprights every 22-1/2"), y from the bottom plate's center. */
+export interface BraceSegment {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+export interface BraceLayout2x4 {
+  /** "corner": a knee brace at each corner. "diagonal": 1-high frames, plate to plate. */
+  style: "corner" | "diagonal";
+  /** Square-cut length, end to end — ends land on upright/plate centerlines */
+  length: number;
+  segments: BraceSegment[];
+}
+
+const floorQuarter = (n: number) => Math.floor(n * 4 + 1e-9) / 4;
+
+/**
+ * Back braces for a 2×4-rail module, sized so they never cross each other or
+ * hang past the frame. Tall frames (3+) take uncut 30" pieces at every corner;
+ * 2-high frames take shorter corner braces; 1-high frames take one diagonal
+ * per end bay running from the bottom plate to the top plate.
+ */
+export function braceLayout2x4(cols: number, rows: number): BraceLayout2x4 {
+  const pitch = RAILS_2X4.opening + 1.5;
+  const w = cols * pitch; // first to last upright, center to center
+  const d = upright2x4(Math.min(rows, RAILS_2X4.maxRows)) + 1.5; // plate center to plate center
+  const mid = Math.floor(cols / 2) * pitch;
+  const wide = cols > 4;
+  const maxLen = 30; // one ripped rail piece
+
+  if (rows <= 1) {
+    const length = Math.min(maxLen, floorQuarter(d * Math.SQRT2));
+    const l = length / Math.SQRT2;
+    const segments: BraceSegment[] = [{ x1: 0, y1: 0, x2: l, y2: l }];
+    if (cols > 1) segments.push({ x1: w, y1: 0, x2: w - l, y2: l });
+    if (wide) segments.push({ x1: mid, y1: 0, x2: mid + l, y2: l });
+    return { style: "diagonal", length, segments };
+  }
+
+  // Leave 3" between the top and bottom brace ends on an upright, and 1-1/2"
+  // between the left and right ends along a plate
+  const leg = Math.min(maxLen / Math.SQRT2, (d - 3) / 2, (w - 1.5) / 2);
+  const length = Math.min(maxLen, floorQuarter(leg * Math.SQRT2));
+  const l = length / Math.SQRT2;
+  const segments: BraceSegment[] = [
+    { x1: 0, y1: l, x2: l, y2: 0 },
+    { x1: w, y1: l, x2: w - l, y2: 0 },
+    { x1: 0, y1: d - l, x2: l, y2: d },
+    { x1: w, y1: d - l, x2: w - l, y2: d },
+  ];
+  if (wide) segments.push({ x1: mid, y1: l, x2: mid + l, y2: 0 }, { x1: mid, y1: d - l, x2: mid - l, y2: d });
+  return { style: "corner", length, segments };
+}
+
 /** Height of each rail's TOP edge above the bottom of the upright — what the builder marks. */
 export function railTopMarks2x4(rows: number): number[] {
   return RAILS_2X4.positions.slice(0, Math.min(rows, RAILS_2X4.maxRows)).map((c) => c + RAILS_2X4.railH / 2);
@@ -441,8 +503,8 @@ const ALL_STEPS: AssemblyStep[] = [
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 2×4-rail versions of the rail steps (ids match so the 3D guide animates
-// them the same way). Back supports are plywood offcuts — 2×4-rail units
-// don't use them; the plates squared in the top-plate step keep it rigid.
+// them the same way). Back braces are the same ripped 2×4 rail piece
+// (calculate-materials.ts counts them that way), screwed on with 3" screws.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const RAILS_2X4_STEPS: Partial<Record<string, Partial<AssemblyStep>>> = {
@@ -455,7 +517,7 @@ const RAILS_2X4_STEPS: Partial<Record<string, Partial<AssemblyStep>>> = {
   "rip-rails": {
     title: "Rip the 2×4 Rails",
     instruction:
-      "Each tote hangs by its rim on two rails, one on each side. Make them from straight 2×4×8' boards: set the table saw fence to 1-11/16\" and rip each board down the middle into two strips. Then crosscut each strip into (3) rails at RAIL_LENGTH. Every 2×4 gives you 6 rails — you need RAILS_QTY rails from RAIL_BOARDS_QTY boards.",
+      "Each tote hangs by its rim on two rails, one on each side. Make them from straight 2×4×8' boards: set the table saw fence to 1-11/16\" and rip each board down the middle into two strips. Then crosscut each strip into (3) rails at RAIL_LENGTH. Every 2×4 gives you 6 rails — you need RAILS_QTY rails plus BACK_SUPPORTS_QTY back braces from RAIL_BOARDS_QTY boards. Set the brace pieces aside — they go on in the back-brace step (BRACE_LENGTH).",
     tools: [
       { name: "Table Saw", detail: 'fence at 1-11/16"' },
       { name: "Miter Saw", detail: "crosscut rails to RAIL_LENGTH" },
@@ -465,6 +527,7 @@ const RAILS_2X4_STEPS: Partial<Record<string, Partial<AssemblyStep>>> = {
     materials: [
       { name: "2×4 × 8' Boards", qty: "RAIL_BOARDS_QTY", detail: "Rip in half, then 3 rails per half" },
       { name: "2×4 Rails", qty: "RAILS_QTY", detail: 'About 1-1/2" × 1-11/16" × RAIL_LENGTH' },
+      { name: "2×4 Back Braces", qty: "BACK_SUPPORTS_QTY", detail: "Same ripped piece as a rail — BRACE_LENGTH" },
     ],
     proTip:
       "Knock the sharp top edges off each rail with a sanding block — tote rims glide in and out without catching.",
@@ -514,7 +577,29 @@ const RAILS_2X4_STEPS: Partial<Record<string, Partial<AssemblyStep>>> = {
   },
   "attach-top-plates": {
     proTip:
-      "This step is what makes a 2×4-rail frame rigid. Measure corner-to-corner diagonals — when they match within 1/8\", you're square. If not, push the long-diagonal corner before driving the last screws.",
+      "Measure corner-to-corner diagonals — when they match within 1/8\", you're square. If not, push the long-diagonal corner before driving the last screws. The back braces in the next step lock it there.",
+  },
+  "install-back-supports": {
+    title: "Install Back Braces",
+    instruction:
+      'With the unit still laying on its front, square it up: measure both corner-to-corner diagonals of the back face (the face pointing up) and push the long corner until they match within 1/8". BACK_BRACE_LAYOUT Drive #9 × 3" screws through each brace into the upright or plate beneath — 2 per end.',
+    screwType: {
+      label: '#9 × 3" Star Drive',
+      length: 3.0,
+      description: "Through the 2×4 brace into the plate or upright beneath. No pilot hole required; keep screws 3/4\" in from the brace ends.",
+    },
+    tools: [
+      { name: "Drill/Driver" },
+      { name: "T-25 Star Bit", detail: "for #9 screws" },
+      { name: "Tape Measure", detail: "corner-to-corner diagonals" },
+      { name: "Speed Square", detail: "set each brace at 45°" },
+    ],
+    materials: [
+      { name: "2×4 Back Braces", qty: "BACK_SUPPORTS_QTY", detail: "Ripped 2×4, BRACE_LENGTH" },
+      { name: '#9 × 3" Screws', qty: "BACK_SUPPORT_SCREWS_QTY", detail: "2 per brace end" },
+    ],
+    proTip:
+      "Square first, brace second — once the braces are screwed on, the frame holds whatever shape it's in. Braces on the back stay clear of the totes, which load from the front.",
   },
   final: {
     proTip:
@@ -529,14 +614,13 @@ const RAILS_2X4_STEPS: Partial<Record<string, Partial<AssemblyStep>>> = {
 export function getStepsForConfig(config: BuildConfig): AssemblyStep[] {
   const is2x4 = config.rails === "2x4";
   return ALL_STEPS.filter((step) => {
-    if (is2x4 && step.id === "install-back-supports") return false;
     if (!step.condition) return true;
     if (step.condition === "hasWheels") return config.hasWheels;
     if (step.condition === "hasTop") return config.hasTop;
     return true;
   }).map((base) => {
     const step: AssemblyStep = is2x4
-      ? { ...base, ...RAILS_2X4_STEPS[base.id], partStates: { ...base.partStates, backSupports: "hidden" } }
+      ? { ...base, ...RAILS_2X4_STEPS[base.id] }
       : base;
     // For the final step, adjust caster/plyTop visibility based on config
     if (step.id === "final") {
@@ -596,7 +680,20 @@ function tokenValues(cols: number, rows: number, config: BuildConfig): Record<st
   const railScrews = numRails * 4; // 2 screws per rail end × 2 ends
   // 2 screws per connection × 2 plates (front+back) × (cols+1) posts
   const perPlateScrews = (cols + 1) * 2 * 2;
-  const backSupports = cols <= 4 ? 4 : 6;
+  const braces = braceLayout2x4(cols, rows);
+  const backSupports = is2x4 ? braces.segments.length : backSupportsFor(cols);
+  const braceLen = braces.length >= 30 ? '30" (no cut)' : `cut to ${toFraction(braces.length)}"`;
+  const braceCut = braces.length >= 30 ? "Use the 30\" ripped pieces as-is." : `Cut ${backSupports} of your 30" ripped pieces to ${toFraction(braces.length)}" (square ends).`;
+  const braceLayout =
+    braces.style === "diagonal"
+      ? `${braceCut} ${
+          cols > 1
+            ? "In each end bay, lay one flat at 45° from the bottom plate at the corner up to the top plate"
+            : "Lay one flat at 45° from the bottom plate at one corner up to the top plate"
+        } — ends centered on the plates.${cols > 4 ? " This module is wider than 4 bays, so add one more the same way from the middle upright." : ""}`
+      : `${braceCut} Lay one flat at 45° across each of the four corners — one end centered on the plate, the other centered on the end upright.${
+          cols > 4 ? " This module is wider than 4 bays, so add 2 more at the middle upright — one up from the bottom plate, one down from the top plate." : ""
+        }`;
   const topSheets = plateLen > 192 ? 3 : plateLen > 96 ? 2 : 1;
   // Top screws: 1 per post location × 2 plates (front + back)
   const topScrews = (cols + 1) * 2;
@@ -616,7 +713,7 @@ function tokenValues(cols: number, rows: number, config: BuildConfig): Record<st
     TOP_PLATE_SCREWS_QTY: String(perPlateScrews),
     TOTES_QTY: String(cols * rows),
     BOARDS_QTY: String(packBoards([...Array(numPosts).fill(uprightH), ...Array(4).fill(plateLen)])),
-    RAIL_BOARDS_QTY: String(Math.ceil(numRails / RAILS_2X4.railsPerBoard)),
+    RAIL_BOARDS_QTY: String(Math.ceil((numRails + backSupports) / RAILS_2X4.railsPerBoard)),
     UPRIGHT_HEIGHT: `${toFraction(uprightH)}"`,
     UPRIGHT_DETAIL: is2x4 && uprightH >= STOCK ? 'Full 96" — no cut' : `Cut to ${toFraction(uprightH)}"`,
     UPRIGHT_CUT: uprightCut,
@@ -628,12 +725,14 @@ function tokenValues(cols: number, rows: number, config: BuildConfig): Record<st
     TOP_SCREWS_QTY: String(topScrews),
     BACK_SUPPORTS_QTY: String(backSupports),
     BACK_SUPPORT_SCREWS_QTY: String(backSupports * 4),
+    BACK_BRACE_LAYOUT: braceLayout,
+    BRACE_LENGTH: braceLen,
     OPENING_SPAN: openingStr,
   };
 }
 
 // Longest names first so e.g. UPRIGHT_HEIGHT isn't clipped by a shorter token
-const TOKEN_RE = /UPRIGHT_DETAIL|UPRIGHT_HEIGHT|UPRIGHT_CUT|BOTTOM_PLATE_SCREWS_QTY|TOP_PLATE_SCREWS_QTY|PLATE_SCREWS_QTY|BACK_SUPPORT_SCREWS_QTY|BACK_SUPPORTS_QTY|RAIL_BOARDS_QTY|RAIL_SCREWS_QTY|RAILS_QTY|POSTS_QTY|TOTES_QTY|BOARDS_QTY|TOP_SHEETS_QTY|TOP_SCREWS_QTY|PLATE_LENGTH|RAIL_LENGTH|RAIL_MARKS|UNIT_WIDTH|OPENING_SPAN/g;
+const TOKEN_RE = /UPRIGHT_DETAIL|UPRIGHT_HEIGHT|UPRIGHT_CUT|BOTTOM_PLATE_SCREWS_QTY|TOP_PLATE_SCREWS_QTY|PLATE_SCREWS_QTY|BACK_SUPPORT_SCREWS_QTY|BACK_SUPPORTS_QTY|BACK_BRACE_LAYOUT|BRACE_LENGTH|RAIL_BOARDS_QTY|RAIL_SCREWS_QTY|RAILS_QTY|POSTS_QTY|TOTES_QTY|BOARDS_QTY|TOP_SHEETS_QTY|TOP_SCREWS_QTY|PLATE_LENGTH|RAIL_LENGTH|RAIL_MARKS|UNIT_WIDTH|OPENING_SPAN/g;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Runtime quantity calculator

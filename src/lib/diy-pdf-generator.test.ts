@@ -111,21 +111,23 @@ describe("generateDIYPlan", () => {
     expect(p.moduleTypes[0].steps.some((s) => s.id === "attach-top")).toBe(true);
   });
 
-  it("builds every module with 2×4 rails, never plywood strips or back supports", async () => {
+  it("builds every module with 2×4 rails and 2×4 back braces, never plywood strips", async () => {
     for (const code of ["H4x4wt", "H6x6t", "G4x8w"]) {
       const p = await plan(code);
       for (const t of p.moduleTypes) {
         const ids = t.steps.map((s) => s.id);
-        expect(ids).not.toContain("install-back-supports");
+        expect(ids.indexOf("install-back-supports")).toBe(ids.indexOf("attach-top-plates") + 1);
         const rip = t.steps.find((s) => s.id === "rip-rails")!;
         expect(rip.title).toBe("Rip the 2×4 Rails");
         expect(rip.instruction).toContain('1-11/16"');
         const ladders = t.steps.find((s) => s.id === "build-ladders")!;
         expect(ladders.screwType?.label).toBe('#9 × 3" Star Drive');
         expect(ladders.materials.find((m) => m.name === '#9 × 3" Screws')?.qty).toBe(String(t.cols * t.rows * 2 * 4));
-        expect(t.parts.map((x) => x.name)).toEqual(t.hasTop ? ["Upright", "Plate", "Rail", "Worktop"] : ["Upright", "Plate", "Rail"]);
+        expect(t.parts.map((x) => x.name)).toEqual(
+          t.hasTop ? ["Upright", "Plate", "Rail", "Back Brace", "Worktop"] : ["Upright", "Plate", "Rail", "Back Brace"],
+        );
       }
-      expect(JSON.stringify(p)).not.toMatch(/plywood (rail|strip)|back support/i);
+      expect(JSON.stringify(p)).not.toMatch(/plywood (rail|strip|back)/i);
     }
   });
 
@@ -138,19 +140,32 @@ describe("generateDIYPlan", () => {
     expect(six.parts[0].length).toContain("full stud");
   });
 
-  it("counts rail boards at 6 rails per board and only buys plywood for worktops", async () => {
+  it("counts rail boards at 6 pieces per board (rails + back braces) and only buys plywood for worktops", async () => {
     const p = await plan("H4x4");
-    expect(p.railBoards).toEqual({ boards: 6, rails: 32 });
+    expect(p.railBoards).toEqual({ boards: 6, rails: 32, braces: 4 }); // 36 pieces
     expect(p.shoppingList.some((i) => i.name === "Plywood")).toBe(false);
     expect(p.shoppingList.some((i) => i.name.includes('1-5/8"'))).toBe(false);
     const withTop = await plan("H4x4t");
     expect(withTop.shoppingList.find((i) => i.name === "Plywood")?.qty).toBe(1);
   });
 
+  it("notes each module type's brace cut, including shorter braces on short modules", async () => {
+    const p = await plan("H2x4t.H2x2t.H2x4t"); // Indiana Joe: 4-high ends, 2-high middle
+    const braceNote = p.plywoodNotes.find((n) => n.startsWith("Back braces:"))!;
+    expect(braceNote).toContain('Modules A, C: 8 at 30" (no cut)');
+    expect(braceNote).toContain('Module B: 4 cut to 21-1/2"');
+    const b = p.moduleTypes.find((t) => t.rows === 2)!;
+    expect(b.parts.find((x) => x.name === "Back Brace")).toMatchObject({ qty: 4, length: '21-1/2"' });
+    const rip = b.steps.find((s) => s.id === "rip-rails")!;
+    expect(rip.instruction).toContain('cut to 21-1/2"');
+    const one = (await plan("H3x1w")).moduleTypes[0];
+    expect(one.steps.find((s) => s.id === "install-back-supports")!.instruction).toContain("bottom plate at the corner up to the top plate");
+  });
+
   it("resolves every template token in the text customers read", async () => {
     const p = await plan("H9x10t");
     const text = JSON.stringify([p.moduleTypes, p.units]);
-    expect(text).not.toMatch(/OPENING_SPAN|PLATE_LENGTH|UPRIGHT_HEIGHT|UPRIGHT_CUT|UPRIGHT_DETAIL|RAIL_MARKS|_QTY|RAIL_LENGTH|UNIT_WIDTH/);
+    expect(text).not.toMatch(/OPENING_SPAN|PLATE_LENGTH|UPRIGHT_HEIGHT|UPRIGHT_CUT|UPRIGHT_DETAIL|RAIL_MARKS|BACK_BRACE_EXTRA|_QTY|RAIL_LENGTH|UNIT_WIDTH/);
   });
 });
 
