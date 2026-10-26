@@ -16,13 +16,14 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useSearchParams } from "next/navigation";
-import { useState, useMemo, useEffect, Suspense, lazy } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Box, CheckCircle, Crown, FileText, Layers, Loader2, Minus, Plus, Ruler, Trash2 } from "lucide-react";
 import { createDIYPlanCheckout, checkDIYPlanAccess } from "@/app/actions/diy-plan-checkout";
 import { toFraction } from "@/lib/utils";
 import SystemMap from "@/components/plans/SystemMap";
+import PlanRack3D from "@/components/plans/PlanRack3D";
 import { BestsellersButton, BestsellersLightbox } from "@/components/plans/PlanBestsellers";
 import {
   DEFAULT_TOTE_PLAN_DESIGN,
@@ -46,7 +47,6 @@ import {
   type TotePlanUnit,
 } from "@/lib/tote-plans";
 
-const Rack3D = lazy(() => import("@/components/visualizer/Rack3D"));
 
 const TIER_ICONS: Record<TotePlanTier, typeof Box> = { pdf: FileText, interactive: Box };
 
@@ -302,31 +302,8 @@ function PlansDesigner() {
         {/* ── Step 1: design ── */}
         <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
           <div className="relative h-64 bg-white sm:h-80">
-            <Suspense
-              fallback={
-                <div className="flex h-full items-center justify-center">
-                  <Loader2 className="h-6 w-6 animate-spin text-stone-400" />
-                </div>
-              }
-            >
-              {/* Every unit, side by side — like the design configurator */}
-              <Rack3D
-                cols={unit.cols}
-                rows={unit.rows}
-                toteType={unit.toteType}
-                toteColor="black"
-                unitType="standard"
-                orientation="standard"
-                hasTotes={false}
-                hasWheels={unit.hasWheels}
-                hasTop={unit.hasTop}
-                presetUnits={
-                  multi
-                    ? design.units.map((u) => ({ cols: u.cols, rows: u.rows, hasTop: u.hasTop, hasWheels: u.hasWheels, totalW: 0, totalH: 0 }))
-                    : undefined
-                }
-              />
-            </Suspense>
+            {/* Every unit, built the way the plan builds it: 2×4 ripped rails, stacked tiers */}
+            <PlanRack3D design={design} />
             <div className="pointer-events-none absolute left-3 top-3 rounded-lg bg-slate-900/85 px-3 py-1.5 backdrop-blur">
               <p className="font-mono text-[11px] text-stone-300">
                 {toFraction(size.widthIn)}&quot; W × {toFraction(size.heightIn)}&quot; H × 30&quot; D

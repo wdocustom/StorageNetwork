@@ -96,6 +96,27 @@ interface OverheadConfig3D {
   toteType: "HDX" | "GM";
 }
 
+/**
+ * One 2×4-rail module placed in a whole plan (inches): x = left edge,
+ * y = its bottom plate's height above its unit's bottom plate (0 for the
+ * bottom tier). `rolling` = the unit is on casters (lifts every tier);
+ * `hasWheels` = this module carries them. Rows ≤ 6: taller units stack.
+ */
+export interface StackedModule3D {
+  x: number;
+  y: number;
+  cols: number;
+  rows: number;
+  rolling: boolean;
+  hasWheels: boolean;
+  hasTop: boolean;
+}
+
+/** Floor to the bottom of a stacked module (or its casters). */
+function stackedBaseY(m: StackedModule3D): number {
+  return m.rolling && !m.hasWheels ? CASTER_HEIGHT + m.y : m.y;
+}
+
 interface Rack3DProps {
   cols: number;
   rows: number;
@@ -132,6 +153,8 @@ interface Rack3DProps {
   chairConfig?: { finish: string };
   /** Multi-unit mode: renders multiple finished units side-by-side */
   multiUnitItems?: MultiUnit3DItem[];
+  /** DIY plan mode: every 2×4-rail module of a design at its own position */
+  stackedModules?: StackedModule3D[];
   /** When true, renders 2x4 ripped rail construction instead of plywood strips */
   use2x4Rails?: boolean;
   /** Text displayed as a diagonal watermark behind the 3D scene */
@@ -1093,6 +1116,108 @@ function CameraRig({ cols, rows, toteType, unitType, orientation, hasWheels, use
 
   useEffect(() => {
     // Camera at front-right: +X, +Y, -Z so doors (at -Z face) are visible
+    camera.position.set(dist * 0.6, dist * 0.6, -dist * 0.6);
+    camera.lookAt(0, 0, 0);
+    if (controlsRef.current) {
+      controlsRef.current.target.set(0, 0, 0);
+      controlsRef.current.update();
+    }
+  }, [camera, dist]);
+
+  return (
+    <>
+      <GroundShadow bottomY={-sh / 2} footprint={Math.max(sw, sd) * 1.6} />
+      <OrbitControls
+        ref={controlsRef}
+        makeDefault
+        autoRotate
+        autoRotateSpeed={0.5}
+        enablePan
+        panSpeed={0.5}
+        rotateSpeed={0.6}
+        zoomSpeed={0.8}
+        minPolarAngle={0.1}
+        maxPolarAngle={Math.PI / 1.5}
+        minDistance={0.2}
+        maxDistance={dist * 5}
+        target={[0, 0, 0]}
+        enableDamping
+        dampingFactor={0.08}
+      />
+    </>
+  );
+}
+
+// ── Stacked Modules (DIY plans) ─────────────────────────────────────────
+// Each module is a 2×4-rail RackAssembly placed where the plan builds it:
+// side by side within a unit, upper tiers stacked on lower ones.
+
+/** Frame height of a 2×4-rail module (plates + upright), inches. */
+export function frameHeight2x4(rows: number): number {
+  const r = Math.min(rows, RAILS_2X4_POSITIONS.length);
+  const post = r >= RAILS_2X4_POSITIONS.length ? RAILS_2X4_STOCK_LENGTH : RAILS_2X4_POSITIONS[r - 1] + RAILS_2X4_TOP_GAP;
+  return PLATE_H + post + PLATE_H;
+}
+
+function stackedBounds(modules: StackedModule3D[]) {
+  let w = 0;
+  let h = 0;
+  for (const m of modules) {
+    w = Math.max(w, m.x + m.cols * RAILS_2X4_OPENING + (m.cols + 1) * POST_W);
+    h = Math.max(h, stackedBaseY(m) + frameHeight2x4(m.rows) + (m.hasWheels ? CASTER_HEIGHT : 0));
+  }
+  return { w, h };
+}
+
+function StackedModulesAssembly({ modules, toteType, toteColor, hasTotes }: {
+  modules: StackedModule3D[];
+  toteType: ToteType;
+  toteColor: ToteColor;
+  hasTotes: boolean;
+}) {
+  const { w, h } = stackedBounds(modules);
+  return (
+    <group scale={[S, S, S]}>
+      {modules.map((m, i) => {
+        const mw = m.cols * RAILS_2X4_OPENING + (m.cols + 1) * POST_W;
+        const mh = frameHeight2x4(m.rows) + (m.hasWheels ? CASTER_HEIGHT : 0);
+        // RackAssembly is centered on its own origin; x runs left → right
+        // when facing the front, so mirror it like the assembly does.
+        const x = w / 2 - (m.x + mw / 2);
+        const y = stackedBaseY(m) + mh / 2 - h / 2;
+        return (
+          <group key={`module-${i}`} position={[x, y, 0]}>
+            <group scale={[1 / S, 1 / S, 1 / S]}>
+              <RackAssembly
+                cols={m.cols}
+                rows={m.rows}
+                toteType={toteType}
+                toteColor={toteColor}
+                unitType="standard"
+                orientation="standard"
+                hasTotes={hasTotes}
+                hasWheels={m.hasWheels}
+                hasTop={m.hasTop}
+                use2x4Rails
+              />
+            </group>
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+function StackedModulesCameraRig({ modules }: { modules: StackedModule3D[] }) {
+  const { camera } = useThree();
+  const controlsRef = useRef<any>(null);
+  const { w, h } = stackedBounds(modules);
+  const sw = w * S;
+  const sh = h * S;
+  const sd = RACK_DEPTH * S;
+  const dist = Math.max(sw, sh, sd) * 2.2;
+
+  useEffect(() => {
     camera.position.set(dist * 0.6, dist * 0.6, -dist * 0.6);
     camera.lookAt(0, 0, 0);
     if (controlsRef.current) {
@@ -2183,6 +2308,7 @@ export default function Rack3D(props: Rack3DProps) {
   }, []);
 
   const isMultiUnit = props.multiUnitItems && props.multiUnitItems.length > 0;
+  const isStacked = props.stackedModules && props.stackedModules.length > 0;
   const isOverhead = !!props.overheadConfig;
   const isRaisedBed = !!props.raisedBedConfig;
   const isCompound = props.presetUnits && props.presetUnits.length > 0;
@@ -2257,7 +2383,17 @@ export default function Rack3D(props: Rack3DProps) {
         {/* Sky/ground color split — warm wood tones + cool shadow fill */}
         <hemisphereLight args={["#fffaf0", "#e8dcc8", 0.55]} />
 
-        {isMultiUnit ? (
+        {isStacked ? (
+          <>
+            <StackedModulesCameraRig modules={props.stackedModules!} />
+            <StackedModulesAssembly
+              modules={props.stackedModules!}
+              toteType={props.toteType}
+              toteColor={props.toteColor}
+              hasTotes={props.hasTotes}
+            />
+          </>
+        ) : isMultiUnit ? (
           <>
             <MultiUnitCameraRig items={props.multiUnitItems!} />
             <MultiUnitAssembly items={props.multiUnitItems!} drawersOpen={props.drawersOpen} />

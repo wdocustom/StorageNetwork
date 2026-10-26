@@ -5,13 +5,12 @@
 // one-tap start for each bestseller (data in @/lib/plan-bestsellers).
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Loader2, Star, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, Star, X } from "lucide-react";
 import SystemMap from "@/components/plans/SystemMap";
+import PlanRack3D from "@/components/plans/PlanRack3D";
 import { PLAN_BESTSELLERS } from "@/lib/plan-bestsellers";
 import type { TotePlanDesign } from "@/lib/tote-plans";
-
-const Rack3D = lazy(() => import("@/components/visualizer/Rack3D"));
 
 /** Lean pill that opens the picker. */
 export function BestsellersButton({ onClick }: { onClick: () => void }) {
@@ -24,37 +23,6 @@ export function BestsellersButton({ onClick }: { onClick: () => void }) {
       <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" aria-hidden />
       Bestsellers
     </button>
-  );
-}
-
-function Preview3D({ design }: { design: TotePlanDesign }) {
-  const units = design.units;
-  const first = units[0];
-  return (
-    <Suspense
-      fallback={
-        <div className="flex h-full items-center justify-center">
-          <Loader2 className="h-5 w-5 animate-spin text-stone-400" />
-        </div>
-      }
-    >
-      <Rack3D
-        cols={first.cols}
-        rows={first.rows}
-        toteType={first.toteType}
-        toteColor="black"
-        unitType="standard"
-        orientation="standard"
-        hasTotes={false}
-        hasWheels={first.hasWheels}
-        hasTop={first.hasTop}
-        presetUnits={
-          units.length > 1
-            ? units.map((u) => ({ cols: u.cols, rows: u.rows, hasTop: u.hasTop, hasWheels: u.hasWheels, totalW: 0, totalH: 0 }))
-            : undefined
-        }
-      />
-    </Suspense>
   );
 }
 
@@ -128,7 +96,7 @@ export function BestsellersLightbox({
 
         <div className="overflow-y-auto">
           <div className="relative h-52 bg-white sm:h-60">
-            <Preview3D key={b.preset.id} design={b.design} />
+            <PlanRack3D key={b.preset.id} design={b.design} />
           </div>
 
           <div className="space-y-2 px-4 py-3">
