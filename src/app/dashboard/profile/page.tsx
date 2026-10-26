@@ -138,7 +138,11 @@ function ProfilePageInner() {
   const [loading, setLoading] = useState(true);
 
   // ── Coordinated section collapse — only one open at a time ──────────
-  const [activeTab, setActiveTab] = useState<"business" | "pricing" | "portfolio" | "account">("business");
+  // ?tab=account deep-links to a tab (e.g. from the DIY plan earnings email)
+  const [activeTab, setActiveTab] = useState<"business" | "pricing" | "portfolio" | "account">(() => {
+    const tab = searchParams.get("tab");
+    return tab === "pricing" || tab === "portfolio" || tab === "account" ? tab : "business";
+  });
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const toggleSection = (id: string) => (open: boolean) => {
     setActiveSection(open ? id : null);

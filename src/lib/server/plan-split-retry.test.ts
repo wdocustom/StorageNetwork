@@ -65,13 +65,22 @@ const failedRow = () => ({
   status: "failed",
   failure_reason: "transfer_error: boom",
 });
-const profiles = [{ id: "inst-1", stripe_account_id: "acct_1", stripe_details_submitted: true }];
+const profiles = [{ id: "inst-1", stripe_account_id: "acct_1", stripe_details_submitted: true, email: "inst@example.com", first_name: "Pat" }];
+const silent = async () => {};
 
 describe("retryPlanSplitPayout", () => {
-  it("re-sends a failed transfer from the sale's charge", async () => {
+  it("re-sends a failed transfer from the sale's charge and tells the installer", async () => {
     const db = fakeDb({ plan_split_payouts: [failedRow()], profiles });
     const { stripe, created } = fakeStripe();
-    const result = await retryPlanSplitPayout("row-1", { stripe, db: db as unknown as SupabaseClient });
+    const emails: string[] = [];
+    const result = await retryPlanSplitPayout("row-1", {
+      stripe,
+      db: db as unknown as SupabaseClient,
+      notify: async (email) => {
+        emails.push(email);
+      },
+    });
+    expect(emails).toEqual(["inst@example.com"]);
     expect(result).toEqual({ ok: true, status: "paid" });
     expect(created).toHaveLength(1);
     expect(created[0]).toMatchObject({ amount: 250, destination: "acct_1", source_transaction: "ch_1", transfer_group: "cs_1" });
@@ -81,7 +90,7 @@ describe("retryPlanSplitPayout", () => {
   it("records a transfer Stripe already made instead of paying again", async () => {
     const db = fakeDb({ plan_split_payouts: [failedRow()], profiles });
     const { stripe, created } = fakeStripe([{ id: "tr_original", metadata: { type: "plan_split" } }]);
-    const result = await retryPlanSplitPayout("row-1", { stripe, db: db as unknown as SupabaseClient });
+    const result = await retryPlanSplitPayout("row-1", { stripe, db: db as unknown as SupabaseClient, notify: silent });
     expect(result.ok).toBe(true);
     expect(created).toHaveLength(0);
     expect(db.tables.plan_split_payouts[0]).toMatchObject({ status: "paid", stripe_transfer_id: "tr_original" });
@@ -91,7 +100,7 @@ describe("retryPlanSplitPayout", () => {
     const paid = { ...failedRow(), status: "paid" };
     const db = fakeDb({ plan_split_payouts: [paid], profiles });
     const { stripe, created } = fakeStripe();
-    expect(await retryPlanSplitPayout("row-1", { stripe, db: db as unknown as SupabaseClient })).toEqual({
+    expect(await retryPlanSplitPayout("row-1", { stripe, db: db as unknown as SupabaseClient, notify: silent })).toEqual({
       ok: false,
       error: "Only failed payouts can be retried.",
     });
@@ -101,7 +110,7 @@ describe("retryPlanSplitPayout", () => {
   it("explains when the installer still has no connected Stripe account", async () => {
     const db = fakeDb({ plan_split_payouts: [failedRow()], profiles: [] });
     const { stripe } = fakeStripe();
-    const result = await retryPlanSplitPayout("row-1", { stripe, db: db as unknown as SupabaseClient });
+    const result = await retryPlanSplitPayout("row-1", { stripe, db: db as unknown as SupabaseClient, notify: silent });
     expect(result.ok).toBe(false);
     expect(db.tables.plan_split_payouts[0].status).toBe("failed");
   });

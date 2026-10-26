@@ -2,8 +2,10 @@ import "server-only";
 
 import type Stripe from "stripe";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { decodeTotePlanDesign } from "@/lib/tote-plans";
-import { planSplitShares, planSplitsEnabled } from "@/lib/plan-splits";
+import { TOTE_PLAN_TIERS, decodeTotePlanDesign, isTotePlanTier } from "@/lib/tote-plans";
+import { PLAN_SPLIT_TOTAL_CENTS, planSplitShares, planSplitsEnabled } from "@/lib/plan-splits";
+import { BESTSELLER_PRESETS } from "@/lib/presets";
+import { sendPlanSplitEarnedEmail, type PlanSplitEmailData } from "@/lib/emails/planSplitTemplates";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // processPlanSplits — pays the installer share of a confirmed tote plan sale
@@ -19,7 +21,44 @@ import { planSplitShares, planSplitsEnabled } from "@/lib/plan-splits";
 //   2. Connected Stripe account missing → row 'failed'
 //   3. Transfer from the sale's charge (source_transaction), idempotency
 //      key per session + recipient → row 'paid', else 'failed'
+//   4. Paid → email the installer what they earned and why (best-effort;
+//      a failed email never touches the payout)
 // ═══════════════════════════════════════════════════════════════════════════
+
+export type PlanSplitNotifier = (email: string, data: PlanSplitEmailData) => Promise<unknown>;
+
+interface PlanSplitDeps {
+  stripe: Stripe;
+  db: SupabaseClient;
+  /** Defaults to the "you just earned" email */
+  notify?: PlanSplitNotifier;
+}
+
+/** Tell the installer about a paid split. Never throws. */
+async function notifyPaid(
+  db: SupabaseClient,
+  notify: PlanSplitNotifier,
+  split: { recipientId: string; cents: number; reason: "referral" | "bestseller"; bestsellers: string[]; tier?: string | null; shared?: boolean },
+): Promise<void> {
+  try {
+    const { data: profile } = await db
+      .from("profiles")
+      .select("email, first_name, business_name")
+      .eq("id", split.recipientId)
+      .single();
+    if (!profile?.email) return;
+    await notify(profile.email, {
+      name: profile.first_name || profile.business_name || "there",
+      cents: split.cents,
+      reason: split.reason,
+      bestsellerNames: split.bestsellers.map((id) => BESTSELLER_PRESETS.find((p) => p.id === id)?.name ?? id),
+      productName: isTotePlanTier(split.tier) ? TOTE_PLAN_TIERS[split.tier].name : undefined,
+      shared: split.shared,
+    });
+  } catch (err) {
+    console.error("[PlanSplit] earnings email failed (payout unaffected):", err);
+  }
+}
 
 export interface PlanSplitResult {
   recipientId: string;
@@ -44,7 +83,7 @@ async function chargeIdFor(stripe: Stripe, session: Stripe.Checkout.Session): Pr
 
 export async function processPlanSplits(
   session: Stripe.Checkout.Session,
-  { stripe, db }: { stripe: Stripe; db: SupabaseClient },
+  { stripe, db, notify = sendPlanSplitEarnedEmail }: PlanSplitDeps,
 ): Promise<PlanSplitResult[]> {
   const metadata = session.metadata || {};
   if (!planSplitsEnabled()) return [];
@@ -134,6 +173,7 @@ export async function processPlanSplits(
         .eq("id", row.id);
       results.push({ recipientId: share.recipientId, cents: share.cents, status: "paid" });
       console.log(`[PlanSplit] Paid $${(share.cents / 100).toFixed(2)} → ${share.recipientId.slice(0, 8)}… (${share.reason}) for ${session.id}`);
+      await notifyPaid(db, notify, { ...share, tier: metadata.tier, shared: shares.length > 1 });
     } catch (err) {
       console.error("[PlanSplit] transfer failed:", err);
       await fail(row.id, `transfer_error: ${err instanceof Error ? err.message.slice(0, 200) : "unknown"}`);
@@ -153,11 +193,11 @@ export async function processPlanSplits(
 
 export async function retryPlanSplitPayout(
   rowId: string,
-  { stripe, db }: { stripe: Stripe; db: SupabaseClient },
+  { stripe, db, notify = sendPlanSplitEarnedEmail }: PlanSplitDeps,
 ): Promise<{ ok: boolean; status?: "paid" | "failed"; error?: string }> {
   const { data: row } = await db
     .from("plan_split_payouts")
-    .select("id, stripe_session_id, recipient_id, amount_cents, reason, bestsellers, status")
+    .select("id, stripe_session_id, recipient_id, amount_cents, reason, bestsellers, plan_tier, status")
     .eq("id", rowId)
     .single();
   if (!row) return { ok: false, error: "Payout not found." };
@@ -187,6 +227,15 @@ export async function retryPlanSplitPayout(
       .from("plan_split_payouts")
       .update({ status: "paid", stripe_transfer_id: transferId, paid_at: now, updated_at: now })
       .eq("id", row.id);
+    // First time this split is paid (it was 'failed'), so the installer hasn't been told yet
+    await notifyPaid(db, notify, {
+      recipientId: row.recipient_id,
+      cents: row.amount_cents,
+      reason: row.reason,
+      bestsellers: row.bestsellers ?? [],
+      tier: row.plan_tier,
+      shared: row.reason === "bestseller" && row.amount_cents < PLAN_SPLIT_TOTAL_CENTS,
+    });
     return { ok: true, status: "paid" as const };
   };
 
