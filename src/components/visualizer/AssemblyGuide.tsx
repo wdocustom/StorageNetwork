@@ -9,6 +9,7 @@ import { createDougFirMaterial, createPlywoodMaterial } from "./woodTextures";
 import ConstructionScrew from "./ConstructionScrew";
 import {
   RAILS_2X4,
+  backSupportsFor,
   getStepsForConfig,
   computeMaterials,
   resolveTokens,
@@ -413,11 +414,8 @@ function ExplodedAssembly({
       // Exploded view shows every part this build has — and only those
       if (group === "casters" || group === "casterScrews") return hasWheels ? "visible" : "hidden";
       if (group === "plyTop") return hasTop ? "visible" : "hidden";
-      if (group === "backSupports") return is2x4 ? "hidden" : "visible";
       return "visible";
     }
-    // 2×4-rail frames have no plywood back supports
-    if (group === "backSupports" && is2x4) return "hidden";
     return step.partStates[group];
   }
 
@@ -945,7 +943,8 @@ function ExplodedAssembly({
           );
         })()}
 
-        {/* ── BACK SUPPORTS — 30" plywood strips laid flat diagonally on back face ── */}
+        {/* ── BACK SUPPORTS — 30" strips laid flat diagonally on back face
+             (plywood strips, or ripped 2×4 braces on 2×4-rail frames) ── */}
         {(() => {
           const bsVis = vis("backSupports");
           if (bsVis === "hidden") return null;
@@ -954,10 +953,19 @@ function ExplodedAssembly({
           const bottomY = lift + PLATE_H;
           const topY = lift + frameH - PLATE_H;
           const braceLen = RACK_DEPTH; // 30" — same strips as tote rails
-          const bsMat = bsVis === "ghosted" ? PLYWOOD_GHOST : PLYWOOD_MAT;
+          const bsMat = is2x4
+            ? bsVis === "ghosted" ? PINE_GHOST : PINE_MAT
+            : bsVis === "ghosted" ? PLYWOOD_GHOST : PLYWOOD_MAT;
+          // Plywood: 1-7/8" face × 3/4" thick. 2×4: 1-11/16" face × 1-1/2" thick.
+          const braceFace = is2x4 ? RAILS_2X4.railH : RAIL_HEIGHT;
+          const braceThick = is2x4 ? RAILS_2X4.railW : RAIL_THICKNESS;
+          const braceScrewLen = is2x4 ? 3.0 : 1.625;
+          const braceScrewLabel = is2x4
+            ? '#9 × 3" — through 2×4 brace into plate/upright'
+            : '#9 × 1-5/8" — through brace into plate/post';
           const braceAngle = Math.PI / 4; // 45°
           // Sits ON the back face: 1-7/8" wide face flat against unit, 3/4" thick sticking out
-          const backZ = RACK_DEPTH + RAIL_THICKNESS / 2;
+          const backZ = RACK_DEPTH + braceThick / 2;
           // Half-span of a 30" brace at 45°
           const halfSpan = braceLen / (2 * Math.SQRT2);
 
@@ -972,6 +980,14 @@ function ExplodedAssembly({
             // Top-right: from top plate corner, angled down-left
             { pos: [lastPostX - halfSpan, topY - halfSpan, backZ], rot: braceAngle },
           ];
+          // 2×4 frames wider than 4 bays: 2 more off the middle upright
+          if (is2x4 && backSupportsFor(cols) > 4) {
+            const midX = getPostX(Math.floor(cols / 2), bayW);
+            braces.push(
+              { pos: [midX + halfSpan, bottomY + halfSpan, backZ], rot: braceAngle },
+              { pos: [midX - halfSpan, topY - halfSpan, backZ], rot: braceAngle },
+            );
+          }
 
           return (
             <FadeGroup vis={bsVis}>
@@ -979,7 +995,7 @@ function ExplodedAssembly({
                 <group key={`bs-${i}`} position={b.pos} rotation={[0, 0, b.rot]}>
                   {/* Plywood strip: 1-7/8" wide (X) × 30" long (Y) × 3/4" thick (Z) */}
                   <mesh material={bsMat} castShadow={bsVis === "visible"} receiveShadow={bsVis === "visible"}>
-                    <boxGeometry args={[RAIL_HEIGHT, braceLen, RAIL_THICKNESS]} />
+                    <boxGeometry args={[braceFace, braceLen, braceThick]} />
                   </mesh>
                   {/* Screws at each end — 2 per end, through brace face into plate/post beneath */}
                   {bsVis === "visible" && (
@@ -987,29 +1003,29 @@ function ExplodedAssembly({
                       <ConstructionScrew
                         position={[0, braceLen / 2 - 1.5, 0]}
                         rotation={[-Math.PI / 2, 0, 0]}
-                        length={1.625}
-                        label='#9 × 1-5/8" — through brace into plate/post'
+                        length={braceScrewLen}
+                        label={braceScrewLabel}
                         visible
                       />
                       <ConstructionScrew
                         position={[0, braceLen / 2 - 3.5, 0]}
                         rotation={[-Math.PI / 2, 0, 0]}
-                        length={1.625}
-                        label='#9 × 1-5/8" — through brace into plate/post'
+                        length={braceScrewLen}
+                        label={braceScrewLabel}
                         visible
                       />
                       <ConstructionScrew
                         position={[0, -braceLen / 2 + 1.5, 0]}
                         rotation={[-Math.PI / 2, 0, 0]}
-                        length={1.625}
-                        label='#9 × 1-5/8" — through brace into plate/post'
+                        length={braceScrewLen}
+                        label={braceScrewLabel}
                         visible
                       />
                       <ConstructionScrew
                         position={[0, -braceLen / 2 + 3.5, 0]}
                         rotation={[-Math.PI / 2, 0, 0]}
-                        length={1.625}
-                        label='#9 × 1-5/8" — through brace into plate/post'
+                        length={braceScrewLen}
+                        label={braceScrewLabel}
                         visible
                       />
                     </>

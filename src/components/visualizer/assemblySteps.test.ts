@@ -17,10 +17,30 @@ describe("assembly steps", () => {
   it("swaps in 2×4-rail steps without changing ids", () => {
     const plywood = getStepsForConfig({ hasWheels: false, hasTop: false });
     const twoByFour = getStepsForConfig({ hasWheels: false, hasTop: false, rails: "2x4" });
-    expect(twoByFour.map((s) => s.id)).toEqual(plywood.map((s) => s.id).filter((id) => id !== "install-back-supports"));
-    expect(twoByFour.every((s) => s.partStates.backSupports === "hidden")).toBe(true);
+    expect(twoByFour.map((s) => s.id)).toEqual(plywood.map((s) => s.id));
     const config = { hasWheels: false, hasTop: false, rails: "2x4" as const };
     expect(resolveTokens("OPENING_SPAN / PLATE_LENGTH / UPRIGHT_HEIGHT", 4, 4, config)).toBe('21" / 91-1/2" / 63-3/4"');
+  });
+
+  it("braces 2×4-rail frames with ripped 2×4s right after the top plates", () => {
+    const config = { hasWheels: true, hasTop: false, rails: "2x4" as const };
+    const steps = getStepsForConfig(config);
+    const ids = steps.map((s) => s.id);
+    expect(ids.indexOf("install-back-supports")).toBe(ids.indexOf("attach-top-plates") + 1);
+    const brace = steps[ids.indexOf("install-back-supports")];
+    expect(brace.title).toBe("Install Back Braces");
+    expect(brace.screwType?.label).toBe('#9 × 3" Star Drive');
+    expect(brace.partStates.backSupports).toBe("visible");
+    expect(steps[ids.indexOf("attach-top-plates")].partStates.backSupports).toBe("hidden");
+    expect(computeMaterials(brace, 4, 4, config).map((m) => [m.name, m.qty])).toEqual([
+      ["2×4 Back Braces", "4"],
+      ['#9 × 3" Screws', "16"],
+    ]);
+    expect(resolveTokens(brace.instruction, 4, 4, config)).not.toMatch(/BACK_BRACE_EXTRA|middle upright/);
+    expect(resolveTokens(brace.instruction, 6, 4, config)).toContain("2 more at the middle upright");
+    // 4×4: 32 rails + 4 braces = 36 pieces = 6 boards
+    const rip = steps[ids.indexOf("rip-rails")];
+    expect(computeMaterials(rip, 4, 4, config).find((m) => m.name === "2×4 × 8' Boards")?.qty).toBe("6");
   });
 
   it("matches the build engine's 2×4-rail heights", () => {

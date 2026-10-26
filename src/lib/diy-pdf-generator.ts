@@ -557,7 +557,7 @@ function renderCutPlan(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
   setText(doc, 9, COLORS.body);
   cur.y = paragraph(
     doc,
-    `Uprights and plates: each bar is one 2×4×8' board (96"). Tan sections are your cuts, labeled with the modules they're for; gray is offcut. ${plan.cutBoards.length} boards, plus ${plan.railBoards.boards} more ripped into rails below. Stack identical parts to check they match.`,
+    `Uprights and plates: each bar is one 2×4×8' board (96"). Tan sections are your cuts, labeled with the modules they're for; gray is offcut. ${plan.cutBoards.length} boards, plus ${plan.railBoards.boards} more ripped into rails and back braces below. Stack identical parts to check they match.`,
     MARGIN,
     cur.y,
     CONTENT_W,
@@ -606,7 +606,11 @@ function renderCutPlan(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
   doc.text("2×4 Rail Boards", MARGIN, cur.y);
   cur.y += 5;
   setText(doc, 8.5, COLORS.ink, "bold");
-  doc.text(`Rip ${plan.railBoards.boards} board${plan.railBoards.boards === 1 ? "" : "s"} like this — 6 rails each`, MARGIN, cur.y);
+  doc.text(
+    `Rip ${plan.railBoards.boards} board${plan.railBoards.boards === 1 ? "" : "s"} like this — 6 pieces each: ${plan.railBoards.rails} rails + ${plan.railBoards.braces} back braces`,
+    MARGIN,
+    cur.y,
+  );
   cur.y += 2.5;
   const halfH = 5.5;
   for (let half = 0; half < 2; half++) {
@@ -622,7 +626,7 @@ function renderCutPlan(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
       doc.setLineWidth(0.6);
       doc.line(x + w, y, x + w, y + halfH);
       setText(doc, 7, COLORS.lumberInk, "bold");
-      doc.text('Rail 30"', x + w / 2, y + halfH / 2 + 1.1, { align: "center" });
+      doc.text('Rail / brace 30"', x + w / 2, y + halfH / 2 + 1.1, { align: "center" });
       x += w;
     }
     doc.setDrawColor(...COLORS.faint);
@@ -631,7 +635,7 @@ function renderCutPlan(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
   }
   cur.y += halfH * 2 + 0.8 + 4;
   setText(doc, 7.5, COLORS.muted);
-  doc.text('Rip down the middle (fence at 1-11/16"), then crosscut each half into 3 rails at 30" — about 5-5/8" offcut per half.', MARGIN, cur.y);
+  doc.text('Rip down the middle (fence at 1-11/16"), then crosscut each half into 3 pieces at 30" — about 5-5/8" offcut per half.', MARGIN, cur.y);
   cur.y += 7;
 
   cur.ensure(20);

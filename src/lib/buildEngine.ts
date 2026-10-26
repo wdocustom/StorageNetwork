@@ -442,12 +442,12 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
         let numRails: number;
         let backSupports: number;
         if (is2x4) {
-          // 2x4 rail mode: 2 rails per slot (front + back) — no plywood strips or back supports
+          // 2x4 rail mode: 2 rails per slot (front + back) plus the diagonal
+          // back braces, all the same ripped 2x4 piece — no plywood strips
           numRails = 0;
           backSupports = 0;
           modStrips = 0;
-          // Each slot has 2 rail pieces (front + back), counted globally
-          global2x4RailCount += slots * 2;
+          global2x4RailCount += slots * 2 + (cols <= 4 ? 4 : 6);
         } else {
           numRails = slots * 2;
           backSupports = cols <= 4 ? 4 : 6;
@@ -459,6 +459,8 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
         if (is2x4) {
           // 2x4 rails: 3" screws for rail-to-post attachment (4 per rail piece)
           gScrew3 += slots * 2 * 4;
+          // Back braces: 2 screws per end
+          gScrew3 += (cols <= 4 ? 4 : 6) * 4;
           // Structural: posts to plates
           gScrew3 += (cols + 1) * 20;
         } else {
