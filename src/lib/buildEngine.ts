@@ -43,6 +43,7 @@ import type {
 
 import { roundMoney, calculateBalanceDue } from "@/utils/mathHelpers";
 import { getShelvingConfig } from "@/lib/shelving";
+import { braceLayout2x4 } from "@/components/visualizer/assemblySteps";
 import {
   OVERHEAD_GRID_PRESETS,
   calculateOverheadStorage,
@@ -447,7 +448,7 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
           numRails = 0;
           backSupports = 0;
           modStrips = 0;
-          global2x4RailCount += slots * 2 + (cols <= 4 ? 4 : 6);
+          global2x4RailCount += slots * 2 + braceLayout2x4(cols, tierRows).segments.length;
         } else {
           numRails = slots * 2;
           backSupports = cols <= 4 ? 4 : 6;
@@ -460,7 +461,7 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
           // 2x4 rails: 3" screws for rail-to-post attachment (4 per rail piece)
           gScrew3 += slots * 2 * 4;
           // Back braces: 2 screws per end
-          gScrew3 += (cols <= 4 ? 4 : 6) * 4;
+          gScrew3 += braceLayout2x4(cols, tierRows).segments.length * 4;
           // Structural: posts to plates
           gScrew3 += (cols + 1) * 20;
         } else {

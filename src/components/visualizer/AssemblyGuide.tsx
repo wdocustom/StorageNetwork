@@ -9,7 +9,7 @@ import { createDougFirMaterial, createPlywoodMaterial } from "./woodTextures";
 import ConstructionScrew from "./ConstructionScrew";
 import {
   RAILS_2X4,
-  backSupportsFor,
+  braceLayout2x4,
   getStepsForConfig,
   computeMaterials,
   resolveTokens,
@@ -980,14 +980,24 @@ function ExplodedAssembly({
             // Top-right: from top plate corner, angled down-left
             { pos: [lastPostX - halfSpan, topY - halfSpan, backZ], rot: braceAngle },
           ];
-          // 2×4 frames wider than 4 bays: 2 more off the middle upright
-          if (is2x4 && backSupportsFor(cols) > 4) {
-            const midX = getPostX(Math.floor(cols / 2), bayW);
-            braces.push(
-              { pos: [midX + halfSpan, bottomY + halfSpan, backZ], rot: braceAngle },
-              { pos: [midX - halfSpan, topY - halfSpan, backZ], rot: braceAngle },
-            );
+          // 2×4 frames: braces sized to the frame (short frames can't fit
+          // 30" corner braces) — same layout the step text and counts use
+          const layout2x4 = is2x4 ? braceLayout2x4(cols, rows) : null;
+          if (layout2x4) {
+            const ox = firstPostX;
+            const oy = lift + PLATE_H / 2; // bottom plate centerline
+            braces.length = 0;
+            for (const seg of layout2x4.segments) {
+              const dx = seg.x2 - seg.x1;
+              const dy = seg.y2 - seg.y1;
+              braces.push({
+                pos: [ox + (seg.x1 + seg.x2) / 2, oy + (seg.y1 + seg.y2) / 2, backZ],
+                // Box runs along Y; rotate Y onto the segment direction
+                rot: Math.atan2(-dx, dy),
+              });
+            }
           }
+          const braceLength = layout2x4?.length ?? braceLen;
 
           return (
             <FadeGroup vis={bsVis}>
@@ -995,34 +1005,34 @@ function ExplodedAssembly({
                 <group key={`bs-${i}`} position={b.pos} rotation={[0, 0, b.rot]}>
                   {/* Plywood strip: 1-7/8" wide (X) × 30" long (Y) × 3/4" thick (Z) */}
                   <mesh material={bsMat} castShadow={bsVis === "visible"} receiveShadow={bsVis === "visible"}>
-                    <boxGeometry args={[braceFace, braceLen, braceThick]} />
+                    <boxGeometry args={[braceFace, braceLength, braceThick]} />
                   </mesh>
                   {/* Screws at each end — 2 per end, through brace face into plate/post beneath */}
                   {bsVis === "visible" && (
                     <>
                       <ConstructionScrew
-                        position={[0, braceLen / 2 - 1.5, 0]}
+                        position={[0, braceLength / 2 - 1.5, 0]}
                         rotation={[-Math.PI / 2, 0, 0]}
                         length={braceScrewLen}
                         label={braceScrewLabel}
                         visible
                       />
                       <ConstructionScrew
-                        position={[0, braceLen / 2 - 3.5, 0]}
+                        position={[0, braceLength / 2 - 3.5, 0]}
                         rotation={[-Math.PI / 2, 0, 0]}
                         length={braceScrewLen}
                         label={braceScrewLabel}
                         visible
                       />
                       <ConstructionScrew
-                        position={[0, -braceLen / 2 + 1.5, 0]}
+                        position={[0, -braceLength / 2 + 1.5, 0]}
                         rotation={[-Math.PI / 2, 0, 0]}
                         length={braceScrewLen}
                         label={braceScrewLabel}
                         visible
                       />
                       <ConstructionScrew
-                        position={[0, -braceLen / 2 + 3.5, 0]}
+                        position={[0, -braceLength / 2 + 3.5, 0]}
                         rotation={[-Math.PI / 2, 0, 0]}
                         length={braceScrewLen}
                         label={braceScrewLabel}

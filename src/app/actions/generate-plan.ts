@@ -25,7 +25,7 @@ import { generateBuildManifest } from "@/lib/buildEngine";
 import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine.types";
 import {
   RAILS_2X4,
-  backSupportsFor,
+  braceLayout2x4,
   getStepsForConfig,
   computeMaterials,
   railTopMarks2x4,
@@ -168,6 +168,7 @@ const inches = (n: number) => `${toFraction(n)}"`;
 function moduleParts(t: PlanModuleType): PlanCutPart[] {
   const width = moduleWidthIn(t.cols);
   const upright = upright2x4(t.rows);
+  const braces = braceLayout2x4(t.cols, t.rows);
   const parts: PlanCutPart[] = [
     {
       name: "Upright",
@@ -177,7 +178,12 @@ function moduleParts(t: PlanModuleType): PlanCutPart[] {
     },
     { name: "Plate", qty: 4, length: inches(width), material: "2×4" },
     { name: "Rail", qty: t.cols * t.rows * 2, length: `${UNIT_DEPTH_IN}"`, material: "2×4 ripped in half" },
-    { name: "Back Brace", qty: backSupportsFor(t.cols), length: `${UNIT_DEPTH_IN}"`, material: "2×4 ripped in half" },
+    {
+      name: "Back Brace",
+      qty: braces.segments.length,
+      length: braces.length >= UNIT_DEPTH_IN ? `${UNIT_DEPTH_IN}"` : inches(braces.length),
+      material: "2×4 ripped in half",
+    },
   ];
   if (t.hasTop) parts.push({ name: "Worktop", qty: 1, length: `${inches(width)} × ${UNIT_DEPTH_IN}"`, material: '3/4" plywood' });
   return parts;
@@ -399,7 +405,7 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
     remainder: Math.round(b.rem * 100) / 100,
   }));
   const railCount = modules.reduce((s, m) => s + m.cols * m.rows * 2, 0);
-  const braceCount = modules.reduce((s, m) => s + backSupportsFor(m.cols), 0);
+  const braceCount = modules.reduce((s, m) => s + braceLayout2x4(m.cols, m.rows).segments.length, 0);
   const railBoards = {
     boards: Math.ceil((railCount + braceCount) / RAILS_2X4.railsPerBoard),
     rails: railCount,
