@@ -24,6 +24,8 @@ import { createDIYPlanCheckout, checkDIYPlanAccess } from "@/app/actions/diy-pla
 import { toFraction } from "@/lib/utils";
 import SystemMap from "@/components/plans/SystemMap";
 import PlanRack3D from "@/components/plans/PlanRack3D";
+import MaterialCostCard from "@/components/plans/MaterialCostCard";
+import BuildItForMe from "@/components/plans/BuildItForMe";
 import { BestsellersButton, BestsellersLightbox } from "@/components/plans/PlanBestsellers";
 import { PLAN_REF_COOKIE, cleanReferralId } from "@/lib/plan-splits";
 import {
@@ -450,7 +452,11 @@ function PlansDesigner() {
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-400">{error}</div>
         )}
 
+        {/* What the materials cost at the store */}
+        <MaterialCostCard design={design} />
+
         {/* ── Step 2: pick a plan ── */}
+        <div id="plan-tiers" className="scroll-mt-4">
         {hasFree ? (
           <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6 text-center">
             <div className="mb-2 flex items-center justify-center gap-1.5 text-sm font-semibold text-emerald-400">
@@ -510,6 +516,14 @@ function PlansDesigner() {
             })}
           </div>
         )}
+        </div>
+
+        {/* Back to an installer: the referring one, or a local pro by ZIP */}
+        <BuildItForMe
+          design={design}
+          referral={ref}
+          onBackToPlans={() => document.getElementById("plan-tiers")?.scrollIntoView({ behavior: "smooth" })}
+        />
 
         <p className="pb-4 text-center text-[11px] text-stone-600">
           One price for your whole design, any size. One-time purchase — we email you a permanent link, no account needed.
