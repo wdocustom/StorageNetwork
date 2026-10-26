@@ -44,6 +44,7 @@ import {
   designOuterSize,
   moduleFrameHeightIn,
   moduleWidthIn,
+  moduleTypeTitle,
   splitHeight,
   splitWidth,
   totePlanName,
@@ -509,8 +510,17 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
 
   // ── Rail + plywood notes ─────────────────────────────────────────────
   const topSheets = units.reduce((s, u) => s + (u.hasTop ? topSheetsFor(u.widthIn) : 0), 0);
+  // One entry per module type: "A1, A2: 4 at 30\" (no cut)" / "B1: 4 cut to 21-1/2\""
+  const braceNotes = moduleTypes.map((t) => {
+    const b = braceLayout2x4(t.cols, t.rows);
+    const n = b.segments.length * t.count;
+    const how = b.length >= UNIT_DEPTH_IN ? `at ${UNIT_DEPTH_IN}" (no cut)` : `cut to ${inches(b.length)}`;
+    const where = b.style === "diagonal" ? ", plate to plate in the end bays" : "";
+    return `${moduleTypeTitle(t)}: ${n} ${how}${where}`;
+  });
   const plywoodNotes = [
-    `Rails: rip ${railBoards.boards} straight 2×4×8' board${railBoards.boards === 1 ? "" : "s"} down the middle (fence at 1-11/16"), then crosscut each half into 3 rails at ${UNIT_DEPTH_IN}". That makes ${railBoards.boards * RAILS_2X4.railsPerBoard} pieces — you need ${railBoards.rails} rails plus ${railBoards.braces} back braces (same 30" piece).`,
+    `Rails: rip ${railBoards.boards} straight 2×4×8' board${railBoards.boards === 1 ? "" : "s"} down the middle (fence at 1-11/16"), then crosscut each half into 3 rails at ${UNIT_DEPTH_IN}". That makes ${railBoards.boards * RAILS_2X4.railsPerBoard} pieces — you need ${railBoards.rails} rails plus ${railBoards.braces} back braces.`,
+    `Back braces: ${braceNotes.join("; ")}. Short modules take shorter braces so the top and bottom ones never meet — cut those from the same 30" pieces, square ends.`,
     `Rail heights (top edge, measured up from the bottom of each upright): ${railTopMarks2x4(6).map((m) => inches(m)).join(", ")} — use as many as the module is tall.`,
   ];
   if (topSheets > 0) {

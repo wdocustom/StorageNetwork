@@ -148,8 +148,9 @@ export function braceLayout2x4(cols: number, rows: number): BraceLayout2x4 {
     return { style: "diagonal", length, segments };
   }
 
-  // Leave 3" between the top and bottom braces (and the left and right ones)
-  const leg = Math.min(maxLen / Math.SQRT2, (d - 3) / 2, (w - 3) / 2);
+  // Leave 3" between the top and bottom brace ends on an upright, and 1-1/2"
+  // between the left and right ends along a plate
+  const leg = Math.min(maxLen / Math.SQRT2, (d - 3) / 2, (w - 1.5) / 2);
   const length = Math.min(maxLen, floorQuarter(leg * Math.SQRT2));
   const l = length / Math.SQRT2;
   const segments: BraceSegment[] = [
@@ -516,7 +517,7 @@ const RAILS_2X4_STEPS: Partial<Record<string, Partial<AssemblyStep>>> = {
   "rip-rails": {
     title: "Rip the 2×4 Rails",
     instruction:
-      "Each tote hangs by its rim on two rails, one on each side. Make them from straight 2×4×8' boards: set the table saw fence to 1-11/16\" and rip each board down the middle into two strips. Then crosscut each strip into (3) rails at RAIL_LENGTH. Every 2×4 gives you 6 rails — you need RAILS_QTY rails plus BACK_SUPPORTS_QTY back braces (the same 30\" piece) from RAIL_BOARDS_QTY boards.",
+      "Each tote hangs by its rim on two rails, one on each side. Make them from straight 2×4×8' boards: set the table saw fence to 1-11/16\" and rip each board down the middle into two strips. Then crosscut each strip into (3) rails at RAIL_LENGTH. Every 2×4 gives you 6 rails — you need RAILS_QTY rails plus BACK_SUPPORTS_QTY back braces from RAIL_BOARDS_QTY boards. Set the brace pieces aside — they go on in the back-brace step (BRACE_LENGTH).",
     tools: [
       { name: "Table Saw", detail: 'fence at 1-11/16"' },
       { name: "Miter Saw", detail: "crosscut rails to RAIL_LENGTH" },
@@ -526,7 +527,7 @@ const RAILS_2X4_STEPS: Partial<Record<string, Partial<AssemblyStep>>> = {
     materials: [
       { name: "2×4 × 8' Boards", qty: "RAIL_BOARDS_QTY", detail: "Rip in half, then 3 rails per half" },
       { name: "2×4 Rails", qty: "RAILS_QTY", detail: 'About 1-1/2" × 1-11/16" × RAIL_LENGTH' },
-      { name: "2×4 Back Braces", qty: "BACK_SUPPORTS_QTY", detail: "Same ripped 30\" piece as a rail — set aside for the back" },
+      { name: "2×4 Back Braces", qty: "BACK_SUPPORTS_QTY", detail: "Same ripped piece as a rail — BRACE_LENGTH" },
     ],
     proTip:
       "Knock the sharp top edges off each rail with a sanding block — tote rims glide in and out without catching.",

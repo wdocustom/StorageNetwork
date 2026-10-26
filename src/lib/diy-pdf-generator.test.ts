@@ -149,6 +149,19 @@ describe("generateDIYPlan", () => {
     expect(withTop.shoppingList.find((i) => i.name === "Plywood")?.qty).toBe(1);
   });
 
+  it("notes each module type's brace cut, including shorter braces on short modules", async () => {
+    const p = await plan("H2x4t.H2x2t.H2x4t"); // Indiana Joe: 4-high ends, 2-high middle
+    const braceNote = p.plywoodNotes.find((n) => n.startsWith("Back braces:"))!;
+    expect(braceNote).toContain('Modules A, C: 8 at 30" (no cut)');
+    expect(braceNote).toContain('Module B: 4 cut to 21-1/2"');
+    const b = p.moduleTypes.find((t) => t.rows === 2)!;
+    expect(b.parts.find((x) => x.name === "Back Brace")).toMatchObject({ qty: 4, length: '21-1/2"' });
+    const rip = b.steps.find((s) => s.id === "rip-rails")!;
+    expect(rip.instruction).toContain('cut to 21-1/2"');
+    const one = (await plan("H3x1w")).moduleTypes[0];
+    expect(one.steps.find((s) => s.id === "install-back-supports")!.instruction).toContain("bottom plate at the corner up to the top plate");
+  });
+
   it("resolves every template token in the text customers read", async () => {
     const p = await plan("H9x10t");
     const text = JSON.stringify([p.moduleTypes, p.units]);
