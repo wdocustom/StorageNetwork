@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { createClient } from "@supabase/supabase-js";
 import { planPageSlugs } from "@/lib/plan-pages";
+import { PAGE_UPDATED, type DatedPage } from "@/lib/sitemap-dates";
 import {
   getInstallerDerivedRegions,
   getInstallersForRegionSlug,
@@ -82,41 +83,42 @@ const INSTALLER_REGIONS = [
   { slug: "little-rock-ar" },
 ];
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const now = new Date().toISOString();
+/** A page's real content date (see sitemap-dates.ts) — never the generation time */
+const updated = (page: DatedPage) => PAGE_UPDATED[page];
 
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // ── Static pages ─────────────────────────────────────────────────────
   const staticPages: MetadataRoute.Sitemap = [
     // Core pages
-    { url: BASE, lastModified: now, changeFrequency: "weekly", priority: 1.0 },
-    { url: `${BASE}/technology`, lastModified: now, changeFrequency: "monthly", priority: 0.9 },
-    { url: `${BASE}/features`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
-    { url: `${BASE}/join`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
-    { url: `${BASE}/partner/join`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
-    { url: `${BASE}/realtors/join`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: BASE, lastModified: updated("/"), changeFrequency: "weekly", priority: 1.0 },
+    { url: `${BASE}/technology`, lastModified: updated("/technology"), changeFrequency: "monthly", priority: 0.9 },
+    { url: `${BASE}/features`, lastModified: updated("/features"), changeFrequency: "monthly", priority: 0.8 },
+    { url: `${BASE}/join`, lastModified: updated("/join"), changeFrequency: "monthly", priority: 0.8 },
+    { url: `${BASE}/partner/join`, lastModified: updated("/partner/join"), changeFrequency: "monthly", priority: 0.8 },
+    { url: `${BASE}/realtors/join`, lastModified: updated("/realtors/join"), changeFrequency: "monthly", priority: 0.8 },
 
     // Public pages
-    { url: `${BASE}/installer-network`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
-    { url: `${BASE}/invite`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${BASE}/installer-network`, lastModified: updated("/installer-network"), changeFrequency: "weekly", priority: 0.7 },
+    { url: `${BASE}/invite`, lastModified: updated("/invite"), changeFrequency: "monthly", priority: 0.7 },
 
     // DIY plans storefront (build / library / access are token-gated + noindex)
-    { url: `${BASE}/plans`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },
-    { url: `${BASE}/plans/checkout`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
-    { url: `${BASE}/plans/jig`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${BASE}/plans`, lastModified: updated("/plans"), changeFrequency: "weekly", priority: 0.9 },
+    { url: `${BASE}/plans/checkout`, lastModified: updated("/plans/checkout"), changeFrequency: "monthly", priority: 0.7 },
+    { url: `${BASE}/plans/jig`, lastModified: updated("/plans/jig"), changeFrequency: "monthly", priority: 0.6 },
     ...planPageSlugs().map((slug) => ({
       url: `${BASE}/plans/${slug}`,
-      lastModified: now,
+      lastModified: updated("/plans/[slug]"),
       changeFrequency: "monthly" as const,
       priority: 0.7,
     })),
 
     // About / E-E-A-T cluster
-    { url: `${BASE}/about`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
-    { url: `${BASE}/about/scheduling`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${BASE}/about`, lastModified: updated("/about"), changeFrequency: "monthly", priority: 0.8 },
+    { url: `${BASE}/about/scheduling`, lastModified: updated("/about/scheduling"), changeFrequency: "monthly", priority: 0.7 },
 
     // Legal
-    { url: `${BASE}/legal/privacy`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
-    { url: `${BASE}/legal/terms`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${BASE}/legal/privacy`, lastModified: updated("/legal/privacy"), changeFrequency: "yearly", priority: 0.3 },
+    { url: `${BASE}/legal/terms`, lastModified: updated("/legal/terms"), changeFrequency: "yearly", priority: 0.3 },
   ];
 
   // ── Regional installer hub pages ─────────────────────────────────────
@@ -155,9 +157,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     )
   ).filter((s): s is string => s !== null);
 
+  // No lastmod: these list live installers, and nothing records when a
+  // region's list last changed — omitting beats claiming "changed now".
   const installerPages: MetadataRoute.Sitemap = populatedRegionSlugs.map((slug) => ({
     url: `${BASE}/installers/${slug}`,
-    lastModified: now,
     changeFrequency: "weekly" as const,
     priority: 0.8,
   }));
@@ -167,7 +170,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const becomeInstallerPages: MetadataRoute.Sitemap = INSTALLER_REGIONS.map(
     (region) => ({
       url: `${BASE}/become-installer/${region.slug}`,
-      lastModified: now,
+      lastModified: updated("/become-installer"),
       changeFrequency: "monthly" as const,
       priority: 0.6,
     })
@@ -205,7 +208,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         )
         .map((p) => ({
           url: `${BASE}/p/${p.slug}`,
-          lastModified: p.updated_at || now,
+          // Profile edits change the portfolio page; no date beats a fake one
+          ...(p.updated_at ? { lastModified: p.updated_at } : {}),
           changeFrequency: "weekly" as const,
           priority: 0.7,
         }));
