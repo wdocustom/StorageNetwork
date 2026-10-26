@@ -25,6 +25,7 @@ import { generateBuildManifest } from "@/lib/buildEngine";
 import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine.types";
 import {
   RAILS_2X4,
+  backSupportsFor,
   getStepsForConfig,
   computeMaterials,
   railTopMarks2x4,
@@ -135,8 +136,8 @@ export interface CompleteDIYPlan {
   totals: BuildManifest["totals"];
   /** Every 2×4×8' board for uprights + plates, packed exactly as the build engine packs them */
   cutBoards: PlanCutBoard[];
-  /** 2×4×8' boards ripped into rails (6 rails per board) */
-  railBoards: { boards: number; rails: number };
+  /** 2×4×8' boards ripped into rails and back braces (6 pieces per board) */
+  railBoards: { boards: number; rails: number; braces: number };
   /** Ripping and plywood notes for the cut plan */
   plywoodNotes: string[];
   allTools: string[];
@@ -176,6 +177,7 @@ function moduleParts(t: PlanModuleType): PlanCutPart[] {
     },
     { name: "Plate", qty: 4, length: inches(width), material: "2×4" },
     { name: "Rail", qty: t.cols * t.rows * 2, length: `${UNIT_DEPTH_IN}"`, material: "2×4 ripped in half" },
+    { name: "Back Brace", qty: backSupportsFor(t.cols), length: `${UNIT_DEPTH_IN}"`, material: "2×4 ripped in half" },
   ];
   if (t.hasTop) parts.push({ name: "Worktop", qty: 1, length: `${inches(width)} × ${UNIT_DEPTH_IN}"`, material: '3/4" plywood' });
   return parts;
@@ -397,7 +399,12 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
     remainder: Math.round(b.rem * 100) / 100,
   }));
   const railCount = modules.reduce((s, m) => s + m.cols * m.rows * 2, 0);
-  const railBoards = { boards: Math.ceil(railCount / RAILS_2X4.railsPerBoard), rails: railCount };
+  const braceCount = modules.reduce((s, m) => s + backSupportsFor(m.cols), 0);
+  const railBoards = {
+    boards: Math.ceil((railCount + braceCount) / RAILS_2X4.railsPerBoard),
+    rails: railCount,
+    braces: braceCount,
+  };
 
   // ── Module types ─────────────────────────────────────────────────────
   const moduleTypes: PlanModuleTypeBuild[] = types.map((t) => ({
@@ -452,7 +459,7 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
   const shoppingList: PlanShoppingItem[] = [];
   for (const item of manifest.shopping_list) {
     if (item.name === "2x4 Lumber" && /ripped/i.test(item.detail)) {
-      shoppingList.push({ ...item, qty: railBoards.boards, detail: `8 ft — rip into ${railBoards.rails} rails (6 per board)` });
+      shoppingList.push({ ...item, qty: railBoards.boards, detail: `8 ft — rip into ${railBoards.rails} rails + ${railBoards.braces} back braces (6 per board)` });
     } else if (item.name === "2x4 Lumber") {
       shoppingList.push({ ...item, detail: "8 ft studs — uprights and plates" });
     } else if (item.name === "Plywood") {
@@ -497,7 +504,7 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
   // ── Rail + plywood notes ─────────────────────────────────────────────
   const topSheets = units.reduce((s, u) => s + (u.hasTop ? topSheetsFor(u.widthIn) : 0), 0);
   const plywoodNotes = [
-    `Rails: rip ${railBoards.boards} straight 2×4×8' board${railBoards.boards === 1 ? "" : "s"} down the middle (fence at 1-11/16"), then crosscut each half into 3 rails at ${UNIT_DEPTH_IN}". That makes ${railBoards.boards * RAILS_2X4.railsPerBoard} rails — you need ${railBoards.rails}.`,
+    `Rails: rip ${railBoards.boards} straight 2×4×8' board${railBoards.boards === 1 ? "" : "s"} down the middle (fence at 1-11/16"), then crosscut each half into 3 rails at ${UNIT_DEPTH_IN}". That makes ${railBoards.boards * RAILS_2X4.railsPerBoard} pieces — you need ${railBoards.rails} rails plus ${railBoards.braces} back braces (same 30" piece).`,
     `Rail heights (top edge, measured up from the bottom of each upright): ${railTopMarks2x4(6).map((m) => inches(m)).join(", ")} — use as many as the module is tall.`,
   ];
   if (topSheets > 0) {
