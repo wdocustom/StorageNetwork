@@ -618,6 +618,19 @@ export async function POST(request: NextRequest) {
     }
 
     // ═════════════════════════════════════════════════════════════════════
+    // DIY PLAN SPLITS — up to $5 of each tote plan sale to the referring
+    // installer or the bestseller owners (src/lib/plan-splits.ts). Plan
+    // sessions carry no leadId; a promoter commission may also apply below.
+    // ═════════════════════════════════════════════════════════════════════
+    if (metadata.type === "diy_plan") {
+      fireAndForget("plan splits", async () => {
+        const { processPlanSplits } = await import("@/lib/server/plan-split-payouts");
+        await processPlanSplits(session, { stripe: stripe!, db: getDb() });
+      });
+      if (!metadata.promoter_id) return NextResponse.json({ received: true });
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
     // PROMOTER PROGRAM — individualized-cut commission on plan-purchase
     // sales attributed to a promoter's referral link. Plan-purchase sessions
     // carry no leadId, so this must run before the leadId guard below.

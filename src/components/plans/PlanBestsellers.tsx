@@ -6,11 +6,11 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Star, X } from "lucide-react";
+import { Check, Plus, Star, X } from "lucide-react";
 import SystemMap from "@/components/plans/SystemMap";
 import PlanRack3D from "@/components/plans/PlanRack3D";
 import { PLAN_BESTSELLERS } from "@/lib/plan-bestsellers";
-import type { TotePlanDesign } from "@/lib/tote-plans";
+import { TOTE_PLAN_LIMITS, type TotePlanDesign } from "@/lib/tote-plans";
 
 /** Lean pill that opens the picker. */
 export function BestsellersButton({ onClick }: { onClick: () => void }) {
@@ -30,13 +30,16 @@ export function BestsellersButton({ onClick }: { onClick: () => void }) {
 export function BestsellersLightbox({
   open,
   currentName,
+  currentUnitCount,
   onClose,
   onPick,
 }: {
   open: boolean;
   currentName?: string;
+  /** Units already in the customer's design (for "add to my design") */
+  currentUnitCount: number;
   onClose: () => void;
-  onPick: (design: TotePlanDesign) => void;
+  onPick: (design: TotePlanDesign, mode: "replace" | "add") => void;
 }) {
   const initial = useMemo(
     () => Math.max(0, PLAN_BESTSELLERS.findIndex((b) => b.preset.name === currentName)),
@@ -109,14 +112,27 @@ export function BestsellersLightbox({
             {b.blurb && <p className="text-sm text-stone-300">{b.blurb}</p>}
             <p className="font-mono text-[11px] text-stone-400">{b.spec}</p>
             <SystemMap design={b.design} className="h-14 w-full" title={`${b.preset.name}: units A, B, C left to right`} />
-            <button
-              type="button"
-              onClick={() => onPick(b.design)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 py-3 text-sm font-black uppercase tracking-wider text-gray-950 transition hover:from-amber-300 hover:to-yellow-400"
-            >
-              <Check className="h-4 w-4" aria-hidden />
-              Build {b.preset.name}
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => onPick(b.design, "replace")}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 py-3 text-sm font-black uppercase tracking-wider text-gray-950 transition hover:from-amber-300 hover:to-yellow-400"
+              >
+                <Check className="h-4 w-4" aria-hidden />
+                Build {b.preset.name}
+              </button>
+              {currentUnitCount + b.design.units.length <= TOTE_PLAN_LIMITS.maxUnits && (
+                <button
+                  type="button"
+                  onClick={() => onPick(b.design, "add")}
+                  title={`Add ${b.preset.name} to the units you already have`}
+                  className="flex shrink-0 items-center gap-1 rounded-xl border border-slate-600 px-3 text-xs font-bold text-stone-200 transition hover:border-yellow-400 hover:text-yellow-300"
+                >
+                  <Plus className="h-3.5 w-3.5" aria-hidden />
+                  Add
+                </button>
+              )}
+            </div>
           </div>
 
           <ul className="grid grid-cols-2 gap-2 border-t border-slate-800 p-3 sm:grid-cols-3">

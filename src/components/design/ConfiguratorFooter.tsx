@@ -277,6 +277,7 @@ export function designerPlanTranslation(props: ConfiguratorSidebarProps, activeS
           toteType: preset?.toteModel ?? "HDX",
           unitType: "standard",
           orientation: "standard",
+          desc: props.compoundBuild.presetName,
           presetUnits: props.compoundBuild.subUnits.map((su, i) => ({
             cols: su.cols,
             rows: su.rows,
@@ -318,7 +319,9 @@ function DIYPlansCTA({ props, activeStep }: { props: ConfiguratorSidebarProps; a
   return (
     <div className="mt-3 border-t border-zinc-800/50 pt-3">
       <button
-        onClick={() => router.push(totePlanDesignHref(design, "designer"))}
+        // An installer's own designer link credits them with the plan-sale
+        // split; a ZIP-matched installer didn't bring the customer here.
+        onClick={() => router.push(totePlanDesignHref(design, "designer", props.installerLocked ? props.installerId : null))}
         className={`flex w-full items-center justify-center gap-2 rounded-xl border py-2 text-[11px] font-bold uppercase tracking-wider transition-all ${
           freeAccess
             ? "border-green-500/30 bg-green-500/10 text-green-400 hover:border-green-400/50 hover:bg-green-500/20 hover:text-green-300"

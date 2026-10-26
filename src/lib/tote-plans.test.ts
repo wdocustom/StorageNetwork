@@ -218,7 +218,7 @@ describe("designFromItems — designer carts and saved quotes", () => {
       ],
       "Indiana Joe",
     );
-    expect(encodeTotePlanDesign(design!)).toBe("H2x4t.H2x2t.H2x4t");
+    expect(encodeTotePlanDesign(design!)).toBe("H2x4t_ij.H2x2t_ij.H2x4t_ij");
     expect(design!.name).toBe("Indiana Joe");
     expect([covered, skipped]).toEqual([1, 0]);
   });
@@ -237,7 +237,7 @@ describe("designFromItems — designer carts and saved quotes", () => {
         desc: "The Gass Station (1×4 + 4×2 + 1×4 — 16 slots, Totes, Top)",
       },
     ]);
-    expect(encodeTotePlanDesign(design!)).toBe("H1x4t.H4x2t.H1x4t");
+    expect(encodeTotePlanDesign(design!)).toBe("H1x4t_gs.H4x2t_gs.H1x4t_gs");
   });
 
   it("skips a collapsed bestseller it can't identify rather than guess", () => {

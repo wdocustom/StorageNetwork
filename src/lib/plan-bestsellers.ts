@@ -38,7 +38,14 @@ export interface PlanBestseller {
 function presetDesign(preset: BestsellerPreset): TotePlanDesign | null {
   return parseTotePlanDesign({
     name: preset.name,
-    units: preset.units.map((u) => ({ ...u, toteType: preset.toteModel, unitType: "standard", orientation: "standard" })),
+    // Tagged so the plan knows it holds this bestseller (installer splits)
+    units: preset.units.map((u) => ({
+      ...u,
+      toteType: preset.toteModel,
+      unitType: "standard",
+      orientation: "standard",
+      bestseller: preset.id,
+    })),
   });
 }
 

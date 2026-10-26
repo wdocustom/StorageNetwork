@@ -25,6 +25,7 @@ import { toFraction } from "@/lib/utils";
 import SystemMap from "@/components/plans/SystemMap";
 import PlanRack3D from "@/components/plans/PlanRack3D";
 import { BestsellersButton, BestsellersLightbox } from "@/components/plans/PlanBestsellers";
+import { PLAN_REF_COOKIE, cleanReferralId } from "@/lib/plan-splits";
 import {
   DEFAULT_TOTE_PLAN_DESIGN,
   DEFAULT_TOTE_PLAN_UNIT,
@@ -40,6 +41,7 @@ import {
   splitWidth,
   totePlanDesignHref,
   totePlanName,
+  normalizeBestsellers,
   totePlanSummary,
   unitLetter,
   type TotePlanDesign,
@@ -226,33 +228,54 @@ function PlansDesigner() {
   // Read once: the URL is rewritten as the design changes
   const [cancelled] = useState(() => searchParams.get("cancelled") === "1");
   const [source] = useState(() => searchParams.get("utm_source") ?? undefined);
+  // Installer whose link brought the customer here — remembered (no expiry)
+  // so they're credited even if the customer buys on a later visit.
+  const [ref] = useState(() => cleanReferralId(searchParams.get("ref")));
 
   useEffect(() => {
     checkDIYPlanAccess().then(setFreeAccess);
   }, []);
 
+  // Browsers cap cookie lifetimes (Chrome: 400 days), so every visit renews
+  // the remembered referral; a new installer link replaces it.
+  useEffect(() => {
+    const saved = cleanReferralId(document.cookie.match(new RegExp(`(?:^|;\\s*)${PLAN_REF_COOKIE}=([^;]*)`))?.[1]);
+    const keep = ref ?? saved;
+    if (keep) document.cookie = `${PLAN_REF_COOKIE}=${keep};path=/;max-age=${60 * 60 * 24 * 400};SameSite=Lax`;
+  }, [ref]);
+
   // Keep the URL in step with the design so a refresh or shared link keeps it.
   useEffect(() => {
-    window.history.replaceState(null, "", totePlanDesignHref(design, source));
-  }, [design, source]);
+    window.history.replaceState(null, "", totePlanDesignHref(design, source, ref));
+  }, [design, source, ref]);
 
   const unitIndex = Math.min(selected, design.units.length - 1);
   const unit = design.units[unitIndex];
 
-  // Any edit makes it the customer's own design, so a bestseller name no longer applies.
+  // Any edit makes it the customer's own design, so a bestseller name no
+  // longer applies. Bestseller tags survive brand / caster / worktop edits;
+  // a size change or a removed unit drops that bestseller (normalizeBestsellers).
   const updateUnit = (patch: Partial<TotePlanUnit>) =>
-    setDesign((d) => ({ units: d.units.map((u, i) => (i === unitIndex ? { ...u, ...patch } : u)) }));
+    setDesign((d) => ({ units: normalizeBestsellers(d.units.map((u, i) => (i === unitIndex ? { ...u, ...patch } : u))) }));
   const addUnit = () => {
-    setDesign((d) => ({ units: [...d.units, { ...(d.units[d.units.length - 1] ?? DEFAULT_TOTE_PLAN_UNIT) }] }));
+    setDesign((d) => {
+      const { bestseller: _copied, ...last } = d.units[d.units.length - 1] ?? DEFAULT_TOTE_PLAN_UNIT;
+      return { units: [...d.units, last] };
+    });
     setSelected(design.units.length);
   };
   const removeUnit = () => {
-    setDesign((d) => ({ units: d.units.filter((_, i) => i !== unitIndex) }));
+    setDesign((d) => ({ units: normalizeBestsellers(d.units.filter((_, i) => i !== unitIndex)) }));
     setSelected(Math.max(0, unitIndex - 1));
   };
-  const pickBestseller = (picked: TotePlanDesign) => {
-    setDesign(picked);
-    setSelected(0);
+  const pickBestseller = (picked: TotePlanDesign, mode: "replace" | "add") => {
+    if (mode === "add") {
+      setSelected(design.units.length);
+      setDesign((d) => ({ units: normalizeBestsellers([...d.units, ...picked.units]) }));
+    } else {
+      setDesign(picked);
+      setSelected(0);
+    }
     setPickerOpen(false);
   };
   const multi = design.units.length > 1;
@@ -266,7 +289,7 @@ function PlansDesigner() {
   const handleBuy = async (tier: TotePlanTier) => {
     setLoadingTier(tier);
     setError("");
-    const result = await createDIYPlanCheckout(design, tier, source);
+    const result = await createDIYPlanCheckout(design, tier, source, ref);
     if (result.success && result.url) {
       window.location.href = result.url;
     } else {
@@ -418,6 +441,7 @@ function PlansDesigner() {
         <BestsellersLightbox
           open={pickerOpen}
           currentName={design.name}
+          currentUnitCount={design.units.length}
           onClose={() => setPickerOpen(false)}
           onPick={pickBestseller}
         />

@@ -1,6 +1,7 @@
 "use server";
 
 import Stripe from "stripe";
+import { cookies } from "next/headers";
 import { siteConfig } from "@/config/site";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
@@ -20,6 +21,7 @@ import {
   totePlanName,
   totePlanSummary,
 } from "@/lib/tote-plans";
+import { PLAN_REF_COOKIE, cleanReferralId } from "@/lib/plan-splits";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DIY Plan Checkout — Stripe Checkout Sessions for retail tote plans
@@ -35,7 +37,9 @@ import {
 //      public_plan_purchases and emails a permanent access link
 //
 // Paid Pro subscribers and admins get free access (no Stripe checkout).
-// No Stripe Connect — all revenue goes to platform.
+// Revenue goes to the platform; up to $5 of each sale is then transferred
+// to installers by the webhook (referral or bestseller owners — see
+// src/lib/plan-splits.ts). The referring installer rides in metadata.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -76,10 +80,28 @@ export async function checkDIYPlanAccess(): Promise<{
   return { hasFreeAccess: false };
 }
 
+/**
+ * The installer who referred this customer: the hand-off link's ?ref, else
+ * the cookie /plans/checkout set on an earlier visit (no expiry). Only a
+ * real installer profile counts.
+ */
+async function resolvePlanReferral(rawRef: unknown): Promise<string | null> {
+  const jar = await cookies();
+  const id = cleanReferralId(rawRef) ?? cleanReferralId(jar.get(PLAN_REF_COOKIE)?.value);
+  if (!id) return null;
+  const { data } = await getServiceClient()
+    .from("profiles")
+    .select("id, is_realtor")
+    .eq("id", id)
+    .maybeSingle();
+  return data && data.is_realtor !== true ? data.id : null;
+}
+
 export async function createDIYPlanCheckout(
   rawDesign: unknown,
   rawTier: unknown,
   source?: string,
+  rawRef?: unknown,
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   // SECURITY (H-3): each call provisions a Stripe Checkout Session. Cap
   // per identity to prevent scripted abuse of Stripe's session API.
@@ -118,9 +140,10 @@ export async function createDIYPlanCheckout(
     // and pay their individualized commission on checkout.session.completed.
     const buyer = await getAuthenticatedUser();
     const attribution = await resolvePromoterAttributionForCheckout(buyer?.id ?? null);
+    const referralInstallerId = await resolvePlanReferral(rawRef);
 
     const name = totePlanName(design);
-    const cancelHref = totePlanDesignHref(design, sourceTag || undefined);
+    const cancelHref = totePlanDesignHref(design, sourceTag || undefined, referralInstallerId);
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -146,6 +169,7 @@ export async function createDIYPlanCheckout(
         design: encodeTotePlanDesign(design),
         ...(design.name ? { design_name: design.name } : {}),
         ...(sourceTag ? { source: sourceTag } : {}),
+        ...(referralInstallerId ? { referral_installer_id: referralInstallerId } : {}),
         ...(attribution
           ? { promoter_id: attribution.promoterId, promoter_referral_code: attribution.code }
           : {}),

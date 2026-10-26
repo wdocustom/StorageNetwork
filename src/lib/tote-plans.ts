@@ -90,6 +90,8 @@ export interface TotePlanUnit {
   toteType: TotePlanToteType;
   hasWheels: boolean;
   hasTop: boolean;
+  /** Bestseller preset id when this unit is part of one (see normalizeBestsellers) */
+  bestseller?: string;
 }
 
 export interface TotePlanDesign {
@@ -135,13 +137,83 @@ export function parseTotePlanUnit(raw: unknown): TotePlanUnit | null {
   if (rows < TOTE_PLAN_LIMITS.minRows || rows > TOTE_PLAN_LIMITS.maxRows) return null;
   if (c.toteType !== "HDX" && c.toteType !== "GM") return null;
 
-  return {
+  const unit: TotePlanUnit = {
     cols,
     rows,
     toteType: c.toteType,
     hasWheels: c.hasWheels === true,
     hasTop: c.hasTop === true,
   };
+  if (typeof c.bestseller === "string" && c.bestseller in BESTSELLER_CODES) unit.bestseller = c.bestseller;
+  return unit;
+}
+
+// ── Bestseller membership ────────────────────────────────────────────────
+// A unit remembers which bestseller it came from so a plan built from, say,
+// Indiana Joe + Rack City Roller knows both are in it. A bestseller counts
+// only while its units are consecutive and still the preset's sizes (cols ×
+// rows, in order); tote brand, casters and worktop may change. Anything else
+// loses the tag — that's how "change its size and it's yours" works.
+
+/** Preset id → short code for the compact design string. */
+export const BESTSELLER_CODES: Record<string, string> = {
+  "indiana-joe": "ij",
+  "long-ranger": "lr",
+  "gas-station": "gs",
+  "track-norris": "tn",
+  "rack-city-roller": "rcr",
+  "mayor-of-rack-city": "mrc",
+};
+const BESTSELLER_BY_CODE = Object.fromEntries(Object.entries(BESTSELLER_CODES).map(([id, code]) => [code, id]));
+
+export interface BestsellerInstance {
+  presetId: string;
+  /** Index of its first unit */
+  start: number;
+  count: number;
+}
+
+/** Valid bestseller runs in a unit list (see the section note). */
+export function bestsellerInstances(units: TotePlanUnit[]): BestsellerInstance[] {
+  const out: BestsellerInstance[] = [];
+  let i = 0;
+  while (i < units.length) {
+    const id = units[i].bestseller;
+    const preset = id ? BESTSELLER_PRESETS.find((p) => p.id === id) : undefined;
+    const n = preset?.units.length ?? 0;
+    const matches =
+      !!preset &&
+      i + n <= units.length &&
+      preset.units.every((pu, k) => {
+        const u = units[i + k];
+        return u.bestseller === id && u.cols === pu.cols && u.rows === pu.rows;
+      });
+    if (matches) {
+      out.push({ presetId: id!, start: i, count: n });
+      i += n;
+    } else {
+      i += 1;
+    }
+  }
+  return out;
+}
+
+/** Drops every bestseller tag that isn't part of a valid run. */
+export function normalizeBestsellers(units: TotePlanUnit[]): TotePlanUnit[] {
+  const keep = new Set<number>();
+  for (const inst of bestsellerInstances(units)) for (let k = 0; k < inst.count; k++) keep.add(inst.start + k);
+  return units.map((u, i) => {
+    if (!u.bestseller || keep.has(i)) return u;
+    const { bestseller: _dropped, ...rest } = u;
+    return rest;
+  });
+}
+
+/** Preset id for a bestseller name ("Indiana Joe"), if it is one. */
+export function bestsellerIdForName(name: string | null | undefined): string | undefined {
+  if (!name) return undefined;
+  const lower = name.trim().toLowerCase();
+  return BESTSELLER_PRESETS.find((p) => p.name.toLowerCase() === lower)?.id;
 }
 
 /**
@@ -164,18 +236,24 @@ export function parseTotePlanDesign(raw: unknown): TotePlanDesign | null {
     units.push(unit);
   }
   const name = cleanName(c.name);
-  return name ? { units, name } : { units };
+  const normalized = normalizeBestsellers(units);
+  return name ? { units: normalized, name } : { units: normalized };
 }
 
 // ── Compact string form (URLs, Stripe metadata) ──────────────────────────
-// Unit token: <H|G><cols>x<rows>[w][t]   e.g. "H4x4wt", "G2x6"
-// Design:     tokens joined by "."      e.g. "H2x4t.H2x2t.H2x4t"
+// Unit token: <H|G><cols>x<rows>[w][t][_<bestseller code>]
+//             e.g. "H4x4wt", "G2x6", "H2x4t_ij"
+// Design:     tokens joined by "."      e.g. "H2x4t_ij.H2x2t_ij.H2x4t_ij"
 
-const UNIT_TOKEN = /^([HG])(\d{1,2})x(\d{1,2})(w?)(t?)$/;
+const UNIT_TOKEN = /^([HG])(\d{1,2})x(\d{1,2})(w?)(t?)(?:_([a-z]{2,3}))?$/;
 
 export function encodeTotePlanDesign(design: TotePlanDesign): string {
   return design.units
-    .map((u) => `${u.toteType === "HDX" ? "H" : "G"}${u.cols}x${u.rows}${u.hasWheels ? "w" : ""}${u.hasTop ? "t" : ""}`)
+    .map(
+      (u) =>
+        `${u.toteType === "HDX" ? "H" : "G"}${u.cols}x${u.rows}${u.hasWheels ? "w" : ""}${u.hasTop ? "t" : ""}` +
+        (u.bestseller && BESTSELLER_CODES[u.bestseller] ? `_${BESTSELLER_CODES[u.bestseller]}` : ""),
+    )
     .join(".");
 }
 
@@ -193,16 +271,22 @@ export function decodeTotePlanDesign(value: string | null | undefined, name?: st
       rows: Number(m[3]),
       hasWheels: m[4] === "w",
       hasTop: m[5] === "t",
+      ...(m[6] && BESTSELLER_BY_CODE[m[6]] ? { bestseller: BESTSELLER_BY_CODE[m[6]] } : {}),
     });
   }
   return parseTotePlanDesign({ units, name: name ?? undefined });
 }
 
-/** Relative link to the plans designer pre-filled with a design. */
-export function totePlanDesignHref(design: TotePlanDesign, source?: string): string {
+/**
+ * Relative link to the plans designer pre-filled with a design. `ref` is
+ * the installer whose link the customer came through (designer, quote page,
+ * quote email) — they get the plan-sale split (see plan-splits.ts).
+ */
+export function totePlanDesignHref(design: TotePlanDesign, source?: string, ref?: string | null): string {
   const params = new URLSearchParams({ design: encodeTotePlanDesign(design) });
   if (design.name) params.set("name", design.name);
   if (source) params.set("utm_source", source);
+  if (ref) params.set("ref", ref);
   return `/plans/checkout?${params.toString()}`;
 }
 
@@ -627,6 +711,13 @@ export function designFromItems(items: PlanSourceItem[], name?: string): PlanTra
       orientation: item.orientation,
     };
     let presetUnits = item.presetUnits && item.presetUnits.length > 0 ? item.presetUnits : null;
+    // Which bestseller this line is, if any — "Indiana Joe (2x4 + …)" in a
+    // designer cart, the collapsed quote line, or an expanded old-format
+    // sub-unit "Indiana Joe — 2x4". Sizes are checked later (normalizeBestsellers).
+    const bestseller =
+      bestsellerIdForName(collapsedPresetName(item.desc)) ??
+      bestsellerIdForName(EXPANDED_PRESET_DESC.exec(item.desc ?? "")?.[1]) ??
+      (presetUnits ? bestsellerIdForName(item.desc?.split(" (")[0]) : undefined);
     if (!presetUnits) {
       const collapsed = collapsedPresetName(item.desc);
       if (collapsed !== null) {
@@ -641,9 +732,10 @@ export function designFromItems(items: PlanSourceItem[], name?: string): PlanTra
         presetUnits = preset.units;
       }
     }
+    const tag = bestseller ? { bestseller } : {};
     const subUnits = presetUnits
-      ? presetUnits.map((su) => ({ ...base, ...su }))
-      : [{ ...base, cols: item.cols, rows: item.rows, hasWheels: item.hasWheels, hasTop: item.hasTop }];
+      ? presetUnits.map((su) => ({ ...base, ...su, ...tag }))
+      : [{ ...base, cols: item.cols, rows: item.rows, hasWheels: item.hasWheels, hasTop: item.hasTop, ...tag }];
 
     const parsed = subUnits.map(parseTotePlanUnit);
     if (parsed.some((u) => !u)) {
@@ -659,8 +751,12 @@ export function designFromItems(items: PlanSourceItem[], name?: string): PlanTra
     return { design: null, covered: units.length > 0 ? covered : 0, skipped };
   }
   const clean = cleanName(name);
-  return { design: clean ? { units, name: clean } : { units }, covered, skipped };
+  const tagged = normalizeBestsellers(units);
+  return { design: clean ? { units: tagged, name: clean } : { units: tagged }, covered, skipped };
 }
+
+/** Old-format quote sub-unit: "Indiana Joe — 2x4" */
+const EXPANDED_PRESET_DESC = /^(.+?) — \d+\s*[×x]\s*\d+$/;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Layout — front elevation of the whole design, in inches
