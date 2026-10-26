@@ -3,7 +3,7 @@ import { masterEmailLayout } from "./components/masterEmailLayout";
 import { getAppUrl } from "@/lib/url-helper";
 import { formatPlanPrice } from "@/lib/tote-plans";
 import { PLAN_SPLIT_TOTAL_CENTS } from "@/lib/plan-splits";
-import { OWNER_EMAIL } from "@/lib/demo-constants";
+import { CONTACT_EMAIL } from "@/lib/plan-library";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DIY plan-sale split — "you just earned" email to the installer
@@ -112,5 +112,5 @@ export function planSplitEmailContent(data: PlanSplitEmailData): { subject: stri
 export async function sendPlanSplitEarnedEmail(email: string, data: PlanSplitEmailData): Promise<SendEmailResult> {
   const { subject, html } = planSplitEmailContent(data);
   // "Questions? Just reply" should reach a person, not the sender inbox
-  return sendTransactionalEmail({ to: email, toName: data.name, subject, html, replyTo: OWNER_EMAIL });
+  return sendTransactionalEmail({ to: email, toName: data.name, subject, html, replyTo: CONTACT_EMAIL });
 }
