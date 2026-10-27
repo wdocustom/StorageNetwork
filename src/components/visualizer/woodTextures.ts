@@ -10,90 +10,74 @@
  */
 
 import {
-  CanvasTexture,
+  DataTexture,
+  LinearFilter,
+  LinearMipmapLinearFilter,
   MeshStandardMaterial,
+  RGBAFormat,
   RepeatWrapping,
   SRGBColorSpace,
+  UnsignedByteType,
   Color,
 } from "three";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TEXTURE PERSISTENCE — survive browser canvas GC during tab inactivity
+// TEXTURE PERSISTENCE — textures own their pixels
 //
-// Browsers can reclaim the pixel buffer of detached (offscreen) canvases
-// to free memory when a tab is backgrounded. When Three.js re-renders,
-// it reads zeroed-out data → everything turns black.
-//
-// Fix: After generating a procedural canvas texture, immediately snapshot
-// the pixel data as ImageData. On WebGL context restore (or periodic
-// integrity checks), we can repaint the canvas from the snapshot.
+// The grain is drawn on a 2D canvas, but the GPU texture is built from a copy
+// of its pixels in ordinary memory (a DataTexture), never from the canvas.
+// Mobile browsers can silently drop a hidden canvas's pixels under GPU memory
+// pressure (backgrounded tabs; the PDF renderer, which opens a fresh WebGL
+// context per step) — a texture uploaded from such a canvas renders black.
+// Pixels held in a typed array upload the same into every context, every time.
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** Store pixel snapshots keyed by the canvas element */
-const textureSnapshots = new Map<HTMLCanvasElement, ImageData>();
+/** Every procedural texture, so they can be re-uploaded or freed together */
+const managedTextures: DataTexture[] = [];
 
 /**
- * Snapshot a procedural canvas's pixel data so it survives browser GC.
- * Call this immediately after drawing the canvas.
- */
-function snapshotCanvas(canvas: HTMLCanvasElement): void {
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  textureSnapshots.set(canvas, imageData);
-}
-
-/**
- * Restore a canvas from its snapshot if the browser cleared it.
- * Returns true if restoration was needed.
- */
-function restoreCanvasIfNeeded(canvas: HTMLCanvasElement): boolean {
-  const snapshot = textureSnapshots.get(canvas);
-  if (!snapshot) return false;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return false;
-  // Check if canvas data has been zeroed out by reading a few pixels
-  const probe = ctx.getImageData(0, 0, 1, 1).data;
-  // If alpha is 0 at origin but snapshot has data, canvas was cleared
-  if (probe[3] === 0 && snapshot.data[3] !== 0) {
-    ctx.putImageData(snapshot, 0, 0);
-    return true;
-  }
-  return false;
-}
-
-/** All canvas-backed textures that need restoration after context loss */
-const managedTextures: CanvasTexture[] = [];
-
-/**
- * Dispose all managed textures and clear caches. Called on 3D canvas
- * unmount to free GPU memory and prevent leaks on SPA navigation.
+ * Free the GPU copies (on 3D canvas unmount). The pixels stay with each
+ * texture, so a material used again later simply re-uploads.
  */
 export function disposeAllTextures(): void {
   for (const tex of managedTextures) {
     tex.dispose();
   }
   managedTextures.length = 0;
-  textureSnapshots.clear();
 }
 
-/**
- * Restore all managed textures after WebGL context loss or browser
- * canvas GC. Called from Rack3D's context-restore handler.
- */
+/** Re-upload every texture from its own pixels (after a WebGL context restore or tab return). */
 export function restoreAllTextures(): void {
   for (const tex of managedTextures) {
-    const canvas = tex.image as HTMLCanvasElement;
-    if (canvas && restoreCanvasIfNeeded(canvas)) {
-      tex.needsUpdate = true;
-    }
+    tex.needsUpdate = true;
   }
 }
 
-/** Register a canvas texture for lifecycle management */
-function trackTexture(texture: CanvasTexture, canvas: HTMLCanvasElement): void {
-  snapshotCanvas(canvas);
-  managedTextures.push(texture);
+/**
+ * A repeating texture from a finished procedural canvas. Rows are stored
+ * bottom-up so it maps exactly as a CanvasTexture (flipY) of the same canvas
+ * did; the canvas itself is no longer needed afterwards.
+ */
+function pixelTexture(canvas: HTMLCanvasElement, srgb: boolean): DataTexture | null {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const { width, height } = canvas;
+  const src = ctx.getImageData(0, 0, width, height).data;
+  const data = new Uint8Array(src.length);
+  const row = width * 4;
+  for (let y = 0; y < height; y++) {
+    data.set(src.subarray(y * row, (y + 1) * row), (height - 1 - y) * row);
+  }
+  const tex = new DataTexture(data, width, height, RGBAFormat, UnsignedByteType);
+  tex.wrapS = RepeatWrapping;
+  tex.wrapT = RepeatWrapping;
+  tex.magFilter = LinearFilter;
+  tex.minFilter = LinearMipmapLinearFilter;
+  tex.generateMipmaps = true;
+  if (srgb) tex.colorSpace = SRGBColorSpace;
+  tex.needsUpdate = true;
+  managedTextures.push(tex);
+  return tex;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -427,22 +411,13 @@ export function createDougFirMaterial(seed = 42): MeshStandardMaterial {
   if (!canvas) {
     return new MeshStandardMaterial({ color: new Color("#C8A96E"), roughness: 0.82, metalness: 0.0 });
   }
-  const texture = new CanvasTexture(canvas);
-  texture.colorSpace = SRGBColorSpace;
-  texture.wrapS = RepeatWrapping;
-  texture.wrapT = RepeatWrapping;
-  trackTexture(texture, canvas);
+  const texture = pixelTexture(canvas, true);
 
   const bumpCanvas = createDougFirCanvas(256, 256, seed + 1);
-  const bumpTexture = bumpCanvas ? new CanvasTexture(bumpCanvas) : null;
-  if (bumpTexture) {
-    bumpTexture.wrapS = RepeatWrapping;
-    bumpTexture.wrapT = RepeatWrapping;
-    trackTexture(bumpTexture, bumpCanvas!);
-  }
+  const bumpTexture = bumpCanvas ? pixelTexture(bumpCanvas, false) : null;
 
   return new MeshStandardMaterial({
-    map: texture,
+    ...(texture ? { map: texture } : {}),
     ...(bumpTexture ? { bumpMap: bumpTexture, bumpScale: 0.3 } : {}),
     roughness: 0.78,
     metalness: 0.0,
@@ -572,22 +547,13 @@ export function createConstructionLumberMaterial(seed = 42): MeshStandardMateria
   if (!canvas) {
     return new MeshStandardMaterial({ color: new Color("#E2D1A8"), roughness: 0.75, metalness: 0.0 });
   }
-  const texture = new CanvasTexture(canvas);
-  texture.colorSpace = SRGBColorSpace;
-  texture.wrapS = RepeatWrapping;
-  texture.wrapT = RepeatWrapping;
-  trackTexture(texture, canvas);
+  const texture = pixelTexture(canvas, true);
 
   const bumpCanvas = createConstructionLumberCanvas(256, 256, seed + 1);
-  const bumpTexture = bumpCanvas ? new CanvasTexture(bumpCanvas) : null;
-  if (bumpTexture) {
-    bumpTexture.wrapS = RepeatWrapping;
-    bumpTexture.wrapT = RepeatWrapping;
-    trackTexture(bumpTexture, bumpCanvas!);
-  }
+  const bumpTexture = bumpCanvas ? pixelTexture(bumpCanvas, false) : null;
 
   return new MeshStandardMaterial({
-    map: texture,
+    ...(texture ? { map: texture } : {}),
     ...(bumpTexture ? { bumpMap: bumpTexture, bumpScale: 0.15 } : {}),
     roughness: 0.72,
     metalness: 0.0,
@@ -603,14 +569,10 @@ export function createPlywoodMaterial(seed = 137): MeshStandardMaterial {
   if (!canvas) {
     return new MeshStandardMaterial({ color: new Color("#A8884E"), roughness: 0.6, metalness: 0.0 });
   }
-  const texture = new CanvasTexture(canvas);
-  texture.colorSpace = SRGBColorSpace;
-  texture.wrapS = RepeatWrapping;
-  texture.wrapT = RepeatWrapping;
-  trackTexture(texture, canvas);
+  const texture = pixelTexture(canvas, true);
 
   return new MeshStandardMaterial({
-    map: texture,
+    ...(texture ? { map: texture } : {}),
     roughness: 0.55,
     metalness: 0.0,
     color: new Color("#E0C898"),
@@ -625,14 +587,10 @@ export function createPlywoodTopMaterial(seed = 250): MeshStandardMaterial {
   if (!canvas) {
     return new MeshStandardMaterial({ color: new Color("#D4B896"), roughness: 0.5, metalness: 0.0 });
   }
-  const texture = new CanvasTexture(canvas);
-  texture.colorSpace = SRGBColorSpace;
-  texture.wrapS = RepeatWrapping;
-  texture.wrapT = RepeatWrapping;
-  trackTexture(texture, canvas);
+  const texture = pixelTexture(canvas, true);
 
   return new MeshStandardMaterial({
-    map: texture,
+    ...(texture ? { map: texture } : {}),
     roughness: 0.5,
     metalness: 0.0,
     color: new Color("#EAD8B0"),
