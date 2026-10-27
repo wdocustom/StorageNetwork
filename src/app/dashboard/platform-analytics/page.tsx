@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { getAdminPlatformAnalytics, type PlatformAnalyticsData } from "@/app/actions/platform-analytics";
+import PlansAnalyticsTab from "@/components/dashboard/PlansAnalyticsTab";
 import { getInstallerActivityReport, type InstallerActivitySummary } from "@/app/actions/installer-activity";
 import {
   getVisitorSessions,
@@ -48,7 +49,7 @@ export default function PlatformAnalyticsPage() {
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<TimeRange>(30);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<"traffic" | "live" | "sessions" | "watchlist" | "installers" | "business">("traffic");
+  const [activeTab, setActiveTab] = useState<"traffic" | "plans" | "live" | "sessions" | "watchlist" | "installers" | "business">("traffic");
   const [installerData, setInstallerData] = useState<InstallerActivitySummary[]>([]);
   const [installerLoading, setInstallerLoading] = useState(false);
   const [expandedInstaller, setExpandedInstaller] = useState<string | null>(null);
@@ -316,7 +317,7 @@ export default function PlatformAnalyticsPage() {
 
         {/* ── Tab Navigation ─────────────────────────────────────────── */}
         <div className="flex gap-1 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900 p-1">
-          {(["traffic", "live", "sessions", "watchlist", "installers", "business"] as const).map((tab) => (
+          {(["traffic", "plans", "live", "sessions", "watchlist", "installers", "business"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -328,7 +329,9 @@ export default function PlatformAnalyticsPage() {
             >
               {tab === "traffic"
                 ? "Traffic"
-                : tab === "live"
+                : tab === "plans"
+                  ? "Plans"
+                  : tab === "live"
                   ? "Live"
                   : tab === "sessions"
                     ? "Sessions"
@@ -340,6 +343,9 @@ export default function PlatformAnalyticsPage() {
             </button>
           ))}
         </div>
+
+        {/* ── PLANS TAB — DIY plans storefront ─────────────────────── */}
+        {activeTab === "plans" && <PlansAnalyticsTab range={range} />}
 
         {/* ── TRAFFIC TAB ──────────────────────────────────────────── */}
         {activeTab === "traffic" && (

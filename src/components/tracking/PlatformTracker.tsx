@@ -37,11 +37,13 @@ export default function PlatformTracker() {
   const lastTracked = useRef<string>("");
 
   useEffect(() => {
-    // Skip during SSR or if same path already tracked
+    // Skip during SSR or if this page is already tracked. Keyed on the path
+    // alone: pages that rewrite their query string in place (the plans
+    // designer updates ?design= on every edit) would otherwise log a view
+    // per edit. UTM params are read from the first view of the page.
     if (typeof window === "undefined") return;
-    const fullPath = pathname + (searchParams?.toString() ? `?${searchParams.toString()}` : "");
-    if (fullPath === lastTracked.current) return;
-    lastTracked.current = fullPath;
+    if (pathname === lastTracked.current) return;
+    lastTracked.current = pathname;
 
     try {
       const visitorId = getOrCreateId(localStorage, "sn_vid");
