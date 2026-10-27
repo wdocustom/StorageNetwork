@@ -8,7 +8,7 @@ import { OrganizerCustomization } from "../OrganizerCustomization";
 import { CHAIR_FINISHES, type ChairFinish } from "@/lib/chairs";
 import { calculateChairPriceServer, getChairOptionPrices } from "@/app/actions/platform-defaults";
 
-function ChairCustomization({
+export function ChairCustomization({
   props,
 }: {
   props: ConfiguratorSidebarProps;

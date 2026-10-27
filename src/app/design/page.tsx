@@ -172,8 +172,9 @@ export default async function DesignPage({ searchParams }: PageProps) {
   const ref = typeof params.ref === "string" ? params.ref : "";
   const zip = typeof params.zip === "string" ? params.zip : "";
   const mode = typeof params.mode === "string" ? params.mode : "";
-  // Single-page design studio — preview at /design?studio=1 until it's the default
-  const studio = params.studio === "1";
+  // The single-page design studio is the designer; ?classic=1 opens the old
+  // 4-step flow as a fallback while the studio settles in.
+  const studio = params.classic !== "1";
   const fromNetwork = params.from === "network"; // Came from platform ZIP lookup
   const fromChat = params.from === "chat"; // Came from AI chat configurator
   const fromFbReferral = params.source === "fb_referral"; // Came from customer Facebook share

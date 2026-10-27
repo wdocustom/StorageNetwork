@@ -6,23 +6,26 @@
 //   unit map (A, B, +) → the selected unit's options → total + one CTA
 //
 // The order is the design: what's on the map is exactly what's priced and
-// booked. Booking opens the configurator's own Book Install step in a sheet.
+// booked. "+" swaps the panel to everything that can be added (the 3D above
+// previews it); booking opens the configurator's own Book Install step.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CalendarCheck, Clock, Layers, Loader2, Plus, Star } from "lucide-react";
 import type { ConfiguratorSidebarProps } from "@/components/design/configurator-types";
 import { RollingPrice } from "@/components/design/configurator-primitives";
 import type { useStudio } from "@/hooks/configurator/useStudio";
 import type { BestsellerPreset } from "@/lib/presets";
-import { studioSystemSize, studioUnitCount, type StudioRules } from "@/lib/studio";
+import { studioItemKind, studioSystemSize, studioUnitCount, type StudioRules } from "@/lib/studio";
 import { toFraction } from "@/lib/utils";
 import type { DesignPageViewModel } from "@/types/viewModels";
 import { formatCurrency } from "@/utils/paymentHelpers";
-import StudioAddSheet from "./StudioAddSheet";
+import ZipCheckCard from "@/components/design/ZipCheckCard";
+import StudioAddView from "./StudioAddView";
 import StudioBookingSheet from "./StudioBookingSheet";
 import StudioMap from "./StudioMap";
-import StudioUnitEditor, { type StudioPrices } from "./StudioUnitEditor";
+import StudioSiteMeasure from "./StudioSiteMeasure";
+import StudioUnitEditor, { type StudioOrganizer, type StudioPrices } from "./StudioUnitEditor";
 
 export default function StudioPanel({
   props,
@@ -31,6 +34,9 @@ export default function StudioPanel({
   prices,
   presets,
   pricing,
+  organizer,
+  indoorFee,
+  onClearPreviews,
 }: {
   props: ConfiguratorSidebarProps;
   studio: ReturnType<typeof useStudio>;
@@ -38,95 +44,162 @@ export default function StudioPanel({
   prices: StudioPrices;
   presets: BestsellerPreset[];
   pricing: DesignPageViewModel["pricing"] | undefined;
+  organizer: StudioOrganizer;
+  indoorFee: number | null;
+  /** Clear any shelving / ceiling / bed / chair preview from the 3D */
+  onClearPreviews: () => void;
 }) {
-  const [addOpen, setAddOpen] = useState(false);
+  const [view, setView] = useState<"design" | "add">("design");
   const [bookOpen, setBookOpen] = useState(false);
+  const topRef = useRef<HTMLDivElement>(null);
+
+  const openAdd = useCallback(() => {
+    onClearPreviews();
+    setView("add");
+  }, [onClearPreviews]);
+  const closeAdd = useCallback(() => {
+    onClearPreviews();
+    setView("design");
+  }, [onClearPreviews]);
+  // Each view starts at its top. Desktop: the panel itself scrolls. Phones: the
+  // page container scrolls under the sticky 3D, so scrolling it to 0 puts the
+  // panel's top right under the 3D (as the step-by-step sidebar did).
+  const firstView = useRef(true);
+  useEffect(() => {
+    if (firstView.current) {
+      firstView.current = false;
+      return;
+    }
+    const panel = topRef.current;
+    if (!panel) return;
+    if (panel.scrollHeight > panel.clientHeight) panel.scrollTo({ top: 0, behavior: "smooth" });
+    const page = panel.closest("aside")?.parentElement;
+    if (page && page.scrollHeight > page.clientHeight) page.scrollTo({ top: 0, behavior: "smooth" });
+  }, [view]);
 
   const items = props.orderItems;
   const active = items[studio.activeIndex];
   const units = studioUnitCount(items);
   const size = studioSystemSize(items);
+  const onlyRacks = items.every((it) => {
+    const k = studioItemKind(it);
+    return k === "tote" || k === "bestseller";
+  });
   const canBook = items.length > 0 && !studio.repricing && !props.submitted;
 
   return (
     <aside className="order-2 flex w-full shrink-0 flex-col bg-zinc-950 lg:order-1 lg:h-full lg:w-[40%] xl:w-[38%]">
-      <div className="flex-1 space-y-4 p-4 pb-32 lg:overflow-y-auto lg:pb-4 lg:scrollbar-dark">
-        {/* ── Whole system ── */}
-        <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <p className="flex items-center gap-1.5 text-xs font-bold text-white">
-              <Layers className="h-3.5 w-3.5 text-yellow-400" />
-              Your design
-            </p>
-            {size && (
-              <p className="shrink-0 font-mono text-[11px] text-zinc-400">
-                {units} unit{units === 1 ? "" : "s"} · {size.slots} totes
-              </p>
-            )}
-          </div>
-          {items.length > 0 ? (
-            <>
-              <StudioMap items={items} activeIndex={studio.activeIndex} onSelect={studio.setActiveIndex} onAdd={() => setAddOpen(true)} />
-              {items.length > 1 && <p className="mt-2 text-center text-[10px] text-zinc-600">Tap a unit to edit it</p>}
-              {size && size.widthIn > 0 && (
-                <p className="mt-1 text-center font-mono text-[10px] text-zinc-500">
-                  {toFraction(size.widthIn)}&quot; wide side by side · {toFraction(size.heightIn)}&quot; tallest
+      <div ref={topRef} className="flex-1 space-y-4 p-4 pb-32 lg:overflow-y-auto lg:pb-4 lg:scrollbar-dark">
+        {view === "add" ? (
+          <StudioAddView
+            props={props}
+            presets={presets}
+            pricing={pricing}
+            totesDisabled={rules.totesDisabled}
+            addingPreset={studio.addingPreset}
+            onDone={closeAdd}
+            onAddCustom={studio.addToteUnit}
+            onAddBestseller={(id) => studio.addBestseller(id)}
+          />
+        ) : (
+          <>
+            {/* ── Find a local pro (not on an installer's own link) ── */}
+            {!props.installerLocked && <ZipCheckCard props={props} />}
+
+            {/* ── Whole system ── */}
+            <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <p className="flex items-center gap-1.5 text-xs font-bold text-white">
+                  <Layers className="h-3.5 w-3.5 text-yellow-400" />
+                  Your design
                 </p>
-              )}
-            </>
-          ) : (
-            <div className="space-y-2 py-2 text-center">
-              <p className="text-sm text-zinc-400">Start with a unit — you can add more after.</p>
-              <div className="flex justify-center gap-2">
-                <button
-                  type="button"
-                  onClick={studio.addToteUnit}
-                  className="flex items-center gap-1.5 rounded-xl bg-yellow-400 px-4 py-2.5 text-sm font-bold text-zinc-900 transition hover:bg-yellow-300"
-                >
-                  <Plus className="h-4 w-4" />
-                  Custom unit
-                </button>
-                {presets.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setAddOpen(true)}
-                    className="flex items-center gap-1.5 rounded-xl border border-zinc-700 px-4 py-2.5 text-sm font-bold text-zinc-200 transition hover:border-yellow-400"
-                  >
-                    <Star className="h-4 w-4 text-yellow-400" />
-                    Bestsellers
-                  </button>
+                {size && (
+                  <p className="shrink-0 font-mono text-[11px] text-zinc-400">
+                    {units} {onlyRacks ? "unit" : "item"}
+                    {units === 1 ? "" : "s"} · {size.slots} totes
+                  </p>
                 )}
               </div>
-            </div>
-          )}
-        </section>
+              {items.length > 0 ? (
+                <>
+                  <StudioMap items={items} activeIndex={studio.activeIndex} onSelect={studio.setActiveIndex} onAdd={openAdd} />
+                  {items.length > 1 && <p className="mt-2 text-center text-[10px] text-zinc-600">Tap a unit to edit it</p>}
+                  {size && size.widthIn > 0 && (
+                    <p className="mt-1 text-center font-mono text-[10px] text-zinc-500">
+                      {toFraction(size.widthIn)}&quot; wide side by side · {toFraction(size.heightIn)}&quot; tallest
+                    </p>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-2 py-2 text-center">
+                  <p className="text-sm text-zinc-400">Start with a unit — you can add more after.</p>
+                  <div className="flex justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={studio.addToteUnit}
+                      className="flex items-center gap-1.5 rounded-xl bg-yellow-400 px-4 py-2.5 text-sm font-bold text-zinc-900 transition hover:bg-yellow-300"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Custom unit
+                    </button>
+                    {presets.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={openAdd}
+                        className="flex items-center gap-1.5 rounded-xl border border-zinc-700 px-4 py-2.5 text-sm font-bold text-zinc-200 transition hover:border-yellow-400"
+                      >
+                        <Star className="h-4 w-4 text-yellow-400" />
+                        Bestsellers
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </section>
 
-        {/* ── Selected unit ── */}
-        {active && (
-          <StudioUnitEditor
-            item={active}
-            index={studio.activeIndex}
-            canRemove={items.length > 1}
-            repricing={studio.repricing}
-            rules={rules}
-            prices={prices}
-            onUpdate={(patch) => studio.updateTote(studio.activeIndex, patch)}
-            onFitToWall={(w, h) => studio.fitToWall(studio.activeIndex, w, h)}
-            onBestsellerTotes={(v) => studio.setBestsellerTotes(studio.activeIndex, v)}
-            onQuantity={(n) => studio.setQuantity(studio.activeIndex, n)}
-            onRemove={() => studio.removeItem(studio.activeIndex)}
-          />
-        )}
+            {/* ── Selected unit ── */}
+            {active && (
+              <StudioUnitEditor
+                item={active}
+                index={studio.activeIndex}
+                canRemove={items.length > 1}
+                repricing={studio.repricing}
+                rules={rules}
+                prices={prices}
+                organizer={organizer}
+                indoorFee={indoorFee}
+                onUpdate={(patch) => studio.updateTote(studio.activeIndex, patch)}
+                onExtras={(extras) => studio.updateExtras(studio.activeIndex, extras)}
+                onIndoorDelivery={(on) => studio.setIndoorDelivery(studio.activeIndex, on, indoorFee ?? 0)}
+                onFitToWall={(w, h) => studio.fitToWall(studio.activeIndex, w, h)}
+                onBestsellerTotes={(v) => studio.setBestsellerTotes(studio.activeIndex, v)}
+                onQuantity={(n) => studio.setQuantity(studio.activeIndex, n)}
+                onRemove={() => studio.removeItem(studio.activeIndex)}
+                measureSlot={
+                  <StudioSiteMeasure
+                    installerId={props.installerId}
+                    defaults={{
+                      name: [props.firstName, props.lastName].filter((v) => v.trim()).join(" "),
+                      email: props.email,
+                      phone: props.phone,
+                      zip: props.addrZip || props.zip,
+                    }}
+                  />
+                }
+              />
+            )}
 
-        {items.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setAddOpen(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-zinc-700 py-3 text-sm font-bold text-zinc-300 transition hover:border-yellow-400 hover:text-yellow-300"
-          >
-            <Plus className="h-4 w-4" />
-            Add another unit or a bestseller
-          </button>
+            {items.length > 0 && (
+              <button
+                type="button"
+                onClick={openAdd}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-zinc-700 py-3 text-sm font-bold text-zinc-300 transition hover:border-yellow-400 hover:text-yellow-300"
+              >
+                <Plus className="h-4 w-4" />
+                Add a unit, bestseller or more
+              </button>
+            )}
+          </>
         )}
       </div>
 
@@ -162,16 +235,6 @@ export default function StudioPanel({
         </div>
       </div>
 
-      <StudioAddSheet
-        open={addOpen}
-        presets={presets}
-        pricing={pricing}
-        totesDisabled={rules.totesDisabled}
-        addingPreset={studio.addingPreset}
-        onClose={() => setAddOpen(false)}
-        onAddCustom={studio.addToteUnit}
-        onAddBestseller={(id) => studio.addBestseller(id)}
-      />
       <StudioBookingSheet open={bookOpen} props={props} onClose={() => setBookOpen(false)} />
     </aside>
   );

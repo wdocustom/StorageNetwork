@@ -145,8 +145,29 @@ export default function DesignConfigurator({
     setOrderItems: cart.setOrderItems,
     pricing: installer.data?.pricing,
     rules: studioRules,
+    // Same paint rates usePricing / the quote card use
+    paintPrices: {
+      frame: installer.data?.pricing?.addon_pricing?.paint_frame_price ?? installer.data?.addonDefaults?.paint_frame_price ?? 75,
+      doorsPanels: installer.data?.pricing?.addon_pricing?.paint_doors_panels_price ?? installer.data?.addonDefaults?.paint_doors_panels_price ?? 30,
+    },
     initialConfig,
   });
+  // A shelving / ceiling rail / raised bed / chair being configured in the
+  // studio's "+" view is previewed in the 3D instead of the whole order.
+  const studioPreviewing = studio && !!(
+    productAddons.activeShelvingConfig ||
+    productAddons.overheadPreview ||
+    productAddons.raisedBedPreview ||
+    productAddons.chairPreview
+  );
+  const clearStudioPreviews = useCallback(() => {
+    productAddons.setShelvingConfigId(null);
+    productAddons.setOverheadPreview(null);
+    productAddons.setRaisedBedPreview(null);
+    productAddons.setChairPreview(null);
+    setChairSelected(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ═══════════════════════════════════════════════════════════════════════
   // EFFECTIVE LEAD TIME (3-day minimum when any unit has caster wheels)
@@ -987,6 +1008,13 @@ export default function DesignConfigurator({
             prices={studioPrices}
             presets={installer.filteredPresets}
             pricing={installer.data?.pricing}
+            organizer={
+              installer.installerId && installer.data?.pricing?.addon_pricing?.organizer_customization_enabled !== false
+                ? { addonPricing: installer.data?.pricing?.addon_pricing, addonDefaults: installer.data?.addonDefaults }
+                : null
+            }
+            indoorFee={installer.data?.indoorDeliveryConfig?.enabled ? installer.data.indoorDeliveryConfig.fee : null}
+            onClearPreviews={clearStudioPreviews}
           />
         ) : (
           <ConfiguratorSidebar {...sidebarProps} />
@@ -1022,13 +1050,15 @@ export default function DesignConfigurator({
               watermarkText={installer.data?.branding.title || "Storage-Network.app"}
               use2x4Rails={installer.data?.pricing?.use_2x4_rails === true}
               multiUnitItems={
-                studio
+                studioPreviewing
+                  ? undefined
+                  : studio
                   // Lines still waiting on their first price have no size yet
                   ? (cart.multiUnitItems?.filter((u) => u.totalW > 0) as MultiUnitItem[] | undefined)
                   : (cart.multiUnitItems as MultiUnitItem[] | undefined)
               }
-              systemView={studio}
-              multiUnitControls={cart.orderItems.length >= 1 ? {
+              systemView={studio && !studioPreviewing}
+              multiUnitControls={!studio && cart.orderItems.length >= 1 ? {
                 showMultiUnit3D: cart.showMultiUnit3D,
                 onShowMultiUnit3DChange: cart.setShowMultiUnit3D,
                 unitVisibility: cart.unitVisibility,
@@ -1039,7 +1069,7 @@ export default function DesignConfigurator({
           </div>
           {/* Dimensions bar */}
           <div className="shrink-0 border-t border-stone-200 bg-stone-50 px-2 py-1.5 text-center text-xs font-medium text-stone-500 lg:px-4 lg:py-3 lg:text-sm">
-            {studio ? (
+            {studio && !studioPreviewing ? (
               <StudioDimensions items={cart.orderItems} repricing={studioState.repricing} />
             ) : productAddons.overheadPreview ? (
               <>

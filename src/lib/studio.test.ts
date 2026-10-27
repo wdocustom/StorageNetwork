@@ -9,7 +9,9 @@ import {
   presetOfItem,
   presetOrderItem,
   presetTotesChoice,
+  pruneAddons,
   studioItemKind,
+  studioPaintCost,
   studioMaxRows,
   studioSystemSize,
   toteUnitDesc,
@@ -116,5 +118,29 @@ describe("studioSystemSize", () => {
     ]);
     expect(size).toEqual({ widthIn: 86.5 * 2 + 46.5, heightIn: 69.5, slots: 16 * 2 + 4 });
     expect(studioSystemSize([])).toBeNull();
+  });
+});
+
+describe("paint and organizers on a unit", () => {
+  const prices = { frame: 75, doorsPanels: 30 };
+
+  it("prices paint per unit, the amounts the quote card lists", () => {
+    expect(studioPaintCost({}, prices)).toBe(0);
+    expect(studioPaintCost({ paintFrameColor: "red" }, prices)).toBe(75);
+    expect(studioPaintCost({ paintFrameColor: "red", paintDoorColor: "white", paintSidePanelColor: "black" }, prices)).toBe(135);
+    expect(studioPaintCost({ paintFrameColor: null, paintDoorColor: "white" }, prices)).toBe(30);
+  });
+
+  it("drops organizer add-ons for bays and tiers a resize removed", () => {
+    const addons = [
+      { type: "plywood_door" as const, target: "doors_on" as const },
+      { type: "side_panel" as const, target: "left" as const },
+      { type: "shelf" as const, target: 3, row: 1 },
+      { type: "rail_removed" as const, target: 1, row: 4 },
+      { type: "shelf" as const, target: 0, row: 0 },
+    ];
+    expect(pruneAddons(addons, 4, 5)).toEqual(addons);
+    expect(pruneAddons(addons, 3, 4)).toEqual([addons[0], addons[1], addons[4]]);
+    expect(pruneAddons(undefined, 4, 4)).toEqual([]);
   });
 });

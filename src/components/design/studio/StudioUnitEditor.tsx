@@ -11,7 +11,10 @@
 import { useState } from "react";
 import { Loader2, Minus, Plus, Ruler, Trash2 } from "lucide-react";
 import { Segmented, Stepper } from "@/components/designer/controls";
+import { OrganizerCustomization } from "@/components/design/OrganizerCustomization";
 import type { UnitConfig } from "@/hooks/configurator/types";
+import type { StudioUnitExtras } from "@/hooks/configurator/useStudio";
+import type { AddonPricing } from "@/types/viewModels";
 import {
   STUDIO_MAX_COLS,
   miniAvailable,
@@ -24,6 +27,12 @@ import {
   type ToteUnitOptions,
 } from "@/lib/studio";
 import { unitLetter } from "@/lib/tote-plans";
+
+/** Organizer customization (doors, shelves, panels, rail removal, paint) — null when the installer doesn't offer it */
+export type StudioOrganizer = {
+  addonPricing?: AddonPricing;
+  addonDefaults?: { plywood_door: number; side_panel: number; concealed_hinge_pair: number; rail_removal: number; shelf: number; paint_frame_price: number; paint_doors_panels_price: number };
+} | null;
 
 export interface StudioPrices {
   standardTote: number;
@@ -137,11 +146,16 @@ export default function StudioUnitEditor({
   repricing,
   rules,
   prices,
+  organizer,
+  indoorFee,
   onUpdate,
+  onExtras,
+  onIndoorDelivery,
   onFitToWall,
   onBestsellerTotes,
   onQuantity,
   onRemove,
+  measureSlot,
 }: {
   item: UnitConfig;
   index: number;
@@ -149,11 +163,18 @@ export default function StudioUnitEditor({
   repricing: boolean;
   rules: StudioRules;
   prices: StudioPrices;
+  organizer: StudioOrganizer;
+  /** Indoor delivery fee per unit, or null when the installer doesn't offer it */
+  indoorFee: number | null;
   onUpdate: (patch: Partial<ToteUnitOptions>) => void;
+  onExtras: (extras: StudioUnitExtras) => void;
+  onIndoorDelivery: (on: boolean) => void;
   onFitToWall: (w: number, h: number) => Promise<{ cols: number; rows: number } | null>;
   onBestsellerTotes: (hasTotes: boolean) => void;
   onQuantity: (n: number) => void;
   onRemove: () => void;
+  /** Rendered under "Fit it to my wall" (the free on-site measure offer) */
+  measureSlot?: React.ReactNode;
 }) {
   const kind = studioItemKind(item);
   const letter = unitLetter(index);
@@ -187,9 +208,40 @@ export default function StudioUnitEditor({
         </div>
       </div>
 
-      {kind === "tote" && <ToteOptions item={item} rules={rules} prices={prices} onUpdate={onUpdate} onFitToWall={onFitToWall} />}
+      {kind === "tote" && (
+        <ToteOptions item={item} rules={rules} prices={prices} onUpdate={onUpdate} onFitToWall={onFitToWall} measureSlot={measureSlot} />
+      )}
 
       {kind === "bestseller" && <BestsellerOptions item={item} rules={rules} onTotes={onBestsellerTotes} />}
+
+      {(kind === "tote" || kind === "bestseller") && indoorFee != null && (
+        <Segmented
+          label="Delivery"
+          value={!!item.indoorDelivery}
+          onChange={onIndoorDelivery}
+          options={[
+            { value: false, label: "Standard" },
+            { value: true, label: "Inside the home", hint: `${plus(indoorFee) ?? ""}${indoorFee > 0 ? " each · " : ""}built & delivered inside` },
+          ]}
+        />
+      )}
+
+      {kind === "tote" && organizer && (
+        <OrganizerCustomization
+          cols={item.cols}
+          rows={item.rows}
+          addons={item.addons ?? []}
+          onAddonsChange={(addons) => onExtras({ addons })}
+          addonPricing={organizer.addonPricing}
+          addonDefaults={organizer.addonDefaults}
+          paintFrameColor={item.paintFrameColor ?? null}
+          paintDoorColor={item.paintDoorColor ?? null}
+          paintSidePanelColor={item.paintSidePanelColor ?? null}
+          onPaintFrameColorChange={(c) => onExtras({ paintFrameColor: c })}
+          onPaintDoorColorChange={(c) => onExtras({ paintDoorColor: c })}
+          onPaintSidePanelColorChange={(c) => onExtras({ paintSidePanelColor: c })}
+        />
+      )}
 
       <Quantity value={qty} onChange={onQuantity} />
     </section>
@@ -202,12 +254,14 @@ function ToteOptions({
   prices,
   onUpdate,
   onFitToWall,
+  measureSlot,
 }: {
   item: UnitConfig;
   rules: StudioRules;
   prices: StudioPrices;
   onUpdate: (patch: Partial<ToteUnitOptions>) => void;
   onFitToWall: (w: number, h: number) => Promise<{ cols: number; rows: number } | null>;
+  measureSlot?: React.ReactNode;
 }) {
   const o = toteOptionsOf(item);
   const mini = o.unitType === "mini";
@@ -227,6 +281,7 @@ function ToteOptions({
         />
       </div>
       <WallFit onFit={onFitToWall} />
+      {measureSlot}
 
       {miniAvailable(rules) && (
         <Segmented

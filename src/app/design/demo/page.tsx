@@ -14,7 +14,7 @@ export const metadata: Metadata = {
  * Payment is intercepted — no Stripe calls, no database writes.
  */
 export default async function DemoPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const studio = (await searchParams).studio === "1";
+  const studio = (await searchParams).classic !== "1"; // ?classic=1 → old 4-step flow
   const demoViewModel: DesignPageViewModel = {
     routing: {
       installerId: "demo-platform",

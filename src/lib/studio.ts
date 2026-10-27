@@ -11,6 +11,7 @@
 
 import type { CompoundBuildResult, Orientation, UnitType } from "@/app/actions/calculator";
 import type { ToteColor, ToteType, UnitConfig } from "@/hooks/configurator/types";
+import type { SectionAddon } from "@/types/viewModels";
 import { BESTSELLER_PRESETS, type BestsellerPreset } from "@/lib/presets";
 
 /** What the installer offers — drives which options a tote unit can take. */
@@ -196,4 +197,29 @@ export function studioSystemSize(items: UnitConfig[]): { widthIn: number; height
     slots += (it.presetUnits ? it.presetUnits.reduce((s, su) => s + su.cols * su.rows, 0) : it.cols * it.rows) * qty;
   }
   return { widthIn, heightIn, slots };
+}
+
+/** Installer's paint prices: frame, and each of doors / side panels. */
+export interface StudioPaintPrices {
+  frame: number;
+  doorsPanels: number;
+}
+
+/**
+ * Paint on one unit (per unit — quantities multiply the line). The pricing
+ * engine doesn't price paint, so the studio adds it to the line; the quote
+ * card already lists these exact amounts under the unit.
+ */
+export function studioPaintCost(
+  item: Pick<UnitConfig, "paintFrameColor" | "paintDoorColor" | "paintSidePanelColor">,
+  prices: StudioPaintPrices,
+): number {
+  return (item.paintFrameColor ? prices.frame : 0) + (item.paintDoorColor ? prices.doorsPanels : 0) + (item.paintSidePanelColor ? prices.doorsPanels : 0);
+}
+
+/** Section add-ons that still exist after a resize (bays / tiers beyond the unit are dropped). */
+export function pruneAddons(addons: SectionAddon[] | undefined, cols: number, rows: number): SectionAddon[] {
+  return (addons ?? []).filter(
+    (a) => (typeof a.target !== "number" || a.target < cols) && (a.row === undefined || a.row < rows),
+  );
 }

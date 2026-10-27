@@ -7,13 +7,17 @@ import {
   presetOfItem,
   presetOrderItem,
   presetTotesChoice,
+  pruneAddons,
   studioItemKind,
+  studioPaintCost,
   toteOptionsOf,
   toteUnitDesc,
   toteUnitSignature,
+  type StudioPaintPrices,
   type StudioRules,
   type ToteUnitOptions,
 } from "@/lib/studio";
+import type { PaintColorId, SectionAddon } from "@/types/viewModels";
 import type { DesignPageViewModel } from "@/types/viewModels";
 import type { UnitConfig } from "./types";
 
@@ -43,7 +47,16 @@ interface UseStudioParams {
   setOrderItems: React.Dispatch<React.SetStateAction<UnitConfig[]>>;
   pricing: Pricing;
   rules: StudioRules;
+  paintPrices: StudioPaintPrices;
   initialConfig: Record<string, unknown> | null | undefined;
+}
+
+/** Per-unit extras edited in the studio (organizers, paint, indoor delivery). */
+export interface StudioUnitExtras {
+  addons?: SectionAddon[];
+  paintFrameColor?: PaintColorId | null;
+  paintDoorColor?: PaintColorId | null;
+  paintSidePanelColor?: PaintColorId | null;
 }
 
 const REPRICE_DELAY_MS = 200;
@@ -52,7 +65,7 @@ function presetKey(item: UnitConfig, preset: BestsellerPreset): string {
   return JSON.stringify([preset.id, item.hasTotes]);
 }
 
-export function useStudio({ enabled, orderItems, setOrderItems, pricing, rules, initialConfig }: UseStudioParams) {
+export function useStudio({ enabled, orderItems, setOrderItems, pricing, rules, paintPrices, initialConfig }: UseStudioParams) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [addingPreset, setAddingPreset] = useState<string | null>(null);
 
@@ -73,6 +86,7 @@ export function useStudio({ enabled, orderItems, setOrderItems, pricing, rules, 
 
   const rulesRef = useRef(rules);
   rulesRef.current = rules;
+  const paintKey = `${paintPrices.frame}|${paintPrices.doorsPanels}`;
 
   // ── Write cached prices into the cart; fetch what's missing ────────────
   const missing = useMemo(() => {
@@ -102,13 +116,15 @@ export function useStudio({ enabled, orderItems, setOrderItems, pricing, rules, 
         if (kind === "tote") {
           const hit = toteCache.current.get(toteUnitSignature(item));
           if (!hit) return item;
+          // Line price = engine price + this unit's paint
+          const price = hit.price + studioPaintCost(item, paintPrices);
           if (
-            item.price === hit.price && item.cols === hit.cols && item.rows === hit.rows &&
+            item.price === price && item.cols === hit.cols && item.rows === hit.rows &&
             item.totalW === hit.totalW && item.totalH === hit.totalH && item.depth === hit.depth
           ) return item;
           changed = true;
           const o = { ...toteOptionsOf(item), cols: hit.cols, rows: hit.rows };
-          return { ...item, ...hit, desc: toteUnitDesc(o) };
+          return { ...item, ...hit, price, desc: toteUnitDesc(o) };
         }
         if (kind === "bestseller") {
           const preset = presetOfItem(item);
@@ -122,7 +138,9 @@ export function useStudio({ enabled, orderItems, setOrderItems, pricing, rules, 
       });
       return changed ? next : prev;
     });
-  }, [enabled, cacheVersion, orderItems, setOrderItems]);
+    // paintKey stands in for paintPrices (a new object every render)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, cacheVersion, orderItems, setOrderItems, paintKey]);
 
   useEffect(() => {
     if (!enabled || (missing.totes.length === 0 && missing.presets.length === 0)) return;
@@ -202,7 +220,36 @@ export function useStudio({ enabled, orderItems, setOrderItems, pricing, rules, 
         prev.map((item, i) => {
           if (i !== index || studioItemKind(item) !== "tote") return item;
           const o = normalizeToteUnit({ ...toteOptionsOf(item), ...patch }, rulesRef.current);
-          return { ...item, ...o, desc: toteUnitDesc(o) };
+          return { ...item, ...o, addons: pruneAddons(item.addons, o.cols, o.rows), desc: toteUnitDesc(o) };
+        }),
+      );
+    },
+    [setOrderItems],
+  );
+
+  /** Organizers / paint on a tote unit — organizers re-price, paint adds to the line. */
+  const updateExtras = useCallback(
+    (index: number, extras: StudioUnitExtras) => {
+      setOrderItems((prev) =>
+        prev.map((item, i) => {
+          if (i !== index || studioItemKind(item) !== "tote") return item;
+          const next = { ...item, ...extras };
+          return { ...next, addons: pruneAddons(next.addons, next.cols, next.rows) };
+        }),
+      );
+    },
+    [setOrderItems],
+  );
+
+  /** Built and delivered inside the home — a per-unit fee, as at Add to quote. */
+  const setIndoorDelivery = useCallback(
+    (index: number, on: boolean, fee: number) => {
+      setOrderItems((prev) =>
+        prev.map((item, i) => {
+          if (i !== index) return item;
+          if (on) return { ...item, indoorDelivery: true, indoorDeliveryFee: fee };
+          const { indoorDelivery: _d, indoorDeliveryFee: _f, ...rest } = item;
+          return rest;
         }),
       );
     },
@@ -327,6 +374,8 @@ export function useStudio({ enabled, orderItems, setOrderItems, pricing, rules, 
     repricing,
     addingPreset,
     updateTote,
+    updateExtras,
+    setIndoorDelivery,
     addToteUnit,
     addBestseller,
     setBestsellerTotes,
