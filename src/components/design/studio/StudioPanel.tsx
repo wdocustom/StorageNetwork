@@ -21,6 +21,7 @@ import { toFraction } from "@/lib/utils";
 import type { DesignPageViewModel } from "@/types/viewModels";
 import { formatCurrency } from "@/utils/paymentHelpers";
 import ZipCheckCard from "@/components/design/ZipCheckCard";
+import { DIYPlansCTA } from "@/components/design/ConfiguratorFooter";
 import StudioAddView from "./StudioAddView";
 import StudioBookingSheet from "./StudioBookingSheet";
 import StudioMap from "./StudioMap";
@@ -37,6 +38,8 @@ export default function StudioPanel({
   organizer,
   indoorFee,
   onClearPreviews,
+  previewingPreset,
+  onPreviewBestseller,
 }: {
   props: ConfiguratorSidebarProps;
   studio: ReturnType<typeof useStudio>;
@@ -46,8 +49,10 @@ export default function StudioPanel({
   pricing: DesignPageViewModel["pricing"] | undefined;
   organizer: StudioOrganizer;
   indoorFee: number | null;
-  /** Clear any shelving / ceiling / bed / chair preview from the 3D */
+  /** Clear any bestseller / shelving / ceiling / bed / chair preview from the 3D */
   onClearPreviews: () => void;
+  previewingPreset: string | null;
+  onPreviewBestseller: (presetId: string) => void;
 }) {
   const [view, setView] = useState<"design" | "add">("design");
   const [bookOpen, setBookOpen] = useState(false);
@@ -97,9 +102,11 @@ export default function StudioPanel({
             pricing={pricing}
             totesDisabled={rules.totesDisabled}
             addingPreset={studio.addingPreset}
+            previewingPreset={previewingPreset}
             onDone={closeAdd}
             onAddCustom={studio.addToteUnit}
             onAddBestseller={(id) => studio.addBestseller(id)}
+            onPreviewBestseller={onPreviewBestseller}
           />
         ) : (
           <>
@@ -199,6 +206,9 @@ export default function StudioPanel({
                 Add a unit, bestseller or more
               </button>
             )}
+
+            {/* Build-it-yourself alternative, as the step-by-step flow offered from step 3 on */}
+            {items.length > 0 && <DIYPlansCTA props={props} activeStep={4} />}
           </>
         )}
       </div>

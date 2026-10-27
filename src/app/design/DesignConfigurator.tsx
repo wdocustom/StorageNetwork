@@ -155,6 +155,7 @@ export default function DesignConfigurator({
   // A shelving / ceiling rail / raised bed / chair being configured in the
   // studio's "+" view is previewed in the 3D instead of the whole order.
   const studioPreviewing = studio && !!(
+    presets.activePreset ||
     productAddons.activeShelvingConfig ||
     productAddons.overheadPreview ||
     productAddons.raisedBedPreview ||
@@ -166,6 +167,19 @@ export default function DesignConfigurator({
     productAddons.setRaisedBedPreview(null);
     productAddons.setChairPreview(null);
     setChairSelected(false);
+    presets.setActivePreset(null);
+    presets.setCompoundBuild(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // One preview at a time: a bestseller replaces any product preview
+  const previewStudioBestseller = useCallback((presetId: string) => {
+    productAddons.setShelvingConfigId(null);
+    productAddons.setOverheadPreview(null);
+    productAddons.setRaisedBedPreview(null);
+    productAddons.setChairPreview(null);
+    setChairSelected(false);
+    presets.setCompoundBuild(null);
+    presets.setActivePreset(presetId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1009,12 +1023,15 @@ export default function DesignConfigurator({
             presets={installer.filteredPresets}
             pricing={installer.data?.pricing}
             organizer={
-              installer.installerId && installer.data?.pricing?.addon_pricing?.organizer_customization_enabled !== false
+              // Opt-in: only installers who turned Organizer Customization on
+              installer.installerId && installer.data?.pricing?.addon_pricing?.organizer_customization_enabled === true
                 ? { addonPricing: installer.data?.pricing?.addon_pricing, addonDefaults: installer.data?.addonDefaults }
                 : null
             }
             indoorFee={installer.data?.indoorDeliveryConfig?.enabled ? installer.data.indoorDeliveryConfig.fee : null}
             onClearPreviews={clearStudioPreviews}
+            previewingPreset={presets.activePreset}
+            onPreviewBestseller={previewStudioBestseller}
           />
         ) : (
           <ConfiguratorSidebar {...sidebarProps} />

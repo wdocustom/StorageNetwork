@@ -9,7 +9,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useState } from "react";
-import { Loader2, Minus, Plus, Ruler, Trash2 } from "lucide-react";
+import { ChevronDown, Loader2, Minus, Plus, Ruler, Trash2 } from "lucide-react";
 import { Segmented, Stepper } from "@/components/designer/controls";
 import { OrganizerCustomization } from "@/components/design/OrganizerCustomization";
 import type { UnitConfig } from "@/hooks/configurator/types";
@@ -139,6 +139,27 @@ function Quantity({ value, onChange }: { value: number; onChange: (n: number) =>
   );
 }
 
+function MoreOptions({ offered, chosen, children }: { offered: string[]; chosen: string[]; children: React.ReactNode }) {
+  const [open, setOpen] = useState(chosen.length > 0);
+  return (
+    <div className="rounded-xl border border-zinc-800">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-left"
+      >
+        <span className="text-xs font-bold text-zinc-200">More options</span>
+        <span className="min-w-0 flex-1 truncate text-[11px] text-zinc-500">
+          {chosen.length > 0 ? <span className="text-yellow-400/90">{chosen.join(" · ")}</span> : offered.join(", ")}
+        </span>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-zinc-500 transition ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && <div className="space-y-4 border-t border-zinc-800 p-3">{children}</div>}
+    </div>
+  );
+}
+
 export default function StudioUnitEditor({
   item,
   index,
@@ -181,6 +202,30 @@ export default function StudioUnitEditor({
   const qty = item.quantity || 1;
   const lineTotal = item.price * qty;
 
+  // Rarer choices live under "More options": what this installer offers here,
+  // and what's already picked (the summary, and it opens itself when any is)
+  const isRack = kind === "tote" || kind === "bestseller";
+  const moreOffered: string[] = [];
+  const moreChosen: string[] = [];
+  if (kind === "tote" && miniAvailable(rules)) {
+    moreOffered.push("Mini size");
+    if (item.unitType === "mini") moreChosen.push("Mini");
+  }
+  if (kind === "tote" && item.unitType !== "mini") {
+    moreOffered.push("sideways");
+    if (item.orientation === "sideways") moreChosen.push("Sideways");
+  }
+  if (isRack && indoorFee != null) {
+    moreOffered.push("indoor delivery");
+    if (item.indoorDelivery) moreChosen.push("Indoor delivery");
+  }
+  if (kind === "tote" && organizer) {
+    moreOffered.push("doors, shelves & paint");
+    const n = item.addons?.length ?? 0;
+    if (n > 0) moreChosen.push(`${n} organizer add-on${n === 1 ? "" : "s"}`);
+    if (item.paintFrameColor || item.paintDoorColor || item.paintSidePanelColor) moreChosen.push("Paint");
+  }
+
   return (
     <section className="space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
       <div className="flex items-center justify-between gap-3">
@@ -209,38 +254,44 @@ export default function StudioUnitEditor({
       </div>
 
       {kind === "tote" && (
-        <ToteOptions item={item} rules={rules} prices={prices} onUpdate={onUpdate} onFitToWall={onFitToWall} measureSlot={measureSlot} />
+        <ToteOptions section="main" item={item} rules={rules} prices={prices} onUpdate={onUpdate} onFitToWall={onFitToWall} measureSlot={measureSlot} />
       )}
 
       {kind === "bestseller" && <BestsellerOptions item={item} rules={rules} onTotes={onBestsellerTotes} />}
 
-      {(kind === "tote" || kind === "bestseller") && indoorFee != null && (
-        <Segmented
-          label="Delivery"
-          value={!!item.indoorDelivery}
-          onChange={onIndoorDelivery}
-          options={[
-            { value: false, label: "Standard" },
-            { value: true, label: "Inside the home", hint: `${plus(indoorFee) ?? ""}${indoorFee > 0 ? " each · " : ""}built & delivered inside` },
-          ]}
-        />
-      )}
-
-      {kind === "tote" && organizer && (
-        <OrganizerCustomization
-          cols={item.cols}
-          rows={item.rows}
-          addons={item.addons ?? []}
-          onAddonsChange={(addons) => onExtras({ addons })}
-          addonPricing={organizer.addonPricing}
-          addonDefaults={organizer.addonDefaults}
-          paintFrameColor={item.paintFrameColor ?? null}
-          paintDoorColor={item.paintDoorColor ?? null}
-          paintSidePanelColor={item.paintSidePanelColor ?? null}
-          onPaintFrameColorChange={(c) => onExtras({ paintFrameColor: c })}
-          onPaintDoorColorChange={(c) => onExtras({ paintDoorColor: c })}
-          onPaintSidePanelColorChange={(c) => onExtras({ paintSidePanelColor: c })}
-        />
+      {moreOffered.length > 0 && (
+        <MoreOptions key={index} offered={moreOffered} chosen={moreChosen}>
+          {kind === "tote" && (
+            <ToteOptions section="more" item={item} rules={rules} prices={prices} onUpdate={onUpdate} onFitToWall={onFitToWall} />
+          )}
+          {(kind === "tote" || kind === "bestseller") && indoorFee != null && (
+            <Segmented
+              label="Delivery"
+              value={!!item.indoorDelivery}
+              onChange={onIndoorDelivery}
+              options={[
+                { value: false, label: "Standard" },
+                { value: true, label: "Inside the home", hint: `${plus(indoorFee) ?? ""}${indoorFee > 0 ? " each · " : ""}built & delivered inside` },
+              ]}
+            />
+          )}
+          {kind === "tote" && organizer && (
+            <OrganizerCustomization
+              cols={item.cols}
+              rows={item.rows}
+              addons={item.addons ?? []}
+              onAddonsChange={(addons) => onExtras({ addons })}
+              addonPricing={organizer.addonPricing}
+              addonDefaults={organizer.addonDefaults}
+              paintFrameColor={item.paintFrameColor ?? null}
+              paintDoorColor={item.paintDoorColor ?? null}
+              paintSidePanelColor={item.paintSidePanelColor ?? null}
+              onPaintFrameColorChange={(c) => onExtras({ paintFrameColor: c })}
+              onPaintDoorColorChange={(c) => onExtras({ paintDoorColor: c })}
+              onPaintSidePanelColorChange={(c) => onExtras({ paintSidePanelColor: c })}
+            />
+          )}
+        </MoreOptions>
       )}
 
       <Quantity value={qty} onChange={onQuantity} />
@@ -249,6 +300,7 @@ export default function StudioUnitEditor({
 }
 
 function ToteOptions({
+  section,
   item,
   rules,
   prices,
@@ -256,6 +308,8 @@ function ToteOptions({
   onFitToWall,
   measureSlot,
 }: {
+  /** "main" = everyday choices; "more" = unit size and tote direction */
+  section: "main" | "more";
   item: UnitConfig;
   rules: StudioRules;
   prices: StudioPrices;
@@ -267,6 +321,35 @@ function ToteOptions({
   const mini = o.unitType === "mini";
   const totePrice = mini ? prices.miniTote : o.toteType === "HDX" && o.toteColor === "clear" ? prices.standardToteClear : prices.standardTote;
   const totesLabel = mini ? "Clear totes" : "Totes";
+
+  if (section === "more") {
+    return (
+      <>
+        {miniAvailable(rules) && (
+          <Segmented
+            label="Unit size"
+            value={o.unitType}
+            onChange={(unitType) => onUpdate({ unitType })}
+            options={[
+              { value: "standard", label: "Standard", hint: "27-gallon totes" },
+              { value: "mini", label: "Mini", hint: "6.5-quart totes" },
+            ]}
+          />
+        )}
+        {!mini && (
+          <Segmented
+            label={rules.totesDisabled ? "Orientation" : "Tote direction"}
+            value={o.orientation}
+            onChange={(orientation) => onUpdate({ orientation })}
+            options={[
+              { value: "standard", label: "Standard", hint: '30" deep — best for garages' },
+              { value: "sideways", label: "Sideways", hint: '20" deep — tight spaces' },
+            ]}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <>
@@ -283,18 +366,6 @@ function ToteOptions({
       <WallFit onFit={onFitToWall} />
       {measureSlot}
 
-      {miniAvailable(rules) && (
-        <Segmented
-          label="Unit size"
-          value={o.unitType}
-          onChange={(unitType) => onUpdate({ unitType })}
-          options={[
-            { value: "standard", label: "Standard", hint: "27-gallon totes" },
-            { value: "mini", label: "Mini", hint: "6.5-quart totes" },
-          ]}
-        />
-      )}
-
       {!mini && !rules.totesDisabled && !rules.use2x4Rails && (
         <Segmented
           label="Tote size"
@@ -303,18 +374,6 @@ function ToteOptions({
           options={[
             { value: "HDX", label: "Standard totes", hint: "Home Depot, Menards" },
             { value: "GM", label: "Wider totes", hint: "Costco, Lowe's, Walmart" },
-          ]}
-        />
-      )}
-
-      {!mini && (
-        <Segmented
-          label={rules.totesDisabled ? "Orientation" : "Tote direction"}
-          value={o.orientation}
-          onChange={(orientation) => onUpdate({ orientation })}
-          options={[
-            { value: "standard", label: "Standard", hint: '30" deep — best for garages' },
-            { value: "sideways", label: "Sideways", hint: '20" deep — tight spaces' },
           ]}
         />
       )}

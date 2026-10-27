@@ -30,19 +30,25 @@ export default function StudioAddView({
   pricing,
   totesDisabled,
   addingPreset,
+  previewingPreset,
   onDone,
   onAddCustom,
   onAddBestseller,
+  onPreviewBestseller,
 }: {
   props: ConfiguratorSidebarProps;
   presets: BestsellerPreset[];
   pricing: DesignPageViewModel["pricing"] | undefined;
   totesDisabled: boolean;
   addingPreset: string | null;
+  /** Bestseller shown in the 3D right now */
+  previewingPreset: string | null;
   /** Back to the design (also called after anything is added) */
   onDone: () => void;
   onAddCustom: () => void;
   onAddBestseller: (presetId: string) => Promise<boolean>;
+  /** Show a bestseller in the 3D before adding it */
+  onPreviewBestseller: (presetId: string) => void;
 }) {
   const [prices, setPrices] = useState<Record<string, number>>({});
 
@@ -106,11 +112,24 @@ export default function StudioAddView({
               const busy = addingPreset === p.id;
               const price = prices[p.id];
               return (
-                <li key={p.id} className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 p-3">
-                  <div className="min-w-0 flex-1">
+                <li
+                  key={p.id}
+                  className={`flex items-center gap-3 rounded-xl border bg-zinc-900 p-3 transition ${
+                    previewingPreset === p.id ? "border-yellow-400/60" : "border-zinc-800"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => onPreviewBestseller(p.id)}
+                    aria-pressed={previewingPreset === p.id}
+                    className="min-w-0 flex-1 text-left"
+                  >
                     <p className="text-sm font-bold text-white">{p.name}</p>
-                    <p className="text-[11px] text-zinc-500">{p.units.map((u) => `${u.cols}×${u.rows}`).join(" + ")}</p>
-                  </div>
+                    <p className="text-[11px] text-zinc-500">
+                      {p.units.map((u) => `${u.cols}×${u.rows}`).join(" + ")}
+                      <span className="ml-1.5 text-yellow-400/80">{previewingPreset === p.id ? "· showing above" : "· tap to preview"}</span>
+                    </p>
+                  </button>
                   <span className="shrink-0 text-sm font-black text-white">
                     {price != null ? `$${Math.round(price).toLocaleString()}` : <Loader2 className="h-4 w-4 animate-spin text-zinc-600" />}
                   </span>

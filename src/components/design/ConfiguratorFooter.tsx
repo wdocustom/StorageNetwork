@@ -306,7 +306,7 @@ export function designerPlanTranslation(props: ConfiguratorSidebarProps, activeS
   ]);
 }
 
-function DIYPlansCTA({ props, activeStep }: { props: ConfiguratorSidebarProps; activeStep: number }) {
+export function DIYPlansCTA({ props, activeStep }: { props: ConfiguratorSidebarProps; activeStep: number }) {
   const router = useRouter();
   const [freeAccess, setFreeAccess] = useState(false);
 
