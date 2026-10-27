@@ -98,8 +98,8 @@ export default function StepSummary({
             + Add Unit
           </button>
 
-          {/* Discount Code — 2/3 width */}
-          <div className="flex-1">
+          {/* Discount Code — 2/3 width (min-w-0 so the input can shrink and Apply stays on screen) */}
+          <div className="min-w-0 flex-1">
             {!props.discountApplied ? (
               <div className="flex gap-1.5">
                 <input

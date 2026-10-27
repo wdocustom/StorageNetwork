@@ -67,4 +67,6 @@ export interface DesignConfiguratorProps {
   savedSignal?: SavedSignalData;
   initialInstallerAtCapacity?: boolean;
   initialConfig?: Record<string, unknown> | null;
+  /** Single-page design studio instead of the 4-step sidebar */
+  studio?: boolean;
 }

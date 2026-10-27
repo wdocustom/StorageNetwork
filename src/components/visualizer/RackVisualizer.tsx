@@ -129,6 +129,11 @@ interface RackVisualizerProps {
   hasDrawerSlides?: boolean;
   /** When true, renders 2x4 ripped rail construction instead of plywood strips */
   use2x4Rails?: boolean;
+  /**
+   * Design studio: always render the whole order (multiUnitItems) and hide
+   * the Multi-Unit overlay — the studio's own unit map does that job.
+   */
+  systemView?: boolean;
 }
 
 /** A completed order item for multi-unit 3D rendering */
@@ -290,7 +295,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
     setViewMode(getDefaultViewMode());
   }, []);
 
-  const showMultiUnitOverlay = viewMode === "3D" && props.multiUnitControls && props.multiUnitControls.orderItems.length >= 1;
+  const showMultiUnitOverlay = !props.systemView && viewMode === "3D" && props.multiUnitControls && props.multiUnitControls.orderItems.length >= 1;
 
   // When in 2D + multi-unit mode, derive BlueprintCanvas props from the first
   // visible multi-unit item so that overhead/shelving units render correctly
@@ -521,7 +526,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                 // depends on it to keep rendering the configured rack
                 // instead of stale builder state).
                 multiUnitItems={
-                  props.multiUnitControls?.showMultiUnit3D
+                  props.systemView || props.multiUnitControls?.showMultiUnit3D
                     ? props.multiUnitItems?.filter((u) => u.visible).map((u) => ({
                         cols: u.cols,
                         rows: u.rows,
