@@ -1,17 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import {
-  MapPin,
-  Maximize2,
-  CheckCircle2,
-  AlertTriangle,
-  Loader2,
-  Grid3X3,
-  Mail,
-  X,
-  Send,
-} from "lucide-react";
+import { Maximize2, Grid3X3 } from "lucide-react";
 import type { ConfiguratorSidebarProps } from "../configurator-types";
 import { FocusFrame } from "../configurator-primitives";
 import BestsellerDropdown from "../BestsellerDropdown";
@@ -19,6 +9,8 @@ import ShelvingDropdown from "../ShelvingDropdown";
 import OverheadStorageDropdown from "../OverheadStorageDropdown";
 import RaisedBedDropdown from "../RaisedBedDropdown";
 import ChairDropdown from "../ChairDropdown";
+import ZipCheckCard from "../ZipCheckCard";
+import ContactInstallerCard from "../ContactInstallerCard";
 
 export default function StepSize({
   props,
@@ -37,61 +29,7 @@ export default function StepSize({
 }) {
   return (
     <>
-      {/* ZIP Check (hidden when installer locked) */}
-      {!props.installerLocked && (
-        <section className="rounded-xl border border-dashed border-yellow-400/40 bg-yellow-400/5 p-4">
-          <h3 className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-yellow-400/80">
-            <MapPin className="h-3.5 w-3.5" />
-            Find My Local Pro
-          </h3>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={5}
-              value={props.zip}
-              onChange={(e) => {
-                props.onZipChange(e.target.value.replace(/\D/g, "").slice(0, 5));
-                props.onZipResultClear();
-              }}
-              placeholder="ZIP Code"
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-sm font-medium text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none focus:ring-1 focus:ring-yellow-400/50"
-            />
-            <button
-              onClick={props.onZipCheck}
-              disabled={props.zip.length < 5 || props.zipChecking}
-              className="shrink-0 rounded-lg bg-yellow-400 px-4 py-2 text-xs font-bold uppercase tracking-wider text-zinc-900 transition-colors hover:bg-yellow-300 disabled:opacity-40"
-            >
-              {props.zipChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check"}
-            </button>
-          </div>
-          {props.zipResult?.available && (
-            <motion.div
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-2 space-y-1.5"
-            >
-              <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-2 text-xs font-semibold text-emerald-400">
-                <CheckCircle2 className="h-4 w-4 shrink-0" />
-                {props.zipResult.message}
-              </div>
-              <p className="text-xs text-zinc-400">
-                Your free 3D design is ready — let&apos;s build it!
-              </p>
-            </motion.div>
-          )}
-          {props.zipResult && !props.zipResult.available && (
-            <motion.div
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-2 flex items-center gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 p-2 text-xs font-semibold text-amber-400"
-            >
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              {props.zipResult.message}
-            </motion.div>
-          )}
-        </section>
-      )}
+      <ZipCheckCard props={props} />
 
       {/* Auto-Fit Wall Calculator */}
       <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 backdrop-blur-sm">
@@ -260,105 +198,7 @@ export default function StepSize({
         />
       )}
 
-      {/* Contact Installer — Custom / Email */}
-      {props.installerId && (
-        <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
-          {!props.showContactForm && !props.contactSent ? (
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-yellow-400/80">
-                Need something custom?
-              </span>
-              <button
-                onClick={() => props.onShowContactFormChange(true)}
-                className="flex shrink-0 items-center gap-1 rounded-md border border-zinc-700 bg-zinc-800 px-2 py-1 text-[10px] font-semibold text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
-              >
-                <Mail className="h-3 w-3" />
-                Email
-              </button>
-            </div>
-          ) : props.contactSent ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 text-center"
-            >
-              <CheckCircle2 className="mx-auto mb-1 h-5 w-5 text-emerald-400" />
-              <p className="text-xs font-semibold text-zinc-200">Message Sent!</p>
-              <p className="text-[11px] text-zinc-500">
-                {props.brandingTitle || "The installer"} will get back to you shortly.
-              </p>
-            </motion.div>
-          ) : (
-            <div>
-              <div className="mb-2.5 flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-xs font-semibold text-zinc-300">
-                  <Mail className="h-3.5 w-3.5 text-yellow-400" />
-                  Email {props.brandingTitle || "Installer"}
-                </span>
-                <button
-                  onClick={() => props.onShowContactFormChange(false)}
-                  className="text-zinc-500 hover:text-zinc-300"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    placeholder="First Name"
-                    value={props.firstName}
-                    onChange={(e) => props.onFirstNameChange(e.target.value)}
-                    className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Last Name"
-                    value={props.lastName}
-                    onChange={(e) => props.onLastNameChange(e.target.value)}
-                    className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="email"
-                    placeholder="Your Email"
-                    value={props.email}
-                    onChange={(e) => props.onEmailChange(e.target.value)}
-                    className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                  />
-                  <input
-                    type="tel"
-                    placeholder="Phone (optional)"
-                    value={props.phone}
-                    onChange={(e) => props.onPhoneChange(e.target.value)}
-                    className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                  />
-                </div>
-                <textarea
-                  value={props.contactMessage}
-                  onChange={(e) => props.onContactMessageChange(e.target.value)}
-                  placeholder="Describe your custom project..."
-                  rows={3}
-                  maxLength={2000}
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                />
-              </div>
-              {props.contactError && (
-                <p className="mt-1 text-xs font-medium text-red-400">{props.contactError}</p>
-              )}
-              <button
-                onClick={props.onContactInstaller}
-                disabled={props.contactSending || !props.contactMessage.trim()}
-                className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-800 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
-              >
-                {props.contactSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                {props.contactSending ? "Sending..." : "Send Message"}
-              </button>
-            </div>
-          )}
-        </section>
-      )}
+      <ContactInstallerCard props={props} />
     </>
   );
 }

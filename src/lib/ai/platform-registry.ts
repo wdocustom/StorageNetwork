@@ -34,7 +34,7 @@ export interface PlatformFaq {
 export const PAGES: PlatformPage[] = [
   // Customer-facing
   { path: "/", name: "Landing Page", audience: "customer", description: "Main landing page with ZIP code search to find local installer, guided storage configurator." },
-  { path: "/design", name: "3D Design Configurator", audience: "customer", description: "Full 3D storage configurator where customers design their tote rack, choose add-ons, and book installation with their local installer." },
+  { path: "/design", name: "3D Design Configurator", audience: "customer", description: "Single-page 3D designer: customers build their order as lettered units (A, B, C…) on a map — tote units, bestsellers and the installer's other products — see the installer's live price, and book installation with a deposit." },
   { path: "/demo", name: "Book a Demo Call", audience: "both", description: "Free 15-minute live demo call. A real person walks potential installers or curious customers through the entire platform — the 3D configurator, dashboard, marketing tools, everything." },
 
   // Installer-facing (public)
@@ -189,7 +189,7 @@ export const FEATURES: PlatformFeature[] = [
     name: "DIY Cut Plan Downloads",
     audience: "both",
     description: "Customers can buy DIY build plans for their exact design — a $19 printable PDF or the $29 interactive 3D build guide — instead of hiring an installer.",
-    details: "Offered as a small 'build it yourself' option in every installer's 3D configurator (step 3 onward), at the bottom of quote pages, and in quote/saved-build emails; also sold directly at /plans/checkout. Plans cover any size and every bestseller: big units are split into 8'-stock modules exactly like installer cut plans, units are lettered A, B, C… with modules A1, A2… and identical modules are grouped so the buyer builds one and repeats it. The PDF has a shopping list, cut plan, and a 3D-rendered page per step; the interactive guide builds one module at a time with a live map of the system. PDF buyers can upgrade to the interactive guide for $10. Pro subscribers and admins get free access.",
+    details: "Offered as a small 'build it yourself' option in every installer's 3D designer (under the design and in the booking sheet), at the bottom of quote pages, and in quote/saved-build emails; also sold directly at /plans/checkout. Plans cover any size and every bestseller: big units are split into 8'-stock modules exactly like installer cut plans, units are lettered A, B, C… with modules A1, A2… and identical modules are grouped so the buyer builds one and repeats it. The PDF has a shopping list, cut plan, and a 3D-rendered page per step; the interactive guide builds one module at a time with a live map of the system. PDF buyers can upgrade to the interactive guide for $10. Pro subscribers and admins get free access.",
   },
   {
     id: "jig-plans",

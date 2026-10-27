@@ -8,7 +8,7 @@ import { OrganizerCustomization } from "../OrganizerCustomization";
 import { CHAIR_FINISHES, type ChairFinish } from "@/lib/chairs";
 import { calculateChairPriceServer, getChairOptionPrices } from "@/app/actions/platform-defaults";
 
-function ChairCustomization({
+export function ChairCustomization({
   props,
 }: {
   props: ConfiguratorSidebarProps;
@@ -232,7 +232,7 @@ export default function StepAddons({
       )}
 
       {/* Organizer Customization (per-section addons) */}
-      {!props.activePreset && props.installerId && (props.addonPricing?.organizer_customization_enabled !== false) && (
+      {!props.activePreset && props.installerId && (props.addonPricing?.organizer_customization_enabled === true) && (
         <OrganizerCustomization
           cols={numCols}
           rows={numRows}

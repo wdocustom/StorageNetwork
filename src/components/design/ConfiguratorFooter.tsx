@@ -28,17 +28,20 @@ export default function ConfiguratorFooter({
   activeStep,
   detailsFilled,
   setActiveStep,
+  docked = true,
 }: {
   props: ConfiguratorSidebarProps;
   activeStep: number;
   detailsFilled: boolean;
   setActiveStep: (step: number) => void;
+  /** Pinned to the bottom of the sidebar; false = flows at the end of the content (studio booking sheet) */
+  docked?: boolean;
 }) {
   const hasQuoteItems = props.orderItems.length > 0;
 
   return (
     <div
-      className="sticky bottom-0 z-20 shrink-0 border-t border-zinc-800/80 bg-zinc-950/80 px-4 py-4 backdrop-blur-xl"
+      className={`${docked ? "sticky bottom-0 z-20" : "rounded-2xl"} shrink-0 border-t border-zinc-800/80 bg-zinc-950/80 px-4 py-4 backdrop-blur-xl`}
       style={{
         background: "linear-gradient(to top, rgba(9,9,11,0.95), rgba(9,9,11,0.85))",
         backdropFilter: "blur(20px)",
@@ -303,7 +306,7 @@ export function designerPlanTranslation(props: ConfiguratorSidebarProps, activeS
   ]);
 }
 
-function DIYPlansCTA({ props, activeStep }: { props: ConfiguratorSidebarProps; activeStep: number }) {
+export function DIYPlansCTA({ props, activeStep }: { props: ConfiguratorSidebarProps; activeStep: number }) {
   const router = useRouter();
   const [freeAccess, setFreeAccess] = useState(false);
 

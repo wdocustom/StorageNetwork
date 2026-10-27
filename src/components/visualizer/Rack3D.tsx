@@ -2118,11 +2118,28 @@ function MultiUnitCameraRig({ items }: { items: MultiUnit3DItem[] }) {
   const w = totalW * S;
   const h = sceneH * S;
   const dist = Math.max(w, h) * 1.8 + 1;
+  const { camera } = useThree();
+  const controlsRef = useRef<any>(null);
+  // Frame the whole system (same framing as the stacked-modules rig): without
+  // this the camera stays where the single-unit view left it and a wide
+  // system runs off the canvas.
+  const frameDist = Math.max(w, h, RACK_DEPTH * S) * 2.2;
+
+  useEffect(() => {
+    camera.position.set(frameDist * 0.6, frameDist * 0.6, -frameDist * 0.6);
+    camera.lookAt(0, 0, 0);
+    if (controlsRef.current) {
+      controlsRef.current.target.set(0, 0, 0);
+      controlsRef.current.update();
+    }
+  }, [camera, frameDist]);
 
   return (
     <>
       <GroundShadow bottomY={-h / 2} footprint={w * 1.4} />
       <OrbitControls
+        ref={controlsRef}
+        makeDefault
         autoRotate
         autoRotateSpeed={0.5}
         enablePan

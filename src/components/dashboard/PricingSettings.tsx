@@ -412,7 +412,8 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
 
   // ── Organizer Customization (addon pricing) state ──────────────────
   const [addonExpanded, setAddonExpanded] = useState(false);
-  const [addonEnabled, setAddonEnabled] = useState(true);
+  // Opt-in: customers only see Organizer Customization once the installer turns it on
+  const [addonEnabled, setAddonEnabled] = useState(false);
   const [addonValues, setAddonValues] = useState<Record<string, string>>({});
   const [addonToggles, setAddonToggles] = useState<Record<string, boolean>>({
     plywood_door_enabled: true,
@@ -481,8 +482,8 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
 
       // Load addon pricing
       const ap = result.pricing.addon_pricing;
+      setAddonEnabled(ap?.organizer_customization_enabled === true);
       if (ap) {
-        setAddonEnabled(ap.organizer_customization_enabled !== false);
         const loadedAddon: Record<string, string> = {};
         for (const k of ["plywood_door", "side_panel", "concealed_hinge_pair", "rail_removal", "shelf", "paint_frame_price", "paint_doors_panels_price"] as const) {
           const v = ap[k];
@@ -614,7 +615,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
       setRaisedBedEnabled(false);
       setChairEnabled(false);
       setPresetToggles({});
-      setAddonEnabled(true);
+      setAddonEnabled(false);
       setAddonValues({});
       setAddonToggles({
         plywood_door_enabled: true,
@@ -644,7 +645,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
       || chairEnabled
       || Object.values(presetToggles).some((v) => v === false)
       || PRICE_FIELDS.some((f) => values[f.key] !== undefined && values[f.key] !== "")
-      || !addonEnabled
+      || addonEnabled
       || Object.values(addonToggles).some((v) => !v)
       || Object.values(addonValues).some((v) => v !== undefined && v !== "")
       || volumeEnabled
@@ -1061,7 +1062,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
               onClick={() => setAddonEnabled(!addonEnabled)}
               className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all ${
                 !addonEnabled
-                  ? "border-red-500/30 bg-red-500/5"
+                  ? "border-slate-600 bg-slate-800/40"
                   : "border-emerald-500/30 bg-emerald-500/5"
               }`}
             >
@@ -1069,13 +1070,13 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
                 <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${addonEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium ${addonEnabled ? "text-emerald-400" : "text-red-400"}`}>
-                  {addonEnabled ? "Customization Enabled" : "Customization Disabled"}
+                <p className={`text-sm font-medium ${addonEnabled ? "text-emerald-400" : "text-stone-300"}`}>
+                  {addonEnabled ? "Customization On" : "Customization Off"}
                 </p>
                 <p className="text-[11px] text-stone-500">
                   {addonEnabled
-                    ? "Customers can add doors, panels & hinges on your design page"
-                    : "The entire Organizer Customization section is hidden from customers"}
+                    ? "Customers can add doors, panels, shelves & paint on your design page"
+                    : "Turn on to offer doors, panels, shelves & paint on your design page"}
                 </p>
               </div>
             </button>

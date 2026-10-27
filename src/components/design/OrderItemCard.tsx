@@ -7,6 +7,7 @@ import type { UnitConfig, ConfiguratorSidebarProps } from "./configurator-types"
 import type { AddonPricing, PaintColorId } from "@/types/viewModels";
 import { PAINT_COLORS } from "@/types/viewModels";
 import { OVERHEAD_GRID_PRESETS } from "@/lib/overhead-storage";
+import { unitLetter } from "@/lib/tote-plans";
 
 export default function OrderItemCard({
   item,
@@ -125,7 +126,7 @@ export default function OrderItemCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold text-zinc-200">
-              Unit #{index + 1}: {item.desc}
+              Unit {unitLetter(index)}: {item.desc}
             </p>
             {hasAddOns && (
               <button

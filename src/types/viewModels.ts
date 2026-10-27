@@ -71,7 +71,7 @@ export interface AddonPricing {
   concealed_hinge_pair?: number;  // per pair of Blum concealed hinges (included in door price for retail)
   rail_removal?: number;          // per rail removed (labor credit or charge)
   shelf?: number;                 // per plywood shelf (3/4" plywood sitting on rails)
-  /** Master toggle: when false, the entire Organizer Customization section is hidden */
+  /** Master toggle — opt-in: the Organizer Customization section shows only when true */
   organizer_customization_enabled?: boolean;
   /** Per-addon-type toggles: when false, that addon type is hidden */
   plywood_door_enabled?: boolean;
