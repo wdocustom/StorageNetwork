@@ -23,6 +23,7 @@ const VALID_CHECKLIST_ACTIONS = new Set([
   "social_share",
   "group_finder_used",
   "instagram_visited",
+  "checklist_dismissed",
 ]);
 
 /**

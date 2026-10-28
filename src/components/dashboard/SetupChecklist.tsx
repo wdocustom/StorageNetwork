@@ -9,8 +9,14 @@ import {
   Rocket,
   Loader2,
   Check,
+  X,
 } from "lucide-react";
-import { getSetupStatus, completeChecklistStep, type SetupStatus } from "@/app/actions/setup-checklist";
+import {
+  getSetupStatus,
+  completeChecklistStep,
+  markChecklistStepComplete,
+  type SetupStatus,
+} from "@/app/actions/setup-checklist";
 import { logActivityClient } from "@/lib/activity-client";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -78,6 +84,18 @@ export default function SetupChecklist({ userId, bookingLink, initialStatus }: S
   const [loading, setLoading] = useState(!initialStatus);
   const [collapsed, setCollapsed] = useState(false);
   const [justCompleted, setJustCompleted] = useState<string | null>(null);
+  // Closed with the X: saved server-side (every device) and locally (hides
+  // at once, even if the save fails).
+  const [closed, setClosed] = useState(false);
+  useEffect(() => {
+    if (hasLocalOverride("checklist_dismissed", userId)) setClosed(true);
+  }, [userId]);
+
+  function handleClose() {
+    setClosed(true);
+    setLocalOverride("checklist_dismissed", userId);
+    markChecklistStepComplete(userId, "checklist_dismissed").catch(() => {});
+  }
 
   // Fetch on mount, re-fetch on window focus, and re-fetch when any activity is logged
   // (e.g. group_finder_used from GroupFinder, social_share from SocialGenerator)
@@ -150,7 +168,7 @@ export default function SetupChecklist({ userId, bookingLink, initialStatus }: S
     );
   }
 
-  if (!status || status.allComplete) return null;
+  if (!status || status.allComplete || status.dismissed || closed) return null;
 
   const progressPct = Math.round((status.completedCount / status.totalSteps) * 100);
   // Find the first incomplete step to highlight
@@ -159,30 +177,41 @@ export default function SetupChecklist({ userId, bookingLink, initialStatus }: S
   return (
     <div className="rounded-2xl border border-yellow-400/20 bg-gradient-to-b from-slate-900 to-slate-900/80 p-5">
       {/* Header */}
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="flex w-full items-center justify-between"
-      >
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400/15">
-            <Rocket className="h-4 w-4 text-yellow-400" />
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="flex min-w-0 flex-1 items-center justify-between"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400/15">
+              <Rocket className="h-4 w-4 text-yellow-400" />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-bold text-white">
+                Get Started
+              </p>
+              <p className="text-[10px] text-stone-500">
+                {status.completedCount} of {status.totalSteps} complete
+              </p>
+            </div>
           </div>
-          <div className="text-left">
-            <p className="text-sm font-bold text-white">
-              Get Started
-            </p>
-            <p className="text-[10px] text-stone-500">
-              {status.completedCount} of {status.totalSteps} complete
-            </p>
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold text-yellow-400">{progressPct}%</span>
+            <ChevronRight
+              className={`h-4 w-4 text-stone-500 transition-transform ${collapsed ? "" : "rotate-90"}`}
+            />
           </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-bold text-yellow-400">{progressPct}%</span>
-          <ChevronRight
-            className={`h-4 w-4 text-stone-500 transition-transform ${collapsed ? "" : "rotate-90"}`}
-          />
-        </div>
-      </button>
+        </button>
+        <button
+          type="button"
+          onClick={handleClose}
+          className="shrink-0 rounded-lg p-1.5 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+          aria-label="Close Get Started"
+          title="Close"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
 
       {/* Progress Bar */}
       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-800">
