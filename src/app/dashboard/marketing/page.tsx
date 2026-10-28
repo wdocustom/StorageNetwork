@@ -4,21 +4,17 @@ import { useEffect, useState } from "react";
 import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { getInstallerLink } from "@/lib/utils";
 import { logActivityClient } from "@/lib/activity-client";
-import {
-  Copy,
-  Check,
-  ExternalLink,
-  Megaphone,
-  ArrowLeft,
-  Loader2,
-  Sparkles,
-} from "lucide-react";
+import { Copy, Check, ExternalLink, Loader2, Sparkles } from "lucide-react";
 import AIScriptGenerator from "@/components/dashboard/AIScriptGenerator";
-import AssetForge from "@/components/dashboard/AssetForge";
+import { ASSET_FORGE_ENABLED } from "@/config/features";
+import dynamic from "next/dynamic";
 import IGSalesImages from "@/components/dashboard/IGSalesImages";
 import InstallerPostTemplates from "@/components/dashboard/InstallerPostTemplates";
-import ProPill from "@/components/dashboard/ProPill";
 import Link from "next/link";
+import PageHeader from "@/components/dashboard/PageHeader";
+
+// Loaded only when switched on, so its code isn't shipped otherwise.
+const AssetForge = dynamic(() => import("@/components/dashboard/AssetForge"));
 
 interface UserProfile {
   id: string;
@@ -81,21 +77,7 @@ export default function MarketingPage() {
   return (
     <div className="min-h-screen bg-slate-950">
       {/* ── Header ──────────────────────────────────────────────── */}
-      <header className="border-b border-slate-800 bg-slate-900 px-4 py-4">
-        <div className="mx-auto flex max-w-lg items-center gap-3 md:max-w-3xl lg:max-w-4xl">
-          <Link
-            href="/dashboard"
-            className="rounded-lg p-1.5 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <div className="flex-1 flex items-center gap-2">
-            <Megaphone className="h-5 w-5 text-yellow-400" />
-            <h1 className="text-lg font-bold text-white">Marketing</h1>
-          </div>
-          <ProPill link={bookingLink} />
-        </div>
-      </header>
+      <PageHeader title="Marketing" subtitle="Your booking link, posts and scripts" />
 
       <main className="mx-auto max-w-lg space-y-4 p-4 pt-5 md:max-w-3xl lg:max-w-4xl">
         {/* ── Booking Link Strip ────────────────────────────────── */}
@@ -150,8 +132,8 @@ export default function MarketingPage() {
           />
         </section>
 
-        {/* ── AI Asset Forge ──────────────────────────────────── */}
-        <AssetForge />
+        {/* ── AI Asset Forge (switched off, see config/features) ── */}
+        {ASSET_FORGE_ENABLED && <AssetForge />}
 
         {/* ── Admin-Only: IG Templates ──────────────────────────── */}
         {profile.is_admin && (

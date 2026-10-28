@@ -2,19 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import {
-  Briefcase,
-  ChevronRight,
-  Loader2,
-  Trash2,
-  X,
-  PenLine,
-  Link as LinkIcon,
-  UserPlus,
-  Inbox,
-  Mail,
-  Phone,
-} from "lucide-react";
+import { Briefcase, ChevronRight, Loader2, Trash2, PenLine, Link as LinkIcon, UserPlus, Inbox, Mail, Phone } from "lucide-react";
 import { deleteUnpaidQuote } from "@/app/actions/jobs";
 import {
   listQuoteRequests,
@@ -26,6 +14,7 @@ import { maskName } from "@/lib/mask";
 import { formatInstallDate } from "@/utils/installDate";
 import Link from "next/link";
 import { JOB_COLUMNS, JOBS_EXCLUDED, JOBS_OR, UNPAID_COLUMNS, unpaidOr } from "./queries";
+import PageHeader from "@/components/dashboard/PageHeader";
 // TODO: Re-enable calendar after fixing re-render issues
 // import JobCalendar from "@/components/calendar/JobCalendar";
 
@@ -162,12 +151,7 @@ export default function JobsView({
   return (
     <div className="min-h-screen bg-slate-950">
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <header className="border-b border-slate-800 bg-slate-900 px-4 py-3">
-        <div className="mx-auto max-w-2xl">
-          <h1 className="text-sm font-bold uppercase tracking-wider text-white">Jobs</h1>
-          <p className="text-[10px] text-stone-500">{leads.length} total</p>
-        </div>
-      </header>
+      <PageHeader title="Jobs" subtitle={`${leads.length} total`} sticky={false} />
 
       {/* ── Tabs ──────────────────────────────────────────────────────── */}
       <div className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/95 backdrop-blur">

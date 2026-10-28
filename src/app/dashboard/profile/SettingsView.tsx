@@ -62,6 +62,7 @@ import type { PortfolioPhoto } from "@/app/actions/profile";
 import type { ServiceOffering } from "@/config/services";
 import Link from "next/link";
 import { SETTINGS_PROFILE_COLUMNS } from "./columns";
+import PageHeader from "@/components/dashboard/PageHeader";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Profile & Settings Page
@@ -768,14 +769,11 @@ function ProfilePageInner({
   return (
     <div className="min-h-screen bg-slate-950">
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-4">
-        <div className="mx-auto max-w-lg md:max-w-3xl lg:max-w-4xl">
-          <h1 className="text-sm font-bold uppercase tracking-wider text-white">Settings</h1>
-          <p className="text-[11px] text-stone-500">
-            {profile?.business_name || profile?.first_name || "Manage your account"}
-          </p>
-        </div>
-      </header>
+      <PageHeader
+        title="Settings"
+        subtitle={profile?.business_name || profile?.first_name || "Manage your account"}
+        back="/dashboard/more"
+      />
 
       <main className="mx-auto max-w-lg space-y-4 p-4 md:max-w-3xl lg:max-w-4xl">
 
@@ -2162,7 +2160,6 @@ function ProfilePageInner({
             </section>
           </div>
         )}
-
       </main>
       {/* ═══════════════════════════════════════════════════════════════════
           Change Password Modal

@@ -1,24 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  Activity,
-  BarChart3,
-  BookOpen,
-  Building2,
-  CalendarOff,
-  ChevronRight,
-  DollarSign,
-  Gift,
-  Package,
-  Settings,
-  Share2,
-  Users,
-  Zap,
-  type LucideIcon,
-} from "lucide-react";
+import { Activity, BarChart3, BookOpen, Building2, CalendarOff, ChevronRight, DollarSign, Gift, Package, Settings, Share2, Users, Zap, type LucideIcon } from "lucide-react";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import SignOutButton from "@/components/dashboard/SignOutButton";
+import PageHeader from "@/components/dashboard/PageHeader";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // More — every dashboard tool that isn't one of the four main tabs.
@@ -78,9 +64,7 @@ export default async function MorePage() {
 
   return (
     <div className="min-h-screen bg-slate-950">
-      <header className="border-b border-slate-800 bg-slate-900 px-4 py-4">
-        <h1 className="mx-auto max-w-3xl text-sm font-bold uppercase tracking-wider text-white">More</h1>
-      </header>
+      <PageHeader title="More" />
       <main className="px-4 py-5 sm:px-6">
         <div className="mx-auto max-w-3xl space-y-5">
           {groups.map((g) => (

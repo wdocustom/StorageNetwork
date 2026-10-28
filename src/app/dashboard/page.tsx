@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
@@ -7,7 +6,6 @@ import { AlertCircle, ChevronRight, Settings } from "lucide-react";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import { loadToday } from "@/lib/server/dashboard-today";
-import { siteConfig } from "@/config/site";
 import { getInstallerLink } from "@/lib/utils";
 import { todayInstallDateKey } from "@/utils/installDate";
 import SetupChecklist from "@/components/dashboard/SetupChecklist";
@@ -18,6 +16,7 @@ import PromoBanner from "@/components/dashboard/PromoBanner";
 import ProPill from "@/components/dashboard/ProPill";
 import TodayJobs from "@/components/dashboard/TodayJobs";
 import TodayInsights, { TodayInsightsSkeleton } from "@/components/dashboard/TodayInsights";
+import PageHeader from "@/components/dashboard/PageHeader";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Today — the dashboard home. Rendered on the server from one parallel load
@@ -75,42 +74,35 @@ export default async function TodayPage() {
   return (
     <div className="min-h-screen bg-slate-950">
       {/* ── Header ── */}
-      <header className="border-b border-slate-800 bg-slate-900 px-4 py-3">
-        <div className="mx-auto flex max-w-3xl items-center gap-3">
-          <Image
-            src={siteConfig.logoPath}
-            alt={siteConfig.name}
-            width={40}
-            height={40}
-            className="h-10 w-auto shrink-0 object-contain lg:hidden"
-          />
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-sm font-bold uppercase tracking-wider text-white">{welcomeName}</h1>
-            <p className="text-[11px] text-stone-500">Today</p>
-          </div>
-          {trial.onTrial ? (
+      <PageHeader
+        title="Today"
+        subtitle={welcomeName}
+        actions={
+          <>
+            {trial.onTrial ? (
+              <Link
+                href="/upgrade"
+                className={`rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-widest ${
+                  trial.jobCapReached ? "bg-amber-400/15 text-amber-400" : "bg-purple-400/15 text-purple-400"
+                }`}
+              >
+                {trial.jobCapReached
+                  ? "Trial · cap reached"
+                  : `Trial · ${trial.jobsRemaining} ${trial.jobsRemaining === 1 ? "job" : "jobs"} left`}
+              </Link>
+            ) : (
+              <ProPill link={leadLink} />
+            )}
             <Link
-              href="/upgrade"
-              className={`rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-widest ${
-                trial.jobCapReached ? "bg-amber-400/15 text-amber-400" : "bg-purple-400/15 text-purple-400"
-              }`}
+              href="/dashboard/profile"
+              className="rounded-lg p-2 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+              title="Settings"
             >
-              {trial.jobCapReached
-                ? "Trial · cap reached"
-                : `Trial · ${trial.jobsRemaining} ${trial.jobsRemaining === 1 ? "job" : "jobs"} left`}
+              <Settings className="h-5 w-5" />
             </Link>
-          ) : (
-            <ProPill link={leadLink} />
-          )}
-          <Link
-            href="/dashboard/profile"
-            className="rounded-lg p-2 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
-            title="Settings"
-          >
-            <Settings className="h-5 w-5" />
-          </Link>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <main className="px-4 py-5 sm:px-6">
         <div className="mx-auto w-full max-w-3xl space-y-4">

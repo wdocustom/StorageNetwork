@@ -1,36 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode, type ComponentType } from "react";
-import {
-  ArrowLeft,
-  BarChart3,
-  Eye,
-  TrendingUp,
-  DollarSign,
-  Monitor,
-  Smartphone,
-  Tablet,
-  Globe,
-  Loader2,
-  Calendar,
-  Activity,
-  ChevronDown,
-  QrCode,
-  MapPin,
-  Zap,
-  Target,
-  Briefcase,
-  Users,
-  Star,
-  ArrowRight,
-  TrendingDown,
-  Pencil,
-  User,
-  CheckCircle,
-  Award,
-  Package,
-  Filter,
-} from "lucide-react";
+import { BarChart3, Eye, TrendingUp, DollarSign, Monitor, Smartphone, Tablet, Globe, Loader2, Calendar, Activity, ChevronDown, QrCode, MapPin, Zap, Target, Briefcase, Users, Star, ArrowRight, TrendingDown, Pencil, User, CheckCircle, Award, Package, Filter } from "lucide-react";
 import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import {
   getInstallerAnalytics,
@@ -39,8 +10,7 @@ import {
   type QRScanSummary,
   type GroupedReferrer,
 } from "@/app/actions/analytics";
-import ProPill from "@/components/dashboard/ProPill";
-import Link from "next/link";
+import PageHeader from "@/components/dashboard/PageHeader";
 
 type TimeRange = 7 | 30 | 90;
 
@@ -177,19 +147,10 @@ export default function AnalyticsPage() {
     <div className="min-h-screen bg-slate-950">
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/95 px-4 py-3.5 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-5xl items-center gap-3">
-          <Link
-            href="/dashboard"
-            className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <div className="flex-1">
-            <h1 className="text-sm font-bold uppercase tracking-widest text-white">
-              Intelligence Dashboard
-            </h1>
-          </div>
+      <PageHeader
+        title="Analytics"
+        back="/dashboard/more"
+        actions={
           <div className="flex gap-1">
             {([7, 30, 90] as TimeRange[]).map((r) => (
               <button
@@ -205,9 +166,8 @@ export default function AnalyticsPage() {
               </button>
             ))}
           </div>
-          <ProPill />
-        </div>
-      </header>
+        }
+      />
 
       <main className="mx-auto max-w-5xl space-y-5 p-4">
 

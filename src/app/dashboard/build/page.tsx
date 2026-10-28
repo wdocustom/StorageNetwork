@@ -26,11 +26,10 @@ import { type MaterialBreakdown, type MaterialPrices } from "@/utils/calculateMa
 import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
 import { type MaterialInventory, normalizeInventory } from "@/utils/inventoryManager";
 import type { MaterialPricingConfig } from "@/app/actions/material-pricing";
-import { ArrowLeft, HardHat, Loader2, PenLine, UserPlus } from "lucide-react";
+import { HardHat, Loader2, PenLine, UserPlus } from "lucide-react";
 
 import BookingModal from "@/components/booking/BookingModal";
 import type { InstallerPricing } from "@/types/viewModels";
-import ProPill from "@/components/dashboard/ProPill";
 import { getBuildFeeBreakdown, getEstimatedSalesTax, type BuildFeeBreakdown } from "@/app/actions/fee-engine";
 import { logActivityClient } from "@/lib/activity-client";
 
@@ -49,6 +48,7 @@ import type { UnitConfig as BuildUnitConfig, UnitOption } from "@/components/bui
 import { isRackUnit, optionPriceDelta, slotsOf } from "@/components/build/unitOptions";
 import BlueprintCanvas from "@/components/visualizer/BlueprintCanvas";
 import Link from "next/link";
+import PageHeader from "@/components/dashboard/PageHeader";
 
 const AssemblyGuide = lazy(() => import("@/components/visualizer/AssemblyGuide"));
 
@@ -1501,25 +1501,7 @@ export default function BuildConfiguratorPage() {
   return (
     <div className="min-h-screen bg-slate-950">
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-3">
-        <div className="mx-auto flex max-w-2xl items-center gap-3">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-1 text-sm text-stone-400 hover:text-yellow-400"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <div className="flex-1">
-            <h1 className="text-sm font-bold uppercase tracking-wider text-white">
-              Build Configurator
-            </h1>
-            <p className="text-[10px] text-stone-500">
-              Estimate, Quote & New Build
-            </p>
-          </div>
-          <ProPill />
-        </div>
-      </header>
+      <PageHeader title="Quote" subtitle="Price a job and send the customer a pay link" />
 
       {(repeatFromLeadId || quoteRequest) && !editingLeadId && (
         <div className="border-b border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5">
@@ -1607,17 +1589,6 @@ export default function BuildConfiguratorPage() {
           installerPricing={installerPricing}
           onTileTap={(type) => setActiveDrawer(type)}
         />
-
-        {/* ── Back Link ──────────────────────────────────────────────── */}
-        <div className="pb-2 text-center">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-stone-500 hover:text-yellow-400"
-          >
-            <ArrowLeft className="h-3 w-3" />
-            Back to Dashboard
-          </Link>
-        </div>
       </main>
 
       {/* ═══════════════════════════════════════════════════════════════════
