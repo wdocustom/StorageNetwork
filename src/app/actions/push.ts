@@ -2,7 +2,7 @@
 
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
-import { pushToUser } from "@/lib/server/push";
+import { pushConfigured, pushToUser } from "@/lib/server/push";
 
 // Installer push subscriptions — always for the signed-in installer's own
 // devices. Sending lives in @/lib/server/push.
@@ -47,14 +47,19 @@ export async function removePushSubscription(endpoint: string): Promise<{ succes
   return { success: true };
 }
 
-export async function sendTestPush(): Promise<{ success: boolean }> {
+/**
+ * Send this installer a test notification. `configured` false means the
+ * server keys aren't set; `sent` 0 with configured true means no device of
+ * theirs accepted it (not subscribed, or the push service refused).
+ */
+export async function sendTestPush(): Promise<{ success: boolean; configured: boolean; sent: number }> {
   const user = await getAuthenticatedUser();
-  if (!user) return { success: false };
-  await pushToUser(user.id, {
+  if (!user) return { success: false, configured: pushConfigured(), sent: 0 };
+  const sent = await pushToUser(user.id, {
     title: "Notifications are on",
     body: "You'll hear about new bookings, payments and customers opening your quotes.",
     url: "/dashboard",
     tag: "test",
   });
-  return { success: true };
+  return { success: sent > 0, configured: pushConfigured(), sent };
 }
