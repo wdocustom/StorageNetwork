@@ -18,7 +18,7 @@ import OverheadStorageDropdown from "@/components/design/OverheadStorageDropdown
 import RaisedBedDropdown from "@/components/design/RaisedBedDropdown";
 import ChairDropdown from "@/components/design/ChairDropdown";
 import ContactInstallerCard from "@/components/design/ContactInstallerCard";
-import { ChairCustomization } from "@/components/design/steps/StepAddons";
+import { ChairCustomization } from "@/components/design/ChairCustomization";
 import { getChairDescription } from "@/lib/chairs";
 import type { BestsellerPreset } from "@/lib/presets";
 import { presetTotesChoice } from "@/lib/studio";

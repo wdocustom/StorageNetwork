@@ -6,11 +6,7 @@ import { RAISED_BED_SIZES } from "@/lib/raised-beds";
 import type { DesignPageViewModel } from "@/types/viewModels";
 import type { UnitConfig, ToteType, ToteColor } from "./types";
 
-function buildMultiUnitItem(
-  item: UnitConfig,
-  expandedIdx: number,
-  unitVisibility: Record<number, boolean>,
-) {
+function buildMultiUnitItem(item: UnitConfig) {
   const shelvingConfig3D = item.shelvingConfigId
     ? (() => {
         const cfg = SHELVING_CONFIGS.find((c) => c.id === item.shelvingConfigId);
@@ -65,7 +61,7 @@ function buildMultiUnitItem(
     presetUnits: item.presetUnits,
     drawerSlideRows: item.drawerSlideRows,
     drawerSlideColumns: item.drawerSlideColumns,
-    visible: unitVisibility[expandedIdx] !== false,
+    visible: true,
     desc: item.desc,
   };
 }
@@ -77,20 +73,6 @@ interface UseOrderCartParams {
 
 export function useOrderCart({ initialConfig, pricing }: UseOrderCartParams) {
   const [orderItems, setOrderItems] = useState<UnitConfig[]>([]);
-  const [unitVisibility, setUnitVisibility] = useState<Record<number, boolean>>({});
-  const [showMultiUnit3D, setShowMultiUnit3D] = useState(false);
-
-  const initialStep = initialConfig ? (Array.isArray(initialConfig.units) ? 4 : typeof initialConfig.cols === "number" ? 3 : 1) : 1;
-  const [sidebarStep, setSidebarStep] = useState(initialStep);
-
-  // Step ↔ multiUnit3D sync
-  useEffect(() => {
-    if (sidebarStep === 4 && orderItems.length > 0) {
-      setShowMultiUnit3D(true);
-    } else if (sidebarStep <= 3) {
-      setShowMultiUnit3D(false);
-    }
-  }, [sidebarStep, orderItems.length]);
 
   // Apply initial config from URL param (multi-unit)
   const configApplied = useRef(false);
@@ -131,41 +113,13 @@ export function useOrderCart({ initialConfig, pricing }: UseOrderCartParams) {
         }
       })();
     }
-    // Single unit and preset configs are handled by the orchestrator setting state on useUnitBuilder/usePresets
+    // Single-unit and bestseller links are seeded by useStudio
   }, [initialConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // multiUnitItems is the SHAPE of the cart for consumers that need cart
-  // data (the 2D blueprint fallback in particular). It is intentionally NOT
-  // gated on showMultiUnit3D: when the user steps back from 4 to 3 to edit a
-  // previously-configured unit, the cart contents must remain available so
-  // the 2D path can keep rendering the configured rack instead of falling
-  // back to stale builder state (which is what caused the 6-high → 5-high
-  // reversion bug). The step-gated showMultiUnit3D flag still controls
-  // whether the 3D scene swaps to the multi-unit composition.
+  // Every unit in the order, quantities expanded, for the whole-system 3D
   const multiUnitItems = useMemo(() => {
     if (orderItems.length === 0) return undefined;
-    const items: Array<ReturnType<typeof buildMultiUnitItem>> = [];
-    let expandedIdx = 0;
-    for (let i = 0; i < orderItems.length; i++) {
-      const item = orderItems[i];
-      const qty = item.quantity || 1;
-      for (let q = 0; q < qty; q++) {
-        items.push(buildMultiUnitItem(item, expandedIdx, unitVisibility));
-        expandedIdx++;
-      }
-    }
-    return items;
-  }, [orderItems, unitVisibility]);
-
-  const expandedMultiUnitDescs = useMemo(() => {
-    const descs: Array<{ desc: string }> = [];
-    for (const item of orderItems) {
-      const qty = item.quantity || 1;
-      for (let q = 0; q < qty; q++) {
-        descs.push({ desc: qty > 1 ? `${item.desc} (#${q + 1})` : item.desc });
-      }
-    }
-    return descs;
+    return orderItems.flatMap((item) => Array.from({ length: item.quantity || 1 }, () => buildMultiUnitItem(item)));
   }, [orderItems]);
 
   const anyHasWheels = useMemo(() => orderItems.some((it) => it.hasWheels), [orderItems]);
@@ -181,33 +135,12 @@ export function useOrderCart({ initialConfig, pricing }: UseOrderCartParams) {
     );
   }, []);
 
-  const handleToggleAllUnits = useCallback((visible: boolean, items: UnitConfig[]) => {
-    const newVis: Record<number, boolean> = {};
-    let idx = 0;
-    items.forEach((item) => {
-      const qty = item.quantity || 1;
-      for (let q = 0; q < qty; q++) { newVis[idx++] = visible; }
-    });
-    setUnitVisibility(newVis);
-  }, []);
-
-  const handleUnitVisibilityChange = useCallback((index: number, visible: boolean) => {
-    setUnitVisibility((prev) => ({ ...prev, [index]: visible }));
-  }, []);
-
   return {
     orderItems, setOrderItems,
-    unitVisibility,
-    showMultiUnit3D, setShowMultiUnit3D,
-    sidebarStep, setSidebarStep,
-    initialStep,
     multiUnitItems,
-    expandedMultiUnitDescs,
     anyHasWheels,
     maxCols,
     handleRemoveUnit,
     handleQuantityChange,
-    handleToggleAllUnits,
-    handleUnitVisibilityChange,
   };
 }

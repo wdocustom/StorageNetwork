@@ -42,7 +42,6 @@ interface PricedTote {
 }
 
 interface UseStudioParams {
-  enabled: boolean;
   orderItems: UnitConfig[];
   setOrderItems: React.Dispatch<React.SetStateAction<UnitConfig[]>>;
   pricing: Pricing;
@@ -65,7 +64,7 @@ function presetKey(item: UnitConfig, preset: BestsellerPreset): string {
   return JSON.stringify([preset.id, item.hasTotes]);
 }
 
-export function useStudio({ enabled, orderItems, setOrderItems, pricing, rules, paintPrices, initialConfig }: UseStudioParams) {
+export function useStudio({ orderItems, setOrderItems, pricing, rules, paintPrices, initialConfig }: UseStudioParams) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [addingPreset, setAddingPreset] = useState<string | null>(null);
 
@@ -104,10 +103,9 @@ export function useStudio({ enabled, orderItems, setOrderItems, pricing, rules, 
     return { totes, presets };
   }, [orderItems, cacheVersion]);
 
-  const repricing = enabled && (missing.totes.length > 0 || missing.presets.length > 0);
+  const repricing = missing.totes.length > 0 || missing.presets.length > 0;
 
   useEffect(() => {
-    if (!enabled) return;
     // Apply what's cached (also after a fetch lands)
     setOrderItems((prev) => {
       let changed = false;
@@ -140,10 +138,10 @@ export function useStudio({ enabled, orderItems, setOrderItems, pricing, rules, 
     });
     // paintKey stands in for paintPrices (a new object every render)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, cacheVersion, orderItems, setOrderItems, paintKey]);
+  }, [cacheVersion, orderItems, setOrderItems, paintKey]);
 
   useEffect(() => {
-    if (!enabled || (missing.totes.length === 0 && missing.presets.length === 0)) return;
+    if (missing.totes.length === 0 && missing.presets.length === 0) return;
     const t = setTimeout(() => {
       for (const item of missing.totes) {
         const sig = toteUnitSignature(item);
@@ -197,7 +195,7 @@ export function useStudio({ enabled, orderItems, setOrderItems, pricing, rules, 
       }
     }, REPRICE_DELAY_MS);
     return () => clearTimeout(t);
-  }, [enabled, missing, pricing, pricingKey]);
+  }, [missing, pricing, pricingKey]);
 
   // ── Selection follows the cart ─────────────────────────────────────────
   const prevLength = useRef(orderItems.length);
@@ -342,7 +340,7 @@ export function useStudio({ enabled, orderItems, setOrderItems, pricing, rules, 
   //    useServiceArea.
   const seeded = useRef(false);
   useEffect(() => {
-    if (!enabled || seeded.current) return;
+    if (seeded.current) return;
     seeded.current = true;
     if (Array.isArray(initialConfig?.units)) return;
     const cfg = initialConfig ?? {};
@@ -366,7 +364,7 @@ export function useStudio({ enabled, orderItems, setOrderItems, pricing, rules, 
     // (useServiceArea) lands first and must win over the default unit.
     setOrderItems((prev) => (prev.length > 0 ? prev : [first]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled]);
+  }, []);
 
   return {
     activeIndex,

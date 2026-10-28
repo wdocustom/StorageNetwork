@@ -1,18 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getDepositAmount, getDepositLabel } from "@/app/actions/fee-engine";
 import type { DeliveryFeeResult } from "@/app/actions/delivery-fee";
-import type { PaintColorId, DesignPageViewModel } from "@/types/viewModels";
 import type { UnitConfig } from "./types";
 
 interface UsePricingParams {
   orderItems: UnitConfig[];
   deliveryFeeResult: DeliveryFeeResult | null;
   cleanoutPrice: number;
-  paintFrameColor: PaintColorId | null;
-  paintDoorColor: PaintColorId | null;
-  paintSidePanelColor: PaintColorId | null;
-  pricing: DesignPageViewModel["pricing"] | undefined;
-  addonDefaults: DesignPageViewModel["addonDefaults"] | undefined;
   installerId: string;
 }
 
@@ -20,11 +14,6 @@ export function usePricing({
   orderItems,
   deliveryFeeResult,
   cleanoutPrice,
-  paintFrameColor,
-  paintDoorColor,
-  paintSidePanelColor,
-  pricing,
-  addonDefaults,
   installerId,
 }: UsePricingParams) {
   const [discountInput, setDiscountInput] = useState("");
@@ -44,26 +33,15 @@ export function usePricing({
     [deliveryFeeResult],
   );
 
-  const paintFramePrice = useMemo(
-    () => paintFrameColor ? (pricing?.addon_pricing?.paint_frame_price ?? addonDefaults?.paint_frame_price ?? 75) : 0,
-    [paintFrameColor, pricing?.addon_pricing?.paint_frame_price, addonDefaults?.paint_frame_price],
-  );
-  const paintDoorsPanelsPrice = useMemo(
-    () => pricing?.addon_pricing?.paint_doors_panels_price ?? addonDefaults?.paint_doors_panels_price ?? 30,
-    [pricing?.addon_pricing?.paint_doors_panels_price, addonDefaults?.paint_doors_panels_price],
-  );
-  const paintDoorCost = useMemo(() => paintDoorColor ? paintDoorsPanelsPrice : 0, [paintDoorColor, paintDoorsPanelsPrice]);
-  const paintPanelCost = useMemo(() => paintSidePanelColor ? paintDoorsPanelsPrice : 0, [paintSidePanelColor, paintDoorsPanelsPrice]);
-  const paintTotal = useMemo(() => paintFramePrice + paintDoorCost + paintPanelCost, [paintFramePrice, paintDoorCost, paintPanelCost]);
-
   const indoorDeliveryTotal = useMemo(
     () => orderItems.reduce((sum, it) => sum + (it.indoorDelivery && it.indoorDeliveryFee ? it.indoorDeliveryFee * (it.quantity || 1) : 0), 0),
     [orderItems],
   );
 
   const grandTotal = useMemo(
-    () => Math.max(0, buildTotal + deliveryFeeAmount + cleanoutPrice + paintTotal + indoorDeliveryTotal - (discountApplied?.amount || 0)),
-    [buildTotal, deliveryFeeAmount, cleanoutPrice, paintTotal, indoorDeliveryTotal, discountApplied?.amount],
+    // Paint is part of each unit's line price (the studio adds it per unit)
+    () => Math.max(0, buildTotal + deliveryFeeAmount + cleanoutPrice + indoorDeliveryTotal - (discountApplied?.amount || 0)),
+    [buildTotal, deliveryFeeAmount, cleanoutPrice, indoorDeliveryTotal, discountApplied?.amount],
   );
 
   const [depositAmount, setDepositAmount] = useState(0);
@@ -113,7 +91,6 @@ export function usePricing({
     discountError, setDiscountError,
     buildTotal,
     deliveryFeeAmount,
-    paintTotal,
     indoorDeliveryTotal,
     grandTotal,
     depositAmount,

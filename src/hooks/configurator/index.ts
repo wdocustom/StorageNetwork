@@ -1,5 +1,4 @@
 export { useInstallerContext, getInstallerCookie, setInstallerCookie } from "./useInstallerContext";
-export { useUnitBuilder } from "./useUnitBuilder";
 export { usePresets } from "./usePresets";
 export { useProductAddons } from "./useProductAddons";
 export { useOrderCart } from "./useOrderCart";
@@ -12,7 +11,6 @@ export type {
   ToteType,
   ToteColor,
   UnitConfig,
-  ServerBuild,
   SavedSignalData,
   DesignConfiguratorProps,
 } from "./types";

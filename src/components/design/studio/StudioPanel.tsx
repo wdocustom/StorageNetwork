@@ -208,7 +208,7 @@ export default function StudioPanel({
             )}
 
             {/* Build-it-yourself alternative, as the step-by-step flow offered from step 3 on */}
-            {items.length > 0 && <DIYPlansCTA props={props} activeStep={4} />}
+            {items.length > 0 && <DIYPlansCTA props={props} />}
           </>
         )}
       </div>

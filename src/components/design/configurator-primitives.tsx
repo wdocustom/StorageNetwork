@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { motion, AnimatePresence, useSpring, useTransform } from "framer-motion";
 import { CheckCircle2 } from "lucide-react";
 
@@ -17,52 +17,6 @@ export function RollingPrice({ value }: { value: number }) {
     <motion.span className="tabular-nums">
       {display}
     </motion.span>
-  );
-}
-
-/** Focus Frame wrapper for inputs — glowing border + label lift on focus */
-export function FocusFrame({
-  label,
-  children,
-  pulsing = false,
-}: {
-  label: string;
-  children: React.ReactNode;
-  pulsing?: boolean;
-}) {
-  const [focused, setFocused] = useState(false);
-
-  return (
-    <motion.div
-      className={`relative rounded-xl border-2 p-3 transition-colors ${
-        focused
-          ? "border-yellow-400 bg-zinc-900/80 shadow-[0_0_16px_rgba(250,204,21,0.15)]"
-          : "border-zinc-700/60 bg-zinc-900/50"
-      }`}
-      animate={pulsing ? {
-        borderColor: ["rgba(113,113,122,0.6)", "rgba(250,204,21,0.8)", "rgba(113,113,122,0.6)"],
-        boxShadow: [
-          "0 0 0px rgba(250,204,21,0)",
-          "0 0 20px rgba(250,204,21,0.3)",
-          "0 0 0px rgba(250,204,21,0)",
-        ],
-      } : {}}
-      transition={pulsing ? { duration: 1.2, repeat: 2, ease: "easeInOut" } : {}}
-      onFocusCapture={() => setFocused(true)}
-      onBlurCapture={() => setFocused(false)}
-    >
-      <motion.label
-        className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest"
-        animate={{
-          color: focused ? "#facc15" : "#a1a1aa",
-          y: focused ? -2 : 0,
-        }}
-        transition={{ type: "spring", stiffness: 300, damping: 20 }}
-      >
-        {label}
-      </motion.label>
-      {children}
-    </motion.div>
   );
 }
 

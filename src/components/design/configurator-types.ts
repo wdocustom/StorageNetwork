@@ -1,5 +1,3 @@
-import type { LucideIcon } from "lucide-react";
-import { Ruler, Settings2, Palette, ShoppingCart } from "lucide-react";
 import type { SectionAddon, AddonPricing, PaintColorId } from "@/types/viewModels";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -48,59 +46,11 @@ export interface UnitConfig {
   indoorDeliveryFee?: number;
 }
 
-export interface ServerBuild {
-  cols: number;
-  rows: number;
-  price: number;
-  totalW: number;
-  totalH: number;
-  depth: number;
-  slots: number;
-  unitType: UnitType;
-  orientation: Orientation;
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // Props — Everything the parent DesignConfigurator passes in
 // ═══════════════════════════════════════════════════════════════════════════
 
 export interface ConfiguratorSidebarProps {
-  // Step 1: Dimensions
-  wallWidth: string;
-  wallHeight: string;
-  onWallWidthChange: (v: string) => void;
-  onWallHeightChange: (v: string) => void;
-  onWallFit: () => void;
-  wallFitMsg: string;
-  buildLoading: boolean;
-  cols: number | string;
-  rows: number | string;
-  onColsChange: (v: number | string) => void;
-  onRowsChange: (v: number | string) => void;
-
-  // Step 2: Configuration
-  unitType: UnitType;
-  orientation: Orientation;
-  onUnitTypeChange: (v: UnitType) => void;
-  onOrientationChange: (v: Orientation) => void;
-  toteType: ToteType;
-  toteColor: ToteColor;
-  onToteTypeChange: (v: ToteType) => void;
-  onToteColorChange: (v: ToteColor) => void;
-  hasTotes: boolean;
-  hasWheels: boolean;
-  hasTop: boolean;
-  onHasTotesChange: (v: boolean) => void;
-  onHasWheelsChange: (v: boolean) => void;
-  onHasTopChange: (v: boolean) => void;
-  effectiveHasTop: boolean;
-  miniDisabled?: boolean;
-  /** When true, totes are globally disabled — hide all tote options */
-  totesDisabled?: boolean;
-  /** When true, 2x4 rail construction mode is active — 21" universal openings, max 6 rows
-   *  (the 6-high case uses the full 96" 2x4 stock as the upright with no cut). */
-  use2x4Rails?: boolean;
-
   // Pricing info for toggle labels
   pricing?: {
     standard_tote?: number;
@@ -120,44 +70,13 @@ export interface ConfiguratorSidebarProps {
     plywood_top: number;
   };
 
-  // Build result
-  build: ServerBuild;
-  onAddUnit: () => void;
-
-  // Preset
-  activePreset: string | null;
-  onPresetChange: (v: string | null) => void;
-  presetOptions: Array<{
-    id: string;
-    name: string;
-    units: Array<{ cols: number; rows: number; hasTop: boolean; hasWheels: boolean }>;
-    toteColor?: string;
-    toteModel?: string;
-  }>;
-  compoundBuild: {
-    totalPrice: number;
-    presetName: string;
-    subUnits: Array<{ cols: number; rows: number; slots: number; totalW: number; totalH: number }>;
-  } | null;
-  presetLoading: boolean;
-  presetTotes: boolean;
-  onPresetTotesChange: (v: boolean) => void;
-  onAddPresetUnit: () => boolean;
-  activePresetObj: {
-    name: string;
-    toteColor: string;
-    units: Array<{ hasTop: boolean; hasWheels: boolean }>;
-  } | null;
-
   // Step 4: Summary / Quote
   orderItems: UnitConfig[];
   onRemoveUnit: (index: number) => void;
   onQuantityChange: (index: number, quantity: number) => void;
   grandTotal: number;
   deliveryFeeAmount: number;
-  deliveryFeeResult: { applicable: boolean; fee: number; distance?: number } | null;
   depositAmount: number;
-  depositLabelText: string;
   stripeAccountId: string | null;
 
   // Booking form
@@ -233,8 +152,6 @@ export interface ConfiguratorSidebarProps {
 
   // Contact installer
   installerId: string;
-  installerSlug: string | null;
-  installerPhone: string | null;
   brandingTitle: string;
   showContactForm: boolean;
   onShowContactFormChange: (v: boolean) => void;
@@ -261,20 +178,8 @@ export interface ConfiguratorSidebarProps {
   discountError: string;
   onApplyDiscount: () => void;
   onRemoveDiscount: () => void;
-
-  // Organizer Customization (per-section addons)
-  addons: SectionAddon[];
-  onAddonsChange: (addons: SectionAddon[]) => void;
   addonPricing?: AddonPricing;
   addonDefaults?: { plywood_door: number; side_panel: number; concealed_hinge_pair: number; rail_removal: number; shelf: number; paint_frame_price: number; paint_doors_panels_price: number };
-
-  // Paint options
-  paintFrameColor: PaintColorId | null;
-  paintDoorColor: PaintColorId | null;
-  paintSidePanelColor: PaintColorId | null;
-  onPaintFrameColorChange: (c: PaintColorId | null) => void;
-  onPaintDoorColorChange: (c: PaintColorId | null) => void;
-  onPaintSidePanelColorChange: (c: PaintColorId | null) => void;
 
   // Open Shelving add-on
   shelvingConfigId: string | null;
@@ -293,7 +198,6 @@ export interface ConfiguratorSidebarProps {
 
   // Raised Bed Planters
   raisedBedHidden?: boolean;
-  raisedBedPreviewPrice?: number | null;
   onRaisedBedPriceChange?: (price: number | null) => void;
   onAddRaisedBed: (config: import("@/lib/raised-beds").RaisedBedConfig, price: number, desc: string) => void;
   onRaisedBedPreview?: (preview: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover: string; finish: string; hasStringLightPost?: boolean; postHeightIn?: number } | null) => void;
@@ -317,32 +221,6 @@ export interface ConfiguratorSidebarProps {
   /** Installer pricing for chair calculations */
   chairInstallerPricing?: Record<string, unknown>;
 
-  // Indoor delivery fee
-  indoorDeliveryConfig?: { enabled: boolean; fee: number };
-  indoorDelivery: boolean;
-  onIndoorDeliveryChange: (v: boolean) => void;
-
-  // Multi-unit 3D visualization
-  showMultiUnit3D: boolean;
-  onShowMultiUnit3DChange: (v: boolean) => void;
-
-  /** When set, auto-advance to this step on mount (from pre-filled config) */
-  initialStep?: number;
-  unitVisibility: Record<number, boolean>;
-  onUnitVisibilityChange: (index: number, visible: boolean) => void;
-  onToggleAllUnits: (visible: boolean) => void;
-
-  // Pulse trigger — called after "Find Max" updates inputs
-  // UI_TRIGGER: When this fires, the 3D model should animate/highlight
-  // to draw attention to the updated configuration.
-  onPulseVisualizerTrigger?: () => void;
-
-  /** Called when the active sidebar step changes (1-4) */
-  onStepChange?: (step: number) => void;
-
-  /** Parent-driven step override (e.g., Design Assistant adding units jumps to step 4) */
-  forceStep?: number;
-
   // Trial cap waitlist (installer at 3-job limit — "hostage lead")
   installerAtCapacity: boolean;
   trialCapWaitlistSending: boolean;
@@ -350,14 +228,3 @@ export interface ConfiguratorSidebarProps {
   trialCapWaitlistError: string;
   onJoinTrialCapWaitlist: () => void;
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Steps Definition
-// ═══════════════════════════════════════════════════════════════════════════
-
-export const STEPS: readonly { id: number; label: string; icon: LucideIcon }[] = [
-  { id: 1, label: "Your Space", icon: Ruler },
-  { id: 2, label: "Choose Style", icon: Settings2 },
-  { id: 3, label: "Customize", icon: Palette },
-  { id: 4, label: "Book Install", icon: ShoppingCart },
-] as const;

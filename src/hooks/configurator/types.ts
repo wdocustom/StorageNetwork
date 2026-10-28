@@ -37,18 +37,6 @@ export interface UnitConfig {
   indoorDeliveryFee?: number;
 }
 
-export interface ServerBuild {
-  cols: number;
-  rows: number;
-  price: number;
-  totalW: number;
-  totalH: number;
-  depth: number;
-  slots: number;
-  unitType: UnitType;
-  orientation: Orientation;
-}
-
 export interface SavedSignalData {
   quoteData: unknown[] | null;
   sourceInstallerId: string | null;
@@ -67,6 +55,4 @@ export interface DesignConfiguratorProps {
   savedSignal?: SavedSignalData;
   initialInstallerAtCapacity?: boolean;
   initialConfig?: Record<string, unknown> | null;
-  /** Single-page design studio (the default) instead of the 4-step sidebar */
-  studio?: boolean;
 }
