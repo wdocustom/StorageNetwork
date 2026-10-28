@@ -2,6 +2,7 @@
 
 import { getServiceClient } from "@/lib/supabase-server";
 import { getAuthenticatedUser } from "@/lib/auth";
+import { computeSetupStatus, type SetupStatus } from "@/lib/server/setup-status";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Setup Checklist — Server Action
@@ -11,21 +12,7 @@ import { getAuthenticatedUser } from "@/lib/auth";
 // No cached booleans — always reflects the installer's actual progress.
 // ═══════════════════════════════════════════════════════════════════════════
 
-export interface ChecklistStep {
-  id: string;
-  label: string;
-  description: string;
-  completed: boolean;
-  ctaLabel: string;
-  ctaHref: string;
-}
-
-export interface SetupStatus {
-  steps: ChecklistStep[];
-  completedCount: number;
-  totalSteps: number;
-  allComplete: boolean;
-}
+export type { ChecklistStep, SetupStatus } from "@/lib/server/setup-status";
 
 const db = () => getServiceClient();
 
@@ -104,120 +91,5 @@ export async function completeChecklistStep(
 export async function getSetupStatus(userId: string): Promise<SetupStatus> {
   const user = await getAuthenticatedUser();
   if (!user || user.id !== userId) throw new Error("Not authorized");
-
-  // Run all queries in parallel for speed
-  const [activityRes, leadsRes, paidRes, profileRes] = await Promise.all([
-    // Check activity log for key actions
-    db()
-      .from("installer_activity_log")
-      .select("action, page_path")
-      .eq("installer_id", userId)
-      .in("action", ["copy_link", "social_generate", "social_share", "page_view", "group_finder_used", "instagram_visited"])
-      .limit(500),
-
-    // Check if installer has any leads (quotes sent)
-    db()
-      .from("leads")
-      .select("id", { count: "exact", head: true })
-      .eq("installer_id", userId),
-
-    // Check if installer has completed jobs
-    db()
-      .from("leads")
-      .select("id", { count: "exact", head: true })
-      .eq("installer_id", userId)
-      .eq("payout_status", "paid"),
-
-    // Get profile for Stripe status
-    db()
-      .from("profiles")
-      .select("stripe_account_id, slug")
-      .eq("id", userId)
-      .single(),
-  ]);
-
-  const activities = activityRes.data || [];
-  const actionSet = new Set(activities.map((a) => a.action as string));
-  const pageSet = new Set(
-    activities
-      .filter((a) => a.action === "page_view")
-      .map((a) => a.page_path as string)
-  );
-
-  const hasStripe = !!profileRes.data?.stripe_account_id;
-  const hasCopiedLink = actionSet.has("copy_link");
-  const hasSocialShare = actionSet.has("social_generate") || actionSet.has("social_share");
-  const hasVisitedBuild = pageSet.has("/dashboard/build") || pageSet.has("/build");
-  const hasGroupFinder = actionSet.has("group_finder_used");
-  const hasInstagramVisit = actionSet.has("instagram_visited");
-  const hasLeads = (leadsRes.count ?? 0) > 0;
-  const hasPaidJob = (paidRes.count ?? 0) > 0;
-
-  const steps: ChecklistStep[] = [
-    {
-      id: "stripe",
-      label: "Connect Stripe",
-      description: "Set up payments so you can get paid for jobs",
-      completed: hasStripe,
-      ctaLabel: "Connect Stripe",
-      ctaHref: "/dashboard/profile",
-    },
-    {
-      id: "copy_link",
-      label: "Copy your booking link",
-      description: "Your personal link tracks every customer back to you",
-      completed: hasCopiedLink,
-      ctaLabel: "Get Your Link",
-      ctaHref: "/dashboard/marketing",
-    },
-    {
-      id: "social_share",
-      label: "Share on social media",
-      description: "Use our post generator to create a professional Facebook or Instagram post",
-      completed: hasSocialShare,
-      ctaLabel: "Create a Post",
-      ctaHref: "/dashboard/marketing",
-    },
-    {
-      id: "create_quote",
-      label: "Create your first quote",
-      description: "Use the AI Builder to price a job in seconds",
-      completed: hasVisitedBuild || hasLeads,
-      ctaLabel: "Build a Quote",
-      ctaHref: "/dashboard/build",
-    },
-    {
-      id: "find_groups",
-      label: "Find local Facebook groups",
-      description: "Our AI Group Finder locates buy/sell groups in your area",
-      completed: hasGroupFinder,
-      ctaLabel: "Find Groups",
-      ctaHref: "/dashboard/marketing",
-    },
-    {
-      id: "visit_instagram",
-      label: "Follow us on Instagram",
-      description: "See builds, tips, and installer highlights from the Storage Network community",
-      completed: hasInstagramVisit,
-      ctaLabel: "Visit Instagram",
-      ctaHref: "https://www.instagram.com/storagenetwork.app/",
-    },
-    {
-      id: "first_job",
-      label: "Complete your first job",
-      description: "Land a customer, build it, mark it complete",
-      completed: hasPaidJob,
-      ctaLabel: "View Jobs",
-      ctaHref: "/dashboard/leads",
-    },
-  ];
-
-  const completedCount = steps.filter((s) => s.completed).length;
-
-  return {
-    steps,
-    completedCount,
-    totalSteps: steps.length,
-    allComplete: completedCount === steps.length,
-  };
+  return computeSetupStatus(userId);
 }
