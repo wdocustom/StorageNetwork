@@ -6,6 +6,7 @@ import { vi, describe, it, expect, beforeEach, beforeAll } from "vitest";
 
 let authedUser: { id: string } | null = { id: "installer-1" };
 vi.mock("@/lib/auth", () => ({ getAuthenticatedUser: vi.fn(async () => authedUser) }));
+vi.mock("@/lib/server/push", () => ({ pushToUser: vi.fn(async () => {}), pushToEmail: vi.fn(async () => {}) }));
 vi.mock("@/lib/server/action-rate-limit", () => ({
   enforceActionRateLimit: vi.fn(async () => {}),
   RateLimitError: class extends Error {},

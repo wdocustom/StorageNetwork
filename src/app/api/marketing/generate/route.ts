@@ -4,6 +4,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getChatModel, hasChatProvider, generateTextWithFallback } from "@/lib/ai-provider";
+import { getAuthenticatedUser } from "@/lib/auth";
+import { realJobFacts } from "@/lib/server/marketing";
 import {
   buildSystemMessage,
   buildLocationContext,
@@ -15,6 +17,10 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
+    // Installers only — this spends AI credits.
+    const user = await getAuthenticatedUser();
+    if (!user) return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
+
     const body = await request.json();
     const {
       platform = "facebook-group",
@@ -29,6 +35,7 @@ export async function POST(request: NextRequest) {
       followUpHook = "circle-back",
       followUpOffer = "none",
       productCategory,
+      realJobId,
     } = body as {
       platform: string;
       tone: string;
@@ -42,6 +49,7 @@ export async function POST(request: NextRequest) {
       followUpHook?: string;
       followUpOffer?: string;
       productCategory?: string;
+      realJobId?: string;
     };
 
     if (!bookingLink) {
@@ -99,6 +107,10 @@ Facebook algorithmically suppresses posts and comments that contain links. The O
 - Make the DM feel valuable: "Send me a photo of your wall and I'll tell you what fits" — not just "DM me for a link"`
       : `IMPORTANT: Do NOT include the booking link URL anywhere in the generated post. Instead, direct readers to "check the first comment for the link" or "link in comments". The installer will paste the link as their first comment where it IS clickable.`;
 
+    // A real finished job to build the post around — facts loaded here from
+    // the installer's own job, never taken from the request.
+    const jobFacts = realJobId ? await realJobFacts(user.id, realJobId) : null;
+
     const userMessage = `Write a social media post AS THE INSTALLER (first person — "I", "my") for the following business:
 
 THE INSTALLER'S BUSINESS:
@@ -122,7 +134,14 @@ ${platformGuide}
 TONE:
 ${toneGuide}
 
-${customTopic ? `SPECIFIC TOPIC/ANGLE TO HIGHLIGHT:\n${customTopic}\n` : ""}
+${customTopic ? `SPECIFIC TOPIC/ANGLE TO HIGHLIGHT:\n${customTopic}\n` : ""}${
+      jobFacts
+        ? `REAL JOB TO FEATURE — build the post around this job I actually finished:
+${jobFacts}
+State ONLY these facts about the job. Do NOT add a customer name, their reaction, quotes, how long it took, or any detail that isn't listed above. Remind the installer in Pro-Tips to attach a photo of this build.
+`
+        : ""
+    }
 REMEMBER:
 - Write as the installer in first person. They are posting this themselves to get leads.
 - Use MARKDOWN formatting: ## H2 headers, ### H3 sub-headers, **bold**, bullet points, numbered lists.

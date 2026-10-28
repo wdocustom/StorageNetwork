@@ -63,6 +63,7 @@ import type { ServiceOffering } from "@/config/services";
 import Link from "next/link";
 import { SETTINGS_PROFILE_COLUMNS } from "./columns";
 import PageHeader from "@/components/dashboard/PageHeader";
+import { PushSettingsCard } from "@/components/dashboard/PushNotifications";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Profile & Settings Page
@@ -1734,6 +1735,9 @@ function ProfilePageInner({
         ═══════════════════════════════════════════════════════════════ */}
         {activeTab === "account" && (
           <div className="space-y-4">
+            {/* ── Push notifications for this device ─────────────── */}
+            <PushSettingsCard />
+
             {/* ── Stripe Connect (Payouts) ──────────────────────────── */}
             <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
               <div className="mb-4 flex items-center gap-2">

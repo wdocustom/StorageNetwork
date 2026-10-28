@@ -17,6 +17,7 @@ import ProPill from "@/components/dashboard/ProPill";
 import TodayJobs from "@/components/dashboard/TodayJobs";
 import TodayInsights, { TodayInsightsSkeleton } from "@/components/dashboard/TodayInsights";
 import PageHeader from "@/components/dashboard/PageHeader";
+import { PushPrompt } from "@/components/dashboard/PushNotifications";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Today — the dashboard home. Rendered on the server from one parallel load
@@ -123,6 +124,9 @@ export default async function TodayPage() {
               ))}
             </ul>
           )}
+
+          {/* ── Turn on push notifications (until on or dismissed) ── */}
+          <PushPrompt />
 
           {/* ── Launch pricing (only for installers who aren't Pro yet) ── */}
           {profile && !profile.is_pro && !trial.onTrial && <PromoBanner hasStripeConnected={!!profile.stripe_account_id} />}
