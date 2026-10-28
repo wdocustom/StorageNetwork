@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { create2DWoodPattern, create2DPlywoodPattern } from "./woodTextures";
+import { create2DWoodPattern, create2DPlywoodPattern } from "./woodCanvas";
 import type { SectionAddon } from "@/types/viewModels";
 
 // ═══════════════════════════════════════════════════════════════════════════

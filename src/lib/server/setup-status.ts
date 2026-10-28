@@ -20,13 +20,15 @@ export interface SetupStatus {
   completedCount: number;
   totalSteps: number;
   allComplete: boolean;
+  /** The installer closed the checklist (X) — it stays hidden. */
+  dismissed: boolean;
 }
 
 const db = () => getServiceClient();
 
 export async function computeSetupStatus(userId: string): Promise<SetupStatus> {
   // Run all queries in parallel for speed
-  const [activityRes, leadsRes, paidRes, profileRes] = await Promise.all([
+  const [activityRes, leadsRes, paidRes, profileRes, dismissedRes] = await Promise.all([
     // Check activity log for key actions
     db()
       .from("installer_activity_log")
@@ -54,6 +56,13 @@ export async function computeSetupStatus(userId: string): Promise<SetupStatus> {
       .select("stripe_account_id, slug")
       .eq("id", userId)
       .single(),
+
+    // Closed with the X (its own query: the activity read above is capped)
+    db()
+      .from("installer_activity_log")
+      .select("id", { count: "exact", head: true })
+      .eq("installer_id", userId)
+      .eq("action", "checklist_dismissed"),
   ]);
 
   const activities = activityRes.data || [];
@@ -139,5 +148,6 @@ export async function computeSetupStatus(userId: string): Promise<SetupStatus> {
     completedCount,
     totalSteps: steps.length,
     allComplete: completedCount === steps.length,
+    dismissed: (dismissedRes.count ?? 0) > 0,
   };
 }

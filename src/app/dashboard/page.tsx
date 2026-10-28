@@ -152,7 +152,7 @@ export default async function TodayPage() {
 
           {/* ── Onboarding, then coaching once onboarding is done ── */}
           {profile && <SetupChecklist userId={profile.id} bookingLink={leadLink} initialStatus={setup} />}
-          {profile && (!setup || setup.allComplete) && <ActionNudge userId={profile.id} initialNudge={nudge} />}
+          {profile && (!setup || setup.allComplete || setup.dismissed) && <ActionNudge userId={profile.id} initialNudge={nudge} />}
 
           {/* ── Network ── */}
           {profile && <LiveLeaderboard userId={profile.id} />}
