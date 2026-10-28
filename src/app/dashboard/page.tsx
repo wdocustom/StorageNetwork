@@ -1,525 +1,173 @@
-"use client";
-
-import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
-import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { after } from "next/server";
+import { AlertCircle, ChevronRight, Settings } from "lucide-react";
+import { getAuthenticatedUser } from "@/lib/auth";
+import { getServiceClient } from "@/lib/supabase-server";
+import { loadToday } from "@/lib/server/dashboard-today";
 import { siteConfig } from "@/config/site";
-import { checkMyProTrial } from "@/app/actions/pro-trial";
-import type { TrialStatus } from "@/lib/server/pro-trial";
-import { stampLastLogin } from "@/app/actions/profile";
-import {
-  Briefcase,
-  HardHat,
-  BookOpen,
-  LogOut,
-  Loader2,
-  CheckCircle2,
-  AlertCircle,
-  ChevronRight,
-  Settings,
-  DollarSign,
-  Trophy,
-  Megaphone,
-  CalendarOff,
-  BarChart3,
-  Users,
-  Activity,
-  Gift,
-  Building2,
-  Package,
-} from "lucide-react";
+import { getInstallerLink } from "@/lib/utils";
+import { todayInstallDateKey } from "@/utils/installDate";
 import SetupChecklist from "@/components/dashboard/SetupChecklist";
 import ActionNudge from "@/components/dashboard/ActionNudge";
 import LiveLeaderboard from "@/components/dashboard/LiveLeaderboard";
 import NetworkPassiveIncome from "@/components/dashboard/NetworkPassiveIncome";
 import PromoBanner from "@/components/dashboard/PromoBanner";
 import ProPill from "@/components/dashboard/ProPill";
-import { getInstallerLink } from "@/lib/utils";
-import Link from "next/link";
+import TodayJobs from "@/components/dashboard/TodayJobs";
 
-interface Profile {
-  id: string;
-  email: string;
-  first_name: string | null;
-  business_name: string | null;
-  is_pro: boolean;
-  is_admin?: boolean;
-  is_realtor?: boolean;
-  subscription_tier?: string;
-  stripe_account_id?: string | null;
-  slug?: string | null;
-  city?: string | null;
-  state?: string | null;
+// ═══════════════════════════════════════════════════════════════════════════
+// Today — the dashboard home. Rendered on the server from one parallel load
+// (lib/server/dashboard-today), so it arrives with real numbers.
+//
+//   account alerts (only when something blocks getting paid or booked)
+//   → stats → jobs that need something → setup / coaching → leaderboard
+//
+// Tools that used to be tiles here live in the tab bar and under More.
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface Alert {
+  text: string;
+  cta: string;
+  href: string;
+  tone: "red" | "amber";
 }
 
-export default function DashboardPage() {
-  const supabase = getSupabaseBrowserClient();
+export default async function TodayPage() {
+  const user = await getAuthenticatedUser();
+  if (!user) redirect("/login");
 
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [newLeadCount, setNewLeadCount] = useState(0);
-  const [hasRecentPosts, setHasRecentPosts] = useState(false);
-  const [totalSales, setTotalSales] = useState(0);
-  const [completedCount, setCompletedCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [trialStatus, setTrialStatus] = useState<TrialStatus | null>(null);
+  // Last-login stamp after the response is sent — it never delays the page.
+  after(async () => {
+    await getServiceClient().from("profiles").update({ last_login_at: new Date().toISOString() }).eq("id", user.id);
+  });
 
-  const fetchData = useCallback(async () => {
-    const user = await getSessionUser(supabase);
-    if (!user) {
-      window.location.href = "/login";
-      return;
-    }
+  const { profile, trial, setup, nudge, revenue, jobsDone, jobs } = await loadToday(user.id);
 
-    stampLastLogin(user.id);
-
-    checkMyProTrial().then((status) => {
-      if (!status) return;
-      setTrialStatus(status);
-      if (status.trialExpired && !status.softLocked && profile?.is_pro) {
-        supabase.from("profiles").select("is_pro").eq("id", user.id).single().then(({ data }) => {
-          if (data && !data.is_pro && profile) {
-            setProfile({ ...profile, is_pro: false });
-          }
-        });
-      }
-    });
-
-    const [profileRes, leadsRes, paidLeadsRes, recentPostsRes] = await Promise.all([
-      supabase.from("profiles").select("id, email, first_name, business_name, is_pro, is_admin, is_realtor, subscription_tier, stripe_account_id, slug, city, state").eq("id", user.id).single(),
-      supabase
-        .from("leads")
-        .select("id", { count: "exact", head: true })
-        .eq("installer_id", user.id)
-        .eq("deposit_paid", true)
-        .in("status", ["new", "open"]),
-      supabase
-        .from("leads")
-        .select("estimated_price, balance_due, payout_status")
-        .eq("installer_id", user.id)
-        .in("payout_status", ["paid"]),
-      supabase
-        .from("posts")
-        .select("id", { count: "exact", head: true })
-        .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
-    ]);
-
-    if (profileRes.error) {
-      console.error("[Dashboard] Profile query failed:", profileRes.error.message, profileRes.error.code);
-      const { error: refreshErr } = await supabase.auth.refreshSession();
-      if (!refreshErr) {
-        const retry = await supabase.from("profiles").select("id, email, first_name, business_name, is_pro, is_admin, is_realtor, subscription_tier, stripe_account_id, slug, city, state").eq("id", user.id).single();
-        if (retry.data) {
-          console.log("[Dashboard] Retry succeeded after session refresh");
-          setProfile(retry.data as Profile);
-        } else if (retry.error) {
-          console.error("[Dashboard] Retry also failed:", retry.error.message);
-        }
-      }
-    }
-
-    if (profileRes.data) setProfile(profileRes.data as Profile);
-    if (leadsRes.count !== null) setNewLeadCount(leadsRes.count);
-    if (recentPostsRes.count && recentPostsRes.count > 0) setHasRecentPosts(true);
-
-    if (paidLeadsRes.data) {
-      const sales = paidLeadsRes.data.reduce(
-        (sum: number, l: { balance_due: number | null }) => sum + (l.balance_due || 0),
-        0
-      );
-      setTotalSales(Math.round(sales));
-      setCompletedCount(paidLeadsRes.data.length);
-    }
-
-    setLoading(false);
-  }, [supabase]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  async function handleSignOut() {
-    await supabase.auth.signOut();
-    window.location.href = "/login";
-  }
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
-        <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
-      </div>
-    );
-  }
-
-  const hasStripe = !!profile?.stripe_account_id;
   const welcomeName = profile?.business_name || profile?.first_name || "Partner";
   const leadLink = profile ? getInstallerLink(profile) : "";
 
+  // One list instead of a stack of banners; worst first.
+  const alerts: Alert[] = [];
+  if (trial.trialExpired && !trial.softLocked) {
+    alerts.push({ text: "Your trial has ended — booking links are paused.", cta: "Subscribe", href: "/upgrade", tone: "red" });
+  } else if (trial.softLocked) {
+    alerts.push({
+      text: `Trial ended — finish your ${trial.activeJobsCount} active ${trial.activeJobsCount === 1 ? "job" : "jobs"}; new bookings are paused.`,
+      cta: "Subscribe",
+      href: "/upgrade",
+      tone: "amber",
+    });
+  } else if (trial.onTrial && trial.jobCapReached) {
+    alerts.push({ text: "All 3 trial jobs used — subscribe to accept new bookings.", cta: "Subscribe", href: "/upgrade", tone: "amber" });
+  }
+  if (profile && !profile.stripe_account_id) {
+    alerts.push({ text: "Connect Stripe so you can get paid.", cta: "Connect", href: "/dashboard/profile", tone: "amber" });
+  }
+  if (profile && (!profile.city || !profile.state)) {
+    alerts.push({ text: "Add your city and state so customers can find you.", cta: "Update", href: "/dashboard/profile", tone: "red" });
+  }
+
   return (
-    <div className="flex min-h-screen flex-col bg-slate-950">
-      {/* ── Header ──────────────────────────────────────────────────── */}
-      <header className="shrink-0 border-b border-slate-800 bg-slate-900 px-4 py-4">
-        <div className="mx-auto flex max-w-lg items-center justify-between md:max-w-3xl lg:max-w-4xl">
-          <div className="flex items-center gap-3">
-            <Image
-              src={siteConfig.logoPath}
-              alt={siteConfig.name}
-              width={56}
-              height={56}
-              className="h-14 w-auto flex-shrink-0 object-contain"
-            />
-            <div>
-              <h1 className="text-sm font-bold uppercase tracking-wider text-white">
-                Welcome, {welcomeName}
-              </h1>
-              <p className="text-[11px] text-stone-500">
-                {siteConfig.name}
-              </p>
-            </div>
+    <div className="min-h-screen bg-slate-950">
+      {/* ── Header ── */}
+      <header className="border-b border-slate-800 bg-slate-900 px-4 py-3">
+        <div className="mx-auto flex max-w-3xl items-center gap-3">
+          <Image
+            src={siteConfig.logoPath}
+            alt={siteConfig.name}
+            width={40}
+            height={40}
+            className="h-10 w-auto shrink-0 object-contain lg:hidden"
+          />
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-sm font-bold uppercase tracking-wider text-white">{welcomeName}</h1>
+            <p className="text-[11px] text-stone-500">Today</p>
           </div>
-          <div className="flex items-center gap-1">
-            {profile?.is_realtor && (
-              <Link
-                href="/realtors/dashboard"
-                className="rounded-lg p-2 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
-                title="Switch to realtor portal"
-              >
-                <Building2 className="h-5 w-5" />
-              </Link>
-            )}
+          {trial.onTrial ? (
             <Link
-              href="/dashboard/profile"
-              className="rounded-lg p-2 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
-              title="Settings"
+              href="/upgrade"
+              className={`rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-widest ${
+                trial.jobCapReached ? "bg-amber-400/15 text-amber-400" : "bg-purple-400/15 text-purple-400"
+              }`}
             >
-              <Settings className="h-5 w-5" />
+              {trial.jobCapReached
+                ? "Trial · cap reached"
+                : `Trial · ${trial.jobsRemaining} ${trial.jobsRemaining === 1 ? "job" : "jobs"} left`}
             </Link>
-            <button
-              onClick={handleSignOut}
-              className="rounded-lg p-2 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
-              title="Sign out"
-            >
-              <LogOut className="h-5 w-5" />
-            </button>
-          </div>
+          ) : (
+            <ProPill link={leadLink} />
+          )}
+          <Link
+            href="/dashboard/profile"
+            className="rounded-lg p-2 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+            title="Settings"
+          >
+            <Settings className="h-5 w-5" />
+          </Link>
         </div>
       </header>
 
-      {/* ── Status Bar ──────────────────────────────────────────────── */}
-      <div className="shrink-0 border-b border-slate-800 bg-slate-900/50 px-4 py-2.5">
-        <div className="mx-auto flex max-w-lg items-center justify-center gap-4 md:max-w-3xl lg:max-w-4xl">
-          <div className="flex items-center gap-1.5">
-            {trialStatus?.onTrial ? (
-              <span className={`rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-widest ${trialStatus.jobCapReached ? "bg-amber-400/15 text-amber-400" : "bg-purple-400/15 text-purple-400"}`}>
-                {trialStatus.jobCapReached ? "TRIAL · JOB CAP REACHED" : `TRIAL · ${trialStatus.jobsRemaining} ${trialStatus.jobsRemaining === 1 ? "JOB" : "JOBS"} TO GO`}
-              </span>
-            ) : (
-              <ProPill link={leadLink} />
-            )}
-          </div>
-
-          <div className="h-3 w-px bg-slate-700" />
-
-          <div className="flex items-center gap-1.5">
-            {hasStripe ? (
-              <CheckCircle2 className="h-3 w-3 text-emerald-400" />
-            ) : (
-              <AlertCircle className="h-3 w-3 text-amber-400" />
-            )}
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-stone-400">
-              {hasStripe ? (
-                <span className="text-emerald-400">Stripe Connected</span>
-              ) : (
-                <span className="text-amber-400">Stripe Pending</span>
-              )}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Conditional Banners ────────────────────────────────────── */}
-      {!hasStripe && (
-        <div className="shrink-0 border-b border-amber-400/20 bg-amber-400/5 px-4 py-2.5">
-          <div className="mx-auto flex max-w-lg items-center justify-between md:max-w-3xl lg:max-w-4xl">
-            <p className="text-xs text-amber-300">
-              <span className="font-bold">Complete your profile</span> to get
-              paid &mdash; connect Stripe in{" "}
-              <Link href="/dashboard/profile" className="font-bold underline hover:text-amber-200">Settings</Link>.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {profile && (!profile.city || !profile.state) && (
-        <div className="shrink-0 border-b border-red-400/20 bg-red-400/5 px-4 py-2.5">
-          <div className="mx-auto flex max-w-lg items-center justify-between md:max-w-3xl lg:max-w-4xl">
-            <p className="text-xs text-red-300">
-              <span className="font-bold">Incomplete Profile:</span> City & State are required.{" "}
-              <Link href="/dashboard/profile" className="font-bold underline hover:text-red-200">Update now</Link>.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {trialStatus?.onTrial && !trialStatus?.jobCapReached && (
-        <div className="shrink-0 border-b border-purple-400/20 bg-purple-400/5 px-4 py-3">
-          <div className="mx-auto max-w-lg text-center md:max-w-3xl lg:max-w-4xl">
-            <p className="text-sm font-bold text-purple-300">
-              Pro Trial{trialStatus.partnerName ? ` — courtesy of ${trialStatus.partnerName}` : ""}
-            </p>
-            <p className="text-xs text-purple-400/70 mt-0.5">
-              {trialStatus.jobsRemaining} trial {trialStatus.jobsRemaining === 1 ? "job" : "jobs"} remaining ·{" "}
-              <Link href="/upgrade" className="font-bold underline hover:text-purple-200">Subscribe anytime</Link>
-            </p>
-          </div>
-        </div>
-      )}
-
-      {trialStatus?.onTrial && trialStatus?.jobCapReached && (
-        <div className="shrink-0 border-b border-amber-400/20 bg-amber-400/5 px-4 py-3">
-          <div className="mx-auto max-w-lg text-center md:max-w-3xl lg:max-w-4xl">
-            <p className="text-sm font-bold text-amber-300">
-              All 3 trial jobs used — subscribe to accept new bookings
-            </p>
-            <p className="text-xs text-amber-400/70 mt-0.5">
-              Your existing jobs and dashboard are unaffected ·{" "}
-              <Link href="/upgrade" className="font-bold underline hover:text-amber-200">Subscribe Now</Link>
-            </p>
-          </div>
-        </div>
-      )}
-
-      {trialStatus?.softLocked && (
-        <div className="shrink-0 border-b border-amber-400/20 bg-amber-400/5 px-4 py-3">
-          <div className="mx-auto max-w-lg text-center md:max-w-3xl lg:max-w-4xl">
-            <p className="text-sm font-bold text-amber-300">
-              Your trial has ended — finish your {trialStatus.activeJobsCount} active {trialStatus.activeJobsCount === 1 ? "job" : "jobs"}
-            </p>
-            <p className="text-xs text-amber-400/70 mt-0.5">
-              New bookings are paused. Subscribe to keep your account fully active ·{" "}
-              <Link href="/upgrade" className="font-bold underline hover:text-amber-200">Subscribe Now</Link>
-            </p>
-          </div>
-        </div>
-      )}
-
-      {trialStatus?.trialExpired && !trialStatus?.softLocked && (
-        <div className="shrink-0 border-b border-red-400/20 bg-red-400/5 px-4 py-3">
-          <div className="mx-auto max-w-lg text-center md:max-w-3xl lg:max-w-4xl">
-            <p className="text-sm font-bold text-red-300">
-              Your trial has ended
-            </p>
-            <p className="text-xs text-red-400/70 mt-0.5">
-              Subscribe to reactivate your account, portfolio, and booking links ·{" "}
-              <Link href="/upgrade" className="font-bold underline hover:text-red-200">Subscribe Now</Link>
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* ── Main Content ────────────────────────────────────────────── */}
-      <main className="flex-1 px-4 py-6 sm:px-6">
-        <div className="mx-auto w-full max-w-lg space-y-4 md:max-w-3xl lg:max-w-4xl">
-
-          {/* ── Promo Banner (inline, dismissible) ─────────────────── */}
-          <PromoBanner
-            isPro={profile?.is_pro}
-            isTrialActive={trialStatus?.onTrial}
-            hasStripeConnected={!!profile?.stripe_account_id}
-          />
-
-          {/* ── Setup Checklist (self-hides when complete) ─────────── */}
-          {profile && (
-            <SetupChecklist userId={profile.id} bookingLink={leadLink} />
+      <main className="px-4 py-5 sm:px-6">
+        <div className="mx-auto w-full max-w-3xl space-y-4">
+          {/* ── Account alerts ── */}
+          {alerts.length > 0 && (
+            <ul className="divide-y divide-slate-800 overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
+              {alerts.map((a) => (
+                <li key={a.text} className="flex items-center gap-3 px-4 py-3">
+                  <AlertCircle className={`h-4 w-4 shrink-0 ${a.tone === "red" ? "text-red-400" : "text-amber-400"}`} />
+                  <p className="min-w-0 flex-1 text-xs text-stone-300">{a.text}</p>
+                  <Link
+                    href={a.href}
+                    className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white transition hover:bg-slate-700"
+                  >
+                    {a.cta}
+                  </Link>
+                </li>
+              ))}
+            </ul>
           )}
 
-          {/* ── Stats Strip ────────────────────────────────────────── */}
-          <div className="flex items-center rounded-xl border border-slate-800 bg-slate-900 px-4 py-3">
+          {/* ── Launch pricing (only for installers who aren't Pro yet) ── */}
+          {profile && !profile.is_pro && !trial.onTrial && <PromoBanner hasStripeConnected={!!profile.stripe_account_id} />}
+
+          {/* ── Stats ── */}
+          <Link
+            href="/dashboard/sales"
+            className="flex items-center rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 transition hover:border-slate-700"
+          >
             <div className="flex flex-1 items-center justify-around">
-              <div className="text-center">
-                <p className="text-lg font-black text-white">${totalSales.toLocaleString()}</p>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">Revenue</p>
-              </div>
+              <Stat value={`$${revenue.toLocaleString()}`} label="Revenue" />
               <div className="h-6 w-px bg-slate-800" />
-              <div className="text-center">
-                <p className="text-lg font-black text-white">{completedCount}</p>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">Jobs Done</p>
-              </div>
+              <Stat value={jobsDone} label="Jobs done" />
               <div className="h-6 w-px bg-slate-800" />
-              <div className="text-center">
-                <p className="text-lg font-black text-white">{newLeadCount}</p>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">New Leads</p>
-              </div>
+              <Stat value={jobs.length} label="Active jobs" />
             </div>
-            <Link
-              href="/dashboard/sales"
-              className="ml-3 shrink-0 rounded-lg p-2 text-stone-600 transition-colors hover:bg-slate-800 hover:text-yellow-400"
-              title="Sales details"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-          </div>
+            <ChevronRight className="ml-3 h-4 w-4 shrink-0 text-stone-600" />
+          </Link>
 
-          {/* ── Tier 1: Primary Actions ────────────────────────────── */}
-          <div className="grid gap-4 md:grid-cols-3">
-            {/* Jobs / Leads */}
-            <Link
-              href="/dashboard/leads"
-              className="group relative flex items-center gap-5 rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
-            >
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400 transition-colors group-hover:bg-yellow-400/20">
-                <Briefcase className="h-8 w-8" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-bold text-white">Jobs / Leads</h2>
-                <p className="text-sm text-stone-500">View incoming work orders</p>
-              </div>
-              <div className="flex items-center gap-2">
-                {newLeadCount > 0 && (
-                  <span className="flex h-7 min-w-[28px] items-center justify-center rounded-full bg-red-500 px-2 text-xs font-bold text-white">
-                    {newLeadCount}
-                  </span>
-                )}
-                <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-yellow-400" />
-              </div>
-            </Link>
+          {/* ── Jobs that need something ── */}
+          <TodayJobs jobs={jobs} serverToday={todayInstallDateKey()} />
 
-            {/* Create Quote */}
-            <Link
-              href="/dashboard/build"
-              className="group relative flex items-center gap-5 rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
-            >
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400 transition-colors group-hover:bg-blue-500/20">
-                <HardHat className="h-8 w-8" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-bold text-white">Create Quote</h2>
-                <p className="text-sm text-stone-500">Manual entry & price estimation</p>
-              </div>
-              <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-yellow-400" />
-            </Link>
+          {/* ── Onboarding, then coaching once onboarding is done ── */}
+          {profile && <SetupChecklist userId={profile.id} bookingLink={leadLink} initialStatus={setup} />}
+          {profile && (!setup || setup.allComplete) && <ActionNudge userId={profile.id} initialNudge={nudge} />}
 
-            {/* Marketing */}
-            <Link
-              href="/dashboard/marketing"
-              className="group relative flex items-center gap-5 rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
-            >
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400 transition-colors group-hover:bg-amber-500/20">
-                <Megaphone className="h-8 w-8" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-bold text-white">Marketing</h2>
-                <p className="text-sm text-stone-500">Your link & social tools</p>
-              </div>
-              <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-yellow-400" />
-            </Link>
-          </div>
-
-          {/* ── Action Nudge (contextual coaching) ─────────────────── */}
-          {profile && <ActionNudge userId={profile.id} />}
-
-          {/* ── Tier 2: Secondary Tools ────────────────────────────── */}
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-            {/* Analytics */}
-            <Link
-              href="/dashboard/analytics"
-              className="group flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-500/10 text-purple-400 transition-colors group-hover:bg-purple-500/20">
-                <BarChart3 className="h-5 w-5" />
-              </div>
-              <span className="text-sm font-bold text-white">Analytics</span>
-            </Link>
-
-            {/* Schedule */}
-            <Link
-              href="/dashboard/schedule"
-              className="group flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-500/10 text-red-400 transition-colors group-hover:bg-red-500/20">
-                <CalendarOff className="h-5 w-5" />
-              </div>
-              <span className="text-sm font-bold text-white">Schedule</span>
-            </Link>
-
-            {/* Community */}
-            <Link
-              href="/community"
-              className="group relative flex items-center gap-3 rounded-xl border border-yellow-500/30 bg-gradient-to-r from-yellow-500/5 via-slate-900 to-slate-900 p-4 transition-all hover:border-yellow-400/50 hover:from-yellow-500/10 active:scale-[0.98]"
-            >
-              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-yellow-400/10 text-yellow-400 transition-colors group-hover:bg-yellow-400/20">
-                <Users className="h-5 w-5" />
-                {hasRecentPosts && (
-                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                    <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
-                  </span>
-                )}
-              </div>
-              <span className="text-sm font-bold text-white">Community</span>
-            </Link>
-
-            {/* Plans & Guides */}
-            <Link
-              href="/dashboard/guides"
-              className="group flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 transition-colors group-hover:bg-emerald-500/20">
-                <BookOpen className="h-5 w-5" />
-              </div>
-              <span className="text-sm font-bold text-white">Guides</span>
-            </Link>
-
-            {/* Tote Rentals — closing-gift fulfillment */}
-            <Link
-              href="/dashboard/tote-rentals"
-              className="group flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400 transition-colors group-hover:bg-amber-500/20">
-                <Gift className="h-5 w-5" />
-              </div>
-              <span className="text-sm font-bold text-white">Tote Rentals</span>
-            </Link>
-
-            {/* Smart Inventory — manual edit + reset */}
-            <Link
-              href="/dashboard/inventory"
-              className="group flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 transition-colors group-hover:bg-emerald-500/20">
-                <Package className="h-5 w-5" />
-              </div>
-              <span className="text-sm font-bold text-white">Inventory</span>
-            </Link>
-          </div>
-
-          {/* ── Platform Analytics (admin-only) ────────────────────── */}
-          {profile?.is_admin && (
-            <Link
-              href="/dashboard/platform-analytics"
-              className="group flex items-center gap-3 rounded-xl border border-cyan-500/30 bg-gradient-to-r from-cyan-500/5 via-slate-900 to-slate-900 p-4 transition-all hover:border-cyan-400/50 hover:from-cyan-500/10 active:scale-[0.98]"
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-400 transition-colors group-hover:bg-cyan-500/20">
-                <Activity className="h-5 w-5" />
-              </div>
-              <span className="text-sm font-bold text-white">Platform Analytics</span>
-              <span className="ml-auto rounded bg-cyan-400/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-cyan-400">
-                Admin
-              </span>
-            </Link>
-          )}
-
-          {/* ── Leaderboard ────────────────────────────────────────── */}
+          {/* ── Network ── */}
           {profile && <LiveLeaderboard userId={profile.id} />}
-
-          {/* ── Network Passive Income ─────────────────────────────── */}
           {profile && <NetworkPassiveIncome userId={profile.id} />}
         </div>
       </main>
+    </div>
+  );
+}
 
-      {/* ── Footer ──────────────────────────────────────────────────── */}
-      <footer className="shrink-0 border-t border-slate-800 px-4 py-3 text-center text-[10px] text-stone-700">
-        {siteConfig.name} &copy; {new Date().getFullYear()}
-      </footer>
+function Stat({ value, label }: { value: string | number; label: string }) {
+  return (
+    <div className="text-center">
+      <p className="text-lg font-black text-white">{value}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">{label}</p>
     </div>
   );
 }

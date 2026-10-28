@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import InstallerActivityTracker from "@/components/tracking/InstallerActivityTracker";
+import DashboardShell from "@/components/dashboard/DashboardShell";
 
 export default function DashboardLayout({
   children,
@@ -12,7 +13,7 @@ export default function DashboardLayout({
   return (
     <>
       <InstallerActivityTracker />
-      {children}
+      <DashboardShell>{children}</DashboardShell>
     </>
   );
 }

@@ -44,10 +44,12 @@ const COLOR_MAP: Record<string, string> = {
 
 interface ActionNudgeProps {
   userId: string;
+  /** Already computed on the server — skips the fetch when given. */
+  initialNudge?: DashboardNudge | null;
 }
 
-export default function ActionNudge({ userId }: ActionNudgeProps) {
-  const [nudge, setNudge] = useState<DashboardNudge | null>(null);
+export default function ActionNudge({ userId, initialNudge }: ActionNudgeProps) {
+  const [nudge, setNudge] = useState<DashboardNudge | null>(initialNudge ?? null);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -55,6 +57,11 @@ export default function ActionNudge({ userId }: ActionNudgeProps) {
     const snoozedUntil = localStorage.getItem(SNOOZE_KEY);
     if (snoozedUntil && Date.now() < Number(snoozedUntil)) {
       return; // Still snoozed
+    }
+
+    if (initialNudge !== undefined) {
+      setVisible(!!initialNudge);
+      return;
     }
 
     getDashboardNudge(userId)
@@ -65,7 +72,7 @@ export default function ActionNudge({ userId }: ActionNudgeProps) {
         }
       })
       .catch(() => {});
-  }, [userId]);
+  }, [userId, initialNudge]);
 
   function handleDismiss() {
     const until = Date.now() + SNOOZE_HOURS * 60 * 60 * 1000;

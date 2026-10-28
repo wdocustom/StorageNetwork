@@ -68,12 +68,14 @@ function applyLocalOverrides(status: SetupStatus, userId: string): SetupStatus {
 interface SetupChecklistProps {
   userId: string;
   bookingLink?: string;
+  /** Already computed on the server — skips the first fetch when given. */
+  initialStatus?: SetupStatus | null;
 }
 
-export default function SetupChecklist({ userId, bookingLink }: SetupChecklistProps) {
-  const [status, setStatus] = useState<SetupStatus | null>(null);
+export default function SetupChecklist({ userId, bookingLink, initialStatus }: SetupChecklistProps) {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<SetupStatus | null>(initialStatus ?? null);
+  const [loading, setLoading] = useState(!initialStatus);
   const [collapsed, setCollapsed] = useState(false);
   const [justCompleted, setJustCompleted] = useState<string | null>(null);
 
@@ -86,14 +88,16 @@ export default function SetupChecklist({ userId, bookingLink }: SetupChecklistPr
         .then((s) => { if (mounted) { setStatus(applyLocalOverrides(s, userId)); setLoading(false); } })
         .catch(() => { if (mounted) setLoading(false); });
     }
-    refresh();
+    // Local overrides read localStorage, so they're applied after hydration.
+    if (initialStatus) setStatus(applyLocalOverrides(initialStatus, userId));
+    else refresh();
     function onFocus() { refresh(); }
     // Activity events are dispatched by logActivityClient after a successful insert
     function onActivity() { setTimeout(refresh, 300); }
     window.addEventListener("focus", onFocus);
     window.addEventListener("installer-activity-logged", onActivity);
     return () => { mounted = false; window.removeEventListener("focus", onFocus); window.removeEventListener("installer-activity-logged", onActivity); };
-  }, [userId]);
+  }, [userId, initialStatus]);
 
   // Handle inline actions that can be completed directly on the checklist
   function handleStepAction(stepId: string): boolean {
