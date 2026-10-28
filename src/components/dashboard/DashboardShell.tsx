@@ -5,7 +5,8 @@
 //
 //   Today · Jobs · Quote · Marketing · More
 //
-// A bottom tab bar on phones, a sidebar on desktop. Every tab is a <Link>,
+// A bottom tab bar on phones (Today raised in the center: it's the
+// installer's starting point), a sidebar on desktop. Every tab is a <Link>,
 // so switching never reloads the app. The affiliate / promoter portals live
 // under /dashboard too but aren't installer workspaces, so they get no shell.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -75,26 +76,45 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         </ul>
       </nav>
 
-      {/* ── Phone tab bar ── */}
+      {/* ── Phone tab bar — Jobs · Quote · TODAY · Marketing · More ── */}
       <nav
         aria-label="Dashboard"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-slate-900/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
       >
         <ul className="grid h-16 grid-cols-5">
-          {tabs.map(({ href, label, icon: Icon, active }) => (
-            <li key={href}>
-              <Link
-                href={href}
-                aria-current={active ? "page" : undefined}
-                className={`flex h-full flex-col items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                  active ? "text-yellow-400" : "text-stone-500 active:text-white"
-                }`}
-              >
-                <Icon className="h-5 w-5" />
-                {label}
-              </Link>
-            </li>
-          ))}
+          {[tabs[1], tabs[2], tabs[0], tabs[3], tabs[4]].map(({ href, label, icon: Icon, active }) =>
+            href === "/dashboard" ? (
+              <li key={href} className="flex justify-center">
+                <Link
+                  href={href}
+                  aria-current={active ? "page" : undefined}
+                  className="-mt-5 flex flex-col items-center gap-1 text-[10px] font-black uppercase tracking-wider text-yellow-400"
+                >
+                  <span
+                    className={`flex h-14 w-14 items-center justify-center rounded-full border-2 border-yellow-400 shadow-lg shadow-yellow-400/20 transition-colors ${
+                      active ? "bg-yellow-400 text-slate-950" : "bg-slate-900 text-yellow-400 active:bg-yellow-400/20"
+                    }`}
+                  >
+                    <Icon className="h-6 w-6" />
+                  </span>
+                  {label}
+                </Link>
+              </li>
+            ) : (
+              <li key={href}>
+                <Link
+                  href={href}
+                  aria-current={active ? "page" : undefined}
+                  className={`flex h-full flex-col items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                    active ? "text-yellow-400" : "text-stone-500 active:text-white"
+                  }`}
+                >
+                  <Icon className="h-5 w-5" />
+                  {label}
+                </Link>
+              </li>
+            ),
+          )}
         </ul>
       </nav>
     </div>
