@@ -15,8 +15,10 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(msg.title || "Storage Network", {
       body: msg.body || "",
-      icon: "/icon-192x192.png",
-      badge: "/icon-192x192.png",
+      // S-N tile in the drop-down; white S-N mask in the status bar (Android
+      // only uses the badge's shape).
+      icon: "/notification-icon.png",
+      badge: "/notification-badge.png",
       tag: msg.tag,
       data: { url: msg.url || "/dashboard" },
     }),
