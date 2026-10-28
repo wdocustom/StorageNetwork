@@ -1,16 +1,37 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, BellOff, Loader2, Share, X } from "lucide-react";
+import { Bell, BellOff, Loader2, Send, Share, X } from "lucide-react";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 // What a notification is sent for — kept in one place for both surfaces.
 const EVENTS = "new bookings, payments, customers opening your quotes, quote requests and tomorrow's installs";
 
-/** Settings → Account: the on/off switch for this device. */
+/** Settings → Account: the on/off switch for this device, plus a test send. */
 export function PushSettingsCard() {
-  const { state, busy, enable, disable } = usePushNotifications();
+  const { state, busy, enable, disable, test } = usePushNotifications();
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const [testing, setTesting] = useState(false);
   if (state === "loading") return null;
+
+  const turnOn = async () => {
+    setNote(null);
+    const r = await enable();
+    setNote(
+      r.ok
+        ? r.testSent
+          ? { ok: true, text: "Done — a test notification is on its way." }
+          : { ok: false, text: "Turned on, but the test notification couldn't be sent. Tap Send a test to retry." }
+        : { ok: false, text: r.error },
+    );
+  };
+  const sendTest = async () => {
+    setNote(null);
+    setTesting(true);
+    const error = await test();
+    setTesting(false);
+    setNote(error ? { ok: false, text: error } : { ok: true, text: "Sent — check your notifications." });
+  };
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
@@ -21,17 +42,27 @@ export function PushSettingsCard() {
       <p className="mb-4 text-xs text-stone-400">Get a notification on this device for {EVENTS}.</p>
 
       {state === "on" ? (
-        <button
-          onClick={disable}
-          disabled={busy}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-50"
-        >
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <BellOff className="h-4 w-4" />}
-          Turn off on this device
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={sendTest}
+            disabled={testing}
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold text-slate-950 transition hover:bg-yellow-300 disabled:opacity-50"
+          >
+            {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Send a test
+          </button>
+          <button
+            onClick={disable}
+            disabled={busy}
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-50"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <BellOff className="h-4 w-4" />}
+            Turn off
+          </button>
+        </div>
       ) : state === "off" ? (
         <button
-          onClick={enable}
+          onClick={turnOn}
           disabled={busy}
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold text-slate-950 transition hover:bg-yellow-300 disabled:opacity-50"
         >
@@ -41,6 +72,8 @@ export function PushSettingsCard() {
       ) : (
         <StateHint state={state} />
       )}
+
+      {note && <p className={`mt-3 text-xs ${note.ok ? "text-emerald-400" : "text-amber-400"}`}>{note.text}</p>}
     </div>
   );
 }
@@ -62,6 +95,7 @@ function retire() {
 export function PushPrompt() {
   const { state, busy, enable } = usePushNotifications();
   const [dismissed, setDismissed] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     try {
       setDismissed(localStorage.getItem(DISMISS_KEY) === "1");
@@ -77,9 +111,13 @@ export function PushPrompt() {
     retire();
   };
   const turnOn = async () => {
-    await enable();
-    // Whatever the browser answered, don't ask again from Today — the
-    // Settings switch is there if they change their mind.
+    setError(null);
+    const r = await enable();
+    if (!r.ok) {
+      // Keep the card up and say why, so the installer can fix it.
+      setError(r.error);
+      return;
+    }
     retire();
     setDismissed(true);
   };
@@ -120,6 +158,7 @@ export function PushPrompt() {
                 {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bell className="h-3.5 w-3.5" />}
                 Turn on notifications
               </button>
+              {error && <p className="mt-2 text-[11px] text-amber-400">{error}</p>}
             </>
           )}
         </div>
@@ -134,6 +173,8 @@ function StateHint({ state }: { state: string }) {
       ? "On iPhone, add the app to your Home Screen (Share → Add to Home Screen), open it from there, then come back here."
       : state === "denied"
         ? "Notifications are blocked for this site. Allow them in your browser's site settings, then reload."
-        : "This browser doesn't support notifications.";
+        : state === "not-configured"
+          ? "Notifications aren't set up on the app yet."
+          : "This browser doesn't support notifications.";
   return <p className="rounded-lg bg-slate-800 px-3 py-2.5 text-xs text-stone-400">{text}</p>;
 }

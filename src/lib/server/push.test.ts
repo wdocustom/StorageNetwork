@@ -91,6 +91,25 @@ describe("pushToUser", () => {
     expect(sendNotification).not.toHaveBeenCalled();
   });
 
+  it("reports how many devices accepted the push", async () => {
+    const { pushToUser } = await load(true);
+    sendNotification.mockImplementation(async (t: { endpoint: string }) => {
+      if (t.endpoint.endsWith("/2")) throw Object.assign(new Error("boom"), { statusCode: 500 });
+      return {};
+    });
+    expect(await pushToUser("installer-1", msg)).toBe(1);
+  });
+
+  it("never throws on malformed keys — the booking emails it runs inside must still send", async () => {
+    setVapidDetails.mockImplementationOnce(() => {
+      throw new Error("Vapid public key should be 65 bytes long when decoded.");
+    });
+    const { pushToUser, pushConfigured } = await load(true);
+    await expect(pushToUser("installer-1", msg)).resolves.toBe(0);
+    expect(pushConfigured()).toBe(false);
+    expect(sendNotification).not.toHaveBeenCalled();
+  });
+
   it("finds the installer by email for the alert emails", async () => {
     const { pushToEmail } = await load(true);
     sendNotification.mockResolvedValue({});

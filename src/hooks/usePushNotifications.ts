@@ -5,15 +5,20 @@ import { removePushSubscription, savePushSubscription, sendTestPush } from "@/ap
 
 // Installer push notifications on this device (see @/lib/server/push).
 //
-//   unsupported   browser can't do Web Push (or no server key configured)
-//   needs-install iPhone/iPad in a browser tab — iOS only delivers push to an
-//                 app added to the Home Screen
-//   denied        the installer blocked notifications in browser settings
-//   off / on      ready to turn on / turned on for this device
+//   not-configured the app was built without the public VAPID key (set it in
+//                  Vercel, then redeploy — it's baked in at build time)
+//   unsupported    this browser can't do Web Push
+//   needs-install  iPhone/iPad in a browser tab — iOS only delivers push to an
+//                  app added to the Home Screen
+//   denied         the installer blocked notifications in browser settings
+//   off / on       ready to turn on / turned on for this device
 
-export type PushState = "loading" | "unsupported" | "needs-install" | "denied" | "off" | "on";
+export type PushState = "loading" | "not-configured" | "unsupported" | "needs-install" | "denied" | "off" | "on";
 
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+/** What happened when the installer tried to turn notifications on. */
+export type EnableResult = { ok: true; testSent: boolean } | { ok: false; error: string };
+
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim().replace(/^["']|["']$/g, "");
 
 function keyBytes(base64url: string): Uint8Array<ArrayBuffer> {
   const pad = "=".repeat((4 - (base64url.length % 4)) % 4);
@@ -40,12 +45,12 @@ export function usePushNotifications() {
 
   useEffect(() => {
     (async () => {
-      const supported =
-        !!VAPID_PUBLIC_KEY && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
-      if (!supported) {
-        setState(typeof navigator !== "undefined" && isIOS() && !isStandalone() ? "needs-install" : "unsupported");
+      const browserCan = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+      if (!browserCan) {
+        setState(isIOS() && !isStandalone() ? "needs-install" : "unsupported");
         return;
       }
+      if (!VAPID_PUBLIC_KEY) return setState("not-configured");
       if (Notification.permission === "denied") return setState("denied");
       const reg = await navigator.serviceWorker.getRegistration("/");
       const sub = await reg?.pushManager.getSubscription();
@@ -53,14 +58,20 @@ export function usePushNotifications() {
     })().catch(() => setState("unsupported"));
   }, []);
 
-  const enable = useCallback(async () => {
-    if (!VAPID_PUBLIC_KEY) return;
+  const enable = useCallback(async (): Promise<EnableResult> => {
+    if (!VAPID_PUBLIC_KEY) return { ok: false, error: "Notifications aren't set up on the app yet." };
     setBusy(true);
     try {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
         setState(permission === "denied" ? "denied" : "off");
-        return;
+        return {
+          ok: false,
+          error:
+            permission === "denied"
+              ? "Notifications are blocked for this site — allow them in your browser's site settings."
+              : "Notifications weren't allowed. Tap Turn on again and choose Allow.",
+        };
       }
       const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
       await navigator.serviceWorker.ready;
@@ -69,11 +80,13 @@ export function usePushNotifications() {
         (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(VAPID_PUBLIC_KEY) }));
       const json = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } };
       const saved = await savePushSubscription(json, navigator.userAgent);
-      if (!saved.success) return;
+      if (!saved.success) return { ok: false, error: saved.error ?? "Couldn't save this device. Try again." };
       setState("on");
-      sendTestPush().catch(() => {});
+      const test = await sendTestPush().catch(() => null);
+      return { ok: true, testSent: !!test?.success };
     } catch (err) {
       console.error("[Push] enable failed:", err);
+      return { ok: false, error: `Couldn't turn on notifications: ${(err as Error)?.message || "unknown error"}` };
     } finally {
       setBusy(false);
     }
@@ -94,5 +107,14 @@ export function usePushNotifications() {
     }
   }, []);
 
-  return { state, busy, enable, disable };
+  /** Re-send the test notification to this installer's devices. */
+  const test = useCallback(async () => {
+    const r = await sendTestPush().catch(() => null);
+    if (!r) return "Couldn't reach the server. Try again.";
+    if (!r.configured) return "The server's notification keys aren't set — add them in Vercel and redeploy.";
+    if (r.sent === 0) return "No device accepted it. Turn notifications off and on again on this device.";
+    return null;
+  }, []);
+
+  return { state, busy, enable, disable, test };
 }

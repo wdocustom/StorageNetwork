@@ -28,27 +28,44 @@ let configured: boolean | null = null;
 
 function configure(): boolean {
   if (configured !== null) return configured;
-  const pub = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const priv = process.env.VAPID_PRIVATE_KEY;
+  // Trim stray whitespace/quotes a pasted env value can carry.
+  const clean = (v: string | undefined) => v?.trim().replace(/^["']|["']$/g, "") || "";
+  const pub = clean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY);
+  const priv = clean(process.env.VAPID_PRIVATE_KEY);
   if (!pub || !priv) {
     configured = false;
     return false;
   }
-  webpush.setVapidDetails(process.env.VAPID_SUBJECT || "mailto:support@storage-network.app", pub, priv);
-  configured = true;
-  return true;
+  try {
+    webpush.setVapidDetails(clean(process.env.VAPID_SUBJECT) || "mailto:support@storage-network.app", pub, priv);
+    configured = true;
+  } catch (err) {
+    // A malformed key must never break the booking/payment emails this runs inside.
+    console.error("[Push] VAPID keys rejected — notifications are off:", (err as Error).message);
+    configured = false;
+  }
+  return configured;
 }
 
-/** Send to every device the installer turned notifications on for. Never throws. */
-export async function pushToUser(userId: string | null | undefined, msg: PushMessage): Promise<void> {
-  if (!userId || !configure()) return;
+/** True once the VAPID keys are set on the server. */
+export function pushConfigured(): boolean {
+  return configure();
+}
+
+/**
+ * Send to every device the installer turned notifications on for. Never
+ * throws; returns how many devices the push service accepted it for.
+ */
+export async function pushToUser(userId: string | null | undefined, msg: PushMessage): Promise<number> {
+  if (!userId || !configure()) return 0;
   const db = getServiceClient();
+  let sent = 0;
   try {
     const { data: subs } = await db
       .from("push_subscriptions")
       .select("id, endpoint, p256dh, auth")
       .eq("user_id", userId);
-    if (!subs?.length) return;
+    if (!subs?.length) return 0;
 
     const payload = JSON.stringify(msg);
     await Promise.all(
@@ -59,6 +76,7 @@ export async function pushToUser(userId: string | null | undefined, msg: PushMes
             payload,
             { TTL: 60 * 60 * 24 },
           );
+          sent++;
           await db.from("push_subscriptions").update({ last_sent_at: new Date().toISOString() }).eq("id", s.id);
         } catch (err) {
           const status = (err as { statusCode?: number }).statusCode;
@@ -74,16 +92,17 @@ export async function pushToUser(userId: string | null | undefined, msg: PushMes
   } catch (err) {
     console.error("[Push] pushToUser failed:", err);
   }
+  return sent;
 }
 
 /** For callers that only know the installer's email (the alert emails). */
-export async function pushToEmail(email: string | null | undefined, msg: PushMessage): Promise<void> {
-  if (!email || !configure()) return;
+export async function pushToEmail(email: string | null | undefined, msg: PushMessage): Promise<number> {
+  if (!email || !configure()) return 0;
   const { data } = await getServiceClient()
     .from("profiles")
     .select("id")
     .eq("email", email.trim().toLowerCase()) // profile emails are stored lowercase
     .limit(1)
     .maybeSingle();
-  await pushToUser(data?.id as string | undefined, msg);
+  return pushToUser(data?.id as string | undefined, msg);
 }
