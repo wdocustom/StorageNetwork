@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
@@ -13,11 +13,23 @@ import { Loader2, Mail, ArrowLeft, KeyRound, ShieldOff } from "lucide-react";
 // Login Page — Supabase Email/Password Auth with Forgot Password
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Installers always start on Today. A ?redirect= is honored only when it
+// points at one specific record (a job from an email, an agreement to sign)
+// or a page outside the dashboard; a tab they happened to be on last time
+// isn't a reason to skip Today. Only same-site paths are accepted.
+const RECORD_PATH = /^\/dashboard\/(leads|tote-rentals|affiliate\/agreement|promoter\/agreement|admin\/[a-z-]+)\/[^/?#]+/;
+
+function landingFor(redirect: string | null): string {
+  if (!redirect || !redirect.startsWith("/") || redirect.startsWith("//")) return "/dashboard";
+  if (!redirect.startsWith("/dashboard")) return redirect;
+  return RECORD_PATH.test(redirect) ? redirect : "/dashboard";
+}
+
 export default function LoginPage() {
   const supabase = getSupabaseBrowserClient();
   const searchParams = useSearchParams();
   const explicitRedirect = searchParams.get("redirect");
-  const redirectTo = explicitRedirect || "/dashboard";
+  const redirectTo = landingFor(explicitRedirect);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,6 +44,29 @@ export default function LoginPage() {
   }>({ blocked: false, reason: null, userId: null });
   const [recoveryUrl, setRecoveryUrl] = useState<string | null>(null);
   const [recoveryLoading, setRecoveryLoading] = useState(false);
+
+  // Already signed in (e.g. a bookmarked /login): skip the form. Not when
+  // the middleware just bounced here (?redirect=) — the server rejected the
+  // session, so forwarding back would loop.
+  useEffect(() => {
+    if (explicitRedirect) return;
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) return;
+      if (redirectTo === "/dashboard") {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("is_realtor, is_pro")
+          .eq("id", session.user.id)
+          .single();
+        if (profile?.is_realtor && !profile?.is_pro) {
+          window.location.replace("/realtors/dashboard");
+          return;
+        }
+      }
+      window.location.replace(redirectTo);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleEmailAuth() {
     const trimmedEmail = email.trim().toLowerCase();
@@ -112,9 +147,9 @@ export default function LoginPage() {
             // portal switcher in the header lets them hop over if they
             // wanted realtor side.
             //
-            // Skip the override entirely if the caller passed an explicit
-            // ?redirect= param — that intent always wins.
-            if (!explicitRedirect) {
+            // Skip the override entirely if the caller passed a ?redirect=
+            // we honor (see landingFor) — that intent always wins.
+            if (redirectTo === "/dashboard") {
               const { data: profile } = await supabase
                 .from("profiles")
                 .select("is_realtor, is_pro")

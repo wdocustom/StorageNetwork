@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -16,13 +17,15 @@ import NetworkPassiveIncome from "@/components/dashboard/NetworkPassiveIncome";
 import PromoBanner from "@/components/dashboard/PromoBanner";
 import ProPill from "@/components/dashboard/ProPill";
 import TodayJobs from "@/components/dashboard/TodayJobs";
+import TodayInsights, { TodayInsightsSkeleton } from "@/components/dashboard/TodayInsights";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Today — the dashboard home. Rendered on the server from one parallel load
 // (lib/server/dashboard-today), so it arrives with real numbers.
 //
 //   account alerts (only when something blocks getting paid or booked)
-//   → stats → jobs that need something → setup / coaching → leaderboard
+//   → stats → jobs that need something → analytics peek → setup / coaching
+//   → leaderboard
 //
 // Tools that used to be tiles here live in the tab bar and under More.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -149,6 +152,11 @@ export default async function TodayPage() {
 
           {/* ── Jobs that need something ── */}
           <TodayJobs jobs={jobs} serverToday={todayInstallDateKey()} />
+
+          {/* ── Analytics peek (streams in; never holds the page) ── */}
+          <Suspense fallback={<TodayInsightsSkeleton />}>
+            <TodayInsights userId={user.id} slug={profile?.slug ?? null} />
+          </Suspense>
 
           {/* ── Onboarding, then coaching once onboarding is done ── */}
           {profile && <SetupChecklist userId={profile.id} bookingLink={leadLink} initialStatus={setup} />}
