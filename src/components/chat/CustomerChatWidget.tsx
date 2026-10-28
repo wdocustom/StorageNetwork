@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { MessageSquare, X, Send, Loader2, ExternalLink, Mail, Sparkles, Package, ArrowUp, Layers, Flower2, ChevronRight, Mic } from "lucide-react";
+import { MessageSquare, X, Send, Loader2, ExternalLink, Mail, Sparkles, Package, ArrowUp, Layers, Flower2, ChevronRight, Mic, CheckCircle2 } from "lucide-react";
 import type { RackConfig, InstallerChatContext, CustomerInfo } from "@/lib/ai/customer-chat-prompt";
 import VoiceConversation from "./VoiceConversation";
 
@@ -18,6 +18,10 @@ interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   config?: RackConfig;
+  /** The customer tapped "Add to my build" for this message's config */
+  added?: boolean;
+  /** Details this message filled into the booking form (shown as a receipt) */
+  filledInfo?: CustomerInfo;
 }
 
 interface CustomerChatWidgetProps {
@@ -226,6 +230,8 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
         const customerInfo = parseCustomerInfo(fullContent);
         if (customerInfo) {
           onCustomerInfoRef.current?.(customerInfo);
+          // Show what was filled in, so it's clear the details landed.
+          setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, filledInfo: customerInfo } : m)));
         }
       }
     } catch {
@@ -290,6 +296,22 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
 
   // Find the latest config from messages (last assistant message with a config)
   const latestConfig = [...messages].reverse().find((m) => m.config)?.config;
+
+  // A priced unit the customer hasn't added yet — kept pinned above the input
+  // so the one step that actually puts it in the build can't scroll away.
+  const pendingConfigMsg = onAddUnits ? [...messages].reverse().find((m) => m.config && !m.added) : undefined;
+  const [addingId, setAddingId] = useState<string | null>(null);
+
+  const addToBuild = async (msg: ChatMessage) => {
+    if (!onAddUnits || !msg.config || msg.added || addingId) return;
+    setAddingId(msg.id);
+    try {
+      await onAddUnits(getAllUnits(msg.config));
+      setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, added: true } : m)));
+    } finally {
+      setAddingId(null);
+    }
+  };
 
   return (
     <>
@@ -455,17 +477,22 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
                     {m.config && (
                       <div className="mt-3 space-y-2 pl-2">
                         {onAddUnits ? (
-                          /* On /design page — add directly to sidebar order */
-                          <button
-                            onClick={async () => {
-                              await onAddUnits(getAllUnits(m.config!));
-                              setIsOpen(false);
-                            }}
-                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-500 px-4 py-3 text-sm font-black uppercase tracking-wider text-slate-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-400"
-                          >
-                            <Package className="h-4 w-4" />
-                            Add {getAllUnits(m.config!).length > 1 ? `${getAllUnits(m.config!).length} Units` : "Unit"} to My Build
-                          </button>
+                          /* On /design page — add directly to the order */
+                          m.added ? (
+                            <div className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-bold text-emerald-400">
+                              <CheckCircle2 className="h-4 w-4" />
+                              Added to your build
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => addToBuild(m)}
+                              disabled={addingId === m.id}
+                              className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-500 px-4 py-3 text-sm font-black uppercase tracking-wider text-slate-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-400 disabled:opacity-60"
+                            >
+                              {addingId === m.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
+                              Add {getAllUnits(m.config!).length > 1 ? `${getAllUnits(m.config!).length} Units` : "Unit"} to My Build
+                            </button>
+                          )
                         ) : (
                           /* Standalone — link to /design */
                           <a
@@ -504,6 +531,26 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
                         )}
                       </div>
                     )}
+
+                    {/* Receipt for details the assistant filled into the booking form */}
+                    {m.filledInfo && (
+                      <div className="mt-2 ml-2 flex items-start gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
+                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        <span>
+                          <span className="font-bold">Added to your booking form:</span>{" "}
+                          {[
+                            [m.filledInfo.firstName, m.filledInfo.lastName].filter(Boolean).join(" "),
+                            m.filledInfo.address,
+                            [m.filledInfo.city, [m.filledInfo.state, m.filledInfo.zip].filter(Boolean).join(" ")].filter(Boolean).join(", "),
+                            m.filledInfo.email,
+                            m.filledInfo.phone,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                          . Tap <span className="font-bold">Book install</span> when you&apos;re ready.
+                        </span>
+                      </div>
+                    )}
                   </div>
                 ))}
                 {isLoading && messages[messages.length - 1]?.role === "user" && (
@@ -519,6 +566,23 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
                 )}
                 <div ref={messagesEndRef} />
               </div>
+
+              {/* A priced unit not yet in the build — pinned until added */}
+              {pendingConfigMsg && (
+                <div className="flex items-center gap-3 border-t border-slate-700 bg-slate-900 px-4 py-2.5 shrink-0">
+                  <p className="min-w-0 flex-1 text-xs text-slate-300">
+                    <span className="font-bold text-white">Not in your build yet.</span> Add it to see it and book.
+                  </p>
+                  <button
+                    onClick={() => addToBuild(pendingConfigMsg)}
+                    disabled={addingId === pendingConfigMsg.id}
+                    className="flex shrink-0 items-center gap-1.5 rounded-lg bg-yellow-400 px-3 py-2 text-xs font-black uppercase tracking-wider text-slate-900 transition hover:bg-yellow-300 disabled:opacity-60"
+                  >
+                    {addingId === pendingConfigMsg.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Package className="h-3.5 w-3.5" />}
+                    Add to build
+                  </button>
+                </div>
+              )}
 
               {/* Input */}
               <div className="flex items-center gap-2 px-4 py-3 border-t border-slate-700 bg-slate-800/50 shrink-0">
