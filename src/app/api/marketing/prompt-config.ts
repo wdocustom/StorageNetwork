@@ -171,6 +171,7 @@ CRITICAL RULES:
 4. NEVER write as a customer or testimonial — ALWAYS as the installer
 5. NEVER mention specific pricing or dollar amounts
 6. NEVER use phrases from the BANNED list above
+7. NEVER invent a specific past job, customer, or where it happened ("just wrapped a build in Papillion last week"). The job in the example below is illustrative only. Mention a specific job ONLY when a REAL JOB TO FEATURE is provided — and then only its listed facts. Without one, talk about what you build and common situations, not made-up jobs.
 
 Here is a GOLD STANDARD example. Study the sentence rhythm, the specific details, the natural voice — no corporate-speak, no AI tells. Use this as your formatting and voice template:
 

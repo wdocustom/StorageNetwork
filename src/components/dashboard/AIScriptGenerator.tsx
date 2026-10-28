@@ -309,6 +309,8 @@ interface AIScriptGeneratorProps {
   // null / undefined = show all categories.
   enabledServices?: string[] | null;
   onActiveTextChange?: (text: string | null) => void;
+  /** The installer's recent finished jobs — a post can feature one (true facts only) */
+  recentJobs?: { id: string; label: string }[];
 }
 
 export default function AIScriptGenerator({
@@ -320,6 +322,7 @@ export default function AIScriptGenerator({
   userId,
   enabledServices,
   onActiveTextChange,
+  recentJobs = [],
 }: AIScriptGeneratorProps) {
   const [mode, setMode] = useState<Mode>("post");
 
@@ -327,6 +330,7 @@ export default function AIScriptGenerator({
   const [platform, setPlatform] = useState<Platform>("facebook-group");
   const [tone, setTone] = useState<Tone>("casual");
   const [customTopic, setCustomTopic] = useState("");
+  const [realJobId, setRealJobId] = useState<string | null>(null);
 
   // Follow-up state
   const [followUpHook, setFollowUpHook] = useState<FollowUpHook>("just-sold");
@@ -395,6 +399,8 @@ export default function AIScriptGenerator({
               businessName,
               // Category prompt feeds the custom topic slot; freetext overrides if provided
               customTopic: customTopic.trim() || categoryPrompt || undefined,
+              // The server loads this job's facts itself — only the id travels.
+              realJobId: realJobId || undefined,
             };
 
       const res = await fetch("/api/marketing/generate", {
@@ -541,6 +547,39 @@ export default function AIScriptGenerator({
       ══════════════════════════════════════════════════════════════ */}
       {mode === "post" && (
         <>
+          {/* ── Feature a real finished job (true story, real details) ── */}
+          {recentJobs.length > 0 && (
+            <div>
+              <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                Feature a job you finished <span className="font-normal text-stone-600">(optional — real posts win)</span>
+              </label>
+              <div className="flex flex-col gap-1.5">
+                {recentJobs.map((job) => {
+                  const active = realJobId === job.id;
+                  return (
+                    <button
+                      key={job.id}
+                      type="button"
+                      onClick={() => setRealJobId(active ? null : job.id)}
+                      className={`truncate rounded-lg border px-3 py-2 text-left text-[11px] font-semibold transition-all ${
+                        active
+                          ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
+                          : "border-slate-700 bg-slate-800/50 text-stone-400 hover:border-slate-600 hover:text-stone-300"
+                      }`}
+                    >
+                      {job.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {realJobId && (
+                <p className="mt-1.5 text-[10px] text-stone-500">
+                  Attach a photo of this build when you post — real install photos get the most replies.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* ── Service focus filter ─────────────────────────────── */}
           <CategoryFilter
             categories={visibleCategories}

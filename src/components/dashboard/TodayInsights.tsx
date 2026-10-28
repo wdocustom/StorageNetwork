@@ -31,7 +31,7 @@ export function TodayInsightsCard({ i }: { i: Insights }) {
       ? {
           text: `${i.openedNotBooked} ${i.openedNotBooked === 1 ? "customer opened their quote" : "customers opened their quotes"} but ${i.openedNotBooked === 1 ? "hasn't" : "haven't"} booked — a quick follow-up closes jobs.`,
           cta: "Follow up",
-          href: "/dashboard/leads?tab=unpaid",
+          href: "/dashboard/marketing#quotes",
         }
       : i.linksSent === 0
         ? { text: `No quote links sent in the last ${INSIGHT_DAYS} days.`, cta: "Build a quote", href: "/dashboard/build" }
