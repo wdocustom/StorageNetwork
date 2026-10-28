@@ -122,7 +122,7 @@ function PlanSnapshots({
 
 // ── PDF card ─────────────────────────────────────────────────────────────
 
-/** The Storage Network badge as an RGBA PNG data URL for the PDF cover. */
+/** The Storage Network wordmark as an RGBA PNG data URL for the PDF cover. */
 function loadCoverLogo(): Promise<string | undefined> {
   return new Promise((resolve) => {
     const img = new window.Image();
@@ -138,7 +138,7 @@ function loadCoverLogo(): Promise<string | undefined> {
       }
     };
     img.onerror = () => resolve(undefined);
-    img.src = "/logo-storage-network.png";
+    img.src = "/brand-wordmark.png";
   });
 }
 

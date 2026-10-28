@@ -7,7 +7,7 @@
 //   • AssemblyStepSnapshots — one 3D render per step of every module type
 //
 // Layout (US Letter, portrait):
-//   1. Cover — brand band (logo, "Designed for <name>"), finished unit render
+//   1. Cover — brand band (wordmark, "Designed for <name>"), finished unit render
 //      (or system map), at-a-glance numbers, Storage Network footer
 //   2. Before you start — tools + shopping checklists, safety, notes
 //   3. Your system — elevation map, module types, build order (multi-module)
@@ -81,7 +81,7 @@ export interface DIYPDFInput {
   licensedTo?: string;
   /** Buyer's first name — the cover reads "Designed for Skyler" (else "for you") */
   designedFor?: string;
-  /** Storage Network badge as a PNG data URL (the browser loads it; tests omit it) */
+  /** Storage Network wordmark as a PNG data URL (the browser loads it; tests omit it) */
   logoDataUrl?: string;
   /**
    * Back-page call to action. upgradeUrl → PDF buyer, offer the 3D guide;
@@ -275,13 +275,13 @@ function renderCover(doc: jsPDF, input: DIYPDFInput, layout: DesignLayout) {
   doc.setFillColor(...COLORS.accent);
   doc.rect(0, bandH, PAGE_W, 1.6, "F");
 
-  // Logo badge (512×279 source) top-left; the wordmark if it didn't load.
-  const logoH = 26;
-  const logoW = (logoH * 512) / 279;
+  // Yellow-and-white ® wordmark (549×219 source) top-left; text if it didn't load.
+  const logoH = 22;
+  const logoW = (logoH * 549) / 219;
   let logoPlaced = false;
   if (input.logoDataUrl) {
     try {
-      doc.addImage(input.logoDataUrl, "PNG", MARGIN - 3, 9, logoW, logoH);
+      doc.addImage(input.logoDataUrl, "PNG", MARGIN - 1, 10, logoW, logoH);
       logoPlaced = true;
     } catch {
       // fall through to the text mark
