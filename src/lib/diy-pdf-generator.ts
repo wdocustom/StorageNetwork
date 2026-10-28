@@ -7,7 +7,8 @@
 //   • AssemblyStepSnapshots — one 3D render per step of every module type
 //
 // Layout (US Letter, portrait):
-//   1. Cover — finished unit render (or system map), at-a-glance numbers
+//   1. Cover — brand band (logo, "Designed for <name>"), finished unit render
+//      (or system map), at-a-glance numbers, Storage Network footer
 //   2. Before you start — tools + shopping checklists, safety, notes
 //   3. Your system — elevation map, module types, build order (multi-module)
 //   4. Cut plan — parts per module type, identical boards grouped, plywood
@@ -78,6 +79,10 @@ export interface DIYPDFInput {
   snapshots: Record<string, string>;
   /** Shown on the cover, e.g. "Licensed to jo@example.com" */
   licensedTo?: string;
+  /** Buyer's first name — the cover reads "Designed for Skyler" (else "for you") */
+  designedFor?: string;
+  /** Storage Network badge as a PNG data URL (the browser loads it; tests omit it) */
+  logoDataUrl?: string;
   /**
    * Back-page call to action. upgradeUrl → PDF buyer, offer the 3D guide;
    * guideUrl → they already own it, link straight to it.
@@ -263,26 +268,54 @@ function drawSystemMap(
 function renderCover(doc: jsPDF, input: DIYPDFInput, layout: DesignLayout) {
   const { plan } = input;
 
+  // ── Brand band ──────────────────────────────────────────────────────
+  const bandH = 98;
   doc.setFillColor(...COLORS.ink);
-  doc.rect(0, 0, PAGE_W, 58, "F");
+  doc.rect(0, 0, PAGE_W, bandH, "F");
   doc.setFillColor(...COLORS.accent);
-  doc.rect(0, 58, PAGE_W, 1.4, "F");
+  doc.rect(0, bandH, PAGE_W, 1.6, "F");
 
-  setText(doc, 9, COLORS.accent, "bold");
-  doc.text("STORAGE NETWORK  ·  DIY BUILD PLAN", MARGIN, 18);
-  setText(doc, plan.name.length > 28 ? 20 : 26, COLORS.white, "bold");
-  doc.text(pdfText(plan.name), MARGIN, 33);
-  setText(doc, 10.5, [203, 213, 225]);
-  paragraph(doc, plan.summary.replace(/ · /g, "  ·  "), MARGIN, 43, CONTENT_W, 10.5);
+  // Logo badge (512×279 source) top-left; the wordmark if it didn't load.
+  const logoH = 26;
+  const logoW = (logoH * 512) / 279;
+  let logoPlaced = false;
+  if (input.logoDataUrl) {
+    try {
+      doc.addImage(input.logoDataUrl, "PNG", MARGIN - 3, 9, logoW, logoH);
+      logoPlaced = true;
+    } catch {
+      // fall through to the text mark
+    }
+  }
+  if (!logoPlaced) {
+    setText(doc, 13, COLORS.accent, "bold");
+    doc.text("STORAGE-NETWORK.APP", MARGIN, 24);
+  }
+  setText(doc, 8.5, COLORS.accent, "bold");
+  doc.text("DIY BUILD PLAN", PAGE_W - MARGIN, 18, { align: "right" });
+  setText(doc, 8, [148, 163, 184]);
+  doc.text("storage-network.app", PAGE_W - MARGIN, 24, { align: "right" });
+
+  // "Designed for Skyler"
+  const name = input.designedFor?.trim();
+  setText(doc, 10, COLORS.accent, "bold");
+  doc.text("DESIGNED FOR", MARGIN, 50);
+  setText(doc, name && name.length > 14 ? 30 : 38, COLORS.white, "bold");
+  doc.text(pdfText(name || "You"), MARGIN, 64);
+
+  setText(doc, plan.name.length > 34 ? 13 : 15, COLORS.white, "bold");
+  doc.text(pdfText(plan.name), MARGIN, 77);
+  setText(doc, 9.5, [203, 213, 225]);
+  paragraph(doc, plan.summary.replace(/ · /g, "  ·  "), MARGIN, 84, CONTENT_W, 9.5);
   if (input.licensedTo) {
-    setText(doc, 8, [148, 163, 184]);
-    doc.text(pdfText(input.licensedTo), MARGIN, 53);
+    setText(doc, 7.5, [148, 163, 184]);
+    doc.text(pdfText(input.licensedTo), MARGIN, 94);
   }
 
-  // Hero — the finished module when the design is one module; otherwise
+  // ── Hero — the finished module when the design is one module; otherwise
   // the whole system drawn to scale.
-  const heroY = 68;
-  const heroH = CONTENT_W * 0.72;
+  const heroY = bandH + 7;
+  const heroH = CONTENT_W * 0.56;
   if (plan.moduleCount === 1) {
     const t = plan.moduleTypes[0];
     const last = t.steps[t.steps.length - 1];
@@ -295,7 +328,7 @@ function renderCover(doc: jsPDF, input: DIYPDFInput, layout: DesignLayout) {
     doc.text("FRONT VIEW — units A, B, C…; modules A1, A2…", MARGIN + 4, heroY + 6);
   }
 
-  // At a glance
+  // ── At a glance
   const d = plan.dimensions;
   const stats: [string, string][] = [
     ["Width", d.totalWidth],
@@ -305,18 +338,18 @@ function renderCover(doc: jsPDF, input: DIYPDFInput, layout: DesignLayout) {
     ["2×4×8' boards", String(plan.totals.boards)],
     plan.moduleCount > 1 ? ["Modules to build", String(plan.moduleCount)] : ["2×4 rails", String(plan.railBoards.rails)],
   ];
-  const statY = heroY + heroH + 7;
+  const statY = heroY + heroH + 6;
   const cellW = CONTENT_W / 3;
-  const cellH = 17;
+  const cellH = 15;
   stats.forEach(([label, value], i) => {
     const cx = MARGIN + (i % 3) * cellW;
     const cy = statY + Math.floor(i / 3) * (cellH + 3);
     doc.setFillColor(...COLORS.panel);
     doc.roundedRect(cx + 1, cy, cellW - 2, cellH, 2, 2, "F");
-    setText(doc, 7.5, COLORS.muted, "bold");
-    doc.text(pdfText(label.toUpperCase()), cx + 5, cy + 6);
-    setText(doc, 14, COLORS.ink, "bold");
-    doc.text(pdfText(value), cx + 5, cy + 13.5);
+    setText(doc, 7, COLORS.muted, "bold");
+    doc.text(pdfText(label.toUpperCase()), cx + 5, cy + 5.5);
+    setText(doc, 13, COLORS.ink, "bold");
+    doc.text(pdfText(value), cx + 5, cy + 12);
   });
 
   setText(doc, 8, COLORS.muted);
@@ -324,10 +357,21 @@ function renderCover(doc: jsPDF, input: DIYPDFInput, layout: DesignLayout) {
     doc,
     "Read the whole plan once before you buy materials. Cut every piece first, then assemble in order — each step builds on the last.",
     MARGIN,
-    PAGE_H - 16,
+    statY + 2 * cellH + 3 + 7,
     CONTENT_W,
     8,
   );
+
+  // ── Brand footer
+  const footH = 15;
+  doc.setFillColor(...COLORS.ink);
+  doc.rect(0, PAGE_H - footH, PAGE_W, footH, "F");
+  setText(doc, 9, COLORS.accent, "bold");
+  doc.text("STORAGE-NETWORK.APP", MARGIN, PAGE_H - footH + 9.5);
+  setText(doc, 8, [203, 213, 225]);
+  doc.text("Rather have it built for you? Book a local pro at storage-network.app", PAGE_W - MARGIN, PAGE_H - footH + 9.5, {
+    align: "right",
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

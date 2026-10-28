@@ -61,6 +61,8 @@ export type OpenTotePlanResult =
       token?: string;
       /** Buyer email — present on the first visit so the page can confirm it */
       emailSentTo?: string;
+      /** Buyer's first name (from checkout) — the PDF cover says "Designed for …" */
+      firstName?: string;
       access: "purchase" | "pro" | "admin";
       /** Ladder jig link: their own jig plans if bought, else the $5 owner offer (purchases only) */
       jig?: { owned: boolean; href: string };
@@ -73,6 +75,15 @@ interface PurchaseRow {
   tier: string | null;
   build_config: unknown;
   plan_id: string;
+  customer_name: string | null;
+}
+
+const PURCHASE_COLUMNS = "access_token, email, tier, build_config, plan_id, customer_name";
+
+/** "Skyler Camacho" → "Skyler"; null when there's nothing usable. */
+function firstNameOf(name: string | null | undefined): string | undefined {
+  const first = name?.trim().split(/\s+/)[0];
+  return first ? first.charAt(0).toUpperCase() + first.slice(1) : undefined;
 }
 
 async function buildResult(
@@ -99,6 +110,7 @@ async function buildResult(
     design,
     plan,
     token: row.access_token,
+    firstName: firstNameOf(row.customer_name),
     access: "purchase",
     jig: jigRow
       ? { owned: true, href: `/plans/jig?token=${jigRow.access_token}` }
@@ -111,7 +123,7 @@ async function findByToken(token: string): Promise<PurchaseRow | null> {
   if (!UUID_RE.test(token)) return null;
   const { data } = await getServiceClient()
     .from("public_plan_purchases")
-    .select("access_token, email, tier, build_config, plan_id")
+    .select(PURCHASE_COLUMNS)
     .eq("access_token", token)
     .maybeSingle();
   return (data as PurchaseRow | null) ?? null;
@@ -160,7 +172,7 @@ async function openFromCheckout(sessionId: string): Promise<OpenTotePlanResult> 
   // Already recorded (page refresh, back button) — don't re-send the email.
   const { data: existing } = await db
     .from("public_plan_purchases")
-    .select("access_token, email, tier, build_config, plan_id")
+    .select(PURCHASE_COLUMNS)
     .eq("stripe_session_id", sessionId)
     .maybeSingle();
   if (existing) return buildResult(existing as PurchaseRow);
@@ -187,11 +199,12 @@ async function openFromCheckout(sessionId: string): Promise<OpenTotePlanResult> 
       tier,
       build_config: design,
       stripe_session_id: sessionId,
+      customer_name: session.customer_details?.name?.trim() || null,
       email_sent: false,
       referred_by_promoter_id: session.metadata.promoter_id || null,
       promoter_referral_code_snapshot: session.metadata.promoter_referral_code || null,
     })
-    .select("access_token, email, tier, build_config, plan_id")
+    .select(PURCHASE_COLUMNS)
     .single();
 
   if (error || !inserted) {
@@ -199,7 +212,7 @@ async function openFromCheckout(sessionId: string): Promise<OpenTotePlanResult> 
     if ((error as { code?: string } | null)?.code === "23505") {
       const { data: winner } = await db
         .from("public_plan_purchases")
-        .select("access_token, email, tier, build_config, plan_id")
+        .select(PURCHASE_COLUMNS)
         .eq("stripe_session_id", sessionId)
         .single();
       if (winner) return buildResult(winner as PurchaseRow);

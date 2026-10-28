@@ -122,6 +122,26 @@ function PlanSnapshots({
 
 // ── PDF card ─────────────────────────────────────────────────────────────
 
+/** The Storage Network badge as an RGBA PNG data URL for the PDF cover. */
+function loadCoverLogo(): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext("2d")?.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL("image/png"));
+      } catch {
+        resolve(undefined);
+      }
+    };
+    img.onerror = () => resolve(undefined);
+    img.src = "/logo-storage-network.png";
+  });
+}
+
 type PdfState =
   | { phase: "idle" }
   | { phase: "rendering"; done: number }
@@ -138,7 +158,10 @@ function PdfCard({ data }: { data: Ready }) {
     async (snapshots: Record<string, string>) => {
       setState({ phase: "writing" });
       try {
-        const { downloadDIYPDF } = await import("@/lib/diy-pdf-generator");
+        const [{ downloadDIYPDF }, logoDataUrl] = await Promise.all([
+          import("@/lib/diy-pdf-generator"),
+          loadCoverLogo(),
+        ]);
         const origin = window.location.origin;
         const links = data.token
           ? {
@@ -153,6 +176,8 @@ function PdfCard({ data }: { data: Ready }) {
           plan: data.plan,
           snapshots,
           licensedTo: data.emailSentTo ? `Licensed to ${data.emailSentTo}` : undefined,
+          designedFor: data.firstName,
+          logoDataUrl,
           links,
         });
         setState({ phase: "done" });
