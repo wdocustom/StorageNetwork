@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processChatbotAnnouncement } from "@/app/actions/chatbot-announcement";
+import { DESIGN_ASSISTANT_ENABLED } from "@/config/features";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -19,6 +20,11 @@ export async function POST(req: NextRequest) {
       { success: false, error: "Unauthorized" },
       { status: 401 }
     );
+  }
+
+  // The assistant is switched off — don't tell new installers it's live.
+  if (!DESIGN_ASSISTANT_ENABLED) {
+    return NextResponse.json({ success: true, skipped: "design assistant disabled" });
   }
 
   try {

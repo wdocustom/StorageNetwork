@@ -1,7 +1,7 @@
 {
   "name": "Storage Network",
   "short_name": "Storage",
-  "start_url": "/login",
+  "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#020617",

@@ -15,6 +15,7 @@ import RackVisualizer from "@/components/visualizer/RackVisualizer";
 import type { MultiUnitItem } from "@/components/visualizer/RackVisualizer";
 import BookingModal from "@/components/booking/BookingModal";
 import type { ConfiguratorSidebarProps } from "@/components/design/configurator-types";
+import { DESIGN_ASSISTANT_ENABLED } from "@/config/features";
 import StudioPanel from "@/components/design/studio/StudioPanel";
 import StudioDimensions from "@/components/design/studio/StudioDimensions";
 import type { StudioPrices } from "@/components/design/studio/StudioUnitEditor";
@@ -823,79 +824,81 @@ export default function DesignConfigurator({
       )}
 
       {/* ── AI Design Assistant — with direct add-to-order callback ── */}
-      <CustomerChatWidget
-        installerId={installer.data?.routing.installerId}
-        installerSlug={installer.data?.routing.slug || undefined}
-        skipWelcome={leadSource === "platform" || !!initialConfig}
-        installerContext={{
-          installerName: installer.data?.branding.title,
-          standardSlot: installer.data?.pricing?.standard_slot,
-          miniSlot: installer.data?.pricing?.mini_slot,
-          standardTote: installer.data?.pricing?.standard_tote,
-          standardToteClear: installer.data?.pricing?.standard_tote_clear,
-          miniTote: installer.data?.pricing?.mini_tote,
-          standardWheels: installer.data?.pricing?.standard_wheels,
-          miniWheels: installer.data?.pricing?.mini_wheels,
-          plywoodTop: installer.data?.pricing?.plywood_top,
-          totesDisabled: installer.data?.pricing?.totes_disabled === true,
-          use2x4Rails: installer.data?.pricing?.use_2x4_rails === true,
-          miniEnabled: installer.data?.pricing?.mini_enabled === true,
-          shelvingEnabled: installer.data?.pricing?.open_shelving_enabled === true,
-          overheadEnabled: installer.data?.pricing?.overhead_storage_enabled === true,
-          raisedBedEnabled: installer.data?.pricing?.raised_bed_enabled === true,
-          disabledPresets: [
-            installer.data?.pricing?.bestseller_indiana_joe_disabled ? "indiana-joe" : "",
-            installer.data?.pricing?.bestseller_long_ranger_disabled ? "long-ranger" : "",
-            installer.data?.pricing?.bestseller_gas_station_disabled ? "gas-station" : "",
-            installer.data?.pricing?.bestseller_track_norris_disabled ? "track-norris" : "",
-          ].filter(Boolean),
-        }}
-        onCustomerInfo={(info) => {
-          if (info.firstName) booking.setFirstName(info.firstName);
-          if (info.lastName) booking.setLastName(info.lastName);
-          if (info.email) booking.setEmail(info.email);
-          if (info.phone) booking.setPhone(info.phone);
-          if (info.address) booking.setStreetAddress(info.address);
-          if (info.city) booking.setCity(info.city);
-          if (info.state) booking.setAddrState(info.state);
-          if (info.zip) booking.setAddrZip(info.zip);
-        }}
-        onAddUnits={async (configs) => {
-          for (const cfg of configs) {
-            const result = await calculateBuild({
-              cols: cfg.cols,
-              rows: cfg.rows,
-              toteModel: cfg.toteType || "HDX",
-              toteColor: cfg.toteColor || "black",
-              unitType: cfg.unitType || "standard",
-              orientation: cfg.orientation || "standard",
-              addOns: { totes: cfg.hasTotes, wheels: cfg.hasWheels, top: cfg.hasTop },
-              mode: "manual",
-              installerPricing: installer.data?.pricing,
-            });
-            if ("price" in result) {
-              const colorLabel = cfg.hasTotes && cfg.toteColor === "clear" ? " (Clear Totes)" : "";
-              cart.setOrderItems((prev) => [...prev, {
-                cols: result.cols,
-                rows: result.rows,
-                toteType: cfg.toteType || "HDX",
+      {DESIGN_ASSISTANT_ENABLED && (
+        <CustomerChatWidget
+          installerId={installer.data?.routing.installerId}
+          installerSlug={installer.data?.routing.slug || undefined}
+          skipWelcome={leadSource === "platform" || !!initialConfig}
+          installerContext={{
+            installerName: installer.data?.branding.title,
+            standardSlot: installer.data?.pricing?.standard_slot,
+            miniSlot: installer.data?.pricing?.mini_slot,
+            standardTote: installer.data?.pricing?.standard_tote,
+            standardToteClear: installer.data?.pricing?.standard_tote_clear,
+            miniTote: installer.data?.pricing?.mini_tote,
+            standardWheels: installer.data?.pricing?.standard_wheels,
+            miniWheels: installer.data?.pricing?.mini_wheels,
+            plywoodTop: installer.data?.pricing?.plywood_top,
+            totesDisabled: installer.data?.pricing?.totes_disabled === true,
+            use2x4Rails: installer.data?.pricing?.use_2x4_rails === true,
+            miniEnabled: installer.data?.pricing?.mini_enabled === true,
+            shelvingEnabled: installer.data?.pricing?.open_shelving_enabled === true,
+            overheadEnabled: installer.data?.pricing?.overhead_storage_enabled === true,
+            raisedBedEnabled: installer.data?.pricing?.raised_bed_enabled === true,
+            disabledPresets: [
+              installer.data?.pricing?.bestseller_indiana_joe_disabled ? "indiana-joe" : "",
+              installer.data?.pricing?.bestseller_long_ranger_disabled ? "long-ranger" : "",
+              installer.data?.pricing?.bestseller_gas_station_disabled ? "gas-station" : "",
+              installer.data?.pricing?.bestseller_track_norris_disabled ? "track-norris" : "",
+            ].filter(Boolean),
+          }}
+          onCustomerInfo={(info) => {
+            if (info.firstName) booking.setFirstName(info.firstName);
+            if (info.lastName) booking.setLastName(info.lastName);
+            if (info.email) booking.setEmail(info.email);
+            if (info.phone) booking.setPhone(info.phone);
+            if (info.address) booking.setStreetAddress(info.address);
+            if (info.city) booking.setCity(info.city);
+            if (info.state) booking.setAddrState(info.state);
+            if (info.zip) booking.setAddrZip(info.zip);
+          }}
+          onAddUnits={async (configs) => {
+            for (const cfg of configs) {
+              const result = await calculateBuild({
+                cols: cfg.cols,
+                rows: cfg.rows,
+                toteModel: cfg.toteType || "HDX",
                 toteColor: cfg.toteColor || "black",
                 unitType: cfg.unitType || "standard",
                 orientation: cfg.orientation || "standard",
-                hasTotes: cfg.hasTotes,
-                hasWheels: cfg.hasWheels,
-                hasTop: cfg.hasTop,
-                price: result.price,
-                totalW: result.dimensions.totalW,
-                totalH: result.dimensions.totalH,
-                depth: result.dimensions.depth,
-                desc: `Standard: ${result.cols}W × ${result.rows}H${colorLabel}`,
-                addons: [],
-              }]);
+                addOns: { totes: cfg.hasTotes, wheels: cfg.hasWheels, top: cfg.hasTop },
+                mode: "manual",
+                installerPricing: installer.data?.pricing,
+              });
+              if ("price" in result) {
+                const colorLabel = cfg.hasTotes && cfg.toteColor === "clear" ? " (Clear Totes)" : "";
+                cart.setOrderItems((prev) => [...prev, {
+                  cols: result.cols,
+                  rows: result.rows,
+                  toteType: cfg.toteType || "HDX",
+                  toteColor: cfg.toteColor || "black",
+                  unitType: cfg.unitType || "standard",
+                  orientation: cfg.orientation || "standard",
+                  hasTotes: cfg.hasTotes,
+                  hasWheels: cfg.hasWheels,
+                  hasTop: cfg.hasTop,
+                  price: result.price,
+                  totalW: result.dimensions.totalW,
+                  totalH: result.dimensions.totalH,
+                  depth: result.dimensions.depth,
+                  desc: `Standard: ${result.cols}W × ${result.rows}H${colorLabel}`,
+                  addons: [],
+                }]);
+              }
             }
-          }
-        }}
-      />
+          }}
+        />
+      )}
 
     </div>
   );
