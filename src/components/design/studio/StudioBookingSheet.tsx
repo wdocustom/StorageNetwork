@@ -7,13 +7,12 @@
 // over the designer. "Back" / "Add another unit" return to the design.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { ArrowLeft } from "lucide-react";
 import type { ConfiguratorSidebarProps } from "@/components/design/configurator-types";
 import StepSummary from "@/components/design/steps/StepSummary";
 import ConfiguratorFooter from "@/components/design/ConfiguratorFooter";
 
-const BOOK_STEP = 4;
 
 export default function StudioBookingSheet({
   open,
@@ -24,7 +23,6 @@ export default function StudioBookingSheet({
   props: ConfiguratorSidebarProps;
   onClose: () => void;
 }) {
-  const [detailsCollapsed, setDetailsCollapsed] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -45,10 +43,6 @@ export default function StudioBookingSheet({
     props.addrState.trim() &&
     props.addrZip.trim()
   );
-  // The step's "Edit" / "Add another unit" / "Back" all mean: back to the design
-  const toStep = (step: number) => {
-    if (step < BOOK_STEP) onClose();
-  };
 
   return (
     <div
@@ -72,15 +66,12 @@ export default function StudioBookingSheet({
         <StepSummary
           props={props}
           hasQuoteItems={props.orderItems.length > 0}
-          detailsCollapsed={detailsCollapsed}
-          setDetailsCollapsed={setDetailsCollapsed}
           detailsFilled={detailsFilled}
-          setActiveStep={toStep}
-          goPrev={onClose}
+          onBackToDesign={onClose}
         />
         {/* Total, trust row and DIY alternative close out the form instead of
             pinning a third of a phone screen; the form has its own CTA. */}
-        <ConfiguratorFooter props={props} activeStep={BOOK_STEP} detailsFilled={detailsFilled} setActiveStep={toStep} docked={false} />
+        <ConfiguratorFooter props={props} detailsFilled={detailsFilled} />
       </div>
     </div>
   );

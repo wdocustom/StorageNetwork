@@ -1,8 +1,8 @@
 "use client";
 
-import { Component, Suspense, lazy, useState, useEffect, useRef } from "react";
+import { Component, Suspense, lazy, useState, useEffect } from "react";
 import type { ReactNode, ErrorInfo } from "react";
-import { Loader2, Eye, EyeOff, Layers, ChevronDown } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import BlueprintCanvas from "./BlueprintCanvas";
 import type { SectionAddon, PaintColorId } from "@/types/viewModels";
 
@@ -115,24 +115,13 @@ interface RackVisualizerProps {
   chairConfig?: { finish: string };
   /** Multi-unit mode: renders multiple finished units side-by-side */
   multiUnitItems?: MultiUnitItem[];
-  /** Controls for the multi-unit overlay (rendered on the 3D canvas) */
-  multiUnitControls?: {
-    showMultiUnit3D: boolean;
-    onShowMultiUnit3DChange: (v: boolean) => void;
-    unitVisibility: Record<number, boolean>;
-    onUnitVisibilityChange: (index: number, visible: boolean) => void;
-    orderItems: Array<{ desc: string }>;
-  };
   /** Text displayed as a diagonal watermark behind the visualizer */
   watermarkText?: string;
   /** When true, shows an "Open Drawers" button on the 3D canvas */
   hasDrawerSlides?: boolean;
   /** When true, renders 2x4 ripped rail construction instead of plywood strips */
   use2x4Rails?: boolean;
-  /**
-   * Design studio: always render the whole order (multiUnitItems) and hide
-   * the Multi-Unit overlay — the studio's own unit map does that job.
-   */
+  /** Design studio: render the whole order (multiUnitItems) side by side */
   systemView?: boolean;
 }
 
@@ -166,126 +155,6 @@ export interface MultiUnitItem {
   desc: string;
 }
 
-/** Extract a short label from a unit description.
- *  Bestseller: "Indiana Joe (2x4 + 2x2 + 2x4)" → "Indiana Joe"
- *  Standard:   "Standard: 4W × 4H" → "4W × 4H"
- */
-function shortUnitLabel(desc: string): string {
-  // Bestseller — has name before parenthesized sub-units
-  const parenIdx = desc.indexOf(" (");
-  if (parenIdx > 0) {
-    const name = desc.slice(0, parenIdx).trim();
-    // Strip leading "Unit #N: " if present
-    return name.replace(/^Unit\s*#?\d+:\s*/i, "");
-  }
-  // Standard/Mini — "Standard: 4W × 4H" → "4W × 4H"
-  const colonIdx = desc.indexOf(": ");
-  if (colonIdx > 0) return desc.slice(colonIdx + 2).trim();
-  return desc;
-}
-
-/** Multi-unit overlay — renders on the 3D canvas top-left */
-function MultiUnitOverlay({ controls }: {
-  controls: NonNullable<RackVisualizerProps["multiUnitControls"]>;
-}) {
-  const [open, setOpen] = useState(false);
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return;
-    function handleClick(e: MouseEvent) {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
-
-  const isActive = controls.showMultiUnit3D;
-  const visibleCount = controls.orderItems.filter(
-    (_, i) => controls.unitVisibility[i] !== false
-  ).length;
-
-  return (
-    <div ref={panelRef} className="absolute left-3 top-3 z-10">
-      {/* Toggle Button */}
-      <button
-        onClick={() => {
-          if (!isActive) {
-            controls.onShowMultiUnit3DChange(true);
-            setOpen(true);
-          } else {
-            setOpen(!open);
-          }
-        }}
-        className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider shadow-sm backdrop-blur-sm transition-all ${
-          isActive
-            ? "border-yellow-400/60 bg-gray-900/90 text-yellow-400"
-            : "border-stone-300/60 bg-white/80 text-stone-500 hover:bg-stone-100 hover:text-stone-700"
-        }`}
-      >
-        <Layers className="h-3.5 w-3.5" />
-        Multi-Unit
-        {isActive && (
-          <span className="ml-0.5 rounded-full bg-yellow-400/20 px-1.5 text-[9px] font-black text-yellow-400">
-            {visibleCount}/{controls.orderItems.length}
-          </span>
-        )}
-        <ChevronDown className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-
-      {/* Dropdown Panel */}
-      {open && (
-        <div className="mt-1.5 w-56 rounded-lg border border-stone-700/80 bg-gray-900/95 shadow-xl backdrop-blur-md">
-          {/* Turn off button */}
-          {isActive && (
-            <button
-              onClick={() => {
-                controls.onShowMultiUnit3DChange(false);
-                setOpen(false);
-              }}
-              className="w-full border-b border-stone-700/50 px-3 py-1.5 text-left text-[10px] font-bold uppercase tracking-wider text-stone-500 transition-colors hover:text-red-400"
-            >
-              Turn Off Multi-Unit
-            </button>
-          )}
-          {/* Unit list */}
-          <div className="p-1.5 space-y-0.5">
-            {controls.orderItems.map((item, index) => {
-              const isVisible = controls.unitVisibility[index] !== false;
-              return (
-                <button
-                  key={index}
-                  type="button"
-                  onClick={() => controls.onUnitVisibilityChange(index, !isVisible)}
-                  className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left transition-all ${
-                    isVisible
-                      ? "bg-yellow-400/10 text-yellow-400"
-                      : "text-stone-600 hover:bg-stone-800 hover:text-stone-400"
-                  }`}
-                >
-                  {isVisible ? (
-                    <Eye className="h-3 w-3 shrink-0" />
-                  ) : (
-                    <EyeOff className="h-3 w-3 shrink-0" />
-                  )}
-                  <span className={`flex-1 truncate text-[11px] font-semibold ${
-                    isVisible ? "text-stone-200" : "text-stone-600"
-                  }`}>
-                    {shortUnitLabel(item.desc)}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function RackVisualizer(props: RackVisualizerProps) {
   const [viewMode, setViewMode] = useState<"2D" | "3D">(getDefaultViewMode);
   const [drawersOpen, setDrawersOpen] = useState(false);
@@ -294,8 +163,6 @@ export default function RackVisualizer(props: RackVisualizerProps) {
   useEffect(() => {
     setViewMode(getDefaultViewMode());
   }, []);
-
-  const showMultiUnitOverlay = !props.systemView && viewMode === "3D" && props.multiUnitControls && props.multiUnitControls.orderItems.length >= 1;
 
   // When in 2D + multi-unit mode, derive BlueprintCanvas props from the first
   // visible multi-unit item so that overhead/shelving units render correctly
@@ -329,10 +196,6 @@ export default function RackVisualizer(props: RackVisualizerProps) {
   return (
     <div className="relative h-full w-full">
       {/* ── Multi-Unit Overlay (top-left, 3D only) ──────────────── */}
-      {showMultiUnitOverlay && (
-        <MultiUnitOverlay controls={props.multiUnitControls!} />
-      )}
-
       {/* ── View Toggle Button (top-right overlay) ──────────────── */}
       <div className="absolute right-3 top-3 z-10">
         <div className="flex overflow-hidden rounded-lg border border-stone-300/60 bg-white/80 shadow-sm backdrop-blur-sm">
@@ -526,7 +389,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                 // depends on it to keep rendering the configured rack
                 // instead of stale builder state).
                 multiUnitItems={
-                  props.systemView || props.multiUnitControls?.showMultiUnit3D
+                  props.systemView
                     ? props.multiUnitItems?.filter((u) => u.visible).map((u) => ({
                         cols: u.cols,
                         rows: u.rows,

@@ -13,8 +13,7 @@ export const metadata: Metadata = {
  * Shows the full 3D configurator with platform branding.
  * Payment is intercepted — no Stripe calls, no database writes.
  */
-export default async function DemoPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const studio = (await searchParams).classic !== "1"; // ?classic=1 → old 4-step flow
+export default function DemoPage() {
   const demoViewModel: DesignPageViewModel = {
     routing: {
       installerId: "demo-platform",
@@ -41,7 +40,6 @@ export default async function DemoPage({ searchParams }: { searchParams: Promise
       initialZip=""
       mode=""
       isDemo
-      studio={studio}
     />
   );
 }

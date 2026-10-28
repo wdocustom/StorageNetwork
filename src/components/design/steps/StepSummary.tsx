@@ -32,22 +32,21 @@ function fieldBorder(value: string, validate?: (v: string) => boolean): string {
 const isValidEmail = (v: string) => EMAIL_VALIDATION_REGEX.test(v);
 const isValidPhone = (v: string) => v.replace(/\D/g, "").length >= 10;
 
+/**
+ * The design studio's Book Install step: order review, discount, cleanout,
+ * contact + address, service-area waitlist, schedule, trial-cap waitlist.
+ * "Start" / "Add unit" go back to the design.
+ */
 export default function StepSummary({
   props,
   hasQuoteItems,
-  detailsCollapsed,
-  setDetailsCollapsed,
   detailsFilled,
-  setActiveStep,
-  goPrev,
+  onBackToDesign,
 }: {
   props: ConfiguratorSidebarProps;
   hasQuoteItems: boolean;
-  detailsCollapsed: boolean;
-  setDetailsCollapsed: (v: boolean) => void;
   detailsFilled: boolean;
-  setActiveStep: (step: number) => void;
-  goPrev: () => void;
+  onBackToDesign: () => void;
 }) {
   return (
     <>
@@ -78,10 +77,10 @@ export default function StepSummary({
           <ShoppingCart className="mx-auto h-8 w-8 text-zinc-700" />
           <p className="mt-2 text-sm font-medium text-zinc-500">Your free 3D design is ready to customize</p>
           <button
-            onClick={() => setActiveStep(2)}
+            onClick={onBackToDesign}
             className="mt-3 text-xs font-bold uppercase tracking-wider text-yellow-400 hover:text-yellow-300"
           >
-            Start Building Your Design
+            Back to your design
           </button>
           <p className="mt-1 text-[10px] text-zinc-600">Takes about 30 seconds</p>
         </div>
@@ -92,7 +91,7 @@ export default function StepSummary({
         <div className="flex gap-2">
           {/* Add Another Unit — 1/3 width */}
           <button
-            onClick={() => setActiveStep(1)}
+            onClick={onBackToDesign}
             className="w-1/3 shrink-0 rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
           >
             + Add Unit
@@ -513,13 +512,6 @@ export default function StepSummary({
         </motion.div>
       )}
 
-      {/* Back button */}
-      <button
-        onClick={goPrev}
-        className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
-      >
-        Back
-      </button>
     </>
   );
 }

@@ -9,27 +9,21 @@ import { uploadBuildSnapshot } from "@/utils/uploadImage";
 import { submitWaitlistRequest } from "@/app/actions/installer";
 import { calculateBuild, calculateCompoundBuild } from "@/app/actions/calculator";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
-import { presetOrderItem, type StudioRules } from "@/lib/studio";
+import { DEFAULT_TOTE_UNIT, type StudioRules } from "@/lib/studio";
 import { expandPresetUnits } from "@/lib/buildEngine.types";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
 import type { MultiUnitItem } from "@/components/visualizer/RackVisualizer";
 import BookingModal from "@/components/booking/BookingModal";
-import ScanWizard from "@/components/design/ScanWizard";
-import ConfiguratorSidebar, { type ConfiguratorSidebarProps } from "@/components/design/ConfiguratorSidebar";
+import type { ConfiguratorSidebarProps } from "@/components/design/configurator-types";
 import StudioPanel from "@/components/design/studio/StudioPanel";
 import StudioDimensions from "@/components/design/studio/StudioDimensions";
 import type { StudioPrices } from "@/components/design/studio/StudioUnitEditor";
-import DesignEntryModal, {
-  DESIGN_ENTRY_DONE_KEY,
-  type EntryCommit,
-} from "@/components/design/DesignEntryModal";
 import PageViewTracker from "@/components/tracking/PageViewTracker";
 const CustomerChatWidget = dynamic(() => import("@/components/chat/CustomerChatWidget"), { ssr: false });
 import { AlertTriangle, ArrowLeft, User } from "lucide-react";
 
 import {
   useInstallerContext,
-  useUnitBuilder,
   usePresets,
   useProductAddons,
   useOrderCart,
@@ -53,7 +47,6 @@ export default function DesignConfigurator({
   savedSignal,
   initialInstallerAtCapacity = false,
   initialConfig,
-  studio = false,
 }: DesignConfiguratorProps) {
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -61,11 +54,6 @@ export default function DesignConfigurator({
   // ═══════════════════════════════════════════════════════════════════════
 
   const installer = useInstallerContext({ initialData });
-
-  const builder = useUnitBuilder({
-    pricing: installer.data?.pricing,
-    globalTotesDisabled: installer.globalTotesDisabled,
-  });
 
   const presets = usePresets({
     pricing: installer.data?.pricing,
@@ -83,7 +71,7 @@ export default function DesignConfigurator({
     setOrderItems: cart.setOrderItems,
   });
 
-  // Chair configurator state (flows through Steps 1→3→4)
+  // Chair options while it's being configured in the studio's "+" view
   const [chairSelected, setChairSelected] = useState(false);
   const [chairFinish, setChairFinish] = useState<import("@/lib/chairs").ChairFinish>("natural");
   const [chairQuantity, setChairQuantity] = useState(1);
@@ -114,11 +102,6 @@ export default function DesignConfigurator({
     orderItems: cart.orderItems,
     deliveryFeeResult: serviceArea.deliveryFeeResult,
     cleanoutPrice: productAddons.cleanoutPrice,
-    paintFrameColor: builder.paintFrameColor,
-    paintDoorColor: builder.paintDoorColor,
-    paintSidePanelColor: builder.paintSidePanelColor,
-    pricing: installer.data?.pricing,
-    addonDefaults: installer.data?.addonDefaults,
     installerId: installer.installerId,
   });
 
@@ -140,7 +123,6 @@ export default function DesignConfigurator({
     miniEnabled: installer.data?.pricing?.mini_enabled === true,
   };
   const studioState = useStudio({
-    enabled: studio,
     orderItems: cart.orderItems,
     setOrderItems: cart.setOrderItems,
     pricing: installer.data?.pricing,
@@ -154,13 +136,17 @@ export default function DesignConfigurator({
   });
   // A shelving / ceiling rail / raised bed / chair being configured in the
   // studio's "+" view is previewed in the 3D instead of the whole order.
-  const studioPreviewing = studio && !!(
+  const studioPreviewing = !!(
     presets.activePreset ||
     productAddons.activeShelvingConfig ||
     productAddons.overheadPreview ||
     productAddons.raisedBedPreview ||
     productAddons.chairPreview
   );
+  const preview =
+    presets.activePresetObj && presets.compoundBuild
+      ? { preset: presets.activePresetObj, compound: presets.compoundBuild }
+      : null;
   const clearStudioPreviews = useCallback(() => {
     productAddons.setShelvingConfigId(null);
     productAddons.setOverheadPreview(null);
@@ -192,244 +178,8 @@ export default function DesignConfigurator({
     : installer.effectiveLeadTime;
 
   // ═══════════════════════════════════════════════════════════════════════
-  // INITIAL CONFIG: single-unit & preset hydration
-  // (Multi-unit case is handled inside useOrderCart)
-  // ═══════════════════════════════════════════════════════════════════════
-
-  const singleConfigApplied = useRef(false);
-  useEffect(() => {
-    if (!initialConfig || singleConfigApplied.current) return;
-    if (Array.isArray(initialConfig.units)) return;
-    if (studio) return; // useStudio puts the linked unit / bestseller in the order
-    singleConfigApplied.current = true;
-
-    if (typeof initialConfig.preset === "string") {
-      presets.setActivePreset(initialConfig.preset);
-      if (typeof initialConfig.hasTotes === "boolean") presets.setPresetTotes(initialConfig.hasTotes);
-      return;
-    }
-
-    if (typeof initialConfig.cols === "number") builder.setCols(initialConfig.cols);
-    if (typeof initialConfig.rows === "number") builder.setRows(initialConfig.rows);
-    if (initialConfig.toteType === "HDX" || initialConfig.toteType === "GM") builder.setToteType(initialConfig.toteType);
-    if (initialConfig.toteColor === "black" || initialConfig.toteColor === "clear") builder.setToteColor(initialConfig.toteColor);
-    if (initialConfig.unitType === "standard" || initialConfig.unitType === "mini") builder.setUnitType(initialConfig.unitType);
-    if (initialConfig.orientation === "standard" || initialConfig.orientation === "sideways") builder.setOrientation(initialConfig.orientation);
-    if (typeof initialConfig.hasTotes === "boolean") builder.setHasTotes(initialConfig.hasTotes);
-    if (typeof initialConfig.hasWheels === "boolean") builder.setHasWheels(initialConfig.hasWheels);
-    if (typeof initialConfig.hasTop === "boolean") builder.setHasTop(initialConfig.hasTop);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialConfig]);
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // DESIGN ENTRY MODAL — front-loaded dimension capture
-  //
-  // First-time visitors see a modal asking "Do you have your dimensions?"
-  // before the configurator. Skip when:
-  //   - demo mode
-  //   - a saved signal is resuming (returning customer)
-  //   - the URL already provided a config (chat handoff, share link)
-  //   - localStorage flag is set from a prior visit
-  // ═══════════════════════════════════════════════════════════════════════
-
-  const skipEntryModal =
-    studio || // the studio's "Fit it to my wall" replaces the up-front modal
-    isDemo ||
-    !!savedSignal ||
-    !!initialConfig ||
-    cart.initialStep > 1;
-
-  const [entryModalOpen, setEntryModalOpen] = useState(false);
-
-  useEffect(() => {
-    if (skipEntryModal) return;
-    try {
-      const done = window.localStorage.getItem(DESIGN_ENTRY_DONE_KEY);
-      if (!done) setEntryModalOpen(true);
-    } catch {
-      setEntryModalOpen(true);
-    }
-  }, [skipEntryModal]);
-
-  const markEntryDone = useCallback(() => {
-    try {
-      window.localStorage.setItem(DESIGN_ENTRY_DONE_KEY, "1");
-    } catch {
-      // ignore (private mode etc.)
-    }
-  }, []);
-
-  const handleEntryCommit = useCallback((commit: EntryCommit) => {
-    // The modal has already run the wall-fit (or grid) calculation for its
-    // live preview, so we just plumb the resulting cols/rows into the
-    // builder. The builder's existing cols/rows → fetchBuild effect will
-    // recompute the build/visualizer automatically. Setting wallWidth/
-    // wallHeight too keeps Step 1's Auto-Fit Calculator in sync if the
-    // customer ever back-navigates.
-    if (commit.kind === "wall") {
-      builder.setWallWidth(commit.widthInches.toFixed(1));
-      builder.setWallHeight(commit.heightInches.toFixed(1));
-      builder.setWallFitMsg(
-        `Max fit: ${commit.cols} Wide × ${commit.rows} High for that wall.`,
-      );
-    }
-    builder.setCols(commit.cols);
-    builder.setRows(commit.rows);
-    cart.setSidebarStep(2);
-    markEntryDone();
-    setEntryModalOpen(false);
-  }, [builder, cart, markEntryDone]);
-
-  const handleEntryDismiss = useCallback(() => {
-    markEntryDone();
-    setEntryModalOpen(false);
-  }, [markEntryDone]);
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // RE-PRICE ORDER ITEMS AFTER NETWORK REFERRAL HANDOFF
-  // ═══════════════════════════════════════════════════════════════════════
-
-  const prevPricingRef = useRef(installer.data?.pricing);
-  useEffect(() => {
-    const newPricing = installer.data?.pricing;
-    if (newPricing === prevPricingRef.current || cart.orderItems.length === 0) {
-      prevPricingRef.current = newPricing;
-      return;
-    }
-    prevPricingRef.current = newPricing;
-
-    if (!serviceArea.handedOff) return;
-
-    (async () => {
-      const repriced: UnitConfig[] = [];
-
-      for (const item of cart.orderItems) {
-        const matchedPreset = BESTSELLER_PRESETS.find((p) =>
-          item.desc.startsWith(p.name),
-        );
-
-        if (matchedPreset) {
-          try {
-            const result = await calculateCompoundBuild({
-              presetId: matchedPreset.id,
-              hasTotes: item.hasTotes,
-              installerPricing: newPricing,
-            });
-            if (result.success) {
-              repriced.push({ ...item, price: result.totalPrice });
-            } else {
-              repriced.push(item);
-            }
-          } catch {
-            repriced.push(item);
-          }
-        } else {
-          try {
-            const result = await calculateBuild({
-              cols: item.cols,
-              rows: item.rows,
-              toteModel: item.toteType as "HDX" | "GM",
-              toteColor: item.toteColor,
-              unitType: item.unitType,
-              orientation: item.orientation,
-              addOns: {
-                totes: item.hasTotes,
-                wheels: item.hasWheels,
-                top: item.hasTop,
-              },
-              mode: "manual",
-              installerPricing: newPricing,
-            });
-            if (result.success) {
-              repriced.push({ ...item, price: result.price });
-            } else {
-              repriced.push(item);
-            }
-          } catch {
-            repriced.push(item);
-          }
-        }
-      }
-
-      cart.setOrderItems(repriced);
-    })();
-    // orderItems intentionally NOT a dep — read once when pricing changes, write back.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [installer.data?.pricing, serviceArea.handedOff]);
-
-  // ═══════════════════════════════════════════════════════════════════════
   // CROSS-CUTTING HANDLERS
   // ═══════════════════════════════════════════════════════════════════════
-
-  const handleAddUnit = useCallback(() => {
-    let unitLabel = builder.unitType === "mini" ? "Mini" : "Standard";
-    if (builder.unitType === "standard" && builder.effectiveOrientation === "sideways") {
-      unitLabel = "Standard (Sideways)";
-    }
-    let toteDesc = "";
-    if (builder.hasTotes && builder.toteType === "HDX" && builder.unitType === "standard" && builder.effectiveToteColor === "clear") {
-      toteDesc = " (Clear Totes)";
-    }
-    cart.setOrderItems((prev) => [
-      ...prev,
-      {
-        cols: builder.build.cols,
-        rows: builder.build.rows,
-        toteType: builder.toteType,
-        toteColor: builder.effectiveToteColor,
-        unitType: builder.unitType,
-        orientation: builder.effectiveOrientation,
-        hasTotes: builder.hasTotes,
-        hasWheels: builder.hasWheels,
-        hasTop: builder.effectiveHasTop,
-        price: builder.build.price,
-        totalW: builder.build.totalW,
-        totalH: builder.build.totalH,
-        depth: builder.build.depth,
-        desc: `${unitLabel}: ${builder.build.cols}W × ${builder.build.rows}H${toteDesc}`,
-        addons: [...builder.addons],
-        paintFrameColor: builder.paintFrameColor,
-        paintDoorColor: builder.paintDoorColor,
-        paintSidePanelColor: builder.paintSidePanelColor,
-        ...(builder.indoorDelivery && installer.data?.indoorDeliveryConfig?.enabled ? {
-          indoorDelivery: true,
-          indoorDeliveryFee: installer.data.indoorDeliveryConfig.fee,
-        } : {}),
-      },
-    ]);
-    builder.resetForNewUnit();
-    presets.setActivePreset(null);
-    presets.setCompoundBuild(null);
-  }, [
-    builder.unitType, builder.effectiveOrientation, builder.hasTotes, builder.toteType,
-    builder.effectiveToteColor, builder.hasWheels, builder.effectiveHasTop, builder.build,
-    builder.addons, builder.paintFrameColor, builder.paintDoorColor, builder.paintSidePanelColor,
-    builder.indoorDelivery, builder.resetForNewUnit,
-    cart.setOrderItems, installer.data?.indoorDeliveryConfig,
-    presets.setActivePreset, presets.setCompoundBuild,
-  ]);
-
-  const handleAddPresetUnit = useCallback((): boolean => {
-    if (!presets.compoundBuild || !presets.activePresetObj) return false;
-
-    const item = presetOrderItem(presets.activePresetObj, presets.compoundBuild, presets.presetTotes);
-    cart.setOrderItems((prev) => [
-      ...prev,
-      {
-        ...item,
-        ...(builder.indoorDelivery && installer.data?.indoorDeliveryConfig?.enabled ? {
-          indoorDelivery: true,
-          indoorDeliveryFee: installer.data.indoorDeliveryConfig.fee,
-        } : {}),
-      },
-    ]);
-    builder.setIndoorDelivery(false);
-    return true;
-  }, [
-    presets.compoundBuild, presets.activePresetObj, presets.presetTotes,
-    cart.setOrderItems, builder.indoorDelivery, builder.setIndoorDelivery,
-    installer.data?.indoorDeliveryConfig,
-  ]);
 
   const handleWaitlist = useCallback(async () => {
     serviceArea.setWaitlistError("");
@@ -533,17 +283,7 @@ export default function DesignConfigurator({
               price: productAddons.cleanoutPrice,
             });
           }
-          if (pricingState.paintTotal > 0) {
-            const paintParts: string[] = [];
-            if (builder.paintFrameColor) paintParts.push(`Frame: ${builder.paintFrameColor}`);
-            if (builder.paintDoorColor) paintParts.push(`Doors: ${builder.paintDoorColor}`);
-            if (builder.paintSidePanelColor) paintParts.push(`Panels: ${builder.paintSidePanelColor}`);
-            items.push({
-              type: "paint",
-              name: `Paint (${paintParts.join(", ")})`,
-              price: pricingState.paintTotal,
-            });
-          }
+          // Paint is priced into each unit's line (studio), not a separate line
           return items;
         })(),
         grand_total: pricingState.grandTotal,
@@ -584,8 +324,7 @@ export default function DesignConfigurator({
     cart.orderItems, serviceArea.zipOutOfArea, serviceArea.zipCheckMsg,
     serviceArea.referringInstallerId, installer.installerId, installer.data?.servicesConfig,
     productAddons.selectedCleanout, productAddons.cleanoutPrice,
-    pricingState.paintTotal, pricingState.grandTotal,
-    builder.paintFrameColor, builder.paintDoorColor, builder.paintSidePanelColor,
+    pricingState.grandTotal,
     leadSource, parentLeadId,
   ]);
 
@@ -619,13 +358,6 @@ export default function DesignConfigurator({
       if (productAddons.selectedCleanout && productAddons.cleanoutPrice > 0) {
         const svc = installer.data?.servicesConfig?.find((s) => s.id === productAddons.selectedCleanout);
         items.push({ type: "cleanout_service", serviceId: productAddons.selectedCleanout, name: svc?.name || productAddons.selectedCleanout, price: productAddons.cleanoutPrice });
-      }
-      if (pricingState.paintTotal > 0) {
-        const paintParts: string[] = [];
-        if (builder.paintFrameColor) paintParts.push(`Frame: ${builder.paintFrameColor}`);
-        if (builder.paintDoorColor) paintParts.push(`Doors: ${builder.paintDoorColor}`);
-        if (builder.paintSidePanelColor) paintParts.push(`Panels: ${builder.paintSidePanelColor}`);
-        items.push({ type: "paint", name: `Paint (${paintParts.join(", ")})`, price: pricingState.paintTotal });
       }
 
       const result = await submitNetworkLead({
@@ -668,8 +400,7 @@ export default function DesignConfigurator({
     serviceArea.setTrialCapWaitlistError, serviceArea.setTrialCapWaitlistSending,
     serviceArea.setTrialCapWaitlistSent,
     productAddons.selectedCleanout, productAddons.cleanoutPrice,
-    pricingState.paintTotal, pricingState.grandTotal,
-    builder.paintFrameColor, builder.paintDoorColor, builder.paintSidePanelColor,
+    pricingState.grandTotal,
     leadSource,
   ]);
 
@@ -684,55 +415,9 @@ export default function DesignConfigurator({
   };
 
   const sidebarProps: ConfiguratorSidebarProps = {
-    initialStep: cart.initialStep,
-    forceStep: cart.sidebarStep,
-    // Step 1: Dimensions
-    wallWidth: builder.wallWidth,
-    wallHeight: builder.wallHeight,
-    onWallWidthChange: (v) => { builder.setWallWidth(v); builder.setWallFitMsg(""); },
-    onWallHeightChange: (v) => { builder.setWallHeight(v); builder.setWallFitMsg(""); },
-    onWallFit: builder.handleWallFit,
-    wallFitMsg: builder.wallFitMsg,
-    buildLoading: builder.buildLoading,
-    cols: builder.cols,
-    rows: builder.rows,
-    onColsChange: builder.setCols,
-    onRowsChange: builder.setRows,
-    // Step 2: Configuration
-    unitType: builder.unitType,
-    orientation: builder.orientation,
-    onUnitTypeChange: builder.setUnitType,
-    onOrientationChange: builder.setOrientation,
-    toteType: builder.toteType,
-    toteColor: builder.toteColor,
-    onToteTypeChange: builder.setToteType,
-    onToteColorChange: builder.setToteColor,
-    hasTotes: builder.hasTotes,
-    hasWheels: builder.hasWheels,
-    hasTop: builder.hasTop,
-    onHasTotesChange: builder.setHasTotes,
-    onHasWheelsChange: builder.setHasWheels,
-    onHasTopChange: builder.setHasTop,
-    effectiveHasTop: builder.effectiveHasTop,
-    miniDisabled: installer.data?.pricing?.mini_enabled !== true,
-    totesDisabled: installer.data?.pricing?.totes_disabled === true,
-    use2x4Rails: installer.data?.pricing?.use_2x4_rails === true,
     // Pricing
     pricing: installer.data?.pricing,
     platformDefaults: sidebarDefaults,
-    // Build
-    build: builder.build,
-    onAddUnit: handleAddUnit,
-    // Presets
-    activePreset: presets.activePreset,
-    onPresetChange: (v) => { presets.setActivePreset(v); presets.setCompoundBuild(null); productAddons.setRaisedBedPreview(null); productAddons.setOverheadPreview(null); setChairSelected(false); productAddons.setChairPreview(null); },
-    presetOptions: installer.filteredPresets,
-    compoundBuild: presets.compoundBuild,
-    presetLoading: presets.presetLoading,
-    presetTotes: presets.presetTotes,
-    onPresetTotesChange: presets.setPresetTotes,
-    onAddPresetUnit: handleAddPresetUnit,
-    activePresetObj: presets.activePresetObj,
     // Shelving
     shelvingConfigId: productAddons.shelvingConfigId,
     onShelvingConfigChange: productAddons.setShelvingConfigId,
@@ -746,7 +431,6 @@ export default function DesignConfigurator({
     onOverheadConfigPreview: (v) => { productAddons.setOverheadPreview(v); if (v) { productAddons.setRaisedBedPreview(null); presets.setActivePreset(null); presets.setCompoundBuild(null); } },
     // Raised Bed Planters
     raisedBedHidden: !installer.raisedBedEnabled,
-    raisedBedPreviewPrice: productAddons.raisedBedPreviewPrice,
     onRaisedBedPriceChange: productAddons.setRaisedBedPreviewPrice,
     onAddRaisedBed: productAddons.handleAddRaisedBed,
     onRaisedBedPreview: (v) => { productAddons.setRaisedBedPreview(v); if (v) { productAddons.setOverheadPreview(null); productAddons.setChairPreview(null); presets.setActivePreset(null); presets.setCompoundBuild(null); } },
@@ -779,21 +463,13 @@ export default function DesignConfigurator({
             },
     onChairPreview: (v) => { productAddons.setChairPreview(v); if (v) { productAddons.setOverheadPreview(null); productAddons.setRaisedBedPreview(null); presets.setActivePreset(null); presets.setCompoundBuild(null); } },
     chairInstallerPricing: installer.data?.pricing as Record<string, unknown> | undefined,
-    // Multi-unit 3D visualization
-    showMultiUnit3D: cart.showMultiUnit3D,
-    onShowMultiUnit3DChange: cart.setShowMultiUnit3D,
-    unitVisibility: cart.unitVisibility,
-    onUnitVisibilityChange: cart.handleUnitVisibilityChange,
-    onToggleAllUnits: (visible) => cart.handleToggleAllUnits(visible, cart.orderItems),
     // Summary
     orderItems: cart.orderItems,
     onRemoveUnit: cart.handleRemoveUnit,
     onQuantityChange: cart.handleQuantityChange,
     grandTotal: pricingState.grandTotal,
     deliveryFeeAmount: pricingState.deliveryFeeAmount,
-    deliveryFeeResult: serviceArea.deliveryFeeResult,
     depositAmount: pricingState.depositAmount,
-    depositLabelText: pricingState.depositLabelText,
     stripeAccountId: installer.stripeAccountId,
     // Booking form
     firstName: booking.firstName,
@@ -860,8 +536,6 @@ export default function DesignConfigurator({
     onCleanoutChange: productAddons.setSelectedCleanout,
     // Contact installer
     installerId: installer.installerId,
-    installerSlug: installer.data?.routing.slug ?? null,
-    installerPhone: installer.data?.routing.phone ?? null,
     brandingTitle: installer.data?.branding.title || "",
     showContactForm: contact.showContactForm,
     onShowContactFormChange: contact.setShowContactForm,
@@ -886,26 +560,8 @@ export default function DesignConfigurator({
     discountError: pricingState.discountError,
     onApplyDiscount: pricingState.handleApplyDiscount,
     onRemoveDiscount: pricingState.handleRemoveDiscount,
-    // Organizer Customization (per-section addons)
-    addons: builder.addons,
-    onAddonsChange: builder.setAddons,
     addonPricing: installer.data?.pricing?.addon_pricing,
     addonDefaults: installer.data?.addonDefaults,
-    // Paint options
-    paintFrameColor: builder.paintFrameColor,
-    paintDoorColor: builder.paintDoorColor,
-    paintSidePanelColor: builder.paintSidePanelColor,
-    onPaintFrameColorChange: builder.setPaintFrameColor,
-    onPaintDoorColorChange: builder.setPaintDoorColor,
-    onPaintSidePanelColorChange: builder.setPaintSidePanelColor,
-    // Indoor delivery
-    indoorDeliveryConfig: installer.data?.indoorDeliveryConfig,
-    indoorDelivery: builder.indoorDelivery,
-    onIndoorDeliveryChange: builder.setIndoorDelivery,
-    // UI Trigger bridge for 3D model animation
-    onPulseVisualizerTrigger: () => {},
-    // Step tracking
-    onStepChange: cart.setSidebarStep,
   };
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -914,22 +570,6 @@ export default function DesignConfigurator({
 
   return (
     <div className="flex h-screen flex-col bg-gray-950">
-      {/* ── Design Entry Modal — first-visit dimension capture ─────────── */}
-      {entryModalOpen && (
-        <DesignEntryModal
-          installerId={installer.installerId || null}
-          defaultZip={serviceArea.zip}
-          unitType={builder.unitType}
-          use2x4Rails={installer.data?.pricing?.use_2x4_rails === true}
-          toteType={builder.toteType}
-          toteColor={builder.toteColor}
-          orientation={builder.orientation}
-          installerPricing={installer.data?.pricing}
-          onCommit={handleEntryCommit}
-          onDismiss={handleEntryDismiss}
-        />
-      )}
-
       {/* ── Analytics: track page view for installer ────────────────────── */}
       {installer.installerId && <PageViewTracker installerId={installer.installerId} page="/design" />}
 
@@ -1013,9 +653,8 @@ export default function DesignConfigurator({
 
       {/* ── Split Layout ────────────────────────────────────────────────── */}
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
-        {/* ── SIDEBAR: Configurator ── */}
-        {studio ? (
-          <StudioPanel
+        {/* ── DESIGN STUDIO (left on desktop, under the 3D on phones) ── */}
+        <StudioPanel
             props={sidebarProps}
             studio={studioState}
             rules={studioRules}
@@ -1033,33 +672,28 @@ export default function DesignConfigurator({
             previewingPreset={presets.activePreset}
             onPreviewBestseller={previewStudioBestseller}
           />
-        ) : (
-          <ConfiguratorSidebar {...sidebarProps} />
-        )}
 
         {/* ── 3D VISUALIZER ── */}
         <main className="order-1 sticky top-0 z-10 flex h-[35vh] shrink-0 flex-col border-b border-stone-800 bg-white lg:static lg:order-2 lg:z-auto lg:h-auto lg:flex-1 lg:border-b-0 lg:border-l lg:border-stone-200">
           <div className="relative min-h-0 flex-1 overflow-hidden lg:min-h-[300px]">
             <RackVisualizer
-              cols={presets.activePresetObj && presets.compoundBuild ? presets.compoundBuild.subUnits[0].cols : (builder.build.cols || builder.numCols || 1)}
-              rows={presets.activePresetObj && presets.compoundBuild ? presets.compoundBuild.subUnits[0].rows : (builder.build.rows || builder.numRows || 1)}
-              toteType={presets.activePresetObj ? presets.activePresetObj.toteModel as ToteType : builder.toteType}
-              toteColor={presets.activePresetObj ? presets.activePresetObj.toteColor as ToteColor : builder.effectiveToteColor}
-              unitType={presets.activePresetObj ? presets.activePresetObj.unitType : builder.unitType}
-              orientation={presets.activePresetObj ? presets.activePresetObj.orientation : builder.effectiveOrientation}
-              hasTotes={presets.activePresetObj ? presets.presetTotes : builder.hasTotes}
-              hasWheels={presets.activePresetObj ? presets.activePresetObj.units.some((u) => u.hasWheels) : builder.hasWheels}
-              hasTop={presets.activePresetObj ? presets.activePresetObj.units.some((u) => u.hasTop) : builder.effectiveHasTop}
-              totalW={presets.activePresetObj && presets.compoundBuild ? presets.compoundBuild.combinedW : builder.build.totalW}
-              totalH={presets.activePresetObj && presets.compoundBuild ? presets.compoundBuild.maxH : builder.build.totalH}
+              // A bestseller previewed from the "+" view, or the studio's
+              // default unit when the order is empty; otherwise the whole order.
+              cols={preview ? preview.compound.subUnits[0].cols : DEFAULT_TOTE_UNIT.cols}
+              rows={preview ? preview.compound.subUnits[0].rows : DEFAULT_TOTE_UNIT.rows}
+              toteType={preview ? (preview.preset.toteModel as ToteType) : DEFAULT_TOTE_UNIT.toteType}
+              toteColor={preview ? (preview.preset.toteColor as ToteColor) : DEFAULT_TOTE_UNIT.toteColor}
+              unitType={preview ? preview.preset.unitType : DEFAULT_TOTE_UNIT.unitType}
+              orientation={preview ? preview.preset.orientation : DEFAULT_TOTE_UNIT.orientation}
+              hasTotes={preview ? presets.presetTotes : DEFAULT_TOTE_UNIT.hasTotes}
+              hasWheels={preview ? preview.preset.units.some((u) => u.hasWheels) : DEFAULT_TOTE_UNIT.hasWheels}
+              hasTop={preview ? preview.preset.units.some((u) => u.hasTop) : DEFAULT_TOTE_UNIT.hasTop}
+              totalW={preview ? preview.compound.combinedW : 0}
+              totalH={preview ? preview.compound.maxH : 0}
               presetUnits={presets.presetVisUnits}
-              drawerSlideRows={presets.activePresetObj?.drawerSlideRows}
-              drawerSlideColumns={presets.activePresetObj?.drawerSlideColumns}
-              hasDrawerSlides={(presets.activePresetObj?.drawerSlideColumns?.length ?? 0) > 0 || (presets.activePresetObj?.drawerSlideRows ?? 0) > 0}
-              addons={presets.activePresetObj ? undefined : builder.addons}
-              paintFrameColor={presets.activePresetObj ? null : builder.paintFrameColor}
-              paintDoorColor={presets.activePresetObj ? null : builder.paintDoorColor}
-              paintSidePanelColor={presets.activePresetObj ? null : builder.paintSidePanelColor}
+              drawerSlideRows={preview?.preset.drawerSlideRows}
+              drawerSlideColumns={preview?.preset.drawerSlideColumns}
+              hasDrawerSlides={(preview?.preset.drawerSlideColumns?.length ?? 0) > 0 || (preview?.preset.drawerSlideRows ?? 0) > 0}
               shelvingConfig={productAddons.activeShelvingConfig}
               overheadConfig={productAddons.overheadPreview ? { slotsWide: productAddons.overheadPreview.slotsWide, slotsDeep: productAddons.overheadPreview.slotsDeep, toteType: productAddons.overheadPreview.toteType, hasTotes: productAddons.overheadPreview.hasTotes } : undefined}
               raisedBedConfig={productAddons.raisedBedPreview || undefined}
@@ -1069,24 +703,15 @@ export default function DesignConfigurator({
               multiUnitItems={
                 studioPreviewing
                   ? undefined
-                  : studio
                   // Lines still waiting on their first price have no size yet
-                  ? (cart.multiUnitItems?.filter((u) => u.totalW > 0) as MultiUnitItem[] | undefined)
-                  : (cart.multiUnitItems as MultiUnitItem[] | undefined)
+                  : (cart.multiUnitItems?.filter((u) => u.totalW > 0) as MultiUnitItem[] | undefined)
               }
-              systemView={studio && !studioPreviewing}
-              multiUnitControls={!studio && cart.orderItems.length >= 1 ? {
-                showMultiUnit3D: cart.showMultiUnit3D,
-                onShowMultiUnit3DChange: cart.setShowMultiUnit3D,
-                unitVisibility: cart.unitVisibility,
-                onUnitVisibilityChange: cart.handleUnitVisibilityChange,
-                orderItems: cart.expandedMultiUnitDescs,
-              } : undefined}
+              systemView={!studioPreviewing}
             />
           </div>
           {/* Dimensions bar */}
           <div className="shrink-0 border-t border-stone-200 bg-stone-50 px-2 py-1.5 text-center text-xs font-medium text-stone-500 lg:px-4 lg:py-3 lg:text-sm">
-            {studio && !studioPreviewing ? (
+            {!studioPreviewing ? (
               <StudioDimensions items={cart.orderItems} repricing={studioState.repricing} />
             ) : productAddons.overheadPreview ? (
               <>
@@ -1111,13 +736,6 @@ export default function DesignConfigurator({
                   Adirondack Chair
                 </span>
               </>
-            ) : cart.showMultiUnit3D && cart.orderItems.length > 0 && cart.orderItems.every((it) => it.raisedBedConfig) ? (
-              <>
-                {cart.orderItems.reduce((s, it) => s + (it.quantity || 1), 0)} Raised Bed{cart.orderItems.reduce((s, it) => s + (it.quantity || 1), 0) > 1 ? "s" : ""}
-                <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
-                  Planter Order
-                </span>
-              </>
             ) : productAddons.activeShelvingConfig ? (
               <>
                 {productAddons.activeShelvingConfig.widthIn}&quot; W &times;{" "}
@@ -1130,109 +748,20 @@ export default function DesignConfigurator({
                   Open Shelving
                 </span>
               </>
-            ) : presets.activePresetObj && presets.compoundBuild ? (
+            ) : preview ? (
               <>
-                {presets.compoundBuild.combinedW.toFixed(1)}&quot; W &times;{" "}
-                {presets.compoundBuild.maxH.toFixed(1)}&quot; H &times;{" "}
-                {presets.compoundBuild.depth}&quot; D &nbsp;&mdash;&nbsp;
+                {preview.compound.combinedW.toFixed(1)}&quot; W &times;{" "}
+                {preview.compound.maxH.toFixed(1)}&quot; H &times;{" "}
+                {preview.compound.depth}&quot; D &nbsp;&mdash;&nbsp;
                 <span className="font-bold text-gray-900">
-                  {presets.compoundBuild.subUnits.map((su) => `${su.cols}×${su.rows}`).join(" + ")} ={" "}
-                  {presets.compoundBuild.totalSlots} slots
+                  {preview.compound.subUnits.map((su) => `${su.cols}×${su.rows}`).join(" + ")} ={" "}
+                  {preview.compound.totalSlots} slots
                 </span>
                 <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
-                  {presets.compoundBuild.presetName}
+                  {preview.compound.presetName}
                 </span>
               </>
-            ) : cart.showMultiUnit3D && cart.orderItems.every((it) => !!it.chairConfig) ? (
-              (() => {
-                const totalChairs = cart.orderItems.reduce((s, it) => s + (it.quantity || 1), 0);
-                return (
-                  <>
-                    30&quot; W &times; 34&quot; H &times; 38&quot; D
-                    {totalChairs > 1 && (
-                      <span className="ml-1 font-bold text-gray-900">
-                        &times; {totalChairs}
-                      </span>
-                    )}
-                    <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
-                      Adirondack Chair{totalChairs > 1 ? "s" : ""}
-                    </span>
-                  </>
-                );
-              })()
-            ) : cart.showMultiUnit3D && cart.orderItems.some((it) => !it.raisedBedConfig && !it.overheadStorageConfig && !it.chairConfig) ? (
-              (() => {
-                const rackItems = cart.orderItems.filter(
-                  (it) => !it.raisedBedConfig && !it.overheadStorageConfig && !it.chairConfig,
-                );
-                const combinedW = rackItems.reduce(
-                  (s, it) => s + (it.totalW || 0) * (it.quantity || 1), 0,
-                );
-                const maxH = Math.max(...rackItems.map((it) => it.totalH || 0));
-                const depth = rackItems[0]?.depth || 30;
-                const slotParts: string[] = [];
-                let totalSlots = 0;
-                for (const it of rackItems) {
-                  const qty = it.quantity || 1;
-                  const slots = it.presetUnits
-                    ? it.presetUnits.reduce((s, su) => s + su.cols * su.rows, 0)
-                    : it.cols * it.rows;
-                  for (let q = 0; q < qty; q++) {
-                    slotParts.push(`${it.cols}×${it.rows}`);
-                    totalSlots += slots;
-                  }
-                }
-                return (
-                  <>
-                    {combinedW > 0 ? combinedW.toFixed(1) : "—"}&quot; W &times;{" "}
-                    {maxH > 0 ? maxH.toFixed(1) : "—"}&quot; H &times;{" "}
-                    {depth}&quot; D &nbsp;&mdash;&nbsp;
-                    <span className="font-bold text-gray-900">
-                      {slotParts.join(" + ")} ={" "}
-                      {totalSlots} slots
-                    </span>
-                  </>
-                );
-              })()
-            ) : (
-              <>
-                {builder.build.totalW > 0 ? builder.build.totalW.toFixed(1) : "—"}&quot; W
-                &times;{" "}
-                {builder.build.totalH > 0 ? builder.build.totalH.toFixed(1) : "—"}&quot; H
-                &times; {builder.build.depth > 0 ? builder.build.depth : (builder.unitType === "mini" ? 12.75 : builder.orientation === "sideways" ? 20 : 30)}&quot; D &nbsp;&mdash;&nbsp;
-                <span className="font-bold text-gray-900">
-                  {builder.build.cols || builder.numCols || 1} &times; {builder.build.rows || builder.numRows || 1} ={" "}
-                  {builder.build.slots || (builder.numCols || 1) * (builder.numRows || 1)} slots
-                </span>
-                {builder.unitType === "mini" && (
-                  <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
-                    MINI
-                  </span>
-                )}
-                {/* Inputs caption — surface which selections produced these dims */}
-                <div className="mt-0.5 text-[10px] font-normal text-stone-500">
-                  {builder.unitType === "mini"
-                    ? "Mini totes"
-                    : (() => {
-                        const is2x4 = installer.data?.pricing?.use_2x4_rails === true;
-                        const isSideways = builder.orientation === "sideways";
-                        const slotLabel = is2x4
-                          ? "21″ universal slot"
-                          : isSideways
-                          ? "30.25″ sideways slot"
-                          : builder.toteType === "GM"
-                          ? "20¾″ slot (Wider Totes)"
-                          : "19¾″ slot (Standard Totes)";
-                        const rails = is2x4 ? "2×4 rails" : "plywood rails";
-                        const orient = isSideways ? "sideways" : "standard orientation";
-                        return `${slotLabel} · ${orient} · ${rails}`;
-                      })()}
-                  {builder.buildLoading && (
-                    <span className="ml-1 italic text-stone-400">· recalculating…</span>
-                  )}
-                </div>
-              </>
-            )}
+            ) : null}
           </div>
         </main>
       </div>
@@ -1365,7 +894,6 @@ export default function DesignConfigurator({
               }]);
             }
           }
-          cart.setSidebarStep(4);
         }}
       />
 
