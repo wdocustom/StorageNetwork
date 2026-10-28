@@ -12,28 +12,15 @@
 
 export const dynamic = "force-dynamic";
 
-import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
-import {
-  AlertTriangle,
-  ArrowLeft,
-  Calendar,
-  CheckCircle2,
-  CircleDollarSign,
-  Mail,
-  MapPin,
-  MessageSquare,
-  Package,
-  Phone,
-  Truck,
-  User,
-} from "lucide-react";
+import { AlertTriangle, Calendar, CheckCircle2, CircleDollarSign, Mail, MapPin, MessageSquare, Package, Phone, Truck, User } from "lucide-react";
 
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getInstallerToteJob } from "@/app/actions/realtor-gift-fulfillment";
 import { formatPhoneForDisplay } from "@/lib/phone";
 
 import { JobMilestoneButtons } from "./JobMilestoneButtons";
+import PageHeader from "@/components/dashboard/PageHeader";
 
 interface PageProps {
   params: Promise<{ giftId: string }>;
@@ -53,35 +40,13 @@ export default async function InstallerJobDetailPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto max-w-5xl px-6 py-10 sm:py-14">
-        <Link
-          href="/dashboard/tote-rentals"
-          className="mb-8 inline-flex items-center gap-2 text-sm text-stone-400 hover:text-yellow-400"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          All tote rental jobs
-        </Link>
-
-        {/* ── Header ──────────────────────────────────────────────────── */}
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.25em] text-yellow-400">
-              Tote Rental Job
-            </p>
-            <h1 className="text-3xl font-black sm:text-4xl">
-              Gift for {job.recipient_name}
-            </h1>
-            <p className="mt-1 text-sm text-stone-400">
-              {job.tote_count} totes &middot; {job.duration_days}-day rental
-              {job.dispatch_source === "inventory" && (
-                <span className="ml-2 rounded-full border border-yellow-400/30 bg-yellow-400/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-yellow-300">
-                  Inventory
-                </span>
-              )}
-            </p>
-          </div>
-          <StatusPill status={job.status} />
-        </div>
+      <PageHeader
+        title={`Gift for ${job.recipient_name}`}
+        subtitle={`${job.tote_count} totes · ${job.duration_days}-day rental${job.dispatch_source === "inventory" ? " · from inventory" : ""}`}
+        back="/dashboard/tote-rentals"
+        actions={<StatusPill status={job.status} />}
+      />
+      <div className="mx-auto max-w-5xl px-4 py-5">
 
         {/* ── Early-pickup banner ─────────────────────────────────────── */}
         {job.pickup_early_requested_at && job.status === "delivered" && (

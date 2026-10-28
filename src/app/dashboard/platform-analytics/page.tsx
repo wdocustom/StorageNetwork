@@ -13,25 +13,9 @@ import {
   type VisitorSession,
   type WatchlistEntry,
 } from "@/app/actions/visitor-intel";
-import {
-  ArrowLeft,
-  BarChart3,
-  ChevronDown,
-  ChevronUp,
-  Eye,
-  Globe2,
-  Loader2,
-  Monitor,
-  Plus,
-  RefreshCw,
-  Smartphone,
-  Tablet,
-  Trash2,
-  TrendingUp,
-  Users,
-  Zap,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, Eye, Globe2, Loader2, Monitor, Plus, RefreshCw, Smartphone, Tablet, Trash2, TrendingUp, Users, Zap } from "lucide-react";
 import Link from "next/link";
+import PageHeader from "@/components/dashboard/PageHeader";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Platform Analytics — Admin-Only Dashboard
@@ -240,22 +224,12 @@ export default function PlatformAnalyticsPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       {/* Header */}
-      <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-900/95 backdrop-blur-sm px-4 py-3">
-        <div className="mx-auto flex max-w-5xl items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="rounded-lg p-1.5 text-stone-500 hover:bg-slate-800 hover:text-white transition-colors">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-            <div>
-              <h1 className="text-base font-bold text-white flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-yellow-400" />
-                Platform Analytics
-              </h1>
-              <p className="text-[10px] text-stone-500 uppercase tracking-wider">Admin Only</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Refresh */}
+      <PageHeader
+        title="Platform analytics"
+        subtitle="Admin only"
+        back="/dashboard/more"
+        actions={
+          <>
             <button
               onClick={() => fetchData(true)}
               disabled={refreshing}
@@ -263,7 +237,6 @@ export default function PlatformAnalyticsPage() {
             >
               <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
             </button>
-            {/* Time Range */}
             <div className="flex rounded-lg border border-slate-700 overflow-hidden">
               {([7, 30, 90] as TimeRange[]).map((r) => (
                 <button
@@ -279,9 +252,9 @@ export default function PlatformAnalyticsPage() {
                 </button>
               ))}
             </div>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <main className="mx-auto max-w-5xl px-4 py-6 space-y-5">
         {/* ── KPI Strip ────────────────────────────────────────────── */}

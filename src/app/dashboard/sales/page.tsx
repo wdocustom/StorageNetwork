@@ -12,23 +12,8 @@ import {
   updateOperationalStatus,
   type OperationalStatus,
 } from "@/app/actions/jobs";
-import {
-  ArrowLeft,
-  DollarSign,
-  Package,
-  ShoppingCart,
-  Search,
-  ChevronDown,
-  ChevronUp,
-  TrendingUp,
-  Loader2,
-  Star,
-  Phone,
-  MapPin,
-  Ruler,
-  UserPlus,
-} from "lucide-react";
-import ProPill from "@/components/dashboard/ProPill";
+import { DollarSign, Package, ShoppingCart, Search, ChevronDown, ChevronUp, TrendingUp, Loader2, Star, Phone, MapPin, Ruler, UserPlus } from "lucide-react";
+import PageHeader from "@/components/dashboard/PageHeader";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Sales Insights — CRM / Sales History Dashboard
@@ -195,21 +180,7 @@ export default function SalesInsightsPage() {
   return (
     <div className="min-h-screen bg-gray-950 pb-24">
       {/* ── Header ───────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-10 border-b border-slate-800 bg-gray-950/95 backdrop-blur">
-        <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
-          <Link
-            href="/dashboard"
-            className="rounded-lg p-1.5 text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-base font-black text-white">Sales &amp; Customers</h1>
-            <p className="text-[10px] text-stone-500">Order history, analytics &amp; CRM</p>
-          </div>
-          <ProPill />
-        </div>
-      </header>
+      <PageHeader title="Sales & payouts" subtitle="Order history and customers" back="/dashboard/more" />
 
       <div className="mx-auto max-w-2xl space-y-4 p-4">
         {/* ══ Phase 1: KPI Top Tiles — Gross Revenue + Net Payout ══ */}

@@ -6,3 +6,9 @@
  * Gates the widget, its features-page section and its announcement email.
  */
 export const DESIGN_ASSISTANT_ENABLED = false;
+
+/**
+ * AI Asset Forge on the Marketing tab (FLUX image generation via Replicate).
+ * Off: not being pursued for now.
+ */
+export const ASSET_FORGE_ENABLED = false;

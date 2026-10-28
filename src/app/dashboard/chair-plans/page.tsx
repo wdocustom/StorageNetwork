@@ -1,8 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft, ArrowRight, CheckCircle, FileText, Package } from "lucide-react";
+import { ArrowRight, CheckCircle, FileText, Package } from "lucide-react";
 import {
   checkChairPlanAccess,
   verifyChairPlanPurchase,
@@ -10,6 +9,7 @@ import {
   verifyChairTemplatePurchase,
 } from "@/app/actions/chair-plans";
 import TemplateUpsell from "./TemplateUpsell";
+import PageHeader from "@/components/dashboard/PageHeader";
 
 export default async function ChairPlansPage({
   searchParams,
@@ -39,22 +39,7 @@ export default async function ChairPlansPage({
   return (
     <div className="min-h-screen bg-slate-950">
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-4">
-        <div className="mx-auto flex max-w-lg items-center gap-3">
-          <Link
-            href="/dashboard/guides"
-            className="rounded-lg p-2 text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <div className="flex-1">
-            <h1 className="text-sm font-bold uppercase tracking-wider text-white">
-              Low Boy Adirondack Chair
-            </h1>
-            <p className="text-[11px] text-stone-500">Build Plans</p>
-          </div>
-        </div>
-      </header>
+      <PageHeader title="Low Boy Adirondack Chair" subtitle="Build plans" back="/dashboard/guides" />
 
       <main className="mx-auto max-w-lg space-y-4 p-4">
 

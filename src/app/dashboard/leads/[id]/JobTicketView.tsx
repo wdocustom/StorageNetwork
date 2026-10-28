@@ -4,18 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getDepositAmount } from "@/app/actions/fee-engine";
 import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import type { QuoteUnit } from "@/lib/buildEngine.types";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  Loader2,
-  Mail,
-  MapPin,
-  Navigation,
-  AlertCircle,
-  Pencil,
-  Phone,
-  X,
-} from "lucide-react";
+import { CheckCircle2, Loader2, Mail, MapPin, Navigation, AlertCircle, Pencil, Phone, X } from "lucide-react";
 import JobTicket from "@/components/dashboard/JobTicket";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { startTripNotify } from "@/app/actions/sms";
@@ -23,6 +12,7 @@ import { updateCustomerContact } from "@/app/actions/jobs";
 import { maskName, maskEmail, maskPhone } from "@/lib/mask";
 import Link from "next/link";
 import { LEAD_COLUMNS, type InstallerTicketData, type SavedCard } from "./ticket-data";
+import PageHeader from "@/components/dashboard/PageHeader";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -232,25 +222,12 @@ export default function JobTicketView({
   return (
     <div className="min-h-screen bg-slate-950">
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-3">
-        <div className="mx-auto flex max-w-2xl items-center gap-3">
-          <Link
-            href="/dashboard/leads"
-            className="flex items-center gap-1 text-sm text-stone-400 hover:text-yellow-400"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <div className="flex-1">
-            <h1 className="text-sm font-bold uppercase tracking-wider text-white">
-              Job Ticket
-            </h1>
-            <p className="text-[10px] text-stone-500">
-              #{leadId.slice(0, 8)}
-            </p>
-          </div>
-          <StatusBadge status={lead.status} depositPaid={lead.deposit_paid} />
-        </div>
-      </header>
+      <PageHeader
+        title="Job ticket"
+        subtitle={`#${leadId.slice(0, 8)}`}
+        back="/dashboard/leads"
+        actions={<StatusBadge status={lead.status} depositPaid={lead.deposit_paid} />}
+      />
 
       <main className="mx-auto max-w-2xl space-y-4 p-4">
         {/* ── Customer Info ────────────────────────────────────────── */}
@@ -539,17 +516,6 @@ export default function JobTicketView({
           savedCardFromPreviousOrder={!lead.stripe_payment_method_id && !!customerSavedCard}
           onRefresh={fetchLead}
         />
-
-        {/* ── Back Link ──────────────────────────────────────────────── */}
-        <div className="pb-8 text-center">
-          <Link
-            href="/dashboard/leads"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-stone-500 hover:text-yellow-400"
-          >
-            <ArrowLeft className="h-3 w-3" />
-            Back to Jobs
-          </Link>
-        </div>
       </main>
     </div>
   );

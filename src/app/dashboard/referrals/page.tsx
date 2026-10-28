@@ -2,17 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import {
-  ArrowLeft,
-  DollarSign,
-  Loader2,
-  CheckCircle2,
-  Clock,
-  MapPin,
-} from "lucide-react";
-import ProPill from "@/components/dashboard/ProPill";
+import { DollarSign, Loader2, CheckCircle2, Clock, MapPin } from "lucide-react";
 import { roundMoney } from "@/utils/mathHelpers";
-import Link from "next/link";
+import PageHeader from "@/components/dashboard/PageHeader";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -121,25 +113,11 @@ export default function ReferralsPage() {
   return (
     <div className="min-h-screen bg-slate-950">
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-3">
-        <div className="mx-auto flex max-w-2xl items-center gap-3">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-1 text-sm text-stone-400 hover:text-yellow-400"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <div className="flex-1">
-            <h1 className="text-sm font-bold uppercase tracking-wider text-white">
-              Network Referrals
-            </h1>
-            <p className="text-[10px] text-stone-500">
-              {referrals.length} total referral{referrals.length !== 1 ? "s" : ""}
-            </p>
-          </div>
-          <ProPill />
-        </div>
-      </header>
+      <PageHeader
+        title="Referrals"
+        subtitle={`${referrals.length} referral${referrals.length !== 1 ? "s" : ""}`}
+        back="/dashboard/more"
+      />
 
       {/* ── Summary Stats ──────────────────────────────────────────── */}
       <div className="border-b border-slate-800 bg-slate-900/50 px-4 py-4">
