@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { getDashboardNudge, type DashboardNudge } from "@/app/actions/dashboard-nudge";
+import Link from "next/link";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Action Nudge — Contextual coaching card
@@ -95,12 +96,12 @@ export default function ActionNudge({ userId }: ActionNudgeProps) {
             </button>
           </div>
           <p className="mt-0.5 text-[12px] leading-relaxed text-stone-400">{nudge.message}</p>
-          <a
+          <Link
             href={nudge.ctaHref}
             className="mt-2.5 inline-flex items-center gap-1 rounded-lg bg-yellow-400 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300"
           >
             {nudge.ctaLabel}
-          </a>
+          </Link>
         </div>
       </div>
     </div>

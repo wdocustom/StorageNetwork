@@ -102,6 +102,9 @@ export async function completeChecklistStep(
 }
 
 export async function getSetupStatus(userId: string): Promise<SetupStatus> {
+  const user = await getAuthenticatedUser();
+  if (!user || user.id !== userId) throw new Error("Not authorized");
+
   // Run all queries in parallel for speed
   const [activityRes, leadsRes, paidRes, profileRes] = await Promise.all([
     // Check activity log for key actions

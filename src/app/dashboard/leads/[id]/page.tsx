@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getDepositAmount } from "@/app/actions/fee-engine";
 import { useParams } from "next/navigation";
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import type { QuoteUnit } from "@/lib/buildEngine.types";
 import {
   ArrowLeft,
@@ -26,6 +26,7 @@ import { maskName, maskEmail, maskPhone } from "@/lib/mask";
 import type { MaterialInventory } from "@/utils/inventoryManager";
 import type { MaterialPricingConfig } from "@/app/actions/material-pricing";
 import type { MaterialPrices } from "@/utils/calculateMaterials";
+import Link from "next/link";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -113,7 +114,7 @@ export default function JobTicketPage() {
 
   const fetchLead = useCallback(async () => {
     // Check if user is logged in
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getSessionUser(supabase);
     if (!user) {
       // Store the current URL for redirect after login
       const redirectUrl = encodeURIComponent(window.location.pathname);
@@ -276,12 +277,12 @@ export default function JobTicketPage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4">
         <p className="mb-4 text-lg font-bold text-red-400">{error}</p>
-        <a
+        <Link
           href="/dashboard"
           className="text-sm text-yellow-400 underline hover:text-yellow-300"
         >
           Back to Jobs
-        </a>
+        </Link>
       </div>
     );
   }
@@ -294,12 +295,12 @@ export default function JobTicketPage() {
       {/* ── Header ──────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-3">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
-          <a
+          <Link
             href="/dashboard/leads"
             className="flex items-center gap-1 text-sm text-stone-400 hover:text-yellow-400"
           >
             <ArrowLeft className="h-4 w-4" />
-          </a>
+          </Link>
           <div className="flex-1">
             <h1 className="text-sm font-bold uppercase tracking-wider text-white">
               Job Ticket
@@ -337,12 +338,12 @@ export default function JobTicketPage() {
               <p className="mb-2 text-xs font-semibold text-amber-300">
                 Subscribe to Pro to unlock this customer&apos;s full details and accept the job.
               </p>
-              <a
+              <Link
                 href="/upgrade"
                 className="inline-flex items-center gap-2 rounded-lg bg-yellow-400 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300"
               >
                 Subscribe &amp; Unlock
-              </a>
+              </Link>
             </div>
 
             <p className="mt-3 text-xs text-stone-600">
@@ -603,13 +604,13 @@ export default function JobTicketPage() {
 
         {/* ── Back Link ──────────────────────────────────────────────── */}
         <div className="pb-8 text-center">
-          <a
+          <Link
             href="/dashboard/leads"
             className="inline-flex items-center gap-1 text-xs font-semibold text-stone-500 hover:text-yellow-400"
           >
             <ArrowLeft className="h-3 w-3" />
             Back to Dashboard
-          </a>
+          </Link>
         </div>
       </main>
     </div>

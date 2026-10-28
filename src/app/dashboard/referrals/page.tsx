@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import {
   ArrowLeft,
   DollarSign,
@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import ProPill from "@/components/dashboard/ProPill";
 import { roundMoney } from "@/utils/mathHelpers";
+import Link from "next/link";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -57,9 +58,7 @@ export default function ReferralsPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchReferrals = useCallback(async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getSessionUser(supabase);
     if (!user) {
       window.location.href = "/login";
       return;
@@ -124,12 +123,12 @@ export default function ReferralsPage() {
       {/* ── Header ──────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-3">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
-          <a
+          <Link
             href="/dashboard"
             className="flex items-center gap-1 text-sm text-stone-400 hover:text-yellow-400"
           >
             <ArrowLeft className="h-4 w-4" />
-          </a>
+          </Link>
           <div className="flex-1">
             <h1 className="text-sm font-bold uppercase tracking-wider text-white">
               Network Referrals

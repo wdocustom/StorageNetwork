@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase-server";
 import { sendWeeklyDigestEmail } from "@/lib/email";
-import { getLeaderboard } from "@/app/actions/leaderboard";
+import { getLeaderboard } from "@/lib/server/leaderboard";
 import { getAppUrl } from "@/lib/url-helper";
 
 export const dynamic = "force-dynamic";

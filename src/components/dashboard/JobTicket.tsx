@@ -18,7 +18,7 @@ import {
   Package,
   Phone,
   Ruler,
-  Link,
+  Link as LinkIcon,
   Star,
   Trash2,
   TrendingUp,
@@ -52,6 +52,7 @@ import { roundMoney } from "@/utils/mathHelpers";
 import { formatInstallDate, todayInstallDateKey } from "@/utils/installDate";
 import { isInventoryRackUnit } from "@/utils/rackInventory";
 import { rescheduleJob, scheduleJob, completeJob, completeJobWithProof, markJobPaidManual, deleteUnpaidQuote, setJobDiscount } from "@/app/actions/jobs";
+import Link from "next/link";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // JobTicket — Hybrid POS Payment Flow
@@ -1004,7 +1005,7 @@ export default function JobTicket({
                           }}
                           className="flex items-center gap-1.5 rounded-md bg-slate-800 px-3 py-1.5 text-xs font-medium text-stone-300 hover:bg-slate-700 transition-colors"
                         >
-                          <Link className="h-3 w-3" />
+                          <LinkIcon className="h-3 w-3" />
                           {copyLinkSuccess ? "Copied!" : "Copy Link"}
                         </button>
 
@@ -1188,7 +1189,7 @@ export default function JobTicket({
                     ) : reviewLinkCopied ? (
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     ) : (
-                      <Link className="h-3.5 w-3.5" />
+                      <LinkIcon className="h-3.5 w-3.5" />
                     )}
                     {reviewCopying ? "Generating..." : reviewLinkCopied ? "Link Copied!" : "Copy Link"}
                   </button>
@@ -1393,7 +1394,7 @@ export default function JobTicket({
                 {payLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin text-violet-400" />
                 ) : (
-                  <Link className="h-5 w-5 text-violet-400" />
+                  <LinkIcon className="h-5 w-5 text-violet-400" />
                 )}
                 <div>
                   <p className="text-sm font-semibold text-white">
@@ -1533,7 +1534,7 @@ export default function JobTicket({
                 {payLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin text-violet-400" />
                 ) : (
-                  <Link className="h-5 w-5 text-violet-400" />
+                  <LinkIcon className="h-5 w-5 text-violet-400" />
                 )}
                 <div>
                   <p className="text-sm font-semibold text-white">
@@ -1653,7 +1654,7 @@ export default function JobTicket({
                 {payLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin text-violet-400" />
                 ) : (
-                  <Link className="h-5 w-5 text-violet-400" />
+                  <LinkIcon className="h-5 w-5 text-violet-400" />
                 )}
                 <div>
                   <p className="text-sm font-semibold text-white">
@@ -1786,38 +1787,38 @@ export default function JobTicket({
             {depositPaid && (
               <div className="flex items-center gap-1.5">
                 {/* Repeat order: fresh quote with this customer's details */}
-                <a
+                <Link
                   href={`/dashboard/build?from=${leadId}`}
                   className="flex items-center gap-1 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400 transition-colors hover:bg-emerald-400/20"
                 >
                   <UserPlus className="h-3 w-3" />
                   New Quote
-                </a>
+                </Link>
                 {!isPaid && (
-                  <a
+                  <Link
                     href={`/dashboard/build?edit=${leadId}`}
                     className="flex items-center gap-1 rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-yellow-400 transition-colors hover:bg-yellow-400/20"
                   >
                     <PenLine className="h-3 w-3" />
                     Add Items
-                  </a>
+                  </Link>
                 )}
               </div>
             )}
             {!depositPaid && (
               <div className="flex items-center gap-1.5">
-                <a
+                <Link
                   href={`/dashboard/build?edit=${leadId}`}
                   className="flex items-center gap-1 rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-yellow-400 transition-colors hover:bg-yellow-400/20"
                 >
                   <PenLine className="h-3 w-3" />
                   Edit
-                </a>
+                </Link>
                 <button
                   onClick={handleCopyPaymentLink}
                   className="flex items-center gap-1 rounded-lg border border-slate-600 bg-slate-800 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-stone-300 transition-colors hover:bg-slate-700 hover:text-white"
                 >
-                  <Link className="h-3 w-3" />
+                  <LinkIcon className="h-3 w-3" />
                   {copyLinkSuccess ? "Copied!" : depositPaid ? "Balance Link" : "Full Pay Link"}
                 </button>
                 <button
@@ -2048,13 +2049,13 @@ export default function JobTicket({
                 ))}
               </div>
 
-              <a
+              <Link
                 href="/dashboard/guides#chair-plans"
                 className="flex w-full items-center justify-between rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-gray-950 transition-all hover:bg-amber-300 active:scale-[0.98]"
               >
                 <span>Purchase / View Build Plans</span>
                 <ArrowRight className="h-4 w-4" />
-              </a>
+              </Link>
               <p className="mt-2 text-center text-[10px] text-stone-600">
                 Plans &amp; MDF template available in Guides &amp; Training
               </p>

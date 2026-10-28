@@ -12,14 +12,16 @@ import {
   Zap,
   TrendingUp,
 } from "lucide-react";
-import { getLeaderboard, type LeaderboardData, type LeaderboardEntry } from "@/app/actions/leaderboard";
+import { getMyLeaderboard } from "@/app/actions/leaderboard";
+import type { LeaderboardData, LeaderboardEntry } from "@/lib/server/leaderboard";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Live Leaderboard — Monthly installer competition
 //
 // Shows top 10 installers ranked by completed jobs this month.
-// Current user is always visible (highlighted). Updates on mount +
-// auto-refreshes every 60s. Animated rank badges, streak flames,
+// Current user is always visible (highlighted). Loads on mount (no polling:
+// server actions run one at a time, so a timer would queue ahead of the
+// installer's own clicks). Animated rank badges, streak flames,
 // and a prize callout drive competitive engagement.
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -37,7 +39,7 @@ export default function LiveLeaderboard({ userId }: LiveLeaderboardProps) {
     let mounted = true;
 
     async function load() {
-      const result = await getLeaderboard(userId);
+      const result = await getMyLeaderboard();
       if (mounted) {
         setData(result);
         setLoading(false);
@@ -48,12 +50,8 @@ export default function LiveLeaderboard({ userId }: LiveLeaderboardProps) {
     }
 
     load();
-
-    // Auto-refresh every 60 seconds
-    const interval = setInterval(load, 60_000);
     return () => {
       mounted = false;
-      clearInterval(interval);
     };
   }, [userId]);
 

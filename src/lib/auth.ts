@@ -37,13 +37,13 @@ export async function getAuthenticatedUser(): Promise<{
     }
   );
 
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error || !user) return null;
-  return { id: user.id, email: user.email };
+  // getClaims verifies the session JWT against the project's signing keys
+  // (locally, once the keys are cached) instead of a round trip to the Auth
+  // server per call; on a symmetric-key project it falls back to getUser().
+  const { data, error } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  if (error || !claims?.sub) return null;
+  return { id: claims.sub, email: claims.email };
 }
 
 /**

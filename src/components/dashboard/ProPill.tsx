@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { getInstallerLink } from "@/lib/utils";
 
 export default function ProPill({ link }: { link?: string }) {
@@ -11,7 +11,7 @@ export default function ProPill({ link }: { link?: string }) {
   useEffect(() => {
     if (link) return;
     const supabase = getSupabaseBrowserClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    getSessionUser(supabase).then((user) => {
       if (!user) return;
       supabase
         .from("profiles")

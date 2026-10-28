@@ -34,7 +34,7 @@ import {
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { getServiceClient } from "@/lib/supabase-server";
-import { checkProTrial } from "@/app/actions/pro-trial";
+import { checkProTrial } from "@/lib/server/pro-trial";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { markSendConverted } from "@/lib/marketing-attribution";
 

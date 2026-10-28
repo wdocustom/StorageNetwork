@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { DollarSign, Info, ChevronRight } from "lucide-react";
 import { roundMoney } from "@/utils/mathHelpers";
+import Link from "next/link";
 
 interface NetworkPassiveIncomeProps {
   userId: string;
@@ -50,7 +51,7 @@ export default function NetworkPassiveIncome({ userId }: NetworkPassiveIncomePro
   const hasActivity = paidCount > 0 || pendingCount > 0;
 
   return (
-    <a
+    <Link
       href="/dashboard/referrals"
       className="group block rounded-xl border p-4 text-center transition-all border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-slate-900 hover:border-yellow-400/40 hover:from-yellow-400/10"
     >
@@ -100,6 +101,6 @@ export default function NetworkPassiveIncome({ userId }: NetworkPassiveIncomePro
         {hasActivity ? "View Referrals" : "Learn How It Works"}
         <ChevronRight className="h-3 w-3" />
       </div>
-    </a>
+    </Link>
   );
 }

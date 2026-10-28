@@ -20,6 +20,7 @@ import {
 } from "@/app/actions/promoter-program";
 import { formatPromoterAgreementConfig } from "@/types/promoter";
 import type { PromoterPayout, PromoterPayoutStatus } from "@/types/promoter";
+import Link from "next/link";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // /dashboard/promoter/portal — Private Promoter Portal
@@ -103,12 +104,12 @@ export default function PromoterPortalPage() {
           <p className="mb-4 text-sm text-stone-400">
             You don&rsquo;t have a promoter agreement on file. Apply to join the program.
           </p>
-          <a
+          <Link
             href="/dashboard/promoter/apply"
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-2.5 text-sm font-bold uppercase tracking-wider text-gray-950 hover:bg-yellow-300"
           >
             <Megaphone className="h-4 w-4" /> Apply to Be a Promoter
-          </a>
+          </Link>
         </div>
       </Shell>
     );
@@ -129,12 +130,12 @@ export default function PromoterPortalPage() {
             We&rsquo;ve drafted a custom commission agreement. Review and accept to unlock
             your portal and referral link.
           </p>
-          <a
+          <Link
             href={`/dashboard/promoter/agreement/${agreement.id}`}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-2.5 text-sm font-bold uppercase tracking-wider text-gray-950 hover:bg-yellow-300"
           >
             Review &amp; Accept
-          </a>
+          </Link>
         </div>
       </Shell>
     );
@@ -181,12 +182,12 @@ export default function PromoterPortalPage() {
             Accepted <span className="text-stone-200">{acceptedDate}</span>
           </p>
         )}
-        <a
+        <Link
           href={`/dashboard/promoter/agreement/${agreement.id}`}
           className="mt-3 inline-block text-[11px] text-yellow-400 underline-offset-2 hover:underline"
         >
           View full agreement →
-        </a>
+        </Link>
       </section>
 
       {/* Earnings */}
@@ -270,12 +271,12 @@ export default function PromoterPortalPage() {
                 will be held and retried once you&rsquo;re connected.
               </p>
             </div>
-            <a
+            <Link
               href="/dashboard/profile"
               className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-2.5 text-sm font-bold uppercase tracking-wider text-gray-950 hover:bg-yellow-300"
             >
               <Handshake className="h-4 w-4" /> Connect Stripe in Profile
-            </a>
+            </Link>
           </>
         )}
       </section>
@@ -361,12 +362,12 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-slate-950 text-white">
       <header className="border-b border-slate-800 px-4 py-4">
         <div className="mx-auto max-w-2xl">
-          <a
+          <Link
             href="/dashboard"
             className="inline-flex items-center gap-2 text-xs text-stone-400 hover:text-white"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Back to Dashboard
-          </a>
+          </Link>
         </div>
       </header>
       <main className="mx-auto max-w-2xl px-4 py-5 space-y-4">{children}</main>

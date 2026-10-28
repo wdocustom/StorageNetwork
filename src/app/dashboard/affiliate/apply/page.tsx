@@ -14,6 +14,7 @@ import {
   applyToBeAffiliate,
   getMyAffiliateStatus,
 } from "@/app/actions/affiliate-program";
+import Link from "next/link";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // /dashboard/affiliate/apply — Affiliate Application Form
@@ -290,12 +291,12 @@ function PageShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-slate-950 text-white">
       <header className="border-b border-slate-800 px-4 py-4">
         <div className="mx-auto max-w-lg">
-          <a
+          <Link
             href="/dashboard"
             className="inline-flex items-center gap-2 text-xs text-stone-400 hover:text-white"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Back to Dashboard
-          </a>
+          </Link>
         </div>
       </header>
       <main className="mx-auto max-w-lg px-4 py-6">{children}</main>

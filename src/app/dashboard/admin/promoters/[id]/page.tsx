@@ -17,6 +17,7 @@ import {
   type AdminPromoterApplicationDetail,
 } from "@/app/actions/admin-promoter-management";
 import type { PromoterApplicationStatus } from "@/types/promoter";
+import Link from "next/link";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // /dashboard/admin/promoters/[id] — Application detail + agreement editor
@@ -331,12 +332,12 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-slate-950 text-white">
       <header className="border-b border-slate-800 px-4 py-4">
         <div className="mx-auto max-w-2xl">
-          <a
+          <Link
             href="/dashboard/admin/promoters"
             className="inline-flex items-center gap-2 text-xs text-stone-400 hover:text-white"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Back to Queue
-          </a>
+          </Link>
         </div>
       </header>
       <main className="mx-auto max-w-2xl px-4 py-5 space-y-4">{children}</main>

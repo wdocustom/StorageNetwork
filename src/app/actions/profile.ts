@@ -64,6 +64,8 @@ export interface ProfileUpdateResult {
  * Uses service role to bypass RLS so it never fails silently.
  */
 export async function stampLastLogin(userId: string): Promise<void> {
+  const auth = await requireSelf(userId);
+  if ("error" in auth) return;
   await supabase
     .from("profiles")
     .update({ last_login_at: new Date().toISOString() })
