@@ -17,6 +17,7 @@ import { getServiceClient } from "@/lib/supabase-server";
 import { trackInstallUrl } from "@/lib/server/request-link";
 import { computeBalanceDue } from "@/lib/lead-money";
 import { escapeHtml } from "@/utils/escapeHtml";
+import { pushToUser } from "@/lib/server/push";
 
 export type InstallStage = "built" | "loaded" | "on_the_way";
 
@@ -197,6 +198,13 @@ export async function processInstallReminders(now: Date = new Date()): Promise<{
       const installer = await installerInfo(lead.installer_id as string);
       await sendReminderEmail({ lead, installer });
       sent++;
+      const where = (lead.delivery_address_line1 as string) || (lead.address as string) || "";
+      await pushToUser(lead.installer_id as string, {
+        title: `Install tomorrow: ${(lead.customer_name as string) || "Customer"}`,
+        body: [where, lead.time_preference ? `${lead.time_preference}` : ""].filter(Boolean).join(" · ") || "Check the job ticket for details.",
+        url: `/dashboard/leads/${lead.id}`,
+        tag: `install-${lead.id}`,
+      });
     } catch (err) {
       errors.push(`${lead.id}: ${err instanceof Error ? err.message : String(err)}`);
     }

@@ -1,6 +1,7 @@
 "use server";
 
 import { getServiceClient } from "@/lib/supabase-server";
+import { pushToUser } from "@/lib/server/push";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Pay Link Tracking — Record customer engagement with /pay links
@@ -22,7 +23,7 @@ export async function recordPayLinkView(leadId: string): Promise<void> {
     // Fetch current state to decide if this is the first view
     const { data: lead } = await supabase
       .from("leads")
-      .select("viewed_at, view_count")
+      .select("viewed_at, view_count, installer_id, customer_name, deposit_paid")
       .eq("id", leadId)
       .single();
 
@@ -41,6 +42,16 @@ export async function recordPayLinkView(leadId: string): Promise<void> {
       .from("leads")
       .update(updates)
       .eq("id", leadId);
+
+    // First open of an unpaid quote: the best moment to follow up.
+    if (!lead.viewed_at && !lead.deposit_paid) {
+      await pushToUser(lead.installer_id as string | null, {
+        title: `${(lead.customer_name as string) || "A customer"} opened your quote`,
+        body: "They're looking at it now — a quick call or text closes more jobs.",
+        url: `/dashboard/leads/${leadId}`,
+        tag: `opened-${leadId}`,
+      });
+    }
   } catch (err) {
     console.error("[PayLinkTracking] recordPayLinkView failed:", err);
   }

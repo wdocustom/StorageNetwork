@@ -24,6 +24,7 @@ import { getAppUrl } from "@/lib/url-helper";
 import { requestOptionsFor, requestWantLabel, type RequestOption } from "@/lib/request-options";
 import type { InstallerPricing } from "@/types/viewModels";
 import type { ServiceOffering } from "@/config/services";
+import { pushToUser } from "@/lib/server/push";
 
 const db = () => getServiceClient();
 
@@ -198,6 +199,13 @@ export async function submitQuoteRequest(
     console.error("[QuoteRequest] insert failed:", error);
     return { success: false, error: "Something went wrong. Please try again." };
   }
+
+  await pushToUser(lead.installer_id as string, {
+    title: `New quote request: ${name}`,
+    body: "A past customer wants another quote. Build it while they're thinking about it.",
+    url: "/dashboard/leads?tab=requests",
+    tag: `request-${row.id}`,
+  });
 
   await notifyInstaller({
     installer,

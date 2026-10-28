@@ -3,6 +3,7 @@ import { masterEmailLayout } from "./components/masterEmailLayout";
 import { getAppUrl } from "@/lib/url-helper";
 import { maskEmail, maskPhone, maskName } from "@/lib/mask";
 import { getDepositLabel } from "@/app/actions/fee-engine";
+import { pushToEmail } from "@/lib/server/push";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Shared style primitives — mirrored from customerTemplates so installer
@@ -45,6 +46,12 @@ export async function sendNewBookingAlert(
   }
 ): Promise<SendEmailResult> {
   console.log("[Email] sendNewBookingAlert triggered for:", installerEmail, "| Lead:", leadDetails.leadId);
+  await pushToEmail(installerEmail, {
+    title: `New booking: ${leadDetails.customerName}`,
+    body: `${leadDetails.unitCount} unit${leadDetails.unitCount !== 1 ? "s" : ""} · $${Math.round(leadDetails.totalPrice).toLocaleString()} — deposit paid. Pick the install date.`,
+    url: `/dashboard/leads/${leadDetails.leadId}`,
+    tag: `booking-${leadDetails.leadId}`,
+  });
   const jobUrl = `${getAppUrl()}/dashboard/leads/${leadDetails.leadId}`;
   const profitEstimate = Math.round(leadDetails.totalPrice * 0.85);
 
@@ -118,6 +125,12 @@ export async function sendPaymentReceivedAlert(
   }
 ): Promise<SendEmailResult> {
   const dashboardUrl = `${getAppUrl()}/dashboard/leads/${data.leadId}`;
+  await pushToEmail(installerEmail, {
+    title: `Payment received: $${data.amountReceived.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
+    body: `${data.customerName} paid. Job total $${Math.round(data.jobTotal).toLocaleString()}.`,
+    url: `/dashboard/leads/${data.leadId}`,
+    tag: `paid-${data.leadId}`,
+  });
 
   const html = masterEmailLayout(
     "Payment Cleared",
