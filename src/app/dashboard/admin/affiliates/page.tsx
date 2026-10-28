@@ -16,6 +16,7 @@ import {
   type AdminApplicationRow,
 } from "@/app/actions/affiliate-program";
 import type { AffiliateApplicationStatus } from "@/types/affiliate";
+import Link from "next/link";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // /dashboard/admin/affiliates — Affiliate Application Queue (admin only)
@@ -71,12 +72,12 @@ export default function AdminAffiliatesPage() {
     <div className="min-h-screen bg-slate-950 text-white">
       <header className="border-b border-slate-800 px-4 py-4">
         <div className="mx-auto max-w-3xl">
-          <a
+          <Link
             href="/dashboard"
             className="inline-flex items-center gap-2 text-xs text-stone-400 hover:text-white"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Back to Dashboard
-          </a>
+          </Link>
           <h1 className="mt-2 text-xl font-bold sm:text-2xl">Affiliate Applications</h1>
           <p className="mt-1 text-xs text-stone-500">
             Review and approve installers applying to become affiliates. Each agreement is
@@ -153,7 +154,7 @@ function ApplicationRow({ row }: { row: AdminApplicationRow }) {
   );
 
   return (
-    <a
+    <Link
       href={`/dashboard/admin/affiliates/${row.id}`}
       className="flex items-start gap-3 rounded-xl border border-slate-800 bg-slate-900/40 p-4 transition-colors hover:border-yellow-400/40"
     >
@@ -181,7 +182,7 @@ function ApplicationRow({ row }: { row: AdminApplicationRow }) {
         </p>
       </div>
       <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-stone-600" />
-    </a>
+    </Link>
   );
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import {
   ArrowLeft,
   Briefcase,
@@ -10,7 +10,7 @@ import {
   Trash2,
   X,
   PenLine,
-  Link,
+  Link as LinkIcon,
   UserPlus,
   Inbox,
   Mail,
@@ -26,6 +26,7 @@ import StatusBadge from "@/components/ui/StatusBadge";
 import ProPill from "@/components/dashboard/ProPill";
 import { maskName } from "@/lib/mask";
 import { formatInstallDate } from "@/utils/installDate";
+import Link from "next/link";
 // TODO: Re-enable calendar after fixing re-render issues
 // import JobCalendar from "@/components/calendar/JobCalendar";
 
@@ -116,9 +117,7 @@ export default function LeadsListPage() {
   }, [fetchRequests]);
 
   const fetchLeads = useCallback(async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getSessionUser(supabase);
     if (!user) {
       window.location.href = "/login";
       return;
@@ -196,12 +195,12 @@ export default function LeadsListPage() {
       {/* ── Header ──────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-3">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
-          <a
+          <Link
             href="/dashboard"
             className="flex items-center gap-1 text-sm text-stone-400 hover:text-yellow-400"
           >
             <ArrowLeft className="h-4 w-4" />
-          </a>
+          </Link>
           <div className="flex-1">
             <h1 className="text-sm font-bold uppercase tracking-wider text-white">
               Jobs / Leads
@@ -351,13 +350,13 @@ export default function LeadsListPage() {
 
         {/* Back link */}
         <div className="mt-8 pb-8 text-center">
-          <a
+          <Link
             href="/dashboard"
             className="inline-flex items-center gap-1 text-xs font-semibold text-stone-500 hover:text-yellow-400"
           >
             <ArrowLeft className="h-3 w-3" />
             Back to Dashboard
-          </a>
+          </Link>
         </div>
       </main>
     </div>
@@ -426,7 +425,7 @@ function JobCard({ lead, showDelete, onDelete, showNewQuote }: { lead: LeadItem;
         </div>
       )}
 
-      <a
+      <Link
         href={`/dashboard/leads/${lead.id}`}
         className="block p-4 active:scale-[0.99]"
       >
@@ -479,24 +478,24 @@ function JobCard({ lead, showDelete, onDelete, showNewQuote }: { lead: LeadItem;
             </span>
           </div>
         )}
-      </a>
+      </Link>
 
       {/* Edit + Delete buttons for unpaid quotes */}
       {showDelete && (
         <div className="flex border-t border-slate-800">
-          <a
+          <Link
             href={`/dashboard/build?edit=${lead.id}`}
             onClick={(e) => e.stopPropagation()}
             className="flex flex-1 items-center justify-center gap-2 border-r border-slate-800 px-4 py-2.5 text-xs font-semibold text-yellow-400/70 transition-colors hover:bg-yellow-400/10 hover:text-yellow-400"
           >
             <PenLine className="h-3.5 w-3.5" />
             Edit Quote
-          </a>
+          </Link>
           <button
             onClick={handleCopyPayLink}
             className="flex flex-1 items-center justify-center gap-2 border-r border-slate-800 px-4 py-2.5 text-xs font-semibold text-emerald-400/70 transition-colors hover:bg-emerald-400/10 hover:text-emerald-400"
           >
-            <Link className="h-3.5 w-3.5" />
+            <LinkIcon className="h-3.5 w-3.5" />
             {linkCopied ? "Copied!" : lead.deposit_paid ? "Balance Link" : "Full Pay Link"}
           </button>
           <button
@@ -512,13 +511,13 @@ function JobCard({ lead, showDelete, onDelete, showNewQuote }: { lead: LeadItem;
       {/* Repeat order: start a fresh quote with this customer's details */}
       {showNewQuote && lead.status !== "waitlisted" && (
         <div className="border-t border-slate-800">
-          <a
+          <Link
             href={`/dashboard/build?from=${lead.id}`}
             className="flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold text-emerald-400/80 transition-colors hover:bg-emerald-400/10 hover:text-emerald-400"
           >
             <UserPlus className="h-3.5 w-3.5" />
             New Quote for This Customer
-          </a>
+          </Link>
         </div>
       )}
     </li>
@@ -589,12 +588,12 @@ function RequestCard({ request, onDismissed }: { request: QuoteRequestItem; onDi
             </p>
           </div>
           {request.sourceLeadId && (
-            <a
+            <Link
               href={`/dashboard/leads/${request.sourceLeadId}`}
               className="shrink-0 text-[10px] font-semibold text-stone-500 hover:text-yellow-400"
             >
               Previous Job
-            </a>
+            </Link>
           )}
         </div>
 

@@ -65,8 +65,12 @@ export async function middleware(request: NextRequest) {
         },
       }
     );
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    // getClaims verifies the JWT against the project's signing keys rather
+    // than calling the Auth server (it falls back to that on symmetric keys),
+    // and still refreshes an expired session into the response cookies.
+    const { data: claimsData } = await supabase.auth.getClaims();
+    const userId = claimsData?.claims?.sub;
+    if (!userId) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("redirect", pathname);
       return NextResponse.redirect(loginUrl);
@@ -77,7 +81,7 @@ export async function middleware(request: NextRequest) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("is_suspended")
-      .eq("id", user.id)
+      .eq("id", userId)
       .single();
 
     if (profile?.is_suspended) {

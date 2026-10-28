@@ -31,6 +31,7 @@ import {
   type AffiliateEmailInvite,
   type AffiliateInviteStatus,
 } from "@/types/affiliate";
+import Link from "next/link";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // /dashboard/affiliate/portal — Private Partner Portal
@@ -178,12 +179,12 @@ export default function AffiliatePortalPage() {
           <p className="mb-4 text-sm text-stone-400">
             You don&rsquo;t have an affiliate agreement on file. Apply to join the program.
           </p>
-          <a
+          <Link
             href="/dashboard/affiliate/apply"
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-2.5 text-sm font-bold uppercase tracking-wider text-gray-950 hover:bg-yellow-300"
           >
             <Handshake className="h-4 w-4" /> Apply to Be an Affiliate
-          </a>
+          </Link>
         </div>
       </Shell>
     );
@@ -203,12 +204,12 @@ export default function AffiliatePortalPage() {
           <p className="mb-4 text-sm text-stone-300">
             We&rsquo;ve drafted a custom agreement. Review and accept to unlock your portal.
           </p>
-          <a
+          <Link
             href={`/dashboard/affiliate/agreement/${agreement.id}`}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-2.5 text-sm font-bold uppercase tracking-wider text-gray-950 hover:bg-yellow-300"
           >
             Review &amp; Accept
-          </a>
+          </Link>
         </div>
       </Shell>
     );
@@ -252,12 +253,12 @@ export default function AffiliatePortalPage() {
             <> &middot; Accepted {acceptedDate}</>
           )}
         </p>
-        <a
+        <Link
           href={`/dashboard/affiliate/agreement/${agreement.id}`}
           className="mt-3 inline-block text-[11px] text-yellow-400 underline-offset-2 hover:underline"
         >
           View full agreement →
-        </a>
+        </Link>
       </section>
 
       {/* Earnings */}
@@ -553,12 +554,12 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-slate-950 text-white">
       <header className="border-b border-slate-800 px-4 py-4">
         <div className="mx-auto max-w-2xl">
-          <a
+          <Link
             href="/dashboard"
             className="inline-flex items-center gap-2 text-xs text-stone-400 hover:text-white"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Back to Dashboard
-          </a>
+          </Link>
         </div>
       </header>
       <main className="mx-auto max-w-2xl px-4 py-5 space-y-4">{children}</main>

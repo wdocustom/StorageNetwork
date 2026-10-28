@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import {
   getSalesInsights,
   type SalesInsightsData,
@@ -63,9 +63,7 @@ export default function SalesInsightsPage() {
 
   const fetchData = useCallback(async () => {
     const supabase = getSupabaseBrowserClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getSessionUser(supabase);
     if (!user) return;
 
     try {

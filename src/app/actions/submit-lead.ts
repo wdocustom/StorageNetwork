@@ -5,7 +5,7 @@ import { z } from "zod/v4";
 import { calculateWeight } from "@/utils/scheduling";
 import { validateServiceArea } from "@/app/actions/installer";
 import { getDepositAmount } from "@/app/actions/fee-engine";
-import { checkProTrial } from "@/app/actions/pro-trial";
+import { checkProTrial } from "@/lib/server/pro-trial";
 import { getServiceClient } from "@/lib/supabase-server";
 import { roundMoney, calculateBalanceDue } from "@/utils/mathHelpers";
 import { resolveMarketingAttribution, markSendConverted } from "@/lib/marketing-attribution";

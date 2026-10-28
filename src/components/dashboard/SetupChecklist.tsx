@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
   Circle,
@@ -71,6 +72,7 @@ interface SetupChecklistProps {
 
 export default function SetupChecklist({ userId, bookingLink }: SetupChecklistProps) {
   const [status, setStatus] = useState<SetupStatus | null>(null);
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
   const [justCompleted, setJustCompleted] = useState<string | null>(null);
@@ -230,7 +232,8 @@ export default function SetupChecklist({ userId, bookingLink }: SetupChecklistPr
                     onClick={() => {
                       const handled = handleStepAction(step.id);
                       if (!handled) {
-                        window.location.href = step.ctaHref;
+                        if (step.ctaHref.startsWith("/")) router.push(step.ctaHref);
+                        else window.location.href = step.ctaHref;
                       }
                     }}
                     className={`shrink-0 rounded-lg px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-all ${

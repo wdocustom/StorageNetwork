@@ -22,6 +22,7 @@ import {
   type AdminPromoterRosterRow,
 } from "@/app/actions/admin-promoter-management";
 import type { PromoterApplicationStatus } from "@/types/promoter";
+import Link from "next/link";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // /dashboard/admin/promoters — Promoter Application Queue + Roster (admin only)
@@ -101,12 +102,12 @@ export default function AdminPromotersPage() {
     <div className="min-h-screen bg-slate-950 text-white">
       <header className="border-b border-slate-800 px-4 py-4">
         <div className="mx-auto max-w-3xl">
-          <a
+          <Link
             href="/dashboard"
             className="inline-flex items-center gap-2 text-xs text-stone-400 hover:text-white"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Back to Dashboard
-          </a>
+          </Link>
           <h1 className="mt-2 text-xl font-bold sm:text-2xl">Promoter Program</h1>
           <p className="mt-1 text-xs text-stone-500">
             Review applications and propose individualized commission agreements. Each
@@ -194,7 +195,7 @@ function ApplicationRow({ row }: { row: AdminPromoterApplicationRow }) {
   );
 
   return (
-    <a
+    <Link
       href={`/dashboard/admin/promoters/${row.id}`}
       className="flex items-start gap-3 rounded-xl border border-slate-800 bg-slate-900/40 p-4 transition-colors hover:border-yellow-400/40"
     >
@@ -217,7 +218,7 @@ function ApplicationRow({ row }: { row: AdminPromoterApplicationRow }) {
         </p>
       </div>
       <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-stone-600" />
-    </a>
+    </Link>
   );
 }
 

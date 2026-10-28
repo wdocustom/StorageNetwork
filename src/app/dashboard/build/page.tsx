@@ -2,7 +2,7 @@
 
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { calculateBuild, calculateCompoundBuild, calculateShelvingUnit, calculateOverheadStorageUnit, type CompoundBuildResult } from "@/app/actions/calculator";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import { SHELVING_CONFIGS } from "@/lib/shelving";
@@ -19,7 +19,7 @@ import {
 import { calculateDeliveryFee, getIndoorDeliveryConfig, type DeliveryFeeResult, type IndoorDeliveryConfig } from "@/app/actions/delivery-fee";
 import { calculateRaisedBedPriceServer } from "@/app/actions/platform-defaults";
 import { RAISED_BED_SIZES, getRaisedBedDescription, type RaisedBedConfig } from "@/lib/raised-beds";
-import { checkProTrial } from "@/app/actions/pro-trial";
+import { checkMyProTrial } from "@/app/actions/pro-trial";
 import { generateBuildManifestServer } from "@/app/actions/build-manifest";
 import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine.types";
 import { type MaterialBreakdown, type MaterialPrices } from "@/utils/calculateMaterials";
@@ -48,6 +48,7 @@ import QuoteSuccessModal from "@/components/build/QuoteSuccessModal";
 import type { UnitConfig as BuildUnitConfig, UnitOption } from "@/components/build/types";
 import { isRackUnit, optionPriceDelta, slotsOf } from "@/components/build/unitOptions";
 import BlueprintCanvas from "@/components/visualizer/BlueprintCanvas";
+import Link from "next/link";
 
 const AssemblyGuide = lazy(() => import("@/components/visualizer/AssemblyGuide"));
 
@@ -356,9 +357,7 @@ export default function BuildConfiguratorPage() {
 
   // Check if user is PRO
   const fetchProfile = useCallback(async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getSessionUser(supabase);
     if (!user) {
       setLoading(false);
       return;
@@ -367,23 +366,25 @@ export default function BuildConfiguratorPage() {
     setUserId(user.id);
 
     // Check trial status — block /build during soft lock or job cap
-    const trialStatus = await checkProTrial(user.id);
-    if (trialStatus.softLocked) {
+    // (run alongside the profile read rather than before it)
+    const [trialStatus, { data }] = await Promise.all([
+      checkMyProTrial(),
+      supabase
+        .from("profiles")
+        .select("is_pro, subscription_tier, business_name, first_name, phone, stripe_account_id, pricing_config, material_inventory, material_pricing_config")
+        .eq("id", user.id)
+        .single(),
+    ]);
+    if (trialStatus?.softLocked) {
       setSoftLocked(true);
       setLoading(false);
       return;
     }
-    if (trialStatus.jobCapReached && trialStatus.onTrial) {
+    if (trialStatus?.jobCapReached && trialStatus.onTrial) {
       setJobCapReached(true);
       setLoading(false);
       return;
     }
-
-    const { data } = await supabase
-      .from("profiles")
-      .select("is_pro, subscription_tier, business_name, first_name, phone, stripe_account_id, pricing_config, material_inventory, material_pricing_config")
-      .eq("id", user.id)
-      .single();
 
     if (data) {
       setBusinessName(data.business_name || data.first_name || "Your Business");
@@ -1443,18 +1444,18 @@ export default function BuildConfiguratorPage() {
             send new quotes and accept new bookings.
           </p>
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <a
+            <Link
               href="/upgrade"
               className="rounded-xl bg-yellow-400 px-6 py-3 text-sm font-bold text-gray-950 transition-colors hover:bg-yellow-300"
             >
               Subscribe Now
-            </a>
-            <a
+            </Link>
+            <Link
               href="/dashboard"
               className="rounded-xl border border-slate-700 bg-slate-800 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-slate-700"
             >
               Back to Dashboard
-            </a>
+            </Link>
           </div>
         </div>
       </div>
@@ -1479,18 +1480,18 @@ export default function BuildConfiguratorPage() {
             Any new customers who find your page will be waitlisted until you upgrade.
           </p>
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <a
+            <Link
               href="/upgrade"
               className="rounded-xl bg-yellow-400 px-6 py-3 text-sm font-bold text-gray-950 transition-colors hover:bg-yellow-300"
             >
               Subscribe to Pro
-            </a>
-            <a
+            </Link>
+            <Link
               href="/dashboard"
               className="rounded-xl border border-slate-700 bg-slate-800 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-slate-700"
             >
               Back to Dashboard
-            </a>
+            </Link>
           </div>
         </div>
       </div>
@@ -1502,12 +1503,12 @@ export default function BuildConfiguratorPage() {
       {/* ── Header ──────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-3">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
-          <a
+          <Link
             href="/dashboard"
             className="flex items-center gap-1 text-sm text-stone-400 hover:text-yellow-400"
           >
             <ArrowLeft className="h-4 w-4" />
-          </a>
+          </Link>
           <div className="flex-1">
             <h1 className="text-sm font-bold uppercase tracking-wider text-white">
               Build Configurator
@@ -1528,12 +1529,12 @@ export default function BuildConfiguratorPage() {
               {quoteRequest ? "Quote request from" : "New quote for returning customer"} {repeatCustomerName}
             </p>
             {repeatFromLeadId && (
-              <a
+              <Link
                 href={`/dashboard/leads/${repeatFromLeadId}`}
                 className="shrink-0 text-[10px] font-semibold text-emerald-400 hover:text-emerald-300"
               >
                 Previous Job
-              </a>
+              </Link>
             )}
           </div>
           {quoteRequest && (quoteRequest.wantLabels.length > 0 || quoteRequest.notes) && (
@@ -1559,12 +1560,12 @@ export default function BuildConfiguratorPage() {
               {editingDepositPaid ? "Adding to paid-deposit quote for " : "Editing quote for "}
               {editingCustomerName}
             </p>
-            <a
+            <Link
               href={`/dashboard/leads/${editingLeadId}`}
               className="text-[10px] font-semibold text-amber-400 hover:text-amber-300"
             >
               Back to Job Ticket
-            </a>
+            </Link>
           </div>
           {editingDepositPaid && (
             <p className="mx-auto mt-1 max-w-2xl text-[10px] text-amber-200/80">
@@ -1609,13 +1610,13 @@ export default function BuildConfiguratorPage() {
 
         {/* ── Back Link ──────────────────────────────────────────────── */}
         <div className="pb-2 text-center">
-          <a
+          <Link
             href="/dashboard"
             className="inline-flex items-center gap-1 text-xs font-semibold text-stone-500 hover:text-yellow-400"
           >
             <ArrowLeft className="h-3 w-3" />
             Back to Dashboard
-          </a>
+          </Link>
         </div>
       </main>
 

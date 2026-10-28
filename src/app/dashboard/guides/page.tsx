@@ -22,6 +22,7 @@ import {
 import ProPill from "@/components/dashboard/ProPill";
 import LadderJigPlans from "@/components/dashboard/LadderJigPlans";
 import AdirondackChairPlans from "@/components/dashboard/AdirondackChairPlans";
+import Link from "next/link";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Guides & Training Page — Tutorials + Installation Checklist
@@ -108,12 +109,12 @@ export default function GuidesPage() {
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-4">
         <div className="mx-auto flex max-w-lg items-center gap-3">
-          <a
+          <Link
             href="/dashboard"
             className="rounded-lg p-2 text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
           >
             <ArrowLeft className="h-5 w-5" />
-          </a>
+          </Link>
           <div className="flex-1">
             <h1 className="text-sm font-bold uppercase tracking-wider text-white">
               Plans & Guides
@@ -407,14 +408,14 @@ export default function GuidesPage() {
             </div>
 
             {/* CTA Button */}
-            <a
+            <Link
               href="/community"
               className="flex items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 py-3 text-sm font-bold text-gray-950 transition-all hover:bg-yellow-300"
             >
               <Users className="h-4 w-4" />
               Browse the Community
               <ArrowRight className="h-3.5 w-3.5" />
-            </a>
+            </Link>
           </div>
         </section>
 

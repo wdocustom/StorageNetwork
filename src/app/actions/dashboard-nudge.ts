@@ -1,6 +1,7 @@
 "use server";
 
 import { getServiceClient } from "@/lib/supabase-server";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Dashboard Nudge — Server Action
@@ -22,6 +23,9 @@ export interface DashboardNudge {
 const db = () => getServiceClient();
 
 export async function getDashboardNudge(userId: string): Promise<DashboardNudge | null> {
+  const user = await getAuthenticatedUser();
+  if (!user || user.id !== userId) return null;
+
   const now = new Date();
   const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();

@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { siteConfig } from "@/config/site";
-import { checkProTrial, type TrialStatus } from "@/app/actions/pro-trial";
+import { checkMyProTrial } from "@/app/actions/pro-trial";
+import type { TrialStatus } from "@/lib/server/pro-trial";
 import { stampLastLogin } from "@/app/actions/profile";
 import {
   Briefcase,
@@ -34,6 +35,7 @@ import NetworkPassiveIncome from "@/components/dashboard/NetworkPassiveIncome";
 import PromoBanner from "@/components/dashboard/PromoBanner";
 import ProPill from "@/components/dashboard/ProPill";
 import { getInstallerLink } from "@/lib/utils";
+import Link from "next/link";
 
 interface Profile {
   id: string;
@@ -62,9 +64,7 @@ export default function DashboardPage() {
   const [trialStatus, setTrialStatus] = useState<TrialStatus | null>(null);
 
   const fetchData = useCallback(async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getSessionUser(supabase);
     if (!user) {
       window.location.href = "/login";
       return;
@@ -72,7 +72,8 @@ export default function DashboardPage() {
 
     stampLastLogin(user.id);
 
-    checkProTrial(user.id).then((status) => {
+    checkMyProTrial().then((status) => {
+      if (!status) return;
       setTrialStatus(status);
       if (status.trialExpired && !status.softLocked && profile?.is_pro) {
         supabase.from("profiles").select("is_pro").eq("id", user.id).single().then(({ data }) => {
@@ -177,21 +178,21 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-1">
             {profile?.is_realtor && (
-              <a
+              <Link
                 href="/realtors/dashboard"
                 className="rounded-lg p-2 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
                 title="Switch to realtor portal"
               >
                 <Building2 className="h-5 w-5" />
-              </a>
+              </Link>
             )}
-            <a
+            <Link
               href="/dashboard/profile"
               className="rounded-lg p-2 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
               title="Settings"
             >
               <Settings className="h-5 w-5" />
-            </a>
+            </Link>
             <button
               onClick={handleSignOut}
               className="rounded-lg p-2 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
@@ -242,7 +243,7 @@ export default function DashboardPage() {
             <p className="text-xs text-amber-300">
               <span className="font-bold">Complete your profile</span> to get
               paid &mdash; connect Stripe in{" "}
-              <a href="/dashboard/profile" className="font-bold underline hover:text-amber-200">Settings</a>.
+              <Link href="/dashboard/profile" className="font-bold underline hover:text-amber-200">Settings</Link>.
             </p>
           </div>
         </div>
@@ -253,7 +254,7 @@ export default function DashboardPage() {
           <div className="mx-auto flex max-w-lg items-center justify-between md:max-w-3xl lg:max-w-4xl">
             <p className="text-xs text-red-300">
               <span className="font-bold">Incomplete Profile:</span> City & State are required.{" "}
-              <a href="/dashboard/profile" className="font-bold underline hover:text-red-200">Update now</a>.
+              <Link href="/dashboard/profile" className="font-bold underline hover:text-red-200">Update now</Link>.
             </p>
           </div>
         </div>
@@ -267,7 +268,7 @@ export default function DashboardPage() {
             </p>
             <p className="text-xs text-purple-400/70 mt-0.5">
               {trialStatus.jobsRemaining} trial {trialStatus.jobsRemaining === 1 ? "job" : "jobs"} remaining ·{" "}
-              <a href="/upgrade" className="font-bold underline hover:text-purple-200">Subscribe anytime</a>
+              <Link href="/upgrade" className="font-bold underline hover:text-purple-200">Subscribe anytime</Link>
             </p>
           </div>
         </div>
@@ -281,7 +282,7 @@ export default function DashboardPage() {
             </p>
             <p className="text-xs text-amber-400/70 mt-0.5">
               Your existing jobs and dashboard are unaffected ·{" "}
-              <a href="/upgrade" className="font-bold underline hover:text-amber-200">Subscribe Now</a>
+              <Link href="/upgrade" className="font-bold underline hover:text-amber-200">Subscribe Now</Link>
             </p>
           </div>
         </div>
@@ -295,7 +296,7 @@ export default function DashboardPage() {
             </p>
             <p className="text-xs text-amber-400/70 mt-0.5">
               New bookings are paused. Subscribe to keep your account fully active ·{" "}
-              <a href="/upgrade" className="font-bold underline hover:text-amber-200">Subscribe Now</a>
+              <Link href="/upgrade" className="font-bold underline hover:text-amber-200">Subscribe Now</Link>
             </p>
           </div>
         </div>
@@ -309,7 +310,7 @@ export default function DashboardPage() {
             </p>
             <p className="text-xs text-red-400/70 mt-0.5">
               Subscribe to reactivate your account, portfolio, and booking links ·{" "}
-              <a href="/upgrade" className="font-bold underline hover:text-red-200">Subscribe Now</a>
+              <Link href="/upgrade" className="font-bold underline hover:text-red-200">Subscribe Now</Link>
             </p>
           </div>
         </div>
@@ -349,19 +350,19 @@ export default function DashboardPage() {
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">New Leads</p>
               </div>
             </div>
-            <a
+            <Link
               href="/dashboard/sales"
               className="ml-3 shrink-0 rounded-lg p-2 text-stone-600 transition-colors hover:bg-slate-800 hover:text-yellow-400"
               title="Sales details"
             >
               <ChevronRight className="h-4 w-4" />
-            </a>
+            </Link>
           </div>
 
           {/* ── Tier 1: Primary Actions ────────────────────────────── */}
           <div className="grid gap-4 md:grid-cols-3">
             {/* Jobs / Leads */}
-            <a
+            <Link
               href="/dashboard/leads"
               className="group relative flex items-center gap-5 rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
             >
@@ -380,10 +381,10 @@ export default function DashboardPage() {
                 )}
                 <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-yellow-400" />
               </div>
-            </a>
+            </Link>
 
             {/* Create Quote */}
-            <a
+            <Link
               href="/dashboard/build"
               className="group relative flex items-center gap-5 rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
             >
@@ -395,10 +396,10 @@ export default function DashboardPage() {
                 <p className="text-sm text-stone-500">Manual entry & price estimation</p>
               </div>
               <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-yellow-400" />
-            </a>
+            </Link>
 
             {/* Marketing */}
-            <a
+            <Link
               href="/dashboard/marketing"
               className="group relative flex items-center gap-5 rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
             >
@@ -410,7 +411,7 @@ export default function DashboardPage() {
                 <p className="text-sm text-stone-500">Your link & social tools</p>
               </div>
               <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-yellow-400" />
-            </a>
+            </Link>
           </div>
 
           {/* ── Action Nudge (contextual coaching) ─────────────────── */}
@@ -419,7 +420,7 @@ export default function DashboardPage() {
           {/* ── Tier 2: Secondary Tools ────────────────────────────── */}
           <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
             {/* Analytics */}
-            <a
+            <Link
               href="/dashboard/analytics"
               className="group flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
             >
@@ -427,10 +428,10 @@ export default function DashboardPage() {
                 <BarChart3 className="h-5 w-5" />
               </div>
               <span className="text-sm font-bold text-white">Analytics</span>
-            </a>
+            </Link>
 
             {/* Schedule */}
-            <a
+            <Link
               href="/dashboard/schedule"
               className="group flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
             >
@@ -438,10 +439,10 @@ export default function DashboardPage() {
                 <CalendarOff className="h-5 w-5" />
               </div>
               <span className="text-sm font-bold text-white">Schedule</span>
-            </a>
+            </Link>
 
             {/* Community */}
-            <a
+            <Link
               href="/community"
               className="group relative flex items-center gap-3 rounded-xl border border-yellow-500/30 bg-gradient-to-r from-yellow-500/5 via-slate-900 to-slate-900 p-4 transition-all hover:border-yellow-400/50 hover:from-yellow-500/10 active:scale-[0.98]"
             >
@@ -455,10 +456,10 @@ export default function DashboardPage() {
                 )}
               </div>
               <span className="text-sm font-bold text-white">Community</span>
-            </a>
+            </Link>
 
             {/* Plans & Guides */}
-            <a
+            <Link
               href="/dashboard/guides"
               className="group flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
             >
@@ -466,10 +467,10 @@ export default function DashboardPage() {
                 <BookOpen className="h-5 w-5" />
               </div>
               <span className="text-sm font-bold text-white">Guides</span>
-            </a>
+            </Link>
 
             {/* Tote Rentals — closing-gift fulfillment */}
-            <a
+            <Link
               href="/dashboard/tote-rentals"
               className="group flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
             >
@@ -477,10 +478,10 @@ export default function DashboardPage() {
                 <Gift className="h-5 w-5" />
               </div>
               <span className="text-sm font-bold text-white">Tote Rentals</span>
-            </a>
+            </Link>
 
             {/* Smart Inventory — manual edit + reset */}
-            <a
+            <Link
               href="/dashboard/inventory"
               className="group flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
             >
@@ -488,12 +489,12 @@ export default function DashboardPage() {
                 <Package className="h-5 w-5" />
               </div>
               <span className="text-sm font-bold text-white">Inventory</span>
-            </a>
+            </Link>
           </div>
 
           {/* ── Platform Analytics (admin-only) ────────────────────── */}
           {profile?.is_admin && (
-            <a
+            <Link
               href="/dashboard/platform-analytics"
               className="group flex items-center gap-3 rounded-xl border border-cyan-500/30 bg-gradient-to-r from-cyan-500/5 via-slate-900 to-slate-900 p-4 transition-all hover:border-cyan-400/50 hover:from-cyan-500/10 active:scale-[0.98]"
             >
@@ -504,7 +505,7 @@ export default function DashboardPage() {
               <span className="ml-auto rounded bg-cyan-400/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-cyan-400">
                 Admin
               </span>
-            </a>
+            </Link>
           )}
 
           {/* ── Leaderboard ────────────────────────────────────────── */}

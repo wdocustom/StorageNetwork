@@ -13,7 +13,7 @@ import {
   Sunset,
   Users,
 } from "lucide-react";
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { invalidateInstallerCache } from "@/app/actions/profile";
 import {
   getScheduleOverrides,
@@ -98,7 +98,7 @@ export default function AvailabilityManager() {
 
   // Load all data
   const loadData = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getSessionUser(supabase);
     if (!user) return;
     setUserId(user.id);
 

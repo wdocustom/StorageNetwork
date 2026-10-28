@@ -31,7 +31,7 @@ import {
   Package,
   Filter,
 } from "lucide-react";
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import {
   getInstallerAnalytics,
   getQRScanAnalytics,
@@ -40,6 +40,7 @@ import {
   type GroupedReferrer,
 } from "@/app/actions/analytics";
 import ProPill from "@/components/dashboard/ProPill";
+import Link from "next/link";
 
 type TimeRange = 7 | 30 | 90;
 
@@ -134,7 +135,7 @@ export default function AnalyticsPage() {
   const [insight,  setInsight]  = useState(0);
 
   const fetchAnalytics = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getSessionUser(supabase);
     if (!user) { window.location.href = "/login"; return; }
     setLoading(true);
     setError("");
@@ -178,12 +179,12 @@ export default function AnalyticsPage() {
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/95 px-4 py-3.5 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center gap-3">
-          <a
+          <Link
             href="/dashboard"
             className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
           >
             <ArrowLeft className="h-5 w-5" />
-          </a>
+          </Link>
           <div className="flex-1">
             <h1 className="text-sm font-bold uppercase tracking-widest text-white">
               Intelligence Dashboard

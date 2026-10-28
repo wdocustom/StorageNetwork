@@ -402,12 +402,12 @@ export default function PartnerDashboardPage() {
         <p className="mb-6 max-w-sm text-center text-sm text-stone-400">
           {error || "You are not authorized to view the Partner Portal."}
         </p>
-        <a
+        <Link
           href="/dashboard"
           className="rounded-lg bg-slate-800 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-700"
         >
           Back to Dashboard
-        </a>
+        </Link>
       </div>
     );
   }
@@ -423,12 +423,12 @@ export default function PartnerDashboardPage() {
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/95 px-4 py-4 backdrop-blur">
         <div className="mx-auto flex max-w-4xl items-center gap-3">
-          <a
+          <Link
             href="/dashboard/profile"
             className="rounded-lg p-2 text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
           >
             <ArrowLeft className="h-5 w-5" />
-          </a>
+          </Link>
           <div className="flex-1">
             <h1 className="text-sm font-bold uppercase tracking-wider text-white">
               Partner Portal

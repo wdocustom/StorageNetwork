@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { getAdminPlansAnalytics } from "@/app/actions/plans-analytics";
 import type { PlansAnalytics, PlansPageKind } from "@/lib/plans-analytics";
 
@@ -38,7 +38,7 @@ export default function PlansAnalyticsTab({ range }: { range: number }) {
     let live = true;
     (async () => {
       setLoading(true);
-      const { data: { user } } = await getSupabaseBrowserClient().auth.getUser();
+      const user = await getSessionUser();
       if (!user) return;
       const res = await getAdminPlansAnalytics(user.id, range);
       if (!live) return;

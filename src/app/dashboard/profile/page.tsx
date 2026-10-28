@@ -4,7 +4,7 @@ import PlanEarningsCard from "@/components/dashboard/PlanEarningsCard";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import {
   updateProfile,
   uploadAvatarServerSide,
@@ -62,6 +62,7 @@ import PortfolioSection from "@/components/profile/PortfolioSection";
 import ServicesSection from "@/components/profile/ServicesSection";
 import type { PortfolioPhoto } from "@/app/actions/profile";
 import type { ServiceOffering } from "@/config/services";
+import Link from "next/link";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Profile & Settings Page
@@ -266,9 +267,7 @@ function ProfilePageInner() {
   }, []);
 
   const fetchData = useCallback(async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getSessionUser(supabase);
     if (!user) {
       window.location.href = "/login";
       return;
@@ -779,12 +778,12 @@ function ProfilePageInner() {
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-4">
         <div className="mx-auto flex max-w-lg items-center gap-3 md:max-w-3xl lg:max-w-4xl">
-          <a
+          <Link
             href="/dashboard"
             className="rounded-lg p-2 text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
           >
             <ArrowLeft className="h-5 w-5" />
-          </a>
+          </Link>
           <div className="min-w-0 flex-1">
             <h1 className="text-sm font-bold uppercase tracking-wider text-white">
               Profile & Settings
@@ -1914,13 +1913,13 @@ function ProfilePageInner() {
                         Your custom affiliate terms are private to you. Open the portal
                         to view your cut, your recruits, and your earnings.
                       </p>
-                      <a
+                      <Link
                         href="/dashboard/affiliate/portal"
                         className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
                       >
                         <Handshake className="h-4 w-4" />
                         Open Affiliate Portal
-                      </a>
+                      </Link>
                     </>
                   )}
 
@@ -1932,13 +1931,13 @@ function ProfilePageInner() {
                         subscription revenue. Each affiliate&rsquo;s terms are negotiated
                         individually — and only you ever see yours.
                       </p>
-                      <a
+                      <Link
                         href="/dashboard/affiliate/apply"
                         className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
                       >
                         <Handshake className="h-4 w-4" />
                         Apply to Be an Affiliate
-                      </a>
+                      </Link>
                     </>
                   )}
 
@@ -1963,12 +1962,12 @@ function ProfilePageInner() {
                           Your last application wasn&rsquo;t a fit, but you&rsquo;re welcome to apply
                           again whenever circumstances change.
                         </p>
-                        <a
+                        <Link
                           href="/dashboard/affiliate/apply"
                           className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
                         >
                           Apply Again
-                        </a>
+                        </Link>
                       </>
                     )}
                   {!affiliateHasAgreement &&
@@ -1977,12 +1976,12 @@ function ProfilePageInner() {
                         <p className="mb-3 text-sm text-stone-400">
                           You withdrew your previous application. Re-apply any time.
                         </p>
-                        <a
+                        <Link
                           href="/dashboard/affiliate/apply"
                           className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
                         >
                           Apply Again
-                        </a>
+                        </Link>
                       </>
                     )}
                 </div>
@@ -2010,13 +2009,13 @@ function ProfilePageInner() {
                       Your custom commission terms are private to you. Open the portal to
                       grab your share link and track your sales and earnings.
                     </p>
-                    <a
+                    <Link
                       href="/dashboard/promoter/portal"
                       className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
                     >
                       <Megaphone className="h-4 w-4" />
                       Open Promoter Portal
-                    </a>
+                    </Link>
                   </>
                 )}
 
@@ -2027,13 +2026,13 @@ function ProfilePageInner() {
                       every sale you drive — paid directly to your connected Stripe
                       account. Each promoter&rsquo;s rate is negotiated individually.
                     </p>
-                    <a
+                    <Link
                       href="/dashboard/promoter/apply"
                       className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
                     >
                       <Megaphone className="h-4 w-4" />
                       Apply to Be a Promoter
-                    </a>
+                    </Link>
                   </>
                 )}
 
@@ -2059,12 +2058,12 @@ function ProfilePageInner() {
                         Your last application wasn&rsquo;t a fit, but you&rsquo;re welcome to apply
                         again whenever circumstances change.
                       </p>
-                      <a
+                      <Link
                         href="/dashboard/promoter/apply"
                         className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
                       >
                         Apply Again
-                      </a>
+                      </Link>
                     </>
                   )}
                 {!promoterHasAgreement &&
@@ -2074,12 +2073,12 @@ function ProfilePageInner() {
                       <p className="mb-3 text-sm text-stone-400">
                         You withdrew your previous application. Re-apply any time.
                       </p>
-                      <a
+                      <Link
                         href="/dashboard/promoter/apply"
                         className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
                       >
                         Apply Again
-                      </a>
+                      </Link>
                     </>
                   )}
               </div>
@@ -2098,13 +2097,13 @@ function ProfilePageInner() {
                   <p className="mb-4 text-sm text-stone-400">
                     View your referral dashboard, track commissions, and manage your installer network.
                   </p>
-                  <a
+                  <Link
                     href="/dashboard/partner"
                     className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
                   >
                     <Handshake className="h-4 w-4" />
                     Open Partner Portal
-                  </a>
+                  </Link>
                 </div>
               </section>
             )}

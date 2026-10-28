@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Copy, Check, MapPin, AlertTriangle } from "lucide-react";
+import Link from "next/link";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LocalScriptGenerator — Localized social media sales scripts
@@ -81,12 +82,12 @@ export default function LocalScriptGenerator({
             </p>
             <p className="mt-0.5 text-xs text-stone-500">
               Please update your{" "}
-              <a
+              <Link
                 href="/dashboard/profile"
                 className="font-bold text-yellow-400 underline hover:text-yellow-300"
               >
                 City & State in Settings
-              </a>{" "}
+              </Link>{" "}
               to unlock local scripts.
             </p>
           </div>

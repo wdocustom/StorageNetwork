@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { getInstallerLink } from "@/lib/utils";
 import { logActivityClient } from "@/lib/activity-client";
 import {
@@ -18,6 +18,7 @@ import AssetForge from "@/components/dashboard/AssetForge";
 import IGSalesImages from "@/components/dashboard/IGSalesImages";
 import InstallerPostTemplates from "@/components/dashboard/InstallerPostTemplates";
 import ProPill from "@/components/dashboard/ProPill";
+import Link from "next/link";
 
 interface UserProfile {
   id: string;
@@ -38,9 +39,7 @@ export default function MarketingPage() {
 
   useEffect(() => {
     async function load() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const user = await getSessionUser(supabase);
       if (!user) {
         window.location.href = "/login";
         return;
@@ -84,12 +83,12 @@ export default function MarketingPage() {
       {/* ── Header ──────────────────────────────────────────────── */}
       <header className="border-b border-slate-800 bg-slate-900 px-4 py-4">
         <div className="mx-auto flex max-w-lg items-center gap-3 md:max-w-3xl lg:max-w-4xl">
-          <a
+          <Link
             href="/dashboard"
             className="rounded-lg p-1.5 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
           >
             <ArrowLeft className="h-5 w-5" />
-          </a>
+          </Link>
           <div className="flex-1 flex items-center gap-2">
             <Megaphone className="h-5 w-5 text-yellow-400" />
             <h1 className="text-lg font-bold text-white">Marketing</h1>

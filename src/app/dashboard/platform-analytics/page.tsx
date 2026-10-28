@@ -31,6 +31,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
+import Link from "next/link";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Platform Analytics — Admin-Only Dashboard
@@ -206,7 +207,7 @@ export default function PlatformAnalyticsPage() {
         <div className="text-center">
           <p className="text-red-400 font-bold mb-2">Access Denied</p>
           <p className="text-stone-500 text-sm">{error}</p>
-          <a href="/dashboard" className="mt-4 inline-block text-yellow-400 text-sm underline">Back to Dashboard</a>
+          <Link href="/dashboard" className="mt-4 inline-block text-yellow-400 text-sm underline">Back to Dashboard</Link>
         </div>
       </div>
     );
@@ -242,9 +243,9 @@ export default function PlatformAnalyticsPage() {
       <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-900/95 backdrop-blur-sm px-4 py-3">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <div className="flex items-center gap-3">
-            <a href="/dashboard" className="rounded-lg p-1.5 text-stone-500 hover:bg-slate-800 hover:text-white transition-colors">
+            <Link href="/dashboard" className="rounded-lg p-1.5 text-stone-500 hover:bg-slate-800 hover:text-white transition-colors">
               <ArrowLeft className="h-5 w-5" />
-            </a>
+            </Link>
             <div>
               <h1 className="text-base font-bold text-white flex items-center gap-2">
                 <BarChart3 className="h-5 w-5 text-yellow-400" />
