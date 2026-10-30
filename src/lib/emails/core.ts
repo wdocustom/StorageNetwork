@@ -20,6 +20,8 @@ export interface SendEmailParams {
   replyTo?: string;
   /** Extra headers, e.g. List-Unsubscribe on promotional email. */
   headers?: Record<string, string>;
+  /** Files to attach, e.g. a calendar invite. */
+  attachments?: Array<{ filename: string; content: Buffer | string; content_type?: string }>;
 }
 
 export interface SendEmailResult {
@@ -31,10 +33,13 @@ export interface SendEmailResult {
 const SENDER_EMAIL = process.env.RESEND_SENDER_EMAIL || "orders@storage-network.app";
 const SENDER_NAME = process.env.RESEND_SENDER_NAME || "Storage Network";
 
+/** The From address — also the organizer on calendar invites we send. */
+export const senderEmail = () => SENDER_EMAIL;
+
 export async function sendTransactionalEmail(
   params: SendEmailParams
 ): Promise<SendEmailResult> {
-  const { to, subject, html, senderName, replyTo, headers } = params;
+  const { to, subject, html, senderName, replyTo, headers, attachments } = params;
 
   console.log("[Email] Attempting to send email to:", to, "| Subject:", subject);
 
@@ -57,6 +62,7 @@ export async function sendTransactionalEmail(
       html,
       ...(replyTo && { reply_to: replyTo }),
       ...(headers && { headers }),
+      ...(attachments?.length && { attachments }),
     });
 
     if (error) {

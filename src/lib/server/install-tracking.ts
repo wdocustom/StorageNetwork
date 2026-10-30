@@ -14,7 +14,8 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { getServiceClient } from "@/lib/supabase-server";
-import { trackInstallUrl } from "@/lib/server/request-link";
+import { installCalendarUrl, trackInstallUrl } from "@/lib/server/request-link";
+import { addToCalendarHtml, icsAttachment, installEvent, installIcs } from "@/lib/install-calendar";
 import { computeBalanceDue } from "@/lib/lead-money";
 import { escapeHtml } from "@/utils/escapeHtml";
 import { pushToUser } from "@/lib/server/push";
@@ -235,10 +236,21 @@ async function sendReminderEmail({
     sales_tax_amount: lead.sales_tax_amount as number,
   });
 
+  const leadId = lead.id as string;
+  const event = installEvent({
+    leadId,
+    date: lead.scheduled_at as string,
+    installerName: installer.name,
+    timePreference: lead.time_preference as string | null,
+    address,
+    trackUrl: trackInstallUrl(leadId),
+  });
+
   const row = (k: string, v: string) =>
     `<tr><td style="padding:8px 0;color:#94a3b8;font-size:13px;">${k}</td><td style="padding:8px 0;color:#ffffff;font-size:13px;text-align:right;font-weight:600;">${v}</td></tr>`;
 
   const { sendTransactionalEmail, emailShell } = await import("@/lib/email");
+  const { senderEmail } = await import("@/lib/emails/core");
   const html = emailShell(
     "Your Install Is Tomorrow",
     `
@@ -248,6 +260,7 @@ async function sendReminderEmail({
     </p>
     <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:20px;text-align:center;margin:0 0 20px;">
       <p style="margin:0;color:#facc15;font-size:20px;font-weight:900;">${escapeHtml(when)}</p>
+      ${event ? addToCalendarHtml(event, installCalendarUrl(leadId)) : ""}
     </div>
     <table style="width:100%;border-collapse:collapse;margin:0 0 20px;">
       ${row("Status", isInstallStage(lead.install_stage) ? INSTALL_STAGES.find((s) => s.id === lead.install_stage)!.label : "Scheduled")}
@@ -271,5 +284,17 @@ async function sendReminderEmail({
     html,
     senderName: installer.name,
     replyTo: installer.replyTo,
+    // Re-sending the invite (same UID) keeps the calendar event current.
+    ...(event && {
+      attachments: [
+        icsAttachment(
+          installIcs(event, {
+            method: "REQUEST",
+            organizer: { name: installer.name, email: senderEmail() },
+            attendee: { name: (lead.customer_name as string) || undefined, email: lead.customer_email as string },
+          })
+        ),
+      ],
+    }),
   });
 }

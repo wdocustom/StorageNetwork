@@ -108,3 +108,12 @@ export function trackInstallUrl(leadId: string): string | undefined {
     return undefined;
   }
 }
+
+/** Downloadable .ics of the install day (the email's "Apple" calendar button). */
+export function installCalendarUrl(leadId: string): string | undefined {
+  try {
+    return `${getAppUrl()}/api/calendar/${signTrackToken(leadId)}.ics`;
+  } catch {
+    return undefined;
+  }
+}
