@@ -108,3 +108,12 @@ export function trackInstallUrl(leadId: string): string | undefined {
     return undefined;
   }
 }
+
+/** The email's "Add to calendar" button — opens the customer's own calendar. */
+export function installCalendarUrl(leadId: string): string | undefined {
+  try {
+    return `${getAppUrl()}/api/calendar/${signTrackToken(leadId)}`;
+  } catch {
+    return undefined;
+  }
+}

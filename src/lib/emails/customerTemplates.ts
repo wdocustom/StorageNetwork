@@ -1,9 +1,11 @@
-import { sendTransactionalEmail, type SendEmailResult } from "./core";
+import { sendTransactionalEmail, senderEmail, type SendEmailResult } from "./core";
 import { depositPercentLabel } from "@/lib/deposit-label";
 import { masterEmailLayout } from "./components/masterEmailLayout";
 import { diyPlansEmailBlock } from "./plansTemplates";
 import { getAppUrl } from "@/lib/url-helper";
 import { formatInstallDate } from "@/utils/installDate";
+import { addToCalendarHtml, icsAttachment, installEvent, installIcs } from "@/lib/install-calendar";
+import { installCalendarUrl, trackInstallUrl } from "@/lib/server/request-link";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Shared style primitives.
@@ -242,6 +244,11 @@ export async function sendInstallScheduledNotice(
     bookedByCustomer?: boolean;
     /** Link to change the date online (the customer's /schedule page). */
     changeUrl?: string;
+    /** The job — turns on the calendar invite and Add to calendar buttons. */
+    leadId?: string;
+    /** Install address, for the calendar event's location. */
+    address?: string;
+    timePreference?: string | null;
   }
 ): Promise<SendEmailResult> {
   const firstName = (data.customerName || "").split(" ")[0] || "there";
@@ -268,6 +275,27 @@ export async function sendInstallScheduledNotice(
     ? `${installerLine} has updated your install date. Your build is locked in for the new appointment below — same crew, same Custom 3D Design, fresh time on the calendar.`
     : `${installerLine} has locked in your install date. Mark your calendar &mdash; we&rsquo;ll be there built and ready.`;
   const dateEyebrow = data.isReschedule ? "New Installation Date" : "Installation Date";
+
+  // Calendar: buttons under the date + an attached invite (Gmail shows it as
+  // the event card at the top of the email).
+  const event = data.leadId
+    ? installEvent({
+        leadId: data.leadId,
+        date: data.scheduledDate,
+        installerName: data.installerName,
+        timePreference: data.timePreference,
+        address: data.address,
+        trackUrl: trackInstallUrl(data.leadId),
+      })
+    : null;
+  const calendarUrl = event ? installCalendarUrl(data.leadId!) : undefined;
+  const ics = event
+    ? installIcs(event, {
+        method: "REQUEST",
+        organizer: { name: data.installerName || "Storage Network", email: senderEmail() },
+        attendee: { name: data.customerName, email: customerEmail },
+      })
+    : null;
   const subject = data.isReschedule
     ? `Installation rescheduled to ${formattedDate}`
     : `Installation scheduled for ${formattedDate}`;
@@ -283,6 +311,7 @@ export async function sendInstallScheduledNotice(
     ${eyebrow(dateEyebrow)}
     <div style="border-top:1px solid #222;border-bottom:1px solid #222;padding:24px 0;text-align:center;margin:0 0 28px;">
       <p style="margin:0;color:#facc15;font-size:28px;font-weight:900;line-height:1.2;">${formattedDate}</p>
+      ${calendarUrl ? addToCalendarHtml(calendarUrl) : ""}
     </div>
 
     <p style="margin:0 0 28px;color:#a3a3a3;font-size:14px;line-height:1.7;">
@@ -306,6 +335,7 @@ export async function sendInstallScheduledNotice(
     subject,
     html,
     replyTo: data.replyTo,
+    ...(ics && { attachments: [icsAttachment(ics)] }),
   });
 }
 

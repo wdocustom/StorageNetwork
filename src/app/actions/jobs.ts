@@ -481,6 +481,29 @@ export async function setJobDiscount(
   return { success: true, discountAmount: amount, code };
 }
 
+type LeadAddress = {
+  address?: string | null;
+  delivery_address_line1?: string | null;
+  delivery_address_city?: string | null;
+  delivery_address_state?: string | null;
+} | null;
+
+/** Where the install is, for the calendar invite in the date emails. */
+function installAddress(lead: LeadAddress): string | undefined {
+  if (!lead) return undefined;
+  return (
+    [lead.delivery_address_line1, lead.delivery_address_city, lead.delivery_address_state].filter(Boolean).join(", ") ||
+    lead.address ||
+    undefined
+  );
+}
+
+/** The customer's morning/afternoon pick, if any (column is optional on older databases). */
+async function leadTimePreference(leadId: string): Promise<string | null> {
+  const { data } = await supabase.from("leads").select("time_preference").eq("id", leadId).maybeSingle();
+  return (data?.time_preference as string | null) ?? null;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // rescheduleJob — Update date + send reschedule email (replies go to installer)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -502,7 +525,7 @@ export async function rescheduleJob(
     try {
       const { data: lead } = await supabase
         .from("leads")
-        .select("installer_id")
+        .select("installer_id, address, delivery_address_line1, delivery_address_city, delivery_address_state")
         .eq("id", leadId)
         .single();
 
@@ -532,6 +555,9 @@ export async function rescheduleJob(
         scheduledDate: newDate,
         replyTo: installerEmail,
         isReschedule: true,
+        leadId,
+        address: installAddress(lead),
+        timePreference: await leadTimePreference(leadId),
       });
       console.log(
         "[Reschedule] Email sent to:",
@@ -577,7 +603,7 @@ export async function scheduleJob(
     try {
       const { data: lead } = await supabase
         .from("leads")
-        .select("installer_id")
+        .select("installer_id, address, delivery_address_line1, delivery_address_city, delivery_address_state")
         .eq("id", leadId)
         .single();
 
@@ -606,6 +632,9 @@ export async function scheduleJob(
         installerName,
         scheduledDate: date,
         replyTo: installerEmail,
+        leadId,
+        address: installAddress(lead),
+        timePreference: await leadTimePreference(leadId),
       });
       console.log(
         "[ScheduleJob] Confirmation email sent to:",

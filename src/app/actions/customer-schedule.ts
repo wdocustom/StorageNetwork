@@ -39,12 +39,18 @@ interface LeadForSchedule {
   deposit_paid: boolean;
   scheduled_at: string | null;
   quote_data: unknown;
+  address: string | null;
+  delivery_address_line1: string | null;
+  delivery_address_city: string | null;
+  delivery_address_state: string | null;
 }
 
 async function loadLead(leadId: string): Promise<LeadForSchedule | null> {
   const { data } = await db()
     .from("leads")
-    .select("id, installer_id, customer_name, customer_email, status, deposit_paid, scheduled_at, quote_data")
+    .select(
+      "id, installer_id, customer_name, customer_email, status, deposit_paid, scheduled_at, quote_data, address, delivery_address_line1, delivery_address_city, delivery_address_state"
+    )
     .eq("id", leadId)
     .maybeSingle();
   return (data as LeadForSchedule | null) ?? null;
@@ -254,7 +260,7 @@ export async function setInstallDateFromCustomer(input: {
 
   const email = await import("@/lib/email");
   await Promise.all([
-    notifyCustomer(email, lead, installer, input.date, isChange),
+    notifyCustomer(email, lead, installer, input.date, time, isChange),
     notifyInstaller(email, lead, installer, input.date, time, isChange),
   ]).catch((err) => console.error("[CustomerSchedule] email failed:", err));
 
@@ -275,6 +281,7 @@ async function notifyCustomer(
   lead: LeadForSchedule,
   installer: Awaited<ReturnType<typeof loadInstallerRules>>,
   date: string,
+  time: TimeBlock | null,
   isChange: boolean
 ) {
   if (!lead.customer_email) return;
@@ -291,6 +298,12 @@ async function notifyCustomer(
     isReschedule: isChange,
     bookedByCustomer: true,
     changeUrl: scheduleInstallUrl(lead.id),
+    leadId: lead.id,
+    address:
+      [lead.delivery_address_line1, lead.delivery_address_city, lead.delivery_address_state].filter(Boolean).join(", ") ||
+      lead.address ||
+      undefined,
+    timePreference: time,
   });
 }
 
