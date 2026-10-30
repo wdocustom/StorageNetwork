@@ -245,6 +245,7 @@ async function sendReminderEmail({
     address,
     trackUrl: trackInstallUrl(leadId),
   });
+  const calendarUrl = event ? installCalendarUrl(leadId) : undefined;
 
   const row = (k: string, v: string) =>
     `<tr><td style="padding:8px 0;color:#94a3b8;font-size:13px;">${k}</td><td style="padding:8px 0;color:#ffffff;font-size:13px;text-align:right;font-weight:600;">${v}</td></tr>`;
@@ -260,7 +261,7 @@ async function sendReminderEmail({
     </p>
     <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:20px;text-align:center;margin:0 0 20px;">
       <p style="margin:0;color:#facc15;font-size:20px;font-weight:900;">${escapeHtml(when)}</p>
-      ${event ? addToCalendarHtml(event, installCalendarUrl(leadId)) : ""}
+      ${calendarUrl ? addToCalendarHtml(calendarUrl) : ""}
     </div>
     <table style="width:100%;border-collapse:collapse;margin:0 0 20px;">
       ${row("Status", isInstallStage(lead.install_stage) ? INSTALL_STAGES.find((s) => s.id === lead.install_stage)!.label : "Scheduled")}

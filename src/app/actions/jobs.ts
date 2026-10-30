@@ -498,6 +498,12 @@ function installAddress(lead: LeadAddress): string | undefined {
   );
 }
 
+/** The customer's morning/afternoon pick, if any (column is optional on older databases). */
+async function leadTimePreference(leadId: string): Promise<string | null> {
+  const { data } = await supabase.from("leads").select("time_preference").eq("id", leadId).maybeSingle();
+  return (data?.time_preference as string | null) ?? null;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // rescheduleJob — Update date + send reschedule email (replies go to installer)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -551,6 +557,7 @@ export async function rescheduleJob(
         isReschedule: true,
         leadId,
         address: installAddress(lead),
+        timePreference: await leadTimePreference(leadId),
       });
       console.log(
         "[Reschedule] Email sent to:",
@@ -627,6 +634,7 @@ export async function scheduleJob(
         replyTo: installerEmail,
         leadId,
         address: installAddress(lead),
+        timePreference: await leadTimePreference(leadId),
       });
       console.log(
         "[ScheduleJob] Confirmation email sent to:",

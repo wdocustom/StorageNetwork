@@ -288,6 +288,7 @@ export async function sendInstallScheduledNotice(
         trackUrl: trackInstallUrl(data.leadId),
       })
     : null;
+  const calendarUrl = event ? installCalendarUrl(data.leadId!) : undefined;
   const ics = event
     ? installIcs(event, {
         method: "REQUEST",
@@ -310,7 +311,7 @@ export async function sendInstallScheduledNotice(
     ${eyebrow(dateEyebrow)}
     <div style="border-top:1px solid #222;border-bottom:1px solid #222;padding:24px 0;text-align:center;margin:0 0 28px;">
       <p style="margin:0;color:#facc15;font-size:28px;font-weight:900;line-height:1.2;">${formattedDate}</p>
-      ${event ? addToCalendarHtml(event, installCalendarUrl(data.leadId!)) : ""}
+      ${calendarUrl ? addToCalendarHtml(calendarUrl) : ""}
     </div>
 
     <p style="margin:0 0 28px;color:#a3a3a3;font-size:14px;line-height:1.7;">
