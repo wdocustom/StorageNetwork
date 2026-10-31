@@ -1,5 +1,6 @@
 "use client";
 
+import { PRO_FREE_PROMO } from "@/config/pro-pricing";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getDepositAmount } from "@/app/actions/fee-engine";
 import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
@@ -251,13 +252,15 @@ export default function JobTicketView({
 
             <div className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-center">
               <p className="mb-2 text-xs font-semibold text-amber-300">
-                Subscribe to Pro to unlock this customer&apos;s full details and accept the job.
+                {PRO_FREE_PROMO
+                  ? "Pro is free right now — turn it on to unlock this customer's full details and accept the job."
+                  : "Subscribe to Pro to unlock this customer's full details and accept the job."}
               </p>
               <Link
                 href="/upgrade"
                 className="inline-flex items-center gap-2 rounded-lg bg-yellow-400 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300"
               >
-                Subscribe &amp; Unlock
+                {PRO_FREE_PROMO ? "Get Pro Free & Unlock" : "Subscribe & Unlock"}
               </Link>
             </div>
 

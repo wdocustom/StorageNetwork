@@ -8,6 +8,8 @@ import { sendWaitlistedLeadsUnlocked, sendWaitlistedLeadPaymentReady } from "@/l
 import { getDepositAmount } from "@/app/actions/fee-engine";
 import Stripe from "stripe";
 import { roundMoney } from "@/utils/mathHelpers";
+import { getAuthenticatedUser } from "@/lib/auth";
+import { PRO_FREE_PROMO, PRO_MONTHLY_PRICE } from "@/config/pro-pricing";
 
 const db = getServiceClient;
 
@@ -15,8 +17,8 @@ const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY)
   : null;
 
-// Pro subscription price: $49/month (launch promo — first 50 subscribers)
-const PRO_MONTHLY_PRICE_CENTS = 4900;
+// Pro subscription price (while PRO_FREE_PROMO is on, /upgrade skips Stripe)
+const PRO_MONTHLY_PRICE_CENTS = PRO_MONTHLY_PRICE * 100;
 
 /**
  * Create a Stripe checkout session for Pro subscription.
@@ -25,6 +27,9 @@ const PRO_MONTHLY_PRICE_CENTS = 4900;
 export async function createProCheckoutSession(
   userId: string
 ): Promise<{ success: boolean; url?: string; error?: string }> {
+  if (PRO_FREE_PROMO) {
+    return { success: false, error: "Pro is free right now — no checkout needed." };
+  }
   if (!stripe) {
     return { success: false, error: "Stripe not configured" };
   }
@@ -181,91 +186,8 @@ export async function activateProSubscription(
     console.log(`✅ Pro activated for ${userId}, slug: ${finalSlug}`);
 
     // ── Unlock waitlisted leads (hostage → real job) ────────────────
-    // When an installer subscribes, flip all their waitlisted leads to
-    // pending_payment so they can follow up and collect deposits.
     // Fire-and-forget: don't block activation on this.
-    (async () => {
-      try {
-        const { data: waitlistedLeads } = await db()
-          .from("leads")
-          .select("id, customer_name, customer_email, customer_phone, estimated_price, quote_data")
-          .eq("installer_id", userId)
-          .eq("status", "waitlisted");
-
-        if (waitlistedLeads && waitlistedLeads.length > 0) {
-          // Flip status to pending_payment
-          await db()
-            .from("leads")
-            .update({ status: "pending_payment" })
-            .eq("installer_id", userId)
-            .eq("status", "waitlisted");
-
-          console.log(`[ProSubscription] Unlocked ${waitlistedLeads.length} waitlisted lead(s) for ${userId}`);
-
-          // Fetch installer email for notification
-          const { data: installerProfile } = await db()
-            .from("profiles")
-            .select("email, business_name, first_name")
-            .eq("id", userId)
-            .single();
-
-          if (installerProfile?.email) {
-            const installerName = installerProfile.business_name || installerProfile.first_name || "Installer";
-            sendWaitlistedLeadsUnlocked(installerProfile.email, {
-              installerName,
-              leads: waitlistedLeads.map((l) => ({
-                customerName: l.customer_name,
-                customerEmail: l.customer_email,
-                customerPhone: l.customer_phone,
-                estimatedPrice: l.estimated_price,
-                leadId: l.id,
-              })),
-            }).catch((err) => console.error("[ProSubscription] Waitlist unlock email failed:", err));
-          }
-
-          // ── Auto-email each customer with a payment link ──────────
-          // The installer doesn't have to do anything — the system
-          // sends each customer a deposit link to /pay/[leadId].
-          const installerBiz = installerProfile?.business_name || installerProfile?.first_name || "Your Installer";
-          await Promise.all(waitlistedLeads.map(async (lead) => {
-            try {
-              if (!lead.customer_email) return;
-              const depositAmt = await getDepositAmount(
-                lead.estimated_price ?? 0,
-                userId
-              );
-              // Parse quote_data for the build summary
-              const quoteItems = Array.isArray(lead.quote_data)
-                ? (lead.quote_data as Array<Record<string, unknown>>)
-                    .filter((u) => !("type" in u)) // organizer units only
-                    .map((u) => ({
-                      desc: (u.desc as string) || undefined,
-                      cols: (u.cols as number) || undefined,
-                      rows: (u.rows as number) || undefined,
-                      price: (u.price as number) || undefined,
-                    }))
-                : undefined;
-
-              sendWaitlistedLeadPaymentReady(lead.customer_email, {
-                customerName: lead.customer_name,
-                installerBusinessName: installerBiz,
-                estimatedPrice: lead.estimated_price ?? 0,
-                depositAmount: depositAmt,
-                leadId: lead.id,
-                quoteData: quoteItems,
-                diyPlansUrl: diyPlansEmailUrl(lead.quote_data, "installer_ready_email"),
-              }).catch((err) =>
-                console.error(`[ProSubscription] Customer payment email failed for lead ${lead.id}:`, err)
-              );
-            } catch (err) {
-              console.error(`[ProSubscription] Failed to process waitlisted lead ${lead.id}:`, err);
-            }
-          }));
-        }
-      } catch (err) {
-        console.error("[ProSubscription] Waitlist unlock failed (non-fatal):", err);
-      }
-    })();
+    void unlockWaitlistedLeads(userId);
 
     return { success: true, slug: finalSlug };
   } catch (err) {
@@ -278,6 +200,150 @@ export async function activateProSubscription(
 }
 
 /**
+ * When an installer becomes Pro, flip all their waitlisted leads to
+ * pending_payment, tell the installer, and email each customer a deposit
+ * link. Never throws.
+ */
+async function unlockWaitlistedLeads(userId: string): Promise<void> {
+  try {
+    const { data: waitlistedLeads } = await db()
+      .from("leads")
+      .select("id, customer_name, customer_email, customer_phone, estimated_price, quote_data")
+      .eq("installer_id", userId)
+      .eq("status", "waitlisted");
+
+    if (waitlistedLeads && waitlistedLeads.length > 0) {
+      // Flip status to pending_payment
+      await db()
+        .from("leads")
+        .update({ status: "pending_payment" })
+        .eq("installer_id", userId)
+        .eq("status", "waitlisted");
+
+      console.log(`[ProSubscription] Unlocked ${waitlistedLeads.length} waitlisted lead(s) for ${userId}`);
+
+      // Fetch installer email for notification
+      const { data: installerProfile } = await db()
+        .from("profiles")
+        .select("email, business_name, first_name")
+        .eq("id", userId)
+        .single();
+
+      if (installerProfile?.email) {
+        const installerName = installerProfile.business_name || installerProfile.first_name || "Installer";
+        sendWaitlistedLeadsUnlocked(installerProfile.email, {
+          installerName,
+          leads: waitlistedLeads.map((l) => ({
+            customerName: l.customer_name,
+            customerEmail: l.customer_email,
+            customerPhone: l.customer_phone,
+            estimatedPrice: l.estimated_price,
+            leadId: l.id,
+          })),
+        }).catch((err) => console.error("[ProSubscription] Waitlist unlock email failed:", err));
+      }
+
+      // ── Auto-email each customer with a payment link ──────────
+      // The installer doesn't have to do anything — the system
+      // sends each customer a deposit link to /pay/[leadId].
+      const installerBiz = installerProfile?.business_name || installerProfile?.first_name || "Your Installer";
+      await Promise.all(waitlistedLeads.map(async (lead) => {
+        try {
+          if (!lead.customer_email) return;
+          const depositAmt = await getDepositAmount(
+            lead.estimated_price ?? 0,
+            userId
+          );
+          // Parse quote_data for the build summary
+          const quoteItems = Array.isArray(lead.quote_data)
+            ? (lead.quote_data as Array<Record<string, unknown>>)
+                .filter((u) => !("type" in u)) // organizer units only
+                .map((u) => ({
+                  desc: (u.desc as string) || undefined,
+                  cols: (u.cols as number) || undefined,
+                  rows: (u.rows as number) || undefined,
+                  price: (u.price as number) || undefined,
+                }))
+            : undefined;
+
+          sendWaitlistedLeadPaymentReady(lead.customer_email, {
+            customerName: lead.customer_name,
+            installerBusinessName: installerBiz,
+            estimatedPrice: lead.estimated_price ?? 0,
+            depositAmount: depositAmt,
+            leadId: lead.id,
+            quoteData: quoteItems,
+            diyPlansUrl: diyPlansEmailUrl(lead.quote_data, "installer_ready_email"),
+          }).catch((err) =>
+            console.error(`[ProSubscription] Customer payment email failed for lead ${lead.id}:`, err)
+          );
+        } catch (err) {
+          console.error(`[ProSubscription] Failed to process waitlisted lead ${lead.id}:`, err);
+        }
+      }));
+    }
+  } catch (err) {
+    console.error("[ProSubscription] Waitlist unlock failed (non-fatal):", err);
+  }
+}
+
+/**
+ * Limited-time free Pro (PRO_FREE_PROMO): turn Pro on for the signed-in
+ * installer with no Stripe checkout, and release any customers waiting on
+ * them. Sets a trial clock (now, unless they already have one) so they go
+ * through the normal expiry + grace window once the promo is switched off.
+ */
+export async function activateFreePro(): Promise<{ success: boolean; error?: string }> {
+  if (!PRO_FREE_PROMO) return { success: false, error: "Free Pro has ended." };
+  const user = await getAuthenticatedUser();
+  if (!user) return { success: false, error: "Sign in first." };
+
+  const { data: profile } = await db()
+    .from("profiles")
+    .select("is_pro, slug, business_name, first_name, last_name, service_zips, stripe_subscription_id, pro_comped, pro_trial_ends_at")
+    .eq("id", user.id)
+    .single();
+  if (!profile) return { success: false, error: "Profile not found." };
+  // Installers only — every installer account gets a service area at signup.
+  if (!Array.isArray(profile.service_zips) || profile.service_zips.length === 0) {
+    return { success: false, error: "Finish your installer sign-up first, then come back here." };
+  }
+  if (profile.stripe_subscription_id || profile.pro_comped) return { success: true };
+
+  let slug = profile.slug as string | null;
+  if (!slug) {
+    const base =
+      slugify(profile.business_name || [profile.first_name, profile.last_name].filter(Boolean).join(" ")) ||
+      user.id.slice(0, 8);
+    for (const candidate of [base, `${base}-${new Date().getFullYear()}`, `${base}-${user.id.slice(0, 4)}`]) {
+      const { data: taken } = await db().from("profiles").select("id").eq("slug", candidate).neq("id", user.id).maybeSingle();
+      if (!taken) {
+        slug = candidate;
+        break;
+      }
+    }
+    slug ??= `${base}-${user.id.slice(0, 8)}`;
+  }
+
+  const { error } = await db()
+    .from("profiles")
+    .update({
+      is_pro: true,
+      slug,
+      pro_trial_ends_at: profile.pro_trial_ends_at ?? new Date().toISOString(),
+    })
+    .eq("id", user.id);
+  if (error) {
+    console.error("[FreePro] Activation failed:", error);
+    return { success: false, error: "Couldn't turn on Pro. Please try again." };
+  }
+
+  console.log(`✅ Free Pro activated for ${user.id}, slug: ${slug}`);
+  await unlockWaitlistedLeads(user.id);
+  return { success: true };
+}
+
+/**
  * Deactivate Pro subscription (called by webhook when subscription ends).
  * Suspends the account: is_pro=false, booking links stop working,
  * portfolio page shows inactive overlay. Slug is preserved so the
@@ -286,6 +352,16 @@ export async function activateProSubscription(
 export async function deactivateProSubscription(
   userId: string
 ): Promise<{ success: boolean }> {
+  if (PRO_FREE_PROMO) {
+    // Pro is free right now — a canceled subscription keeps Pro. The trial
+    // clock means it ends like any free trial once the promo is switched off.
+    await db()
+      .from("profiles")
+      .update({ stripe_subscription_id: null, pro_trial_ends_at: new Date().toISOString() })
+      .eq("id", userId);
+    return { success: true };
+  }
+
   await db()
     .from("profiles")
     .update({

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PRO_FREE_PROMO } from "@/config/pro-pricing";
 import { redirect } from "next/navigation";
 import { Activity, BarChart3, BookOpen, Building2, CalendarOff, ChevronRight, DollarSign, Gift, Package, Settings, Share2, Users, Zap, type LucideIcon } from "lucide-react";
 import { getAuthenticatedUser } from "@/lib/auth";
@@ -53,7 +54,7 @@ export default async function MorePage() {
       title: "Account",
       items: [
         { href: "/dashboard/profile", label: "Settings", icon: Settings },
-        ...(profile && !profile.is_pro ? [{ href: "/upgrade", label: "Go Pro", icon: Zap }] : []),
+        ...(profile && !profile.is_pro ? [{ href: "/upgrade", label: PRO_FREE_PROMO ? "Get Pro Free" : "Go Pro", icon: Zap }] : []),
         ...(profile?.is_realtor ? [{ href: "/realtors/dashboard", label: "Realtor portal", icon: Building2 }] : []),
       ],
     },

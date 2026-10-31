@@ -1,9 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { X, Zap, CreditCard } from "lucide-react";
+import ProPrice from "@/components/ProPrice";
+import { PRO_FREE_PROMO } from "@/config/pro-pricing";
 
-const BANNER_DISMISS_KEY = "promo-banner-dismissed-v2";
+// New key per offer, so a banner dismissed under the old price shows the free offer.
+const BANNER_DISMISS_KEY = PRO_FREE_PROMO ? "promo-banner-dismissed-free-pro" : "promo-banner-dismissed-v2";
 
 interface PromoBannerProps {
   isPro?: boolean;
@@ -48,17 +52,12 @@ export default function PromoBanner({
             <Zap className="h-3.5 w-3.5 text-gray-950" />
           </div>
           <p className="text-xs font-bold uppercase tracking-wider text-yellow-400">
-            Pro Pricing
+            {PRO_FREE_PROMO ? "Pro is free right now" : "Pro Pricing"}
           </p>
         </div>
 
-        <div className="mb-3 flex items-baseline gap-2">
-          <span className="text-xl text-stone-500 line-through">$99</span>
-          <span className="text-3xl font-black text-white">$49</span>
-          <span className="text-sm text-stone-400">/mo</span>
-          <span className="ml-auto rounded-full bg-red-500/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-400">
-            Launch Price
-          </span>
+        <div className="mb-3">
+          <ProPrice />
         </div>
 
         <div className="mb-3 space-y-1.5">
@@ -79,6 +78,16 @@ export default function PromoBanner({
             </div>
           )}
         </div>
+
+        {PRO_FREE_PROMO && (
+          <Link
+            href="/upgrade"
+            className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-2.5 text-sm font-black uppercase tracking-wider text-gray-950 transition hover:bg-yellow-300"
+          >
+            <Zap className="h-4 w-4" />
+            Get Pro free
+          </Link>
+        )}
 
         {!hasStripeConnected && (
           <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5">

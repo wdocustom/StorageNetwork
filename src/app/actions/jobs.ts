@@ -1,5 +1,6 @@
 "use server";
 
+import { PRO_FREE_PROMO } from "@/config/pro-pricing";
 import { getServiceClient } from "@/lib/supabase-server";
 import { sendInstallScheduledNotice } from "@/lib/email";
 import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
@@ -925,7 +926,12 @@ export async function fetchCustomerForNewQuote(
   // Waitlisted leads hide the customer's details until the installer
   // subscribes — don't leak them through this path.
   if (lead.status === "waitlisted") {
-    return { success: false, error: "Subscribe to unlock this customer's details." };
+    return {
+      success: false,
+      error: PRO_FREE_PROMO
+        ? "Turn on Pro (free right now) to unlock this customer's details."
+        : "Subscribe to unlock this customer's details.",
+    };
   }
 
   // Prefer the delivery address; fall back to the billing/service address

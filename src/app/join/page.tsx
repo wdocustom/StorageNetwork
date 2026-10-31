@@ -1,5 +1,6 @@
 "use client";
 
+import { PRO_FREE_PROMO, PRO_MONTHLY_PRICE } from "@/config/pro-pricing";
 import { useState, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 
@@ -290,12 +291,27 @@ export default function JoinPage() {
                 <Zap className="h-4 w-4 text-yellow-400" />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-bold text-yellow-300">
-                  Pro Trial Included
-                </p>
-                <p className="text-[11px] text-yellow-400/70">
-                  Trial ends when the platform demonstrates its true value — after 3 paid jobs land in your dashboard
-                </p>
+                {PRO_FREE_PROMO ? (
+                  <>
+                    <p className="text-sm font-bold text-yellow-300">
+                      Pro is{" "}
+                      <span className="text-yellow-400/50 line-through decoration-red-500/70 decoration-2">${PRO_MONTHLY_PRICE}/mo</span>{" "}
+                      FREE right now
+                    </p>
+                    <p className="text-[11px] text-yellow-400/70">
+                      Limited time — every feature, no credit card, no job limit
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-bold text-yellow-300">
+                      Pro Trial Included
+                    </p>
+                    <p className="text-[11px] text-yellow-400/70">
+                      Trial ends when the platform demonstrates its true value — after 3 paid jobs land in your dashboard
+                    </p>
+                  </>
+                )}
               </div>
             </div>
 
@@ -481,7 +497,7 @@ export default function JoinPage() {
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
-                  Start Your Trial
+                  {PRO_FREE_PROMO ? "Get Pro Free" : "Start Your Trial"}
                   <ChevronRight className="h-4 w-4" />
                 </>
               )}

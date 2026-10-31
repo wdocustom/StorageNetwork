@@ -2,6 +2,7 @@ import "server-only";
 
 import { getServiceClient } from "@/lib/supabase-server";
 import { slugify } from "@/lib/utils";
+import { PRO_FREE_PROMO } from "@/config/pro-pricing";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Pro Trial — Check and manage trial periods
@@ -24,6 +25,9 @@ import { slugify } from "@/lib/utils";
 //
 // If they subscribe via Stripe, trial fields are cleared and they continue
 // as a paid Pro subscriber.
+//
+// While PRO_FREE_PROMO is on, none of this bites: no job cap, no expiry, no
+// suspension — the trial clock is kept so ending the promo resumes it.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const supabase = getServiceClient();
@@ -41,6 +45,57 @@ export interface TrialStatus {
   jobsCompleted: number;
   jobsRemaining: number;
   partnerName: string | null;
+  /** Pro is free right now (PRO_FREE_PROMO) — no cap, no expiry */
+  freePro?: boolean;
+}
+
+interface TrialProfile {
+  is_pro: boolean | null;
+  slug: string | null;
+  business_name: string | null;
+  first_name: string | null;
+}
+
+/** Turn is_pro on and give them a slug if either is missing. */
+async function ensureProActive(userId: string, profile: TrialProfile): Promise<void> {
+  if (profile.is_pro && profile.slug) return;
+  const updates: Record<string, unknown> = {};
+
+  if (!profile.is_pro) {
+    updates.is_pro = true;
+  }
+
+  if (!profile.slug) {
+    const rawName = profile.business_name || profile.first_name || userId.slice(0, 8);
+    let trialSlug = slugify(rawName);
+    if (!trialSlug) trialSlug = userId.slice(0, 8);
+
+    // Check uniqueness
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("slug", trialSlug)
+      .neq("id", userId)
+      .maybeSingle();
+
+    if (existing) {
+      trialSlug = `${trialSlug}-${new Date().getFullYear()}`;
+      const { data: existing2 } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("slug", trialSlug)
+        .neq("id", userId)
+        .maybeSingle();
+      if (existing2) {
+        trialSlug = `${trialSlug}-${userId.slice(0, 4)}`;
+      }
+    }
+
+    updates.slug = trialSlug;
+  }
+
+  await supabase.from("profiles").update(updates).eq("id", userId);
+  console.log(`[ProTrial] Auto-activated Pro for ${userId}:`, updates);
 }
 
 /**
@@ -96,6 +151,12 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
       return noTrial;
     }
 
+    // Limited-time free Pro: keep them fully active, nothing capped or expired.
+    if (PRO_FREE_PROMO) {
+      await ensureProActive(userId, profile);
+      return { ...noTrial, freePro: true, partnerName: profile.pro_trial_partner };
+    }
+
     // Count committed jobs for this installer.
     // A job counts once a deposit is paid (deposit_paid = true) — not by
     // status string. This prevents gaming the trial by leaving jobs in any
@@ -126,50 +187,7 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
       // but NOT to soft-lock or degrade the experience.
 
       // Self-healing: auto-activate Pro if trial is valid but is_pro/slug missing
-      if (!profile.is_pro || !profile.slug) {
-        const updates: Record<string, unknown> = {};
-
-        if (!profile.is_pro) {
-          updates.is_pro = true;
-        }
-
-        if (!profile.slug) {
-          const rawName = profile.business_name || profile.first_name || userId.slice(0, 8);
-          let trialSlug = slugify(rawName);
-          if (!trialSlug) trialSlug = userId.slice(0, 8);
-
-          // Check uniqueness
-          const { data: existing } = await supabase
-            .from("profiles")
-            .select("id")
-            .eq("slug", trialSlug)
-            .neq("id", userId)
-            .maybeSingle();
-
-          if (existing) {
-            trialSlug = `${trialSlug}-${new Date().getFullYear()}`;
-            const { data: existing2 } = await supabase
-              .from("profiles")
-              .select("id")
-              .eq("slug", trialSlug)
-              .neq("id", userId)
-              .maybeSingle();
-            if (existing2) {
-              trialSlug = `${trialSlug}-${userId.slice(0, 4)}`;
-            }
-          }
-
-          updates.slug = trialSlug;
-        }
-
-        if (Object.keys(updates).length > 0) {
-          await supabase
-            .from("profiles")
-            .update(updates)
-            .eq("id", userId);
-          console.log(`[ProTrial] Auto-activated trial for ${userId}:`, updates);
-        }
-      }
+      await ensureProActive(userId, profile);
 
       return {
         onTrial: true,
