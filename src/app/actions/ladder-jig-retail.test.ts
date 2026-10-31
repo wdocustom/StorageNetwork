@@ -32,6 +32,10 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase-server", () => ({ getServiceClient: () => ({ from: () => query() }) }));
 vi.mock("@/lib/server/action-rate-limit", () => ({ enforceActionRateLimit: vi.fn(), RateLimitError: class extends Error {} }));
 vi.mock("@/lib/emails/plansTemplates", () => ({ sendLadderJigAccessEmail: vi.fn(async () => {}) }));
+const { checkPlanDevice } = vi.hoisted(() => ({
+  checkPlanDevice: vi.fn(async (_email: string, _opts?: { trusted?: boolean }) => ({ ok: true }) as { ok: true } | { ok: false; emailHint: string }),
+}));
+vi.mock("@/lib/server/plan-device", () => ({ checkPlanDevice }));
 vi.mock("@/config/site", () => ({ siteConfig: { baseUrl: "https://x.test" } }));
 
 const created: { unit_amount: number; metadata: Record<string, string> }[] = [];
@@ -103,5 +107,17 @@ describe("ladder jig content is gated", () => {
     expect(rows.filter((r) => r.plan_id === "ladder-jig")).toHaveLength(1);
     expect(rows.find((r) => r.plan_id === "ladder-jig")?.email).toBe("new@example.com");
     if (first.ok) expect(first.content.marks).toEqual([14.625, 30.375, 46.125, 61.875, 77.625, 93.375]);
+    // The device that paid is remembered without a code.
+    expect(checkPlanDevice).toHaveBeenCalledWith("new@example.com", { trusted: true });
+  });
+
+  it("asks for the emailed code when the link is opened on a new device", async () => {
+    sessionToReturn = { payment_status: "paid", metadata: { type: "ladder_jig" }, customer_details: { email: "new@example.com" } };
+    const paid = await openLadderJig({ sessionId: "cs_paid_2" });
+    const token = paid.ok ? paid.token : "";
+    checkPlanDevice.mockResolvedValueOnce({ ok: false, emailHint: "ne•••@example.com" });
+    const res = await openLadderJig({ token });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.verify).toEqual({ token, emailHint: "ne•••@example.com" });
   });
 });

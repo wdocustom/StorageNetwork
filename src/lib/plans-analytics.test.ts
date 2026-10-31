@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyPlansReferrer, plansPageKind, summarizePlansAnalytics, type PlansViewRow } from "./plans-analytics";
+import { classifyPlansReferrer, plansPageKind, summarizeDeviceSharing, summarizePlansAnalytics, type PlansViewRow } from "./plans-analytics";
 
 const view = (page_path: string, visitor_id: string, created_at: string, referrer: string | null = null): PlansViewRow => ({
   page_path,
@@ -75,5 +75,30 @@ describe("summarizePlansAnalytics", () => {
     const r = summarizePlansAnalytics([], [], [], []);
     expect(r.kpis).toEqual({ visitors: 0, storefrontVisitors: 0, designerVisitors: 0, purchases: 0, revenue: 0, designerConversion: 0, splitsPaid: 0 });
     expect(r.byDay).toEqual([]);
+  });
+});
+
+describe("summarizeDeviceSharing", () => {
+  const dev = (email: string, revoked = false, seen = "2026-10-01T00:00:00Z") => ({
+    email,
+    verified_by: "code",
+    revoked_at: revoked ? "2026-10-02T00:00:00Z" : null,
+    last_seen_at: seen,
+  });
+
+  it("flags buyers whose plans opened on more devices than the limit, or who keep getting codes", () => {
+    const flags = summarizeDeviceSharing(
+      [dev("a@x.com"), dev("a@x.com"), dev("a@x.com"), dev("A@x.com", true, "2026-10-05T00:00:00Z"), dev("b@x.com"), dev("c@x.com")],
+      ["c@x.com", "c@x.com", "c@x.com", "b@x.com"],
+      3,
+    );
+    expect(flags).toEqual([
+      { email: "a@x.com", devices: 4, active: 3, codes: 0, lastSeen: "2026-10-05T00:00:00Z" },
+      { email: "c@x.com", devices: 1, active: 1, codes: 3, lastSeen: "2026-10-01T00:00:00Z" },
+    ]);
+  });
+
+  it("is empty for normal buyers", () => {
+    expect(summarizeDeviceSharing([dev("a@x.com"), dev("a@x.com")], ["a@x.com"], 3)).toEqual([]);
   });
 });

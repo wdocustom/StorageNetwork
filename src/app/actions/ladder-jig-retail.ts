@@ -20,6 +20,7 @@ import { siteConfig } from "@/config/site";
 import { getServiceClient } from "@/lib/supabase-server";
 import { enforceActionRateLimit, RateLimitError } from "@/lib/server/action-rate-limit";
 import { sendLadderJigAccessEmail } from "@/lib/emails/plansTemplates";
+import { checkPlanDevice } from "@/lib/server/plan-device";
 import { ladderJigContent, type LadderJigContent } from "@/lib/ladder-jig-content";
 import {
   LADDER_JIG_NAME,
@@ -147,14 +148,27 @@ export async function createLadderJigCheckout(
 
 export type OpenLadderJigResult =
   | { ok: true; token: string; content: LadderJigContent; emailSentTo?: string }
-  | { ok: false; error: string };
+  | { ok: false; error: string; verify?: { token: string; emailHint: string } };
+
+/** Purchases pass the device gate (@/lib/server/plan-device). */
+async function gatedJig(row: Row, extras: { emailSentTo?: string } = {}): Promise<OpenLadderJigResult> {
+  const device = await checkPlanDevice(row.email);
+  if (!device.ok) {
+    return {
+      ok: false,
+      error: "Confirm it's you to open these plans on this device.",
+      verify: { token: row.access_token, emailHint: device.emailHint },
+    };
+  }
+  return { ok: true, token: row.access_token, content: ladderJigContent(), ...extras };
+}
 
 export async function openLadderJig(input: { sessionId: string } | { token: string }): Promise<OpenLadderJigResult> {
   try {
     if ("token" in input) {
       const row = await rowByToken(input.token);
       if (!row || row.plan_id !== LADDER_JIG_PLAN_ID) return { ok: false, error: "This link is invalid or has expired." };
-      return { ok: true, token: row.access_token, content: ladderJigContent() };
+      return gatedJig(row);
     }
 
     const db = getServiceClient();
@@ -163,7 +177,7 @@ export async function openLadderJig(input: { sessionId: string } | { token: stri
       .select("access_token, email, plan_id")
       .eq("stripe_session_id", input.sessionId)
       .maybeSingle();
-    if (existing) return { ok: true, token: (existing as Row).access_token, content: ladderJigContent() };
+    if (existing) return gatedJig(existing as Row);
 
     const session = await getStripe().checkout.sessions.retrieve(input.sessionId);
     if (session.payment_status !== "paid" || session.metadata?.type !== "ladder_jig") {
@@ -181,16 +195,18 @@ export async function openLadderJig(input: { sessionId: string } | { token: stri
       if ((error as { code?: string } | null)?.code === "23505") {
         const { data: winner } = await db
           .from("public_plan_purchases")
-          .select("access_token")
+          .select("access_token, email, plan_id")
           .eq("stripe_session_id", input.sessionId)
           .single();
-        if (winner) return { ok: true, token: winner.access_token as string, content: ladderJigContent() };
+        if (winner) return gatedJig(winner as Row);
       }
       console.error("[LadderJig] Insert error:", error);
       return { ok: false, error: "We couldn't record your purchase. Please refresh the page." };
     }
 
     const token = (inserted as Row).access_token;
+    // The buyer just paid on this device — remember it.
+    await checkPlanDevice(email, { trusted: true });
     sendLadderJigAccessEmail(email, token)
       .then(() => db.from("public_plan_purchases").update({ email_sent: true }).eq("access_token", token))
       .catch((err) => console.error("[LadderJig] Email error:", err));

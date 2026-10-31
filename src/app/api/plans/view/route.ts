@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase-server";
 import { getPlanById } from "@/lib/plans-config";
+import { isKnownPlanDevice } from "@/lib/server/plan-device";
 import fs from "fs/promises";
 import path from "path";
 
@@ -22,13 +23,17 @@ export async function GET(request: NextRequest) {
   const supabase = getServiceClient();
   const { data, error } = await supabase
     .from("public_plan_purchases")
-    .select("id")
+    .select("id, email")
     .eq("access_token", token)
     .eq("plan_id", planId)
     .single();
 
   if (error || !data) {
     return new NextResponse("Invalid or expired access token", { status: 403 });
+  }
+  // /plans/access registers or verifies this device before framing the plan.
+  if (!(await isKnownPlanDevice(data.email as string))) {
+    return new NextResponse("Open your plans from the link in your purchase email.", { status: 403 });
   }
 
   try {

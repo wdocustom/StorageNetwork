@@ -61,6 +61,55 @@ export interface PlansAnalytics {
   byPlan: { plan: string; purchases: number; revenue: number }[];
   recentPurchases: { plan: string; email: string; purchasedAt: string; upgradedAt: string | null }[];
   splits: { recipient: string; reason: string; amount: number; status: string; createdAt: string }[];
+  /** Buyers whose plan links look shared (see summarizeDeviceSharing) */
+  sharing?: SharingFlag[];
+}
+
+export interface PlanDeviceRow {
+  email: string;
+  verified_by: string;
+  revoked_at: string | null;
+  last_seen_at: string;
+}
+
+export interface SharingFlag {
+  email: string;
+  /** Devices that ever opened the buyer's plans */
+  devices: number;
+  /** Still allowed in */
+  active: number;
+  /** "Confirm it's you" codes requested in the period */
+  codes: number;
+  lastSeen: string;
+}
+
+/**
+ * Buyers worth a look: more devices than the limit ever opened their plans
+ * (each new one needed a code from their inbox), or codes requested again
+ * and again (someone with the link keeps trying). Most-devices first.
+ */
+export function summarizeDeviceSharing(
+  devices: PlanDeviceRow[],
+  codeEmails: string[],
+  maxDevices: number,
+): SharingFlag[] {
+  const byEmail = new Map<string, SharingFlag>();
+  const get = (email: string) => {
+    const key = email.toLowerCase();
+    let f = byEmail.get(key);
+    if (!f) byEmail.set(key, (f = { email: key, devices: 0, active: 0, codes: 0, lastSeen: "" }));
+    return f;
+  };
+  for (const d of devices) {
+    const f = get(d.email);
+    f.devices++;
+    if (!d.revoked_at) f.active++;
+    if (d.last_seen_at > f.lastSeen) f.lastSeen = d.last_seen_at;
+  }
+  for (const e of codeEmails) get(e).codes++;
+  return [...byEmail.values()]
+    .filter((f) => f.devices > maxDevices || f.codes >= 3)
+    .sort((a, b) => b.devices - a.devices || b.codes - a.codes);
 }
 
 /** Which part of the plans area a path belongs to. */

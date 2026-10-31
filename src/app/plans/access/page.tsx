@@ -8,12 +8,14 @@ import { TOTE_PLAN_ID } from "@/lib/tote-plans";
 import { LADDER_JIG_PLAN_ID } from "@/lib/ladder-jig";
 import { Loader2, CheckCircle, AlertCircle, Maximize2, BookOpen } from "lucide-react";
 import Image from "next/image";
+import DeviceVerify from "@/components/plans/DeviceVerify";
 
 function PlansAccessInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [state, setState] = useState<"loading" | "ready" | "error" | "verify">("loading");
+  const [verify, setVerify] = useState<{ token: string; emailHint: string } | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [planId, setPlanId] = useState<string | null>(null);
   const [buyerEmail, setBuyerEmail] = useState<string | null>(null);
@@ -35,7 +37,11 @@ function PlansAccessInner() {
       if (tokenParam) {
         // Return visit via email link
         const result = await validatePlanToken(tokenParam);
-        if (result.valid && result.planId === TOTE_PLAN_ID) {
+        if (result.valid && result.verify && result.planId !== TOTE_PLAN_ID && result.planId !== LADDER_JIG_PLAN_ID) {
+          // New device — confirm with the emailed code, then load again.
+          setVerify(result.verify);
+          setState("verify");
+        } else if (result.valid && result.planId === TOTE_PLAN_ID) {
           router.replace(`/plans/build?token=${tokenParam}`);
         } else if (result.valid && result.planId === LADDER_JIG_PLAN_ID) {
           router.replace(`/plans/jig?token=${tokenParam}`);
@@ -71,6 +77,10 @@ function PlansAccessInner() {
 
   const plan = planId ? getPlanById(planId) : null;
   const viewUrl = token && planId ? `/api/plans/view?token=${token}&plan_id=${encodeURIComponent(planId)}` : null;
+
+  if (state === "verify" && verify) {
+    return <DeviceVerify token={verify.token} emailHint={verify.emailHint} onVerified={() => window.location.reload()} />;
+  }
 
   if (state === "loading") {
     return (

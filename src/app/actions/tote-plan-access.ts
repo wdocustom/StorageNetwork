@@ -10,6 +10,10 @@
 //   • token      — return visit from that email link.
 //   • proDesign  — paid Pro installer or admin; re-checked server-side.
 //
+// Purchases also pass the device gate (@/lib/server/plan-device): a link
+// opened on a device the buyer hasn't used comes back with `verify` and the
+// page asks for the code emailed to the buyer.
+//
 // The design is always read from Stripe metadata or the purchase row,
 // never trusted from the URL, and the full plan (shopping list, cut plan,
 // steps) is only generated after access is established.
@@ -21,6 +25,7 @@ import { getServiceClient } from "@/lib/supabase-server";
 import { generateDIYPlan, type CompleteDIYPlan } from "@/app/actions/generate-plan";
 import { checkDIYPlanAccess } from "@/app/actions/diy-plan-checkout";
 import { sendTotePlanAccessEmail } from "@/lib/emails/plansTemplates";
+import { checkPlanDevice } from "@/lib/server/plan-device";
 import {
   enforceActionRateLimit,
   RateLimitError,
@@ -63,11 +68,18 @@ export type OpenTotePlanResult =
       emailSentTo?: string;
       /** Buyer's first name (from checkout) — the PDF cover says "Designed for …" */
       firstName?: string;
+      /** Buyer email + order ref, stamped on every PDF page (purchases only) */
+      license?: { email: string; order: string };
       access: "purchase" | "pro" | "admin";
       /** Ladder jig link: their own jig plans if bought, else the $5 owner offer (purchases only) */
       jig?: { owned: boolean; href: string };
     }
-  | { ok: false; error: string };
+  | {
+      ok: false;
+      error: string;
+      /** Set when the link is fine but this device needs the emailed code */
+      verify?: { token: string; emailHint: string };
+    };
 
 interface PurchaseRow {
   access_token: string;
@@ -111,12 +123,18 @@ async function buildResult(
     plan,
     token: row.access_token,
     firstName: firstNameOf(row.customer_name),
+    license: { email: row.email, order: orderRef(row.access_token) },
     access: "purchase",
     jig: jigRow
       ? { owned: true, href: `/plans/jig?token=${jigRow.access_token}` }
       : { owned: false, href: ladderJigHref(row.access_token) },
     ...extras,
   };
+}
+
+/** Short order reference for the PDF footer, e.g. "SN-3F9A2C1B". */
+function orderRef(token: string): string {
+  return `SN-${token.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
 }
 
 async function findByToken(token: string): Promise<PurchaseRow | null> {
@@ -175,7 +193,7 @@ async function openFromCheckout(sessionId: string): Promise<OpenTotePlanResult> 
     .select(PURCHASE_COLUMNS)
     .eq("stripe_session_id", sessionId)
     .maybeSingle();
-  if (existing) return buildResult(existing as PurchaseRow);
+  if (existing) return gated(existing as PurchaseRow);
 
   const session = await getStripe().checkout.sessions.retrieve(sessionId);
   if (session.payment_status !== "paid" || session.metadata?.type !== "diy_plan") {
@@ -215,13 +233,15 @@ async function openFromCheckout(sessionId: string): Promise<OpenTotePlanResult> 
         .select(PURCHASE_COLUMNS)
         .eq("stripe_session_id", sessionId)
         .single();
-      if (winner) return buildResult(winner as PurchaseRow);
+      if (winner) return gated(winner as PurchaseRow);
     }
     console.error("[TotePlanAccess] Insert error:", error);
     return { ok: false, error: "We couldn't record your purchase. Please refresh the page." };
   }
 
   const row = inserted as PurchaseRow;
+  // The buyer just paid on this device — remember it.
+  await checkPlanDevice(row.email, { trusted: true });
   sendTotePlanAccessEmail(email, design, tier, row.access_token)
     .then(() =>
       db.from("public_plan_purchases").update({ email_sent: true }).eq("access_token", row.access_token),
@@ -234,12 +254,33 @@ async function openFromCheckout(sessionId: string): Promise<OpenTotePlanResult> 
 async function openFromToken(token: string, upgradeSessionId?: string): Promise<OpenTotePlanResult> {
   const row = await findByToken(token);
   if (!row) return { ok: false, error: "This link is invalid or has expired." };
+  const device = await checkPlanDevice(row.email);
+  if (!device.ok) return needsCode(row, device.emailHint);
 
   if (upgradeSessionId && row.tier === "pdf") {
     await applyUpgrade(row, upgradeSessionId);
     const refreshed = await findByToken(token);
     if (refreshed) return buildResult(refreshed);
   }
+  return buildResult(row);
+}
+
+function needsCode(row: PurchaseRow, emailHint: string): OpenTotePlanResult {
+  return {
+    ok: false,
+    error: "Confirm it's you to open these plans on this device.",
+    verify: { token: row.access_token, emailHint },
+  };
+}
+
+/**
+ * A reload of the Stripe return URL. Only the first load (the buyer's own
+ * device, straight from paying) is trusted; after that a session id is
+ * just another link.
+ */
+async function gated(row: PurchaseRow): Promise<OpenTotePlanResult> {
+  const device = await checkPlanDevice(row.email);
+  if (!device.ok) return needsCode(row, device.emailHint);
   return buildResult(row);
 }
 
