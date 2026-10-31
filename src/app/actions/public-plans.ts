@@ -80,15 +80,13 @@ export async function verifyAndCreatePlanAccess(
     // The buyer just paid on this device — remember it.
     await checkPlanDevice(email, { trusted: true });
 
-    // Send email (fire and forget — don't block the page render)
-    sendPlanAccessEmail(email, plan, token)
-      .then(() =>
-        supabase
-          .from("public_plan_purchases")
-          .update({ email_sent: true })
-          .eq("access_token", token),
-      )
-      .catch((err) => console.error("[PublicPlans] Email error:", err));
+    // Awaited so the send isn't dropped after the response; email_sent only on success.
+    const sent = await sendPlanAccessEmail(email, plan, token).catch((err) => {
+      console.error("[PublicPlans] Email error:", err);
+      return null;
+    });
+    if (sent?.success) await supabase.from("public_plan_purchases").update({ email_sent: true }).eq("access_token", token);
+    else if (sent) console.error("[PublicPlans] Email not sent:", sent.error);
 
     return { success: true, token, email };
   } catch (err) {
