@@ -207,9 +207,13 @@ export async function openLadderJig(input: { sessionId: string } | { token: stri
     const token = (inserted as Row).access_token;
     // The buyer just paid on this device — remember it.
     await checkPlanDevice(email, { trusted: true });
-    sendLadderJigAccessEmail(email, token)
-      .then(() => db.from("public_plan_purchases").update({ email_sent: true }).eq("access_token", token))
-      .catch((err) => console.error("[LadderJig] Email error:", err));
+    // Awaited so the send isn't dropped after the response; email_sent only on success.
+    const sent = await sendLadderJigAccessEmail(email, token).catch((err) => {
+      console.error("[LadderJig] Email error:", err);
+      return null;
+    });
+    if (sent?.success) await db.from("public_plan_purchases").update({ email_sent: true }).eq("access_token", token);
+    else if (sent) console.error("[LadderJig] Email not sent:", sent.error);
     return { ok: true, token, content: ladderJigContent(), emailSentTo: email };
   } catch (err) {
     console.error("[LadderJig] Open failed:", err);

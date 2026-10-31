@@ -29,22 +29,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    // Send one email per purchased plan
+    // Send one email per purchased plan; record the ones that went out.
+    const to = email.toLowerCase().trim();
     for (const purchase of purchases) {
+      let sent: { success: boolean } | null = null;
       if (purchase.plan_id === LADDER_JIG_PLAN_ID) {
-        await sendLadderJigAccessEmail(email.toLowerCase().trim(), purchase.access_token);
-        continue;
-      }
-      if (purchase.plan_id === TOTE_PLAN_ID) {
+        sent = await sendLadderJigAccessEmail(to, purchase.access_token);
+      } else if (purchase.plan_id === TOTE_PLAN_ID) {
         const design = parseTotePlanDesign(purchase.build_config);
         if (design && isTotePlanTier(purchase.tier)) {
-          await sendTotePlanAccessEmail(email.toLowerCase().trim(), design, purchase.tier, purchase.access_token);
+          sent = await sendTotePlanAccessEmail(to, design, purchase.tier, purchase.access_token);
         }
-        continue;
+      } else {
+        const plan = getPlanById(purchase.plan_id);
+        if (plan) sent = await sendPlanAccessEmail(to, plan, purchase.access_token);
       }
-      const plan = getPlanById(purchase.plan_id);
-      if (!plan) continue;
-      await sendPlanAccessEmail(email.toLowerCase().trim(), plan, purchase.access_token);
+      if (sent?.success) {
+        await supabase.from("public_plan_purchases").update({ email_sent: true }).eq("access_token", purchase.access_token);
+      }
     }
 
     return NextResponse.json({ success: true });

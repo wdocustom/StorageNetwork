@@ -242,11 +242,17 @@ async function openFromCheckout(sessionId: string): Promise<OpenTotePlanResult> 
   const row = inserted as PurchaseRow;
   // The buyer just paid on this device — remember it.
   await checkPlanDevice(row.email, { trusted: true });
-  sendTotePlanAccessEmail(email, design, tier, row.access_token)
-    .then(() =>
-      db.from("public_plan_purchases").update({ email_sent: true }).eq("access_token", row.access_token),
-    )
-    .catch((err) => console.error("[TotePlanAccess] Email error:", err));
+  // Awaited: a send left running after the response can be dropped by the
+  // serverless runtime, and email_sent must only be true when it went out.
+  const sent = await sendTotePlanAccessEmail(email, design, tier, row.access_token).catch((err) => {
+    console.error("[TotePlanAccess] Email error:", err);
+    return null;
+  });
+  if (sent?.success) {
+    await db.from("public_plan_purchases").update({ email_sent: true }).eq("access_token", row.access_token);
+  } else if (sent) {
+    console.error("[TotePlanAccess] Email not sent:", sent.error);
+  }
 
   return buildResult(row, { emailSentTo: email });
 }

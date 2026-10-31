@@ -53,7 +53,7 @@ export async function sendPlanAccessEmail(
   email: string,
   plan: PublicPlan,
   accessToken: string,
-): Promise<void> {
+): Promise<SendEmailResult> {
   const appUrl = getAppUrl();
   const accessUrl = `${appUrl}/plans/access?token=${accessToken}`;
 
@@ -89,7 +89,7 @@ export async function sendPlanAccessEmail(
     </div>
   `;
 
-  await sendTransactionalEmail({
+  return sendTransactionalEmail({
     to: email,
     subject: `Your ${plan.name} build plans`,
     html: masterEmailLayout(`${plan.name} — Build Plans`, body),
@@ -101,7 +101,7 @@ export async function sendTotePlanAccessEmail(
   design: TotePlanDesign,
   tier: TotePlanTier,
   accessToken: string,
-): Promise<void> {
+): Promise<SendEmailResult> {
   const appUrl = getAppUrl();
   const accessUrl = `${appUrl}/plans/build?token=${accessToken}`;
   const name = totePlanName(design);
@@ -140,14 +140,14 @@ export async function sendTotePlanAccessEmail(
     </div>
   `;
 
-  await sendTransactionalEmail({
+  return sendTransactionalEmail({
     to: email,
     subject: `Your ${name} ${tier === "interactive" ? "build guide" : "build plan"}`,
     html: masterEmailLayout(`${name} — ${info.name}`, body),
   });
 }
 
-export async function sendLadderJigAccessEmail(email: string, accessToken: string): Promise<void> {
+export async function sendLadderJigAccessEmail(email: string, accessToken: string): Promise<SendEmailResult> {
   const appUrl = getAppUrl();
   const accessUrl = `${appUrl}/plans/jig?token=${accessToken}`;
   const libraryUrl = `${appUrl}/plans/library?token=${accessToken}`;
@@ -171,7 +171,7 @@ export async function sendLadderJigAccessEmail(email: string, accessToken: strin
     </p>
   `;
 
-  await sendTransactionalEmail({
+  return sendTransactionalEmail({
     to: email,
     subject: `Your ${LADDER_JIG_NAME} plans`,
     html: masterEmailLayout(`${LADDER_JIG_NAME} — Plans`, body),

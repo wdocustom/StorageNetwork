@@ -5,6 +5,7 @@
 // the buy button and the resend-link form need the browser.
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { CONTACT_EMAIL } from "@/lib/plan-library";
 import { useState } from "react";
 import { CheckCircle, Loader2, Mail } from "lucide-react";
 
@@ -80,7 +81,7 @@ export function ResendLinkPanel() {
   }
 
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+    <div id="resend" className="scroll-mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
       <div className="mb-3 flex items-center gap-2">
         <Mail className="h-4 w-4 text-stone-500" />
         <h2 className="text-sm font-bold text-white">Already purchased?</h2>
@@ -92,9 +93,14 @@ export function ResendLinkPanel() {
       {sent ? (
         <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 px-4 py-3">
           <CheckCircle className="h-4 w-4 shrink-0 text-emerald-400" />
-          <p className="text-sm font-semibold text-emerald-300">
-            If we have a purchase on file for that email, the link is on its way.
-          </p>
+          <div>
+            <p className="text-sm font-semibold text-emerald-300">
+              If we have a purchase on file for that email, the link is on its way.
+            </p>
+            <p className="mt-1 text-xs text-stone-400">
+              Not there in a few minutes? Check your junk or spam folder for mail from orders@storage-network.app.
+            </p>
+          </div>
         </div>
       ) : (
         <form onSubmit={handleResend} className="flex gap-2">
@@ -119,6 +125,12 @@ export function ResendLinkPanel() {
           </button>
         </form>
       )}
+      <p className="mt-3 text-[11px] text-stone-500">
+        Still stuck? Email{" "}
+        <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-stone-300 hover:text-yellow-400">
+          {CONTACT_EMAIL}
+        </a>
+      </p>
     </div>
   );
 }
