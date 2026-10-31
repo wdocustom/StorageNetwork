@@ -1,5 +1,6 @@
 "use client";
 
+import { PRO_FREE_PROMO, PRO_MONTHLY_PRICE } from "@/config/pro-pricing";
 import { Suspense, useState, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -273,10 +274,20 @@ function PartnerJoinPageInner() {
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-bold text-purple-300">
-                  Pro Trial Included
+                  {PRO_FREE_PROMO ? (
+                    <>
+                      Pro is{" "}
+                      <span className="text-purple-400/50 line-through decoration-red-500/70 decoration-2">${PRO_MONTHLY_PRICE}/mo</span>{" "}
+                      FREE right now
+                    </>
+                  ) : (
+                    "Pro Trial Included"
+                  )}
                 </p>
                 <p className="text-[11px] text-purple-400/70">
-                  Courtesy of {referringPartner} — trial ends when the platform demonstrates its true value, after 3 paid jobs land in your dashboard
+                  {PRO_FREE_PROMO
+                    ? `Courtesy of ${referringPartner} — limited time, no credit card, no job limit`
+                    : `Courtesy of ${referringPartner} — trial ends when the platform demonstrates its true value, after 3 paid jobs land in your dashboard`}
                 </p>
               </div>
             </div>

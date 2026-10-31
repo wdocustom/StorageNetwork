@@ -1,5 +1,6 @@
 "use client";
 
+import { PRO_FREE_PROMO, PRO_MONTHLY_PRICE } from "@/config/pro-pricing";
 import { useState, useEffect } from "react";
 import {
   Zap,
@@ -174,7 +175,10 @@ export default function ProSubscriptionCard({
                 <span className="font-semibold text-white">
                   {formatDate(status?.currentPeriodEnd || "")}
                 </span>
-                . After that, your account will be suspended and your links will stop working.
+                .{" "}
+                {PRO_FREE_PROMO
+                  ? "After that you stay on Pro for free while the limited-time offer lasts."
+                  : "After that, your account will be suspended and your links will stop working."}
               </p>
             </div>
           </div>
@@ -198,7 +202,7 @@ export default function ProSubscriptionCard({
         <div className="mb-4 flex items-center gap-2 text-xs text-stone-500">
           <Calendar className="h-3.5 w-3.5" />
           <span>
-            Next billing: {formatDate(status.currentPeriodEnd)} · $49.00
+            Next billing: {formatDate(status.currentPeriodEnd)} · ${PRO_MONTHLY_PRICE}.00
           </span>
         </div>
       )}
@@ -257,8 +261,9 @@ export default function ProSubscriptionCard({
             ) : (
               <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
                 <p className="mb-3 text-xs text-stone-400">
-                  Are you sure? You'll keep Pro benefits until the end of your
-                  billing period, then your account will be suspended.
+                  {PRO_FREE_PROMO
+                    ? "Pro is free right now — cancel and you won't be billed again, and you stay on Pro free while the limited-time offer lasts."
+                    : "Are you sure? You'll keep Pro benefits until the end of your billing period, then your account will be suspended."}
                 </p>
 
                 {/* Pending Bounty Warning */}

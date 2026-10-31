@@ -1,5 +1,6 @@
 "use client";
 
+import { PRO_FREE_PROMO } from "@/config/pro-pricing";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { MessageSquare, X, Send, Loader2, Sparkles } from "lucide-react";
 
@@ -21,7 +22,7 @@ const SESSION_KEY = "sn_installer_chat";
 
 const TEASERS = [
   "How much can I actually make?",
-  "What does the free trial include?",
+  PRO_FREE_PROMO ? "Is Pro really free right now?" : "What does the free trial include?",
   "Is my area available?",
   "How do the pre-sold jobs work?",
   "What's the catch?",

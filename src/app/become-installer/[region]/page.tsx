@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
+import { PRO_FREE_PROMO, PRO_MONTHLY_PRICE } from "@/config/pro-pricing";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Become an Installer — Location-specific landing pages
@@ -751,13 +752,28 @@ export default async function InstallerJoinRegionPage({ params }: PageProps) {
 
           {/* Free trial callout */}
           <div className="mx-auto mb-8 max-w-md rounded-xl border border-emerald-400/30 bg-emerald-400/5 px-5 py-3">
-            <p className="text-sm font-bold text-emerald-400">
-              Free until the platform proves its value
-            </p>
-            <p className="mt-1 text-xs text-stone-400">
-              You pay nothing until 3 completed jobs land in your dashboard.
-              If we can&apos;t deliver real work, you owe us nothing.
-            </p>
+            {PRO_FREE_PROMO ? (
+              <>
+                <p className="text-sm font-bold text-emerald-400">
+                  Pro is{" "}
+                  <span className="text-stone-500 line-through decoration-red-500/70 decoration-2">${PRO_MONTHLY_PRICE}/mo</span>{" "}
+                  FREE right now
+                </p>
+                <p className="mt-1 text-xs text-stone-400">
+                  Limited time. Every feature, no credit card, no job limit.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-bold text-emerald-400">
+                  Free until the platform proves its value
+                </p>
+                <p className="mt-1 text-xs text-stone-400">
+                  You pay nothing until 3 completed jobs land in your dashboard.
+                  If we can&apos;t deliver real work, you owe us nothing.
+                </p>
+              </>
+            )}
           </div>
 
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
@@ -765,7 +781,7 @@ export default async function InstallerJoinRegionPage({ params }: PageProps) {
               href="/join"
               className="inline-flex items-center gap-2 rounded-xl bg-yellow-400 px-8 py-4 text-sm font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 hover:-translate-y-0.5"
             >
-              Start Your Free Trial
+              {PRO_FREE_PROMO ? "Get Pro Free" : "Start Your Free Trial"}
             </Link>
             <Link
               href="/demo"
@@ -898,7 +914,14 @@ export default async function InstallerJoinRegionPage({ params }: PageProps) {
             One Platform. Every Tool You Need.
           </h2>
           <p className="mx-auto mb-12 max-w-xl text-center text-sm text-stone-400">
-            $49/mo after your free trial — includes every feature below.
+            {PRO_FREE_PROMO ? (
+              <>
+                <span className="line-through decoration-red-500/70 decoration-2">${PRO_MONTHLY_PRICE}/mo</span>{" "}
+                <span className="font-bold text-yellow-400">Free right now</span> (limited time) — includes every feature below.
+              </>
+            ) : (
+              <>${PRO_MONTHLY_PRICE}/mo after your free trial — includes every feature below.</>
+            )}
             3% maintenance fee on your direct leads. 15% on network leads.
             No hidden costs.
           </p>
@@ -977,11 +1000,20 @@ export default async function InstallerJoinRegionPage({ params }: PageProps) {
             Zero Risk
           </p>
           <h2 className="mb-4 text-center text-2xl font-black uppercase text-white sm:text-3xl">
-            Free For You Until We Prove It Works
+            {PRO_FREE_PROMO ? "Pro Is Free Right Now" : "Free For You Until We Prove It Works"}
           </h2>
           <p className="mx-auto mb-8 max-w-xl text-center text-sm text-stone-400">
-            We&apos;re so confident the platform delivers real value that we
-            don&apos;t charge you a dime until it proves itself.
+            {PRO_FREE_PROMO ? (
+              <>
+                <span className="line-through decoration-red-500/70 decoration-2">${PRO_MONTHLY_PRICE}/month</span> &mdash; free
+                for a limited time. Sign up while it lasts.
+              </>
+            ) : (
+              <>
+                We&apos;re so confident the platform delivers real value that we
+                don&apos;t charge you a dime until it proves itself.
+              </>
+            )}
           </p>
 
           <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-400/5 to-slate-950 p-8">
@@ -991,17 +1023,24 @@ export default async function InstallerJoinRegionPage({ params }: PageProps) {
                   title: "No credit card required to start",
                   desc: "Sign up in 60 seconds. No payment info. No commitment. Just create your account and explore the platform.",
                 },
-                {
-                  title: "Free until 3 completed jobs",
-                  desc: "Your trial doesn't end after 7 or 14 days like other platforms. It ends when the platform demonstrates its true value — after 3 paid jobs land in your dashboard. If we can't deliver work, you owe nothing.",
-                },
+                PRO_FREE_PROMO
+                  ? {
+                      title: `Pro is free right now — normally $${PRO_MONTHLY_PRICE}/month`,
+                      desc: "For a limited time, Pro costs nothing. No trial clock, no job limit — take every job you can build.",
+                    }
+                  : {
+                      title: "Free until 3 completed jobs",
+                      desc: "Your trial doesn't end after 7 or 14 days like other platforms. It ends when the platform demonstrates its true value — after 3 paid jobs land in your dashboard. If we can't deliver work, you owe nothing.",
+                    },
                 {
                   title: "No franchise fee. No inventory. No equipment.",
                   desc: "All you need are basic power tools you already own — a circular saw, drill, and tape measure. Buy materials per-job from your local Home Depot. Zero overhead.",
                 },
                 {
                   title: "Cancel anytime, keep everything",
-                  desc: "After your trial, it's $49/month. Cancel anytime with one click. You keep your portfolio, your reviews, and your booking page.",
+                  desc: PRO_FREE_PROMO
+                    ? "No contract and nothing to cancel while Pro is free. You keep your portfolio, your reviews, and your booking page."
+                    : `After your trial, it's $${PRO_MONTHLY_PRICE}/month. Cancel anytime with one click. You keep your portfolio, your reviews, and your booking page.`,
                 },
               ].map((item) => (
                 <div key={item.title} className="flex gap-4">
@@ -1047,7 +1086,9 @@ export default async function InstallerJoinRegionPage({ params }: PageProps) {
               },
               {
                 q: "What does it cost?",
-                a: "Nothing upfront. Your trial is free until the platform proves its value with 3 completed jobs. After that, it's $49/month with a 3% fee on your direct leads and 15% on network leads. No hidden fees.",
+                a: PRO_FREE_PROMO
+                  ? `Right now, nothing — Pro is free for a limited time (normally $${PRO_MONTHLY_PRICE}/month). You only pay a 3% fee on your direct leads and 15% on network leads, taken from the customer's deposit. No hidden fees.`
+                  : `Nothing upfront. Your trial is free until the platform proves its value with 3 completed jobs. After that, it's $${PRO_MONTHLY_PRICE}/month with a 3% fee on your direct leads and 15% on network leads. No hidden fees.`,
               },
               {
                 q: "How much can I realistically earn?",

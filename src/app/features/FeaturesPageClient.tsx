@@ -1,5 +1,6 @@
 "use client";
 
+import { PRO_FREE_PROMO, PRO_MONTHLY_PRICE } from "@/config/pro-pricing";
 import Image from "next/image";
 import { DESIGN_ASSISTANT_ENABLED } from "@/config/features";
 import dynamic from "next/dynamic";
@@ -41,7 +42,7 @@ import {
 // ═══════════════════════════════════════════════════════════════════════════
 // Features Page — What's Included
 //
-// Single plan: $49/mo, 3% maintenance fee on direct leads, 15% on network leads.
+// Single plan: PRO_MONTHLY_PRICE/mo (free while PRO_FREE_PROMO is on), 3% maintenance fee on direct leads, 15% on network leads.
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── Feature list data ────────────────────────────────────────────────────
@@ -133,7 +134,7 @@ export default function FeaturesPageClient() {
               href="/join"
               className="inline-flex items-center gap-2 rounded-xl bg-yellow-400 px-8 py-4 text-sm font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 hover:-translate-y-0.5"
             >
-              Start Your Trial
+              {PRO_FREE_PROMO ? "Get Pro Free" : "Start Your Trial"}
               <ChevronRight className="h-4 w-4" />
             </a>
             <a
@@ -217,15 +218,30 @@ export default function FeaturesPageClient() {
           {/* Pricing card */}
           <div className="mx-auto mb-10 max-w-sm rounded-2xl border-2 border-yellow-400/30 bg-yellow-400/[0.03] p-6 text-center">
             <p className="text-[10px] font-bold uppercase tracking-wider text-yellow-400">Pro</p>
-            <div className="mt-1 flex items-center justify-center gap-3">
-              <span className="text-2xl font-black text-stone-600 line-through decoration-red-500/70 decoration-2">$99</span>
-              <span className="text-4xl font-black text-yellow-400">$49</span>
-            </div>
-            <p className="text-sm text-yellow-400/60">/month</p>
-            <div className="mt-3 rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-2">
-              <p className="text-xs font-bold text-amber-400">Limited Time — Next 50 Installers Only</p>
-              <p className="text-[10px] text-amber-400/60 mt-0.5">Lock in $49/mo before it goes back to $99</p>
-            </div>
+            {PRO_FREE_PROMO ? (
+              <>
+                <div className="mt-1 flex items-center justify-center gap-3">
+                  <span className="text-2xl font-black text-stone-600 line-through decoration-red-500/70 decoration-2">
+                    ${PRO_MONTHLY_PRICE}
+                  </span>
+                  <span className="text-4xl font-black text-yellow-400">FREE</span>
+                </div>
+                <p className="text-sm text-yellow-400/60">right now</p>
+                <div className="mt-3 rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-2">
+                  <p className="text-xs font-bold text-amber-400">Limited Time — Pro Is Free</p>
+                  <p className="text-[10px] text-amber-400/60 mt-0.5">
+                    Normally ${PRO_MONTHLY_PRICE}/month. Every feature, no credit card.
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mt-1 flex items-center justify-center gap-3">
+                  <span className="text-4xl font-black text-yellow-400">${PRO_MONTHLY_PRICE}</span>
+                </div>
+                <p className="text-sm text-yellow-400/60">/month</p>
+              </>
+            )}
             <p className="mt-3 text-xs text-stone-500">3% maintenance fee on direct leads &middot; 15% on network leads</p>
           </div>
 
@@ -1388,15 +1404,16 @@ export default function FeaturesPageClient() {
             Ready to Build Smarter?
           </h2>
           <p className="mx-auto mb-8 max-w-xl text-sm leading-relaxed text-stone-400">
-            Start your trial and see every feature in action. The trial ends when the
-            platform demonstrates its true value — after 3 paid jobs land in your dashboard.
+            {PRO_FREE_PROMO
+              ? `Pro is free right now — every feature, no credit card. Normally $${PRO_MONTHLY_PRICE}/month; limited time.`
+              : "Start your trial and see every feature in action. The trial ends when the platform demonstrates its true value — after 3 paid jobs land in your dashboard."}
           </p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <a
               href="/join"
               className="inline-flex items-center gap-2 rounded-xl bg-yellow-400 px-10 py-4 text-sm font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 hover:-translate-y-0.5"
             >
-              Start Your Trial
+              {PRO_FREE_PROMO ? "Get Pro Free" : "Start Your Trial"}
               <ChevronRight className="h-4 w-4" />
             </a>
             <a

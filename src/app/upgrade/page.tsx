@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import { Loader2, Star } from "lucide-react";
-import { createProCheckoutSession } from "@/app/actions/pro-subscription";
+import { activateFreePro, createProCheckoutSession } from "@/app/actions/pro-subscription";
+import { PRO_FREE_PROMO, PRO_PRICE_LABEL, PRO_PROMO_TAG } from "@/config/pro-pricing";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Upgrade Page — /upgrade
@@ -12,11 +13,12 @@ import { createProCheckoutSession } from "@/app/actions/pro-subscription";
 // Seamless redirect to Pro checkout:
 // - Logged in → Create Stripe checkout session → Redirect
 // - Not logged in → Redirect to login → Return here → Checkout
+// - PRO_FREE_PROMO → no checkout: Pro turns on free, back to the dashboard
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function UpgradePage() {
   const router = useRouter();
-  const [status, setStatus] = useState<"loading" | "redirecting" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "redirecting" | "activating" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -32,6 +34,18 @@ export default function UpgradePage() {
       if (!user) {
         // Not logged in — redirect to login with return URL
         router.push("/login?redirect=/upgrade");
+        return;
+      }
+
+      if (PRO_FREE_PROMO) {
+        setStatus("activating");
+        const result = await activateFreePro();
+        if (!result.success) {
+          setStatus("error");
+          setError(result.error || "Couldn't turn on Pro. Please try again.");
+          return;
+        }
+        router.replace("/dashboard?pro=free");
         return;
       }
 
@@ -61,7 +75,7 @@ export default function UpgradePage() {
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">
               <Star className="h-8 w-8 text-red-400" />
             </div>
-            <h1 className="mb-2 text-xl font-bold text-white">Unable to Upgrade</h1>
+            <h1 className="mb-2 text-xl font-bold text-white">{PRO_FREE_PROMO ? "Couldn't Turn On Pro" : "Unable to Upgrade"}</h1>
             <p className="mb-6 text-sm text-stone-400">{error}</p>
             <a
               href="/dashboard/profile"
@@ -76,13 +90,24 @@ export default function UpgradePage() {
               <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
             </div>
             <h1 className="mb-2 text-xl font-bold text-white">
-              {status === "redirecting" ? "Preparing Checkout..." : "Loading..."}
+              {status === "activating"
+                ? "Turning on Pro..."
+                : status === "redirecting"
+                  ? "Preparing Checkout..."
+                  : "Loading..."}
             </h1>
-            <p className="text-sm text-stone-400">
-              {status === "redirecting"
-                ? "Redirecting you to secure checkout..."
-                : "Checking your account..."}
-            </p>
+            {status === "activating" ? (
+              <p className="text-sm text-stone-400">
+                <span className="text-stone-500 line-through decoration-red-500/70 decoration-2">{PRO_PRICE_LABEL}</span>{" "}
+                <span className="font-black text-yellow-400">FREE</span> · {PRO_PROMO_TAG.toLowerCase()}
+              </p>
+            ) : (
+              <p className="text-sm text-stone-400">
+                {status === "redirecting"
+                  ? "Redirecting you to secure checkout..."
+                  : "Checking your account..."}
+              </p>
+            )}
           </>
         )}
       </div>

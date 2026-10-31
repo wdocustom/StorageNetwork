@@ -8,6 +8,8 @@
 // This is a server-only module (only imported by API routes).
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { PRO_FREE_PROMO, PRO_MONTHLY_PRICE } from "@/config/pro-pricing";
+
 export interface PlatformPage {
   path: string;
   name: string;
@@ -252,10 +254,14 @@ export const FEATURES: PlatformFeature[] = [
 // ── Trial & Pricing ──────────────────────────────────────────────────────
 
 export const TRIAL_INFO = {
-  description: "Free to start — no credit card, no commitment",
-  trialLength: "3 paid jobs OR 45 days, whichever comes first",
+  description: PRO_FREE_PROMO
+    ? `Pro is free right now for a limited time (normally $${PRO_MONTHLY_PRICE}/month) — no credit card, no commitment`
+    : "Free to start — no credit card, no commitment",
+  trialLength: PRO_FREE_PROMO
+    ? "No trial clock or job limit while Pro is free"
+    : "3 paid jobs OR 45 days, whichever comes first",
   fullAccess: true,
-  monthlyPrice: 49,
+  monthlyPrice: PRO_MONTHLY_PRICE,
   directLeadFee: "3%",
   networkLeadFee: "15%",
   networkLeadExplanation: "The 15% on platform leads is a finder's fee for customers you never would have had. For your own customers (direct leads), only 3% — less than credit card processing at most places.",
@@ -264,7 +270,7 @@ export const TRIAL_INFO = {
 // ── FAQ ──────────────────────────────────────────────────────────────────
 
 export const FAQ: PlatformFaq[] = [
-  { question: "How much does it cost?", answer: `Free trial — no credit card. ${TRIAL_INFO.trialLength}. After trial: $${TRIAL_INFO.monthlyPrice}/month. Platform takes ${TRIAL_INFO.directLeadFee} on your own leads, ${TRIAL_INFO.networkLeadFee} on leads the platform brings you.`, audience: "installer" },
+  { question: "How much does it cost?", answer: `${PRO_FREE_PROMO ? `${TRIAL_INFO.description}.` : `Free trial — no credit card. ${TRIAL_INFO.trialLength}. After trial: $${TRIAL_INFO.monthlyPrice}/month.`} Platform takes ${TRIAL_INFO.directLeadFee} on your own leads, ${TRIAL_INFO.networkLeadFee} on leads the platform brings you.`, audience: "installer" },
   { question: "Can I see a demo first?", answer: "Yes! Book a free 15-minute demo call at storage-network.app/demo. A real person walks you through everything live.", audience: "both" },
   { question: "Can I set my own prices?", answer: "100%. You control per-slot pricing, per-tote costs, add-on prices (wheels, plywood top), and even preset pricing overrides. The platform provides defaults but you override them to match your market.", audience: "installer" },
   { question: "What if I don't get any jobs?", answer: "Then you've spent zero dollars. The trial is free. But the installers who succeed put up photos of their work and share their portfolio link.", audience: "installer" },
@@ -328,7 +334,7 @@ export function lookupPlatformInfo(query: string, audience: "customer" | "instal
 
   // Trial/pricing info
   if (q.includes("cost") || q.includes("price") || q.includes("trial") || q.includes("free") || q.includes("pay") || q.includes("fee") || q.includes("subscription")) {
-    results.push(`Trial: ${TRIAL_INFO.description}. ${TRIAL_INFO.trialLength}. Full access during trial. After trial: $${TRIAL_INFO.monthlyPrice}/month. Direct lead fee: ${TRIAL_INFO.directLeadFee}. Network lead fee: ${TRIAL_INFO.networkLeadFee}. ${TRIAL_INFO.networkLeadExplanation}`);
+    results.push(`${PRO_FREE_PROMO ? `Pricing: ${TRIAL_INFO.description}. ${TRIAL_INFO.trialLength}.` : `Trial: ${TRIAL_INFO.description}. ${TRIAL_INFO.trialLength}. Full access during trial. After trial: $${TRIAL_INFO.monthlyPrice}/month.`} Direct lead fee: ${TRIAL_INFO.directLeadFee}. Network lead fee: ${TRIAL_INFO.networkLeadFee}. ${TRIAL_INFO.networkLeadExplanation}`);
   }
 
   if (results.length === 0) {

@@ -1,5 +1,6 @@
 "use client";
 
+import { PRO_FREE_PROMO, PRO_MONTHLY_PRICE } from "@/config/pro-pricing";
 import { useRef, useState } from "react";
 import {
   Camera,
@@ -35,10 +36,12 @@ const POSTS: PostTemplate[] = [
     title: "Limited Time Pricing",
     caption: `🚨 PRO PLAN — LIMITED TIME OFFER
 
-WAS: $99/mo
-NOW: $49/mo (Save 50%!)
+${PRO_FREE_PROMO
+  ? `WAS: $${PRO_MONTHLY_PRICE}/mo
+NOW: FREE (limited time!)
 
-Lock this in before the next 50 spots fill up. Once they're gone, it goes back to $99.
+Pro is free right now. No credit card, no job limit. Get in before it's gone.`
+  : `NOW: $${PRO_MONTHLY_PRICE}/mo`}
 
 What you get:
 ✅ Pre-sold leads delivered to your dashboard
@@ -63,9 +66,17 @@ Stop chasing leads. Start building.
 
         {/* Price */}
         <div className="mb-4">
-          <p className="text-base font-bold text-stone-500">WAS: <span className="line-through decoration-red-500 decoration-2">$99</span></p>
-          <p className="text-5xl font-black text-yellow-400">NOW: $49</p>
-          <p className="text-lg font-black text-emerald-400">(Save 50%!)</p>
+          {PRO_FREE_PROMO ? (
+            <>
+              <p className="text-base font-bold text-stone-500">
+                WAS: <span className="line-through decoration-red-500 decoration-2">${PRO_MONTHLY_PRICE}/mo</span>
+              </p>
+              <p className="text-5xl font-black text-yellow-400">NOW: FREE</p>
+              <p className="text-lg font-black text-emerald-400">(Limited time!)</p>
+            </>
+          ) : (
+            <p className="text-5xl font-black text-yellow-400">${PRO_MONTHLY_PRICE}/mo</p>
+          )}
         </div>
 
         {/* Bullets */}
@@ -433,7 +444,7 @@ Storage Network is the all-in-one platform for garage storage installers:
 
 Whether you're doing this on weekends or running a full crew — the platform scales with you.
 
-$49/mo. Everything included. No upsells.
+${PRO_FREE_PROMO ? `FREE right now (normally $${PRO_MONTHLY_PRICE}/mo). Everything included. Limited time.` : `$${PRO_MONTHLY_PRICE}/mo. Everything included. No upsells.`}
 
 🔗 storage-network.app
 #garagestorage #platform #contractor #sidehustle #storageNetwork`,
@@ -467,8 +478,16 @@ $49/mo. Everything included. No upsells.
         </div>
 
         <div className="rounded-lg bg-yellow-400/10 border border-yellow-400/20 p-3 text-center">
-          <p className="text-sm font-black text-yellow-400">$49/mo — Everything Included</p>
-          <p className="text-[10px] text-yellow-400/60">Was $99 · Limited time for next 50 installers</p>
+          {PRO_FREE_PROMO ? (
+            <>
+              <p className="text-sm font-black text-yellow-400">
+                <span className="text-stone-500 line-through decoration-red-500 decoration-2">${PRO_MONTHLY_PRICE}/mo</span> FREE — Everything Included
+              </p>
+              <p className="text-[10px] text-yellow-400/60">Limited time · No credit card</p>
+            </>
+          ) : (
+            <p className="text-sm font-black text-yellow-400">${PRO_MONTHLY_PRICE}/mo — Everything Included</p>
+          )}
         </div>
 
         <div className="mt-auto flex items-center justify-between border-t border-slate-700 pt-3">
