@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import { getServiceClient } from "@/lib/supabase-server";
 import { getPlanById } from "@/lib/plans-config";
 import { sendPlanAccessEmail } from "@/lib/emails/plansTemplates";
+import { checkPlanDevice } from "@/lib/server/plan-device";
 
 let _stripe: Stripe | null = null;
 function getStripe(): Stripe {
@@ -41,7 +42,11 @@ export async function verifyAndCreatePlanAccess(
       .single();
 
     if (existing) {
-      // Already processed — just return the token (don't resend email)
+      // Already processed — just return the token (don't resend email).
+      // A reload of the return URL is fine on the buyer's device; anywhere
+      // else the session id is just a forwarded link.
+      const device = await checkPlanDevice(email);
+      if (!device.ok) return { success: false, error: "Open your plans from the link in your purchase email." };
       return { success: true, token: existing.access_token, email };
     }
 
@@ -72,6 +77,8 @@ export async function verifyAndCreatePlanAccess(
     }
 
     const token = inserted.access_token as string;
+    // The buyer just paid on this device — remember it.
+    await checkPlanDevice(email, { trusted: true });
 
     // Send email (fire and forget — don't block the page render)
     sendPlanAccessEmail(email, plan, token)
@@ -90,18 +97,24 @@ export async function verifyAndCreatePlanAccess(
   }
 }
 
+/**
+ * Which plan a link is for, and whether this device may open it — `verify`
+ * means the buyer must confirm with an emailed code (@/lib/server/plan-device).
+ */
 export async function validatePlanToken(
   token: string,
-): Promise<{ valid: boolean; planId?: string }> {
+): Promise<{ valid: boolean; planId?: string; verify?: { token: string; emailHint: string } }> {
   try {
     const supabase = getServiceClient();
     const { data } = await supabase
       .from("public_plan_purchases")
-      .select("plan_id")
+      .select("plan_id, email")
       .eq("access_token", token)
       .single();
 
     if (!data) return { valid: false };
+    const device = await checkPlanDevice(data.email as string);
+    if (!device.ok) return { valid: true, planId: data.plan_id, verify: { token, emailHint: device.emailHint } };
     return { valid: true, planId: data.plan_id };
   } catch {
     return { valid: false };

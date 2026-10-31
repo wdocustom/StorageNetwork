@@ -57,6 +57,7 @@ import type { PlanModuleTypeBuild } from "@/app/actions/generate-plan";
 import SystemMap from "@/components/plans/SystemMap";
 import { CONTACT_EMAIL, libraryHref } from "@/lib/plan-library";
 import { AFFILIATE_DISCLOSURE } from "@/lib/plan-product-links";
+import DeviceVerify from "@/components/plans/DeviceVerify";
 
 const ModularBuildGuide = dynamic(() => import("@/components/plans/ModularBuildGuide"), {
   ssr: false,
@@ -175,7 +176,7 @@ function PdfCard({ data }: { data: Ready }) {
         downloadDIYPDF({
           plan: data.plan,
           snapshots,
-          licensedTo: data.emailSentTo ? `Licensed to ${data.emailSentTo}` : undefined,
+          licensedTo: data.license ? `Licensed to ${data.license.email} · Order ${data.license.order}` : undefined,
           designedFor: data.firstName,
           logoDataUrl,
           links,
@@ -415,6 +416,8 @@ function BuildPlanInner() {
   const [guideOpen, setGuideOpen] = useState(false);
   const [autoUpgrade, setAutoUpgrade] = useState(false);
   const started = useRef(false);
+  /** What to re-open with after the device is verified (keeps an upgrade session). */
+  const reopenRef = useRef<OpenTotePlanInput | null>(null);
 
   useEffect(() => {
     if (started.current) return;
@@ -438,8 +441,11 @@ function BuildPlanInner() {
       return;
     }
 
+    reopenRef.current = "token" in input ? input : null;
     openTotePlan(input).then((res) => {
       setResult(res);
+      // New device: the verify screen re-opens with the token itself.
+      if (!res.ok && res.verify && sessionId) router.replace(`/plans/build?token=${res.verify.token}`);
       if (!res.ok) return;
       if (wantsUpgrade) setAutoUpgrade(true);
       if (wantsGuide && res.tier === "interactive") setGuideOpen(true);
@@ -458,6 +464,20 @@ function BuildPlanInner() {
           <p className="text-sm text-stone-500">Loading your build plan…</p>
         </div>
       </div>
+    );
+  }
+
+  if (!result.ok && result.verify) {
+    const { token } = result.verify;
+    return (
+      <DeviceVerify
+        token={token}
+        emailHint={result.verify.emailHint}
+        onVerified={() => {
+          setResult(null);
+          openTotePlan(reopenRef.current ?? { token }).then(setResult);
+        }}
+      />
     );
   }
 

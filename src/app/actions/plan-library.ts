@@ -10,6 +10,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { getServiceClient } from "@/lib/supabase-server";
+import { checkPlanDevice } from "@/lib/server/plan-device";
 import { getPlanById } from "@/lib/plans-config";
 import {
   TOTE_PLAN_ID,
@@ -41,7 +42,7 @@ export type LibraryResult =
       /** Shown when they own a tote plan but not the jig */
       jigOffer?: { href: string; price: number };
     }
-  | { ok: false; error: string };
+  | { ok: false; error: string; verify?: { token: string; emailHint: string } };
 
 function maskEmail(email: string): string {
   const [user, domain] = email.split("@");
@@ -68,6 +69,14 @@ export async function listMyPlans(token: string): Promise<LibraryResult> {
       .eq("access_token", token)
       .maybeSingle();
     if (!me?.email) return { ok: false, error: "This link is invalid or has expired." };
+    const device = await checkPlanDevice(me.email);
+    if (!device.ok) {
+      return {
+        ok: false,
+        error: "Confirm it's you to open your plans on this device.",
+        verify: { token, emailHint: device.emailHint },
+      };
+    }
 
     const { data: rows } = await db
       .from("public_plan_purchases")

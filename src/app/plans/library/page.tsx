@@ -12,6 +12,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
+import DeviceVerify from "@/components/plans/DeviceVerify";
 import Link from "next/link";
 import { AlertCircle, Armchair, Box, ChevronRight, Loader2, Mail, Plus, Wrench } from "lucide-react";
 import { listMyPlans, type LibraryItem, type LibraryResult } from "@/app/actions/plan-library";
@@ -58,6 +59,19 @@ function LibraryInner() {
     }
     listMyPlans(token).then(setResult);
   }, [token]);
+
+  if (token && result && !result.ok && result.verify) {
+    return (
+      <DeviceVerify
+        token={token}
+        emailHint={result.verify.emailHint}
+        onVerified={() => {
+          setResult(null);
+          listMyPlans(token).then(setResult);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950">

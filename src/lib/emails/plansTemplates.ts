@@ -1,4 +1,4 @@
-import { sendTransactionalEmail } from "./core";
+import { sendTransactionalEmail, type SendEmailResult } from "./core";
 import { masterEmailLayout } from "./components/masterEmailLayout";
 import { getAppUrl } from "@/lib/url-helper";
 import type { PublicPlan } from "@/lib/plans-config";
@@ -175,5 +175,41 @@ export async function sendLadderJigAccessEmail(email: string, accessToken: strin
     to: email,
     subject: `Your ${LADDER_JIG_NAME} plans`,
     html: masterEmailLayout(`${LADDER_JIG_NAME} — Plans`, body),
+  });
+}
+
+/**
+ * The 6-digit code for opening a buyer's plans on a new device
+ * (see @/lib/server/plan-device).
+ */
+export async function sendPlanDeviceCodeEmail(email: string, code: string): Promise<SendEmailResult> {
+  const appUrl = getAppUrl();
+  const spaced = `${code.slice(0, 3)}&nbsp;${code.slice(3)}`;
+
+  const body = `
+    <p style="margin:0 0 20px;color:#a3a3a3;font-size:15px;line-height:1.7;text-align:center;">
+      Someone is opening your Storage Network build plans on a new device.<br/>
+      If that&rsquo;s you, enter this code:
+    </p>
+
+    <div style="background:#111;border:1px solid #222;border-radius:12px;padding:26px 16px;margin:0 0 20px;text-align:center;">
+      <p style="margin:0 0 8px;color:#facc15;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">Your code</p>
+      <p style="margin:0;color:#facc15;font-size:40px;font-weight:900;letter-spacing:0.18em;font-family:'SF Mono',Menlo,Consolas,monospace;">${spaced}</p>
+      <p style="margin:12px 0 0;color:#666;font-size:12px;">Expires in 15 minutes.</p>
+    </div>
+
+    <div style="background:#0a0a0a;border:1px solid #1e1e1e;border-radius:8px;padding:14px 20px;">
+      <p style="margin:0;color:#777;font-size:12px;line-height:1.6;">
+        <strong style="color:#aaa;">Didn&rsquo;t ask for this?</strong> Someone may have your plan link.
+        Don&rsquo;t share this code &mdash; without it they can&rsquo;t open your plans. Questions? Reply to this email or visit
+        <a href="${appUrl}/plans" style="color:#facc15;text-decoration:none;">${appUrl.replace(/^https?:\/\//, "")}/plans</a>.
+      </p>
+    </div>
+  `;
+
+  return sendTransactionalEmail({
+    to: email,
+    subject: `${code} is your Storage Network code`,
+    html: masterEmailLayout("Confirm It's You", body),
   });
 }

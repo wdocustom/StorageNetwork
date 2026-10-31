@@ -27,6 +27,7 @@ import { LADDER_JIG_NAME, LADDER_JIG_TAGLINE } from "@/lib/ladder-jig";
 import { formatPlanPrice } from "@/lib/tote-plans";
 import { railTopMarks2x4 } from "@/components/visualizer/assemblySteps";
 import { CONTACT_EMAIL } from "@/lib/plan-library";
+import DeviceVerify from "@/components/plans/DeviceVerify";
 
 function Header({ homeToken }: { homeToken?: string | null }) {
   return (
@@ -173,6 +174,20 @@ function JigInner() {
   }, [wantsGuide, token, sessionId, router]);
 
   const homeToken = result?.ok ? result.token : owner;
+
+  if (result && !result.ok && result.verify) {
+    const { token: verifyToken, emailHint } = result.verify;
+    return (
+      <DeviceVerify
+        token={verifyToken}
+        emailHint={emailHint}
+        onVerified={() => {
+          setResult(null);
+          openLadderJig({ token: verifyToken }).then(setResult);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950">

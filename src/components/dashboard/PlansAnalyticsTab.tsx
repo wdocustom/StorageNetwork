@@ -225,6 +225,27 @@ export function PlansAnalyticsView({ data }: { data: PlansAnalytics }) {
         </Card>
       </div>
 
+      <Card title="Link sharing">
+        {!data.sharing?.length ? (
+          <p className="text-sm text-stone-500">
+            No plan links look shared. Each buyer&apos;s plans open on up to 3 devices; a new device needs a code from their
+            email.
+          </p>
+        ) : (
+          <ul className="divide-y divide-slate-800 text-xs">
+            {data.sharing.map((f) => (
+              <li key={f.email} className="flex flex-wrap justify-between gap-x-3 py-1.5">
+                <span className="text-stone-200">{f.email}</span>
+                <span className="text-stone-500">
+                  {f.devices} devices ever · {f.active} active · {f.codes} codes
+                  {f.lastSeen ? ` · last ${shortDate(f.lastSeen)}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
       <Card title="Recent purchases">
         {data.recentPurchases.length === 0 ? (
           <p className="text-sm text-stone-500">No purchases in this period.</p>

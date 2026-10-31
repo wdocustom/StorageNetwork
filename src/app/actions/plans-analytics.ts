@@ -1,8 +1,11 @@
 "use server";
 
 import { getServiceClient } from "@/lib/supabase-server";
+import { MAX_DEVICES } from "@/lib/server/plan-device";
 import {
+  summarizeDeviceSharing,
   summarizePlansAnalytics,
+  type PlanDeviceRow,
   type PlansAnalytics,
   type PlansPurchaseRow,
   type PlansSplitRow,
@@ -52,7 +55,7 @@ export async function getAdminPlansAnalytics(
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
     const purchaseCols = "plan_id, tier, email, purchased_at, upgraded_at";
 
-    const [views, purchasesRes, upgradesRes, splitsRes] = await Promise.all([
+    const [views, purchasesRes, upgradesRes, splitsRes, devicesRes, codesRes] = await Promise.all([
       fetchPlansViews(since),
       supabase.from("public_plan_purchases").select(purchaseCols).gte("purchased_at", since),
       supabase.from("public_plan_purchases").select(purchaseCols).gte("upgraded_at", since),
@@ -60,6 +63,8 @@ export async function getAdminPlansAnalytics(
         .from("plan_split_payouts")
         .select("amount_cents, status, reason, created_at, recipient:profiles!plan_split_payouts_recipient_id_fkey(business_name, first_name, last_name)")
         .gte("created_at", since),
+      supabase.from("plan_buyer_devices").select("email, verified_by, revoked_at, last_seen_at").limit(5000),
+      supabase.from("plan_access_codes").select("email").gte("created_at", since).limit(5000),
     ]);
     if (purchasesRes.error) console.error("[PlansAnalytics] purchases fetch failed", purchasesRes.error);
     if (splitsRes.error) console.error("[PlansAnalytics] splits fetch failed", splitsRes.error);
@@ -91,7 +96,13 @@ export async function getAdminPlansAnalytics(
       };
     });
 
-    return { success: true, data: summarizePlansAnalytics(views, purchases, upgrades, splits, toteOwners) };
+    const sharing = summarizeDeviceSharing(
+      (devicesRes.data ?? []) as PlanDeviceRow[],
+      (codesRes.data ?? []).map((r) => r.email as string),
+      MAX_DEVICES,
+    );
+
+    return { success: true, data: { ...summarizePlansAnalytics(views, purchases, upgrades, splits, toteOwners), sharing } };
   } catch (err) {
     console.error("[PlansAnalytics] failed:", err);
     return { success: false, error: "Failed to load plans analytics." };

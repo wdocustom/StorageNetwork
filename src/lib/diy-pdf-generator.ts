@@ -77,7 +77,7 @@ export interface DIYPDFInput {
   plan: CompleteDIYPlan;
   /** Step renders keyed by planSnapshotKey(typeLetter, stepId) */
   snapshots: Record<string, string>;
-  /** Shown on the cover, e.g. "Licensed to jo@example.com" */
+  /** Cover + every page footer, e.g. "Licensed to jo@example.com · Order SN-3F9A2C1B" */
   licensedTo?: string;
   /** Buyer's first name — the cover reads "Designed for Skyler" (else "for you") */
   designedFor?: string;
@@ -1000,7 +1000,7 @@ function renderGuidePage(doc: jsPDF, cur: Cursor, links: NonNullable<DIYPDFInput
 // Running header / footer (stamped after all pages exist)
 // ═══════════════════════════════════════════════════════════════════════════
 
-function stampPages(doc: jsPDF, plan: CompleteDIYPlan) {
+function stampPages(doc: jsPDF, plan: CompleteDIYPlan, licensedTo?: string) {
   const total = doc.getNumberOfPages();
   for (let p = 2; p <= total; p++) {
     doc.setPage(p);
@@ -1013,7 +1013,13 @@ function stampPages(doc: jsPDF, plan: CompleteDIYPlan) {
     doc.line(MARGIN, 14.5, PAGE_W - MARGIN, 14.5);
 
     setText(doc, 7.5, COLORS.muted);
-    doc.text(`Page ${p} of ${total}`, PAGE_W / 2, PAGE_H - 9, { align: "center" });
+    if (licensedTo) {
+      // Personal copy — the buyer's email on every page discourages passing it on.
+      doc.text(pdfText(licensedTo), MARGIN, PAGE_H - 9);
+      doc.text(`Page ${p} of ${total}`, PAGE_W - MARGIN, PAGE_H - 9, { align: "right" });
+    } else {
+      doc.text(`Page ${p} of ${total}`, PAGE_W / 2, PAGE_H - 9, { align: "center" });
+    }
   }
 }
 
@@ -1062,7 +1068,7 @@ export function generateDIYPDF(input: DIYPDFInput): jsPDF {
 
   if (input.links) renderGuidePage(doc, cur, input.links);
 
-  stampPages(doc, plan);
+  stampPages(doc, plan, input.licensedTo);
   return doc;
 }
 

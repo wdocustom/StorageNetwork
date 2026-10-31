@@ -178,6 +178,16 @@ describe("generateDIYPDF", () => {
     expect(doc.getNumberOfPages()).toBeGreaterThanOrEqual(4 + p.moduleTypes.length + steps);
   });
 
+  it("stamps the buyer's license line on the cover and every page", async () => {
+    const p = await plan("H4x4wt");
+    const line = "Licensed to judy@example.com · Order SN-3F9A2C1B";
+    const doc = generateDIYPDF({ plan: p, snapshots: {}, licensedTo: line });
+    const pages = doc.getNumberOfPages();
+    const hits = doc.output().split("judy@example.com").length - 1;
+    expect(hits).toBe(pages); // cover line + a footer on every page after it
+    expect(generateDIYPDF({ plan: p, snapshots: {} }).output()).not.toContain("Licensed to");
+  });
+
   it("links PDF buyers to the $10 upgrade, guide owners to their guide", async () => {
     const p = await plan("H4x4wt");
     const upgrade = generateDIYPDF({ plan: p, snapshots: {}, links: { upgradeUrl: "https://x.test/plans/build?token=t&upgrade=1" } });

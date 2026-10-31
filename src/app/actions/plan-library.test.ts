@@ -17,6 +17,10 @@ function query() {
   };
   return api;
 }
+const { checkPlanDevice } = vi.hoisted(() => ({
+  checkPlanDevice: vi.fn(async (_email: string) => ({ ok: true }) as { ok: true } | { ok: false; emailHint: string }),
+}));
+vi.mock("@/lib/server/plan-device", () => ({ checkPlanDevice }));
 vi.mock("@/lib/supabase-server", () => ({ getServiceClient: () => ({ from: () => query() }) }));
 
 import { listMyPlans } from "./plan-library";
@@ -33,6 +37,13 @@ describe("My Builds", () => {
     ]);
     expect(res.items[0]).toMatchObject({ kind: "tote", title: "4×4 Tote Organizer", badge: "PDF Build Plan" });
     expect(res.jigOffer).toEqual({ href: "/plans/jig?owner=11111111-1111-4111-8111-111111111111", price: 500 });
+  });
+
+  it("asks for the emailed code on a device the buyer hasn't used", async () => {
+    checkPlanDevice.mockResolvedValueOnce({ ok: false, emailHint: "jo•••@example.com" });
+    const res = await listMyPlans("22222222-2222-4222-8222-222222222222");
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.verify).toEqual({ token: "22222222-2222-4222-8222-222222222222", emailHint: "jo•••@example.com" });
   });
 
   it("rejects unknown or malformed tokens", async () => {
