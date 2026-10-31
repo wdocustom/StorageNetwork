@@ -177,6 +177,7 @@ export default function CartBar(props: CartBarProps) {
   return (
     <>
       {/* Spacer so content isn't hidden behind the bar */}
+      {/* Room for the collapsed bar (the shell already pads for the tab bar) */}
       <div className="h-28" aria-hidden="true" />
 
       <AnimatePresence>
@@ -187,17 +188,19 @@ export default function CartBar(props: CartBarProps) {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={() => setExpanded(false)}
-            className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm"
+            className="fixed inset-0 z-30 bg-black/70 backdrop-blur-sm"
           />
         )}
       </AnimatePresence>
 
       <motion.div
         initial={false}
-        animate={{ height: expanded ? "90vh" : "auto" }}
+        animate={{ height: expanded ? "85vh" : "auto" }}
         transition={{ type: "spring", damping: 30, stiffness: 300 }}
-        className="fixed inset-x-0 bottom-0 z-50 mx-auto flex max-w-2xl flex-col border-t border-yellow-400/30 bg-slate-900 shadow-2xl sm:rounded-t-xl sm:border-x"
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        // Phones: sit on top of the dashboard's bottom tab bar (h-16 + safe
+        // area) and under it (z-30 < its z-40), with room for its raised
+        // Today button. Desktop has no tab bar.
+        className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-2xl flex-col border-t border-yellow-400/30 bg-slate-900 pb-5 shadow-2xl sm:rounded-t-xl sm:border-x lg:bottom-0 lg:pb-[env(safe-area-inset-bottom)]"
       >
         {/* Collapsed bar — always visible */}
         <button
