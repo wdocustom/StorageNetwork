@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { calculateBuild, calculateCompoundBuild, calculateShelvingUnit, calculateOverheadStorageUnit, type CompoundBuildResult } from "@/app/actions/calculator";
@@ -50,7 +50,6 @@ import BlueprintCanvas from "@/components/visualizer/BlueprintCanvas";
 import Link from "next/link";
 import PageHeader from "@/components/dashboard/PageHeader";
 
-const AssemblyGuide = lazy(() => import("@/components/visualizer/AssemblyGuide"));
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Build Configurator — Estimate, Quote & New Build
@@ -136,7 +135,6 @@ export default function BuildConfiguratorPage() {
   const [calcError, setCalcError] = useState("");
 
   // Assembly guide overlay
-  const [showAssemblyGuide, setShowAssemblyGuide] = useState(false);
 
   // Quote state (form is now in CartBar; success is QuoteSuccessModal)
   const [customerName, setCustomerName] = useState("");
@@ -1642,7 +1640,6 @@ export default function BuildConfiguratorPage() {
         buildResult={buildResult}
         onCalculate={handleCalculate}
         onAddUnit={handleAddUnit}
-        onOpenAssemblyGuide={() => setShowAssemblyGuide(true)}
       />
 
       <ShelvingDrawer
@@ -1760,31 +1757,6 @@ export default function BuildConfiguratorPage() {
         postDeposit={editingDepositPaid}
       />
 
-
-      {/* ═══════════════════════════════════════════════════════════════════
-          ASSEMBLY GUIDE OVERLAY
-      ═══════════════════════════════════════════════════════════════════ */}
-      {showAssemblyGuide && buildResult && (
-        <div className="fixed inset-0 z-50">
-          <Suspense
-            fallback={
-              <div className="flex h-full w-full items-center justify-center bg-slate-950">
-                <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
-              </div>
-            }
-          >
-            <AssemblyGuide
-              cols={buildResult.cols}
-              rows={buildResult.rows}
-              toteType={toteType}
-              hasWheels={hasWheels}
-              hasTop={hasTop}
-              rails={installerPricing?.use_2x4_rails === true ? "2x4" : "plywood"}
-              onClose={() => setShowAssemblyGuide(false)}
-            />
-          </Suspense>
-        </div>
-      )}
 
       {/* ═══════════════════════════════════════════════════════════════════
           BOOKING MODAL

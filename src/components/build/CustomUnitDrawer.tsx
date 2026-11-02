@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Maximize2, Grid3X3, HardHat, Plus, Box } from "lucide-react";
+import { Loader2, Maximize2, Grid3X3, HardHat, Plus } from "lucide-react";
 import BottomDrawer from "./BottomDrawer";
 import { toFraction } from "@/lib/utils";
 import type { InstallerPricing } from "@/types/viewModels";
@@ -60,7 +60,6 @@ interface CustomUnitDrawerProps {
   buildResult: BuildResultData | null;
   onCalculate: () => void;
   onAddUnit: () => void;
-  onOpenAssemblyGuide: () => void;
 }
 
 export default function CustomUnitDrawer({
@@ -97,7 +96,6 @@ export default function CustomUnitDrawer({
   buildResult,
   onCalculate,
   onAddUnit,
-  onOpenAssemblyGuide,
 }: CustomUnitDrawerProps) {
   const use2x4Rails = installerPricing?.use_2x4_rails === true;
   const miniEnabled = installerPricing?.mini_enabled === true;
@@ -447,22 +445,13 @@ export default function CustomUnitDrawer({
             {toFraction(buildResult.totalW)}&quot; W × {toFraction(buildResult.totalH)}&quot; H ×{" "}
             {toFraction(buildResult.depth)}&quot; D — {buildResult.slots} slots
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={onAddUnit}
-              className="flex items-center justify-center gap-2 rounded-lg border-2 border-yellow-400 bg-yellow-400 py-3 text-xs font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
-            >
-              <Plus className="h-4 w-4" />
-              Add to Quote
-            </button>
-            <button
-              onClick={onOpenAssemblyGuide}
-              className="flex items-center justify-center gap-2 rounded-lg border-2 border-emerald-400 bg-emerald-400/10 py-3 text-xs font-bold uppercase tracking-wider text-emerald-400 transition-all hover:bg-emerald-400/20"
-            >
-              <Box className="h-4 w-4" />
-              How-To Guide
-            </button>
-          </div>
+          <button
+            onClick={onAddUnit}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-yellow-400 bg-yellow-400 py-3 text-xs font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+          >
+            <Plus className="h-4 w-4" />
+            Add to Quote
+          </button>
         </div>
       )}
     </BottomDrawer>
