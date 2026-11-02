@@ -32,6 +32,21 @@ import { isDisposableEmail } from "@/lib/disposable-emails";
 import { stampLastLogin } from "@/app/actions/profile";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import InstallerTestimonials from "@/components/landing/InstallerTestimonials";
+import { PRO_FREE_PROMO } from "@/config/pro-pricing";
+
+/**
+ * While Pro is free (PRO_FREE_PROMO), the old trial / fee line is shown
+ * crossed out with "Free Forever - Limited Time" next to it.
+ */
+function FreeForever({ was, className = "" }: { was: string; className?: string }) {
+  if (!PRO_FREE_PROMO) return <>{was}</>;
+  return (
+    <span className={className}>
+      <s className="text-stone-600 decoration-red-500/70 decoration-2">{was}</s>{" "}
+      <span className="whitespace-nowrap font-black text-yellow-400">Free Forever - Limited Time</span>
+    </span>
+  );
+}
 
 const HERO_BULLETS = [
   { icon: DollarSign, text: "Pre-sold customers. Deposits already collected." },
@@ -47,7 +62,7 @@ const PRODUCT_LINES = [
 ];
 
 const OBJECTIONS = [
-  { q: "What does it cost?", a: "Free to start. First 3 jobs, zero fees." },
+  { q: "What does it cost?", a: <FreeForever was="Free to start. First 3 jobs, zero fees." /> },
   { q: "Do I need special tools?", a: "Miter saw, drill, tape measure. That's it." },
   { q: "Can I keep my other work?", a: "Yes. Most installers do this on weekends." },
 ];
@@ -257,7 +272,7 @@ function InvitePageContent() {
               </div>
 
               <p className="text-xs font-semibold text-stone-600">
-                3 Jobs Free — No Credit Card Required
+                <FreeForever was="3 Jobs Free — No Credit Card Required" />
               </p>
             </div>
 
@@ -268,7 +283,7 @@ function InvitePageContent() {
                   Claim Your <span className="text-yellow-400">Territory</span>
                 </h2>
                 <p className="mb-6 text-center text-xs text-stone-500">
-                  3 jobs free. No credit card required.
+                  <FreeForever was="3 jobs free. No credit card required." />
                 </p>
 
                 <div className="space-y-3.5">
@@ -400,7 +415,7 @@ function InvitePageContent() {
                   </button>
 
                   <p className="text-center text-[11px] text-stone-600">
-                    No credit card. Cancel anytime.
+                    <FreeForever was="No credit card. Cancel anytime." />
                   </p>
                 </div>
               </div>
@@ -486,7 +501,7 @@ function InvitePageContent() {
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </button>
             <p className="mt-3 text-[11px] text-stone-600">
-              3 jobs free. No credit card.
+              <FreeForever was="3 jobs free. No credit card." />
             </p>
           </div>
         </div>
