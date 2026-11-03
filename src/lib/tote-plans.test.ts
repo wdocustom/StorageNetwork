@@ -158,8 +158,8 @@ describe("modules — must match the build engine's split", () => {
 
 describe("geometry — 2×4-rail construction", () => {
   it("uses 21-inch bays for either tote brand and 2×4-rail upright heights", () => {
-    // 4 × 21 + 5 × 1-1/2 = 91-1/2; upright 61 + 2-3/4 = 63-3/4, + plates 3, + casters 2-3/4
-    expect(unitOuterSize(unit)).toEqual({ widthIn: 91.5, heightIn: 69.5, depthIn: 30 });
+    // 4 × 21 + 5 × 1-1/2 = 91-1/2; upright: top rail 62 + 1-7/8 = 63-7/8, + plates 3, + casters 2-3/4
+    expect(unitOuterSize(unit)).toEqual({ widthIn: 91.5, heightIn: 69.625, depthIn: 30 });
     expect(unitOuterSize({ ...unit, toteType: "GM" })).toEqual(unitOuterSize(unit));
   });
 
@@ -168,10 +168,10 @@ describe("geometry — 2×4-rail construction", () => {
   });
 
   it("adds an upright at every module seam and plates for every tier", () => {
-    // 6 wide = 4-wide (91.5) + 2-wide (46.5); 8 tall = 6-tier (99) + 2-tier (29.5 + 2.75 + 3)
+    // 6 wide = 4-wide (91.5) + 2-wide (46.5); 8 tall = 6-tier (99) + 2-tier (30 + 1-7/8 + 3)
     expect(unitOuterSize({ ...unit, cols: 6, rows: 8, hasWheels: false })).toEqual({
       widthIn: 138,
-      heightIn: 134.25,
+      heightIn: 133.875,
       depthIn: 30,
     });
   });
@@ -181,7 +181,7 @@ describe("geometry — 2×4-rail construction", () => {
   });
 
   it("picks the largest grid that fits, capped at plan limits", () => {
-    expect(fitTotePlanToWall(91.5, 69.5, { toteType: "HDX", hasWheels: true })).toEqual({ cols: 4, rows: 4 });
+    expect(fitTotePlanToWall(91.5, 69.625, { toteType: "HDX", hasWheels: true })).toEqual({ cols: 4, rows: 4 });
     expect(fitTotePlanToWall(91, 69, { toteType: "HDX", hasWheels: true })).toEqual({ cols: 3, rows: 3 });
     expect(fitTotePlanToWall(9999, 9999, { toteType: "GM", hasWheels: false })).toEqual({ cols: 24, rows: 10 });
     expect(fitTotePlanToWall(15, 100, { toteType: "HDX", hasWheels: false })).toBeNull();

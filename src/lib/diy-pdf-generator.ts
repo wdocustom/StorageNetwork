@@ -42,6 +42,7 @@ import {
   type LayoutModule,
 } from "@/lib/tote-plans";
 import { railTopMarks2x4 } from "@/components/visualizer/assemblySteps";
+import { RAIL_2X4_FIRST_TOP, RAIL_2X4_PLATE_H } from "@/lib/rails2x4";
 
 // ── Layout constants (mm) ──────────────────────────────────────────────
 
@@ -553,7 +554,8 @@ function drawSideView(
     doc.rect(ox, toY(m.y + m.h), post, m.h * scale, "FD");
     doc.rect(ox + d - post, toY(m.y + m.h), post, m.h * scale, "FD");
     for (const top of railTopMarks2x4(m.rows)) {
-      const at = m.y + top;
+      // Marks are from the bottom of the upright, which stands on the bottom plate
+      const at = m.y + RAIL_2X4_PLATE_H + top;
       railTops.push(at);
       doc.setFillColor(...COLORS.lumberDark);
       doc.rect(ox + post, toY(at), d - 2 * post, 1.5 * scale, "FD");
@@ -619,7 +621,7 @@ function drawAngledView(doc: jsPDF, layout: DesignLayout, box: { x: number; y: n
       doc.setDrawColor(...COLORS.lumberInk);
       doc.setLineWidth(0.2);
       for (const t of railTopMarks2x4(m.rows)) {
-        doc.line(X(right, 3.5), Y(m.y + t, 3.5), X(right, DEPTH_IN - 3.5), Y(m.y + t, DEPTH_IN - 3.5));
+        doc.line(X(right, 3.5), Y(m.y + RAIL_2X4_PLATE_H + t, 3.5), X(right, DEPTH_IN - 3.5), Y(m.y + RAIL_2X4_PLATE_H + t, DEPTH_IN - 3.5));
       }
     }
 
@@ -633,8 +635,8 @@ function drawAngledView(doc: jsPDF, layout: DesignLayout, box: { x: number; y: n
       const marks = railTopMarks2x4(m.rows);
       for (let r = 0; r < m.rows; r++) {
         // Each tote's lip rides on its rails; the body hangs down toward the rail below.
-        const railTop = m.y + marks[r];
-        const floor = r === 0 ? m.y + 0.5 : m.y + marks[r - 1] + 1;
+        const railTop = m.y + RAIL_2X4_PLATE_H + marks[r];
+        const floor = r === 0 ? m.y + RAIL_2X4_PLATE_H + 0.5 : m.y + RAIL_2X4_PLATE_H + marks[r - 1] + 1;
         const bodyH = Math.max(0, Math.min(13.5, railTop - floor));
         for (let c = 0; c < m.cols; c++) {
           const tx = m.x + c * cellW + 1.9;
@@ -833,7 +835,7 @@ function renderDesign(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan, layout: De
   const sideW = 50;
   const frontBox = { x: MARGIN + 12, y: cur.y + 9, w: CONTENT_W - sideW - 22, h: drawH - 20 };
   kicker(doc, "Front view", MARGIN + 5, cur.y + 5.5, COLORS.muted, 6.5);
-  kicker(doc, "Side view", MARGIN + CONTENT_W - sideW, cur.y + 5.5, COLORS.muted, 6.5);
+  kicker(doc, "Side view · rail tops from floor", MARGIN + CONTENT_W - sideW - 14, cur.y + 5.5, COLORS.muted, 6.5);
   const map = drawSystemMap(doc, layout, frontBox, { dimensions: false });
   const left = map.toX(0);
   const right = map.toX(layout.widthIn);
@@ -851,7 +853,8 @@ function renderDesign(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan, layout: De
     ["Overall height", plan.dimensions.totalHeight],
     ["Overall depth", plan.dimensions.depth],
     ["Tote bay (between uprights)", '21"'],
-    ["Rail spacing", '15-3/4" on center'],
+    ["First rail top (from upright bottom)", formatInches(RAIL_2X4_FIRST_TOP)],
+    ["Rail spacing", '16" top to top'],
     ["Top rail (from floor)", formatInches(Math.max(...railTops))],
   ];
   const colW = CONTENT_W / 2;
@@ -1166,7 +1169,7 @@ function renderCutList(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
   boardBar(doc, cur.y + halfH + 0.8, halfH, railCuts, 6, 6.5);
   cur.y += halfH * 2 + 0.8 + 4;
   setText(doc, 7.5, COLORS.muted);
-  doc.text('Rip down the middle (fence at 1-11/16"), then crosscut each half into 3 pieces at 30" — about 5-5/8" scrap per half.', MARGIN, cur.y);
+  doc.text('Rip down the middle (fence at 1-9/16"), then crosscut each half into 3 pieces at 30" — about 5-5/8" scrap per half.', MARGIN, cur.y);
   cur.y += 8;
 
   cur.ensure(20);

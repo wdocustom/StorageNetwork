@@ -31,6 +31,7 @@ import { PAINT_COLORS } from "@/types/viewModels";
 // ═══════════════════════════════════════════════════════════════════════════
 
 import type { SectionAddon } from "@/types/viewModels";
+import { RAIL_2X4_CENTERS, RAIL_2X4_H, RAIL_2X4_W, upright2x4Length } from "@/lib/rails2x4";
 
 type ToteType = "HDX" | "GM";
 type ToteColor = "black" | "clear";
@@ -204,16 +205,10 @@ const MINI_TOTE_RIM_H = 0.75;     // Rim/lid height
 
 // ── 2x4 Rail Construction Constants ──────────────────────────────────────
 const RAILS_2X4_OPENING = 21;       // Universal 21" bay width
-const RAILS_2X4_RAIL_W = 1.5;      // Ripped 2x4: 1.5" wide (narrow face)
-const RAILS_2X4_RAIL_H = 1.75;     // Ripped 2x4: 1.75" tall
-const RAILS_2X4_TOP_GAP = 2.75;    // Gap above top rail to top of post
-/** Fixed rail Y positions from bottom of vertical posts (not bottom of unit).
- *  Rails 1-5 sit on a uniform 15.75" pitch. Rail 6 sits at 92.5" with the
- *  upright sized to RAILS_2X4_STOCK_LENGTH (96") so the cut list emits a
- *  full 2x4x8 with no cut — top gap above rail 6 is 3.5" instead of 2.75".
- *  Must mirror src/lib/buildEngine.ts. */
-const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75, 92.5];
-const RAILS_2X4_STOCK_LENGTH = 96; // 8 ft 2x4 stock
+const RAILS_2X4_RAIL_W = RAIL_2X4_W; // Ripped 2x4: 1-1/2" thick
+const RAILS_2X4_RAIL_H = RAIL_2X4_H; // Ripped 2x4: 1-9/16" tall
+/** Rail CENTER Y positions from the bottom of the uprights (@/lib/rails2x4). */
+const RAILS_2X4_POSITIONS = RAIL_2X4_CENTERS;
 
 // Inches → scene units
 const S = 1 / 48;
@@ -651,9 +646,7 @@ function RackAssembly({
   if (is2x4) {
     // 2x4 rail: bottom plate + post height + top plate.
     // At 6 rows (max), post = full 96" stock; otherwise topRailPos + 2.75" gap.
-    const postHeight = effectiveRows >= RAILS_2X4_POSITIONS.length
-      ? RAILS_2X4_STOCK_LENGTH
-      : lastRailY + RAILS_2X4_TOP_GAP;
+    const postHeight = upright2x4Length(effectiveRows);
     frameH = PLATE_H + postHeight + PLATE_H;
   } else if (isMini) {
     // Mini: bottom plate + rails + clearance above top rail + plywood top
@@ -676,9 +669,7 @@ function RackAssembly({
 
   // Post height differs by mode
   const postH = is2x4
-    ? (effectiveRows >= RAILS_2X4_POSITIONS.length
-        ? RAILS_2X4_STOCK_LENGTH                      // 2x4 6-high: full 96" stock
-        : lastRailY + RAILS_2X4_TOP_GAP)              // 2x4 1-5 high: top rail pos + 2.75"
+    ? upright2x4Length(effectiveRows)                  // 2x4: full 96" at 6 high, else top rail + 1-7/8"
     : isMini
       ? lastRailY + 2 // Mini: just past the top rail
       : frameH - PLATE_H * 2;
@@ -1095,9 +1086,7 @@ function CameraRig({ cols, rows, toteType, unitType, orientation, hasWheels, use
   let frameH: number;
   if (is2x4) {
     // At 6 rows (max), post = full 96" stock; otherwise topRailPos + 2.75" gap.
-    const postHeight = effectiveRows >= RAILS_2X4_POSITIONS.length
-      ? RAILS_2X4_STOCK_LENGTH
-      : lastRailY + RAILS_2X4_TOP_GAP;
+    const postHeight = upright2x4Length(effectiveRows);
     frameH = PLATE_H + postHeight + PLATE_H;
   } else if (isMini) {
     frameH = PLATE_H + lastRailY + 2 + PLY_TOP_H;
@@ -1155,7 +1144,7 @@ function CameraRig({ cols, rows, toteType, unitType, orientation, hasWheels, use
 /** Frame height of a 2×4-rail module (plates + upright), inches. */
 export function frameHeight2x4(rows: number): number {
   const r = Math.min(rows, RAILS_2X4_POSITIONS.length);
-  const post = r >= RAILS_2X4_POSITIONS.length ? RAILS_2X4_STOCK_LENGTH : RAILS_2X4_POSITIONS[r - 1] + RAILS_2X4_TOP_GAP;
+  const post = upright2x4Length(r);
   return PLATE_H + post + PLATE_H;
 }
 
@@ -1278,9 +1267,7 @@ function CompoundRackAssembly({ presetUnits, toteType, toteColor, unitType, orie
     if (is2x4) {
       const effectiveRows = Math.min(unit.rows, RAILS_2X4_POSITIONS.length);
       // At 6 rows (max), upright = full 96" stock; otherwise topRailPos + 2.75".
-      const uprightH = effectiveRows >= RAILS_2X4_POSITIONS.length
-        ? RAILS_2X4_STOCK_LENGTH
-        : RAILS_2X4_POSITIONS[effectiveRows - 1] + RAILS_2X4_TOP_GAP;
+      const uprightH = upright2x4Length(effectiveRows);
       frameH = PLATE_H + uprightH + PLATE_H;
     } else {
       const tierSpacing = getTierSpacing(unitType);
@@ -1367,9 +1354,7 @@ function CompoundCameraRig({ presetUnits, toteType, unitType, orientation, use2x
     if (is2x4) {
       const effectiveRows = Math.min(unit.rows, RAILS_2X4_POSITIONS.length);
       // At 6 rows (max), upright = full 96" stock; otherwise topRailPos + 2.75".
-      const uprightH = effectiveRows >= RAILS_2X4_POSITIONS.length
-        ? RAILS_2X4_STOCK_LENGTH
-        : RAILS_2X4_POSITIONS[effectiveRows - 1] + RAILS_2X4_TOP_GAP;
+      const uprightH = upright2x4Length(effectiveRows);
       fH = PLATE_H + uprightH + PLATE_H;
     } else {
       const tierSpacing = getTierSpacing(unitType);
