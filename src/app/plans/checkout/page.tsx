@@ -27,6 +27,7 @@ import { Segmented, Stepper } from "@/components/designer/controls";
 import PlanRack3D from "@/components/plans/PlanRack3D";
 import MaterialCostCard from "@/components/plans/MaterialCostCard";
 import BuildItForMe from "@/components/plans/BuildItForMe";
+import { PlanSampleLightbox, PlanSampleThumb } from "@/components/plans/PlanSample";
 import { BestsellersButton, BestsellersLightbox } from "@/components/plans/PlanBestsellers";
 import { PLAN_REF_COOKIE, cleanReferralId } from "@/lib/plan-splits";
 import {
@@ -146,6 +147,7 @@ function PlansDesigner() {
   const [selected, setSelected] = useState(0);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loadingTier, setLoadingTier] = useState<TotePlanTier | null>(null);
+  const [sampleTier, setSampleTier] = useState<TotePlanTier | null>(null);
   const [error, setError] = useState("");
   const [freeAccess, setFreeAccess] = useState<{ hasFreeAccess: boolean; reason?: "pro" | "admin" } | null>(null);
   // Read once: the URL is rewritten as the design changes
@@ -412,6 +414,7 @@ function PlansDesigner() {
                     <span className="ml-auto text-xl font-black text-white">{formatPlanPrice(tier.price)}</span>
                   </div>
                   <p className="mb-3 text-xs text-stone-500">{tier.tagline}</p>
+                  <PlanSampleThumb tier={id} onOpen={() => setSampleTier(id)} />
                   <ul className="mb-5 flex-1 space-y-2">
                     {tier.includes.map((item) => (
                       <li key={item} className="flex items-start gap-2 text-xs text-stone-300">
@@ -438,6 +441,8 @@ function PlansDesigner() {
           </div>
         )}
         </div>
+
+        {sampleTier && <PlanSampleLightbox tier={sampleTier} onClose={() => setSampleTier(null)} />}
 
         {/* Back to an installer: the referring one, or a local pro by ZIP */}
         <BuildItForMe
