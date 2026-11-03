@@ -8,7 +8,7 @@
 //
 // Prices checked Oct 2026 — update as they move:
 //   2×4×8' stud            $4.15   Home Depot #2 premium KD stud
-//   3/4" 4×8 plywood        $70.55  Home Depot sanded plywood sheet
+//   3/4" 4×8 plywood        $40.00  a basic 3/4" sheet a DIY buyer picks up themselves
 //   5" swivel casters 4pk   $34.99  Home Depot plate caster set
 //   1/4"×1" structural 95ct $10.99  Menards Grip-Fast (the plan's caster screw)
 //   #9 star-drive boxes      $8.97   platform screw-box prices (137ct 3", 158ct 1-5/8")
@@ -20,7 +20,7 @@ import type { TotePlanDesign } from "@/lib/tote-plans";
 
 export const RETAIL_PRICES = {
   stud2x4: 4.15,
-  plywoodSheet: 70.55,
+  plywoodSheet: 40,
   casterKit4: 34.99,
   structuralScrewBox: 10.99,
   screwBox3in: 8.97,
