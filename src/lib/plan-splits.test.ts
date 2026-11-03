@@ -19,9 +19,37 @@ const MAYOR = "H4x2wt_mrc";
 const GAS = "H1x4t_gs.H4x2t_gs.H1x4t_gs";
 
 describe("planSplitShares", () => {
-  it("gives a referring installer the full $5, whatever bestsellers are in the plan", () => {
-    const shares = planSplitShares({ referralInstallerId: REFERRER, design: design(`${JOE}.${ROLLER}`) });
-    expect(shares).toEqual([{ recipientId: REFERRER, cents: 500, reason: "referral", bestsellers: [] }]);
+  it("gives a referring installer $5 for a plan with no named bestseller", () => {
+    expect(planSplitShares({ referralInstallerId: REFERRER, design: design("H5x7wt") })).toEqual([
+      { recipientId: REFERRER, cents: 500, reason: "referral", bestsellers: [] },
+    ]);
+  });
+
+  it("pays a referred plan's bestseller owner $2.50 on top of the referrer's $5", () => {
+    const shares = planSplitShares({ referralInstallerId: REFERRER, design: design(JOE) });
+    expect(shares).toEqual([
+      { recipientId: REFERRER, cents: 500, reason: "referral", bestsellers: [] },
+      { recipientId: ELITE, cents: 250, reason: "bestseller", bestsellers: ["indiana-joe"] },
+    ]);
+    expect(total(shares)).toBe(750);
+    // two other installers' bestsellers share the $2.50
+    const two = planSplitShares({ referralInstallerId: REFERRER, design: design(`${JOE}.${ROLLER}`) });
+    expect(two.map((s) => [s.recipientId, s.cents])).toEqual([
+      [REFERRER, 500],
+      [ELITE, 125],
+      [RACK_CITY, 125],
+    ]);
+  });
+
+  it("pays a referrer who owns a bestseller in the plan one $6.50 share", () => {
+    const shares = planSplitShares({ referralInstallerId: RACK_CITY, design: design(`${ROLLER}.${MAYOR}`) });
+    expect(shares).toEqual([{ recipientId: RACK_CITY, cents: 650, reason: "referral", bestsellers: ["rack-city-roller", "mayor-of-rack-city"] }]);
+    // another installer's bestseller in the same plan still gets $2.50
+    const mixed = planSplitShares({ referralInstallerId: RACK_CITY, design: design(`${ROLLER}.${GAS}`) });
+    expect(mixed.map((s) => [s.recipientId, s.cents, s.reason])).toEqual([
+      [RACK_CITY, 650, "referral"],
+      [GASS, 250, "bestseller"],
+    ]);
   });
 
   it("pays the bestseller's installer when there's no referral", () => {

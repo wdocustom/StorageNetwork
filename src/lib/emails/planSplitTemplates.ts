@@ -2,7 +2,7 @@ import { sendTransactionalEmail, type SendEmailResult } from "./core";
 import { masterEmailLayout } from "./components/masterEmailLayout";
 import { getAppUrl } from "@/lib/url-helper";
 import { formatPlanPrice } from "@/lib/tote-plans";
-import { PLAN_SPLIT_TOTAL_CENTS } from "@/lib/plan-splits";
+import { PLAN_REFERRAL_CENTS, PLAN_REFERRER_OWNS_BESTSELLER_CENTS } from "@/lib/plan-splits";
 import { CONTACT_EMAIL } from "@/lib/plan-library";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -45,13 +45,12 @@ export interface PlanSplitEmailData {
   bestsellerNames: string[];
   /** "PDF Build Plan" / "Interactive Build Guide" */
   productName?: string;
-  /** True when other installers' bestsellers shared this sale's $5 */
+  /** True when this sale's share was split with other installers */
   shared?: boolean;
 }
 
 export function planSplitEmailContent(data: PlanSplitEmailData): { subject: string; html: string } {
   const amount = formatPlanPrice(data.cents);
-  const total = formatPlanPrice(PLAN_SPLIT_TOTAL_CENTS);
   const name = escapeHtml(data.name);
   const designs = escapeHtml(listNames(data.bestsellerNames));
   const appUrl = getAppUrl();
@@ -68,8 +67,8 @@ export function planSplitEmailContent(data: PlanSplitEmailData): { subject: stri
 
   const why =
     data.reason === "referral"
-      ? `When a customer you sent chooses to DIY, the installer who brought them shouldn&rsquo;t be left out. So up to ${total} of every DIY plan sale goes back to the installer who referred the customer.`
-      : `Bestsellers like yours are what make the plans worth buying. So when a plan includes your design, up to ${total} of the sale goes back to you${data.shared ? " &mdash; shared equally when a plan includes bestsellers from more than one installer" : ""}.`;
+      ? `When a customer you sent chooses to DIY, the installer who brought them shouldn&rsquo;t be left out. So every DIY plan sale from your link pays you ${formatPlanPrice(PLAN_REFERRAL_CENTS)} &mdash; ${formatPlanPrice(PLAN_REFERRER_OWNS_BESTSELLER_CENTS)} when the plan includes your own bestseller.`
+      : `Bestsellers like yours are what make the plans worth buying. So when a plan includes your design, part of the sale goes back to you${data.shared ? " &mdash; shared when the plan includes other installers&rsquo; bestsellers or came through another installer&rsquo;s link" : ""}.`;
 
   const html = masterEmailLayout(
     "You earned a DIY plan split",
