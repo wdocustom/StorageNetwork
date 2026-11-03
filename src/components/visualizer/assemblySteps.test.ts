@@ -19,7 +19,7 @@ describe("assembly steps", () => {
     const twoByFour = getStepsForConfig({ hasWheels: false, hasTop: false, rails: "2x4" });
     expect(twoByFour.map((s) => s.id)).toEqual(plywood.map((s) => s.id));
     const config = { hasWheels: false, hasTop: false, rails: "2x4" as const };
-    expect(resolveTokens("OPENING_SPAN / PLATE_LENGTH / UPRIGHT_HEIGHT", 4, 4, config)).toBe('21" / 91-1/2" / 63-3/4"');
+    expect(resolveTokens("OPENING_SPAN / PLATE_LENGTH / UPRIGHT_HEIGHT", 4, 4, config)).toBe('21" / 91-1/2" / 63-1/2"');
   });
 
   it("braces 2×4-rail frames with ripped 2×4s right after the top plates", () => {
@@ -46,16 +46,16 @@ describe("assembly steps", () => {
 
   it("sizes 2×4 back braces to the frame: shorter corners at 2 high, plate-to-plate diagonals at 1 high", () => {
     expect(braceLayout2x4(4, 4)).toMatchObject({ style: "corner", length: 30 });
-    expect(braceLayout2x4(2, 2)).toMatchObject({ style: "corner", length: 21.5 });
+    expect(braceLayout2x4(2, 2)).toMatchObject({ style: "corner", length: 21 });
     expect(braceLayout2x4(2, 2).segments).toHaveLength(4);
-    expect(braceLayout2x4(2, 1)).toMatchObject({ style: "diagonal", length: 25.25 });
+    expect(braceLayout2x4(2, 1)).toMatchObject({ style: "diagonal", length: 24 });
     expect(braceLayout2x4(2, 1).segments).toHaveLength(2);
     expect(braceLayout2x4(1, 1).segments).toHaveLength(1);
     const config = { hasWheels: false, hasTop: true, rails: "2x4" as const };
     const brace = getStepsForConfig(config).find((s) => s.id === "install-back-supports")!;
-    expect(resolveTokens(brace.instruction, 2, 2, config)).toContain('Cut 4 of your 30" ripped pieces to 21-1/2"');
+    expect(resolveTokens(brace.instruction, 2, 2, config)).toContain('Cut 4 of your 30" ripped pieces to 21"');
     expect(resolveTokens(brace.instruction, 2, 1, config)).toContain("from the bottom plate at the corner up to the top plate");
-    expect(computeMaterials(brace, 2, 1, config)[0]).toEqual({ name: "2×4 Back Braces", qty: "2", detail: 'Ripped 2×4, cut to 25-1/4"' });
+    expect(computeMaterials(brace, 2, 1, config)[0]).toEqual({ name: "2×4 Back Braces", qty: "2", detail: 'Ripped 2×4, cut to 24"' });
   });
 
   it("never lets 2×4 back braces cross, overlap or leave the frame", () => {
@@ -85,7 +85,21 @@ describe("assembly steps", () => {
   });
 
   it("matches the build engine's 2×4-rail heights", () => {
-    expect([1, 2, 3, 4, 5, 6].map(upright2x4)).toEqual([16.5, 32.25, 48, 63.75, 79.5, 96]);
-    expect(railTopMarks2x4(6)).toEqual([14.625, 30.375, 46.125, 61.875, 77.625, 93.375]);
+    // Rail tops 13" (14-1/2" from the floor) then 16" apart; 1–5 high = top rail + 2-1/2"; 6 high = a full 8' board
+    expect([1, 2, 3, 4, 5, 6].map(upright2x4)).toEqual([15.5, 31.5, 47.5, 63.5, 79.5, 96]);
+    expect(railTopMarks2x4(6)).toEqual([13, 29, 45, 61, 77, 93]);
+  });
+
+  it("leaves at least 2-1/2 inches from the top rail to the top plate at every height", () => {
+    for (let rows = 1; rows <= 6; rows++) {
+      const marks = railTopMarks2x4(rows);
+      expect(upright2x4(rows) - marks[marks.length - 1], `${rows} high`).toBeGreaterThanOrEqual(2.5);
+    }
+  });
+
+  it("pairs uprights whose rows add up to 6 on one 8' board, kerf included", () => {
+    for (const [a, b] of [[1, 5], [2, 4], [3, 3]]) {
+      expect(upright2x4(a) + upright2x4(b) + 0.125).toBeLessThanOrEqual(96);
+    }
   });
 });

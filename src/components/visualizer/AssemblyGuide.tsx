@@ -821,7 +821,7 @@ function ExplodedAssembly({
                               position={[railX, railY, RACK_DEPTH / 2]}
                               size={[railW, railH, railLen]}
                               vis={vis("rails")}
-                              label={`2×4 Rail (ripped) — 1-1/2" × 1-11/16" × ${railLen}" long, top edge ${toFraction(railFromBottom + railH / 2)}" from bottom of upright`}
+                              label={`2×4 Rail (ripped) — 1-1/2" × 1-9/16" × ${railLen}" long, top edge ${toFraction(railFromBottom + railH / 2)}" from bottom of upright`}
                             />
                           ) : (
                             <PlywoodStrip
@@ -855,7 +855,7 @@ function ExplodedAssembly({
                               position={[railX, railY, RACK_DEPTH / 2]}
                               size={[railW, railH, railLen]}
                               vis={vis("rails")}
-                              label={`2×4 Rail (ripped) — 1-1/2" × 1-11/16" × ${railLen}" long, top edge ${toFraction(railFromBottom + railH / 2)}" from bottom of upright`}
+                              label={`2×4 Rail (ripped) — 1-1/2" × 1-9/16" × ${railLen}" long, top edge ${toFraction(railFromBottom + railH / 2)}" from bottom of upright`}
                             />
                           ) : (
                             <PlywoodStrip
@@ -956,7 +956,7 @@ function ExplodedAssembly({
           const bsMat = is2x4
             ? bsVis === "ghosted" ? PINE_GHOST : PINE_MAT
             : bsVis === "ghosted" ? PLYWOOD_GHOST : PLYWOOD_MAT;
-          // Plywood: 1-7/8" face × 3/4" thick. 2×4: 1-11/16" face × 1-1/2" thick.
+          // Plywood: 1-7/8" face × 3/4" thick. 2×4: 1-9/16" face × 1-1/2" thick.
           const braceFace = is2x4 ? RAILS_2X4.railH : RAIL_HEIGHT;
           const braceThick = is2x4 ? RAILS_2X4.railW : RAIL_THICKNESS;
           const braceScrewLen = is2x4 ? 3.0 : 1.625;

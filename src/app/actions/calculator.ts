@@ -191,17 +191,17 @@ const MINI_CONFIG: UnitDimensionConfig = {
 // 6 rails per 2x4x8' piece (ripped in half → 2 strips × 3 cuts at 30" depth).
 const RAILS_2X4_CONFIG: UnitDimensionConfig = {
   slotWidth: 21,                 // 21" universal opening (tote type irrelevant)
-  verticalSpacing: 15.75,        // Spacing between consecutive rail tops
-  firstRailHeight: 13.75,        // Top of first rail from bottom = 13-3/4"
+  verticalSpacing: RAIL_2X4_PITCH,       // 16" between consecutive rail tops
+  firstRailHeight: RAIL_2X4_FIRST_TOP,   // Top of first rail from bottom of upright = 14"
   depth: 30,                     // 30" deep (same as standard)
 
   postWidth: 1.5,                // 2x4 narrow face
   postDepth: 3.5,                // 2x4 wide face
   plateHeight: 1.5,              // 2x4 flat (bottom plate)
-  topGap: 2.75,                  // 2-3/4" above top rail to top of vertical post
+  topGap: RAIL_2X4_ABOVE_TOP,    // 2-1/2" (minimum) above the top rail's top edge to top of upright
 
   railWidth: 1.5,                // 1-1/2" wide (ripped 2x4, narrow face showing)
-  railThickness: 1.75,           // 1-3/4" tall (ripped 2x4 on narrow face)
+  railThickness: RAIL_2X4_H,     // 1-9/16" tall (half a 2x4 less the kerf)
 
   toteWidth: 0,                  // N/A — universal frame
   toteHeight: 0,                 // N/A
@@ -216,15 +216,8 @@ const RAILS_2X4_CONFIG: UnitDimensionConfig = {
   pricePlywoodSheet: 95,         // Same plywood top pricing
 };
 
-// Fixed rail height positions (top of each rail from bottom of vertical posts).
-// Posts sit on a 1.5" bottom plate. These positions do NOT include the plate.
-// Rails 1-5 sit on a uniform 15.75" pitch with the upright reaching
-// topRailPos + 2.75". Rail 6 sits at 92.5" (same pitch) but the upright is
-// sized to STOCK_LENGTH (96") so the cut list emits a full 2x4x8 with no cut
-// — top gap above rail 6 is 3.5". Must mirror src/lib/buildEngine.ts.
-const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75, 92.5]; // inches
-const RAILS_2X4_MAX_ROWS = 6;
-const RAILS_2X4_STOCK_LENGTH = 96; // 8 ft 2x4 stock (matches buildEngine.STOCK_LENGTH)
+// Rail heights and upright lengths: @/lib/rails2x4 (shared with the engine).
+const RAILS_2X4_MAX_ROWS = RAIL_2X4_MAX_ROWS;
 
 // ── Config getter ────────────────────────────────────────────────────────
 function getUnitConfig(unitType: UnitType, orientation: Orientation = "standard", use2x4Rails = false): UnitDimensionConfig {
@@ -306,8 +299,8 @@ export async function calculateBuild(
       // Rail positions are from bottom of posts. Posts sit on plates.
       // Total height = bottom plate + post height (railPos + topGap) + top plate
       rows = 0;
-      for (const pos of RAILS_2X4_POSITIONS) {
-        const totalH2x4 = config.plateHeight * 2 + pos + config.topGap;
+      for (let r = 1; r <= RAILS_2X4_MAX_ROWS; r++) {
+        const totalH2x4 = config.plateHeight * 2 + upright2x4Length(r);
         if (totalH2x4 <= effectiveWallHeight) {
           rows++;
         } else {
@@ -350,22 +343,10 @@ export async function calculateBuild(
   // Height calculation differs by construction type
   let frameH: number;
   if (use2x4Rails) {
-    // 2x4 rail mode: rail positions are measured from bottom of vertical posts.
-    // Posts sit on a 1.5" bottom plate, and there's a 1.5" top plate.
-    // Post height = top rail position + topGap (2.75" above top rail).
-    // Frame height = bottom plate (1.5") + post height + top plate (1.5").
-    // Example: 4×2 = 1.5 + 29.5 + 2.75 + 1.5 = 35.25" total
-    // Special case at the max (6 rows): post = full 8' stock (no cut), and
-    // the top gap above the 6th rail expands from 2.75" to 3.5" so the
-    // frame becomes 1.5 + 96 + 1.5 = 99" total.
-    let postHeight: number;
-    if (rows >= RAILS_2X4_MAX_ROWS) {
-      postHeight = RAILS_2X4_STOCK_LENGTH;
-    } else {
-      const topRailPos = RAILS_2X4_POSITIONS[rows - 1];
-      postHeight = topRailPos + config.topGap;
-    }
-    frameH = config.plateHeight * 2 + postHeight;
+    // 2x4 rail mode: bottom plate + upright + top plate. Upright = top rail
+    // + 2-1/2" (1–5 high) or a full 8' board (6 high).
+    // Example: 4×2 = 1.5 + 31-1/2 + 1.5 = 34-1/2" total
+    frameH = config.plateHeight * 2 + upright2x4Length(rows);
   } else if (unitType === "mini") {
     // Mini: bottom plate + first rail height + (rows-1) * spacing + top plywood
     // No top 2x4 plates, just plywood top
@@ -724,6 +705,7 @@ import {
   type OverheadStorageResult,
   type OverheadToteType,
 } from "@/lib/overhead-storage";
+import { RAIL_2X4_ABOVE_TOP, RAIL_2X4_FIRST_TOP, RAIL_2X4_H, RAIL_2X4_MAX_ROWS, RAIL_2X4_PITCH, upright2x4Length } from "@/lib/rails2x4";
 
 export type { OverheadStorageConfig, OverheadStorageResult, OverheadToteType };
 

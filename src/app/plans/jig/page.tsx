@@ -97,7 +97,7 @@ function Offer({ ownerToken }: { ownerToken: string | null }) {
         <ul className="mb-5 space-y-1.5">
           {[
             "Cut list and materials for a 37\" × 96\" OSB jig — one sheet of OSB and three 2×4s",
-            "Rail lines marked for the 2×4-rail plans — 15-3/4\" apart",
+            "Rail lines marked for the 2×4-rail plans — 16\" between rail tops",
             "Step-by-step build, plus how to use it on every ladder",
           ].map((t) => (
             <li key={t} className="flex items-start gap-2 text-xs text-stone-300">

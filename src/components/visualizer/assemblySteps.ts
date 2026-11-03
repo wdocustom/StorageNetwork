@@ -10,6 +10,16 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { toFraction } from "@/lib/utils";
+import {
+  RAIL_2X4_CENTERS,
+  RAIL_2X4_H,
+  RAIL_2X4_MAX_ROWS,
+  RAIL_2X4_RIP_FENCE,
+  RAIL_2X4_STOCK,
+  RAIL_2X4_W,
+  railTops2x4,
+  upright2x4Length,
+} from "@/lib/rails2x4";
 
 export type PartGroup =
   | "posts"
@@ -80,25 +90,23 @@ export interface BuildConfig {
 export const RAILS_2X4 = {
   /** Universal bay opening between uprights — fits HDX and Greenmade totes */
   opening: 21,
-  /** Rail CENTER heights, measured up from the bottom end of the upright */
-  positions: [13.75, 29.5, 45.25, 61, 76.75, 92.5],
-  /** Upright extends this far above the top rail's center (rows 1-5) */
-  topGap: 2.75,
+  /** Rail CENTER heights, measured up from the bottom end of the upright (@/lib/rails2x4) */
+  positions: RAIL_2X4_CENTERS,
   /** At 6 high the upright is a full, uncut 8' stud */
-  stock: 96,
-  maxRows: 6,
-  /** Ripped rail: 1-1/2" wide (screwed face) × 1-3/4" tall (nominal) */
-  railW: 1.5,
-  railH: 1.75,
-  /** Rip width for half a 2×4: (3-1/2" − 1/8" kerf) / 2 */
-  ripWidth: 1.6875,
+  stock: RAIL_2X4_STOCK,
+  maxRows: RAIL_2X4_MAX_ROWS,
+  /** Ripped rail: 1-1/2" thick (screwed face) × 1-9/16" tall */
+  railW: RAIL_2X4_W,
+  railH: RAIL_2X4_H,
+  /** Rip width: half a 2×4 less the blade kerf */
+  ripWidth: RAIL_2X4_RIP_FENCE,
   /** Rails per 2×4×8': 2 strips × 3 rails at 30" */
   railsPerBoard: 6,
 } as const;
 
 /** Upright length for a 2×4-rail module of `rows` tiers (rows <= 6). */
 export function upright2x4(rows: number): number {
-  return rows >= RAILS_2X4.maxRows ? RAILS_2X4.stock : RAILS_2X4.positions[rows - 1] + RAILS_2X4.topGap;
+  return upright2x4Length(rows);
 }
 
 /** Diagonal back braces per module — same count the installer calculator uses. */
@@ -165,7 +173,7 @@ export function braceLayout2x4(cols: number, rows: number): BraceLayout2x4 {
 
 /** Height of each rail's TOP edge above the bottom of the upright — what the builder marks. */
 export function railTopMarks2x4(rows: number): number[] {
-  return RAILS_2X4.positions.slice(0, Math.min(rows, RAILS_2X4.maxRows)).map((c) => c + RAILS_2X4.railH / 2);
+  return railTops2x4(rows);
 }
 
 // Default hidden state for all groups
@@ -517,16 +525,16 @@ const RAILS_2X4_STEPS: Partial<Record<string, Partial<AssemblyStep>>> = {
   "rip-rails": {
     title: "Rip the 2×4 Rails",
     instruction:
-      "Each tote hangs by its rim on two rails, one on each side. Make them from straight 2×4×8' boards: set the table saw fence to 1-11/16\" and rip each board down the middle into two strips. Then crosscut each strip into (3) rails at RAIL_LENGTH. Every 2×4 gives you 6 rails — you need RAILS_QTY rails plus BACK_SUPPORTS_QTY back braces from RAIL_BOARDS_QTY boards. Set the brace pieces aside — they go on in the back-brace step (BRACE_LENGTH).",
+      "Each tote hangs by its rim on two rails, one on each side. Make them from straight 2×4×8' boards: set the table saw fence to 1-9/16\" and rip each board down the middle into two strips. Then crosscut each strip into (3) rails at RAIL_LENGTH. Every 2×4 gives you 6 rails — you need RAILS_QTY rails plus BACK_SUPPORTS_QTY back braces from RAIL_BOARDS_QTY boards. Set the brace pieces aside — they go on in the back-brace step (BRACE_LENGTH).",
     tools: [
-      { name: "Table Saw", detail: 'fence at 1-11/16"' },
+      { name: "Table Saw", detail: 'fence at 1-9/16"' },
       { name: "Miter Saw", detail: "crosscut rails to RAIL_LENGTH" },
       { name: "Safety Glasses" },
       { name: "Push Stick" },
     ],
     materials: [
       { name: "2×4 × 8' Boards", qty: "RAIL_BOARDS_QTY", detail: "Rip in half, then 3 rails per half" },
-      { name: "2×4 Rails", qty: "RAILS_QTY", detail: 'About 1-1/2" × 1-11/16" × RAIL_LENGTH' },
+      { name: "2×4 Rails", qty: "RAILS_QTY", detail: '1-1/2" × 1-9/16" × RAIL_LENGTH' },
       { name: "2×4 Back Braces", qty: "BACK_SUPPORTS_QTY", detail: "Same ripped piece as a rail — BRACE_LENGTH" },
     ],
     proTip:
@@ -534,7 +542,7 @@ const RAILS_2X4_STEPS: Partial<Record<string, Partial<AssemblyStep>>> = {
   },
   "mark-posts": {
     instruction:
-      "Measuring up from the BOTTOM end of each upright, mark the top edge of every rail at RAIL_MARKS — a 15-3/4\" step between rails. Square each mark across the inside face with a combination square and put an X just below the line so you know which side the rail goes.",
+      "Measuring up from the BOTTOM end of each upright, mark the top edge of every rail at RAIL_MARKS — 16\" between rail tops. Square each mark across the inside face with a combination square and put an X just below the line so you know which side the rail goes.",
     materials: [{ name: "Cut Uprights", qty: "POSTS_QTY", detail: "Mark rail top edges on the inside face" }],
     proTip:
       "Clamp all the uprights together side by side with their bottom ends flush and mark them in one pass — every rail lands at exactly the same height.",

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { create2DWoodPattern, create2DPlywoodPattern } from "./woodCanvas";
 import type { SectionAddon } from "@/types/viewModels";
+import { RAIL_2X4_CENTERS, RAIL_2X4_H, upright2x4Length } from "@/lib/rails2x4";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BlueprintCanvas — 2D visual-only rendering (dimensions from server)
@@ -117,18 +118,14 @@ export default function BlueprintCanvas({
   // Must mirror src/lib/buildEngine.ts so the 2D drawing matches the actual
   // build geometry (not uniform 16" tiers — at 6 high the real frame is 99"
   // but uniform tiers would compute 101.5", clipping the top tier).
-  const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75, 92.5];
-  const RAILS_2X4_TOP_GAP = 2.75;
-  const RAILS_2X4_STOCK_LENGTH = 96;
+  const RAILS_2X4_POSITIONS = RAIL_2X4_CENTERS; // rail centers, from @/lib/rails2x4
 
   // Calculate dimensions (frame height without wheels)
   const calcW = cols * opening + (cols + 1) * RENDER_GAP;
   let calcH: number;
   if (is2x4) {
     const cappedRows = Math.min(rows, RAILS_2X4_POSITIONS.length);
-    const postHeight = cappedRows >= RAILS_2X4_POSITIONS.length
-      ? RAILS_2X4_STOCK_LENGTH
-      : RAILS_2X4_POSITIONS[cappedRows - 1] + RAILS_2X4_TOP_GAP;
+    const postHeight = upright2x4Length(cappedRows);
     calcH = RENDER_PLATE * 2 + postHeight;
   } else if (isMini) {
     calcH = RENDER_PLATE + RENDER_FIRST_RAIL + (rows - 1) * RENDER_TIER + 2 + PLY_TOP_H;
@@ -162,9 +159,7 @@ export default function BlueprintCanvas({
     let unitFrameH: number;
     if (is2x4) {
       const cappedRows = Math.min(unitRows, RAILS_2X4_POSITIONS.length);
-      const postHeight = cappedRows >= RAILS_2X4_POSITIONS.length
-        ? RAILS_2X4_STOCK_LENGTH
-        : RAILS_2X4_POSITIONS[cappedRows - 1] + RAILS_2X4_TOP_GAP;
+      const postHeight = upright2x4Length(cappedRows);
       unitFrameH = RENDER_PLATE * 2 + postHeight;
     } else if (isMini) {
       unitFrameH = RENDER_PLATE + RENDER_FIRST_RAIL + (unitRows - 1) * RENDER_TIER + 2 + PLY_TOP_H;
@@ -222,7 +217,7 @@ export default function BlueprintCanvas({
     }
 
     // Rails + Totes (with rail-skip for rail_removed addons)
-    const railH = (isMini ? 1.0 : 1.875) * scale;
+    const railH = (isMini ? 1.0 : is2x4 ? RAIL_2X4_H : 1.875) * scale;
     const railW = 0.75 * scale;
     for (let c = 0; c < unitCols; c++) {
       const bayLeftX = startX + pStud + c * (pBay + pStud);

@@ -49,6 +49,7 @@ import {
   calculateOverheadStorage,
   type OverheadStorageConfig,
 } from "@/lib/overhead-storage";
+import { RAIL_2X4_MAX_ROWS, upright2x4Length } from "@/lib/rails2x4";
 
 // ── Constants (PROPRIETARY — never exposed to client) ────────────────────
 
@@ -80,14 +81,9 @@ const RAILS_2X4_GAP = 1.5;       // post width (same 2x4)
 const RAILS_2X4_DEPTH_STANDARD = 30;
 const RAILS_2X4_DEPTH_SIDEWAYS = 20;
 const RAILS_2X4_PLATE_HEIGHT = 1.5;
-const RAILS_2X4_TOP_GAP = 2.75;
-/** Fixed rail heights from bottom of vertical posts (not bottom of unit).
- *  Rails 1-5 sit on a uniform 15.75" pitch. Rail 6 sits at 92.5" — same
- *  15.75" pitch — but the upright is sized to STOCK_LENGTH (96") so the
- *  cut list emits a full 2x4x8 with no cut. The top gap above the 6th
- *  rail is therefore 3.5" instead of the 2.75" used at rows 1-5. */
-const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75, 92.5];
-const RAILS_2X4_MAX_ROWS = 6;
+// Rail heights and upright lengths live in @/lib/rails2x4 (one source for
+// the engine, plans, 3D and diagrams).
+const RAILS_2X4_MAX_ROWS = RAIL_2X4_MAX_ROWS;
 
 /** Calculate rail pieces per 2x4x8' board at a given rail depth.
  *  Rip in half → 2 strips, crosscut each at rail depth + kerf. */
@@ -394,17 +390,9 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
         // ── Upright height: 2x4 rail mode uses fixed rail positions ──
         let uprightHeight: number;
         if (is2x4) {
-          if (tierRows >= RAILS_2X4_MAX_ROWS) {
-            // 6-high: post is the full 8' stock board, no cut. The top
-            // gap above the 6th rail expands to 3.5" instead of the usual
-            // 2.75" so the cut list shows "use full stock" rather than a
-            // wasteful 95.25" trim cut.
-            uprightHeight = STOCK_LENGTH;
-          } else {
-            // 1- through 5-high: post = top rail position + standard top gap.
-            const topRailPos = RAILS_2X4_POSITIONS[tierRows - 1];
-            uprightHeight = topRailPos + RAILS_2X4_TOP_GAP;
-          }
+          // 6-high: a full, uncut 8' board. 1–5 high: top rail + 2-1/2",
+          // sized so uprights whose rows add up to 6 share one board.
+          uprightHeight = upright2x4Length(tierRows);
         } else {
           uprightHeight = calcUprightHeight(tierRows, unitType);
         }
