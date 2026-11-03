@@ -106,7 +106,7 @@ describe("ladder jig content is gated", () => {
     expect(first.ok && again.ok && first.token === again.token).toBe(true);
     expect(rows.filter((r) => r.plan_id === "ladder-jig")).toHaveLength(1);
     expect(rows.find((r) => r.plan_id === "ladder-jig")?.email).toBe("new@example.com");
-    if (first.ok) expect(first.content.marks).toEqual([14, 30, 46, 62, 78, 94]);
+    if (first.ok) expect(first.content.marks).toEqual([13, 29, 45, 61, 77, 93]);
     // The device that paid is remembered without a code.
     expect(checkPlanDevice).toHaveBeenCalledWith("new@example.com", { trusted: true });
   });

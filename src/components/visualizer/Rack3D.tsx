@@ -669,7 +669,7 @@ function RackAssembly({
 
   // Post height differs by mode
   const postH = is2x4
-    ? upright2x4Length(effectiveRows)                  // 2x4: full 96" at 6 high, else top rail + 1-7/8"
+    ? upright2x4Length(effectiveRows)                  // 2x4: full 96" at 6 high, else top rail + 2-1/2"
     : isMini
       ? lastRailY + 2 // Mini: just past the top rail
       : frameH - PLATE_H * 2;

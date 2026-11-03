@@ -99,7 +99,7 @@ function splitHeightTiers(totalRows: number, unitType: "standard" | "mini" = "st
 
 function calcUprightHeight(rows: number, unitType: "standard" | "mini", use2x4Rails = false): number {
   if (use2x4Rails) {
-    // 2x4 rail mode: 6 high = a full 8' board; 1–5 high = top rail + 1-7/8".
+    // 2x4 rail mode: 6 high = a full 8' board; 1–5 high = top rail + 2-1/2".
     return upright2x4Length(rows);
   }
   if (unitType === "mini") {

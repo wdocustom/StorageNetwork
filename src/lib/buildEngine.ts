@@ -390,7 +390,7 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
         // ── Upright height: 2x4 rail mode uses fixed rail positions ──
         let uprightHeight: number;
         if (is2x4) {
-          // 6-high: a full, uncut 8' board. 1–5 high: top rail + 1-7/8",
+          // 6-high: a full, uncut 8' board. 1–5 high: top rail + 2-1/2",
           // sized so uprights whose rows add up to 6 share one board.
           uprightHeight = upright2x4Length(tierRows);
         } else {

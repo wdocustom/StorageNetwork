@@ -131,10 +131,10 @@ describe("generateDIYPlan", () => {
     }
   });
 
-  it("marks rail top edges 16 inches apart from 14 inches and uses full studs at 6 high", async () => {
+  it("marks rail top edges 16 inches apart from 13 inches and uses full studs at 6 high", async () => {
     const four = (await plan("H4x4")).moduleTypes[0];
-    expect(four.steps.find((s) => s.id === "mark-posts")!.instruction).toContain('14", 30", 46" and 62"');
-    expect(four.steps.find((s) => s.id === "cut-uprights")!.instruction).toContain('63-7/8"');
+    expect(four.steps.find((s) => s.id === "mark-posts")!.instruction).toContain('13", 29", 45" and 61"');
+    expect(four.steps.find((s) => s.id === "cut-uprights")!.instruction).toContain('63-1/2"');
     const six = (await plan("H4x6")).moduleTypes[0];
     expect(six.steps.find((s) => s.id === "cut-uprights")!.instruction).toContain("no cut needed");
     expect(six.parts[0].length).toContain("full stud");
@@ -153,11 +153,11 @@ describe("generateDIYPlan", () => {
     const p = await plan("H2x4t.H2x2t.H2x4t"); // Indiana Joe: 4-high ends, 2-high middle
     const braceNote = p.plywoodNotes.find((n) => n.startsWith("Back braces:"))!;
     expect(braceNote).toContain('Modules A, C: 8 at 30" (no cut)');
-    expect(braceNote).toContain('Module B: 4 cut to 21-1/4"');
+    expect(braceNote).toContain('Module B: 4 cut to 21"');
     const b = p.moduleTypes.find((t) => t.rows === 2)!;
-    expect(b.parts.find((x) => x.name === "Back Brace")).toMatchObject({ qty: 4, length: '21-1/4"' });
+    expect(b.parts.find((x) => x.name === "Back Brace")).toMatchObject({ qty: 4, length: '21"' });
     const rip = b.steps.find((s) => s.id === "rip-rails")!;
-    expect(rip.instruction).toContain('cut to 21-1/4"');
+    expect(rip.instruction).toContain('cut to 21"');
     const one = (await plan("H3x1w")).moduleTypes[0];
     expect(one.steps.find((s) => s.id === "install-back-supports")!.instruction).toContain("bottom plate at the corner up to the top plate");
   });

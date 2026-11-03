@@ -8,9 +8,12 @@
 //
 // Heights are measured from the BOTTOM END OF THE UPRIGHT (it stands on a
 // 1-1/2" bottom plate, so add 1-1/2" — plus casters — for height from floor):
-//   • first rail top at 14", then 16" between rail tops: 14, 30, 46, 62, 78, 94
-//   • 1–5 high: upright = top rail + 1-7/8"  → 15-7/8, 31-7/8 … 79-7/8
-//   • 6 high: a full, uncut 8' upright (96") — 2" above the top rail
+//   • first rail top at 13" (14-1/2" from the floor), then 16" between rail
+//     tops: 13, 29, 45, 61, 77, 93
+//   • at least 2-1/2" from the top of the top rail to the top plate (hard
+//     minimum — tote lids need it)
+//   • 1–5 high: upright = top rail + 2-1/2"  → 15-1/2, 31-1/2 … 79-1/2
+//   • 6 high: a full, uncut 8' upright (96") — 3" above the top rail
 // Two uprights whose rows add up to 6 (1+5, 2+4, 3+3) come out of ONE 8'
 // board with the saw kerf to spare, so mixed designs pack with no scrap.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -22,18 +25,20 @@ export const RAIL_2X4_W = 1.5;
 /** Table-saw fence setting for the rip. */
 export const RAIL_2X4_RIP_FENCE = RAIL_2X4_H;
 /** Top of the first rail, from the bottom of the upright. */
-export const RAIL_2X4_FIRST_TOP = 14;
+export const RAIL_2X4_FIRST_TOP = 13;
 /** Rail top to rail top. */
 export const RAIL_2X4_PITCH = 16;
 export const RAIL_2X4_MAX_ROWS = 6;
+/** Hard minimum from the top of the top rail to the top plate (tote lids). */
+export const RAIL_2X4_MIN_ABOVE_TOP = 2.5;
 /** Upright above the top rail's top edge, for 1–5 high frames. */
-export const RAIL_2X4_ABOVE_TOP = 1.875;
+export const RAIL_2X4_ABOVE_TOP = RAIL_2X4_MIN_ABOVE_TOP;
 /** 2×4×8' stock — a 6-high upright is a full, uncut board. */
 export const RAIL_2X4_STOCK = 96;
 /** Plate under (and over) the uprights. */
 export const RAIL_2X4_PLATE_H = 1.5;
 
-/** Rail TOP edges from the bottom of the upright: 14, 30, 46, 62, 78, 94. */
+/** Rail TOP edges from the bottom of the upright: 13, 29, 45, 61, 77, 93. */
 export const RAIL_2X4_TOPS: readonly number[] = Array.from(
   { length: RAIL_2X4_MAX_ROWS },
   (_, i) => RAIL_2X4_FIRST_TOP + i * RAIL_2X4_PITCH,

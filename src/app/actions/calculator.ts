@@ -198,7 +198,7 @@ const RAILS_2X4_CONFIG: UnitDimensionConfig = {
   postWidth: 1.5,                // 2x4 narrow face
   postDepth: 3.5,                // 2x4 wide face
   plateHeight: 1.5,              // 2x4 flat (bottom plate)
-  topGap: RAIL_2X4_ABOVE_TOP,    // 1-7/8" above the top rail's top edge to top of upright
+  topGap: RAIL_2X4_ABOVE_TOP,    // 2-1/2" (minimum) above the top rail's top edge to top of upright
 
   railWidth: 1.5,                // 1-1/2" wide (ripped 2x4, narrow face showing)
   railThickness: RAIL_2X4_H,     // 1-9/16" tall (half a 2x4 less the kerf)
@@ -344,8 +344,8 @@ export async function calculateBuild(
   let frameH: number;
   if (use2x4Rails) {
     // 2x4 rail mode: bottom plate + upright + top plate. Upright = top rail
-    // + 1-7/8" (1–5 high) or a full 8' board (6 high).
-    // Example: 4×2 = 1.5 + 31-7/8 + 1.5 = 34-7/8" total
+    // + 2-1/2" (1–5 high) or a full 8' board (6 high).
+    // Example: 4×2 = 1.5 + 31-1/2 + 1.5 = 34-1/2" total
     frameH = config.plateHeight * 2 + upright2x4Length(rows);
   } else if (unitType === "mini") {
     // Mini: bottom plate + first rail height + (rows-1) * spacing + top plywood

@@ -130,7 +130,7 @@ export default function ModuleDiagram({
       // Unit height: 2x4 rail mode uses fixed positions (from bottom of posts + plates)
       let unitH: number;
       if (use2x4Rails) {
-        // 6 high: a full 96" upright; below that, top rail + 1-7/8".
+        // 6 high: a full 96" upright; below that, top rail + 2-1/2".
         const postHeight = upright2x4Length(effectiveRows);
         unitH = PLATE_H * 2 + postHeight;
       } else {
@@ -153,7 +153,7 @@ export default function ModuleDiagram({
 
           if (use2x4Rails) {
             // 2x4 mode: single tier, height from rail positions + both plates.
-            // 6 high: a full 96" upright; otherwise top rail + 1-7/8".
+            // 6 high: a full 96" upright; otherwise top rail + 2-1/2".
             tierH = upright2x4Length(tierRows);
             y = 0;
             h = PLATE_H * 2 + tierH; // bottom plate + posts + top plate
