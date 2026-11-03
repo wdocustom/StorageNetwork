@@ -72,14 +72,20 @@ export default function AffiliatePortalPage() {
   // Phase 6.6: copy-link button feedback
   const [linkCopied, setLinkCopied] = useState(false);
 
-  async function handleCopyReferralLink(link: string) {
+  const [plansLinkCopied, setPlansLinkCopied] = useState(false);
+
+  async function handleCopyReferralLink(link: string, kind: "join" | "plans" = "join") {
+    const setCopied = kind === "plans" ? setPlansLinkCopied : setLinkCopied;
     try {
       if (navigator.share) {
         // On mobile, prefer the native share sheet — opens SMS / Messenger /
         // Facebook / Instagram bio with one tap.
         await navigator.share({
           title: "Storage Network",
-          text: "Thought you'd be a fit at Storage Network — install jobs come pre-paid via this link.",
+          text:
+            kind === "plans"
+              ? "Want to build it yourself? Here are the DIY tote rack plans I recommend."
+              : "Thought you'd be a fit at Storage Network — install jobs come pre-paid via this link.",
           url: link,
         });
         return;
@@ -89,8 +95,8 @@ export default function AffiliatePortalPage() {
     }
     try {
       await navigator.clipboard.writeText(link);
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.warn("[AffiliatePortal] copy failed:", err);
     }
@@ -384,6 +390,37 @@ export default function AffiliatePortalPage() {
           </p>
         )}
       </section>
+
+      {/* DIY-plans referral link — plan sales from it pay a split (plan-splits.ts) */}
+      {data.plansReferralLink && (
+        <section className="rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-slate-900 p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <Link2 className="h-4 w-4 text-yellow-400" />
+            <h2 className="text-xs font-bold uppercase tracking-wider text-yellow-400">Your DIY Plans Link</h2>
+          </div>
+          <p className="mb-3 text-xs text-stone-400">
+            For customers who&rsquo;d rather build it themselves. Every DIY plan bought through it pays you $5 &mdash;
+            $6.50 when the plan includes your own bestseller.
+          </p>
+          <button
+            onClick={() => handleCopyReferralLink(data.plansReferralLink!, "plans")}
+            className="group flex w-full items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-900 px-3 py-3 text-left transition-colors hover:border-yellow-400 hover:bg-slate-800"
+          >
+            <span className="min-w-0 flex-1 truncate font-mono text-xs text-yellow-400">{data.plansReferralLink}</span>
+            <span className="flex shrink-0 items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-stone-400 group-hover:text-yellow-400">
+              {plansLinkCopied ? (
+                <>
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Copied
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3.5 w-3.5" /> Share
+                </>
+              )}
+            </span>
+          </button>
+        </section>
+      )}
 
       {/* Refer-an-installer — Phase 6 working invite form + sent list */}
       <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">

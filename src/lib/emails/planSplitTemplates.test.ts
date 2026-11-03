@@ -14,12 +14,12 @@ describe("plan split earnings email", () => {
     expect(html).toContain("Nice work, Pat.");
     expect(html).toContain("$5");
     expect(html).toContain("from an Interactive Build Guide sale");
-    expect(html).toContain("installer who referred the customer");
+    expect(html).toContain("every DIY plan sale from your link pays you $5 &mdash; $6.50 when the plan includes your own bestseller");
     expect(html).toMatch(/href="[^"]+\/plans"/);
     expect(html).toContain("/dashboard/profile?tab=account");
   });
 
-  it("names the bestseller and mentions sharing when the $5 was split", () => {
+  it("names the bestseller and mentions sharing when the split was shared", () => {
     const { subject, html } = planSplitEmailContent({
       name: "Elite",
       cents: 250,
@@ -30,7 +30,7 @@ describe("plan split earnings email", () => {
     expect(subject).toBe("Your Indiana Joe and The Long Ranger designs just earned you $2.50");
     expect(html).toContain("Indiana Joe and The Long Ranger");
     expect(html).toContain("$2.50");
-    expect(html).toContain("shared equally");
+    expect(html).toContain("shared when the plan includes other installers");
   });
 
   it("escapes names", () => {

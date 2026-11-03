@@ -93,8 +93,8 @@ afterEach(() => {
 });
 
 describe("processPlanSplits", () => {
-  it("transfers $5 to the referring installer from the sale's charge", async () => {
-    const db = fakeDb({ [REFERRER]: "acct_ref" });
+  it("transfers $5 to the referring installer from the sale's charge, and $2.50 to the bestseller's owner", async () => {
+    const db = fakeDb({ [REFERRER]: "acct_ref", [ELITE]: "acct_elite" });
     const { stripe, transfers } = fakeStripe();
     const { notify, sent } = spyNotify();
     const results = await processPlanSplits(session({ design: "H2x4t_ij.H2x2t_ij.H2x4t_ij", referral_installer_id: REFERRER }), {
@@ -102,17 +102,20 @@ describe("processPlanSplits", () => {
       db: db as unknown as SupabaseClient,
       notify,
     });
-    expect(results).toEqual([{ recipientId: REFERRER, cents: 500, status: "paid" }]);
-    expect(transfers).toHaveLength(1);
+    expect(results).toEqual([
+      { recipientId: REFERRER, cents: 500, status: "paid" },
+      { recipientId: ELITE, cents: 250, status: "paid" },
+    ]);
+    expect(transfers).toHaveLength(2);
     expect(transfers[0].params).toMatchObject({ amount: 500, destination: "acct_ref", source_transaction: "ch_123", transfer_group: "cs_test_1" });
     expect(transfers[0].opts).toEqual({ idempotencyKey: `plan-split-cs_test_1-${REFERRER}` });
     expect(Object.values(db.rows)[0]).toMatchObject({ status: "paid", stripe_transfer_id: "tr_1", reason: "referral" });
-    expect(sent).toEqual([
-      {
-        email: `${REFERRER}@example.com`,
-        data: { name: "Pat", cents: 500, reason: "referral", bestsellerNames: [], productName: "PDF Build Plan", shared: false },
-      },
-    ]);
+    expect(transfers[1].params).toMatchObject({ amount: 250, destination: "acct_elite" });
+    expect(sent[0]).toEqual({
+      email: `${REFERRER}@example.com`,
+      data: { name: "Pat", cents: 500, reason: "referral", bestsellerNames: [], productName: "PDF Build Plan", shared: true },
+    });
+    expect(sent[1]).toMatchObject({ email: `${ELITE}@example.com`, data: { cents: 250, reason: "bestseller", bestsellerNames: ["Indiana Joe"] } });
   });
 
   it("splits $5 between the bestseller owners, and never pays twice on a webhook retry", async () => {

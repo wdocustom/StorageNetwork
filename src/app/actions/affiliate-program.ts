@@ -896,6 +896,8 @@ export interface AffiliatePortalData {
   /** Just the slug — useful for share-text composition without parsing
    *  the URL on the client. */
   referralSlug: string | null;
+  /** /plans/r/<slug> — DIY plan sales from it pay the affiliate a split */
+  plansReferralLink: string | null;
 }
 
 export async function getMyAffiliatePortalData(): Promise<{
@@ -977,6 +979,7 @@ export async function getMyAffiliatePortalData(): Promise<{
       },
       referralLink,
       referralSlug: slug,
+      plansReferralLink: slug ? `${getAppUrl()}/plans/r/${slug}` : null,
     },
   };
 }
