@@ -3,6 +3,7 @@
 import { Loader2, Plus, Check, ArrowUpFromLine } from "lucide-react";
 import BottomDrawer from "./BottomDrawer";
 import { OVERHEAD_GRID_PRESETS } from "@/lib/overhead-storage";
+import { CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 type ToteType = "HDX" | "GM";
 
@@ -131,7 +132,7 @@ export default function OverheadDrawer({
                   </div>
                   <div className="rounded-lg bg-slate-800 p-2">
                     <p className="text-lg font-black text-yellow-400">
-                      ${overheadPrice.toLocaleString()}
+                      <CurrencySymbol />{overheadPrice.toLocaleString()}
                     </p>
                     <p className="text-[10px] font-bold uppercase text-stone-500">
                       Overhead Storage

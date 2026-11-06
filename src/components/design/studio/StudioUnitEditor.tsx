@@ -27,6 +27,7 @@ import {
   type ToteUnitOptions,
 } from "@/lib/studio";
 import { unitLetter } from "@/lib/tote-plans";
+import { useCurrency } from "@/components/currency/CurrencyContext";
 
 /** Organizer customization (doors, shelves, panels, rail removal, paint) — null when the installer doesn't offer it */
 export type StudioOrganizer = {
@@ -43,9 +44,9 @@ export interface StudioPrices {
   plywoodTop: number;
 }
 
-const money = (n: number) => `$${Math.round(n).toLocaleString()}`;
+const money = (n: number, sym = "$") => `${sym}${Math.round(n).toLocaleString()}`;
 /** "+$185" — or no hint when the installer's price for it isn't known (never "+$0") */
-const plus = (n: number) => (n > 0 ? `+${money(n)}` : undefined);
+const plus = (n: number, sym = "$") => (n > 0 ? `+${money(n, sym)}` : undefined);
 
 function WallFit({ onFit }: { onFit: (w: number, h: number) => Promise<{ cols: number; rows: number } | null> }) {
   const [open, setOpen] = useState(false);
@@ -197,6 +198,7 @@ export default function StudioUnitEditor({
   /** Rendered under "Fit it to my wall" (the free on-site measure offer) */
   measureSlot?: React.ReactNode;
 }) {
+  const __sym = useCurrency().symbol;
   const kind = studioItemKind(item);
   const letter = unitLetter(index);
   const qty = item.quantity || 1;
@@ -237,7 +239,7 @@ export default function StudioUnitEditor({
         </div>
         <div className="flex shrink-0 items-center gap-3">
           <span className="text-sm font-black text-white">
-            {repricing ? <Loader2 className="h-4 w-4 animate-spin text-zinc-500" /> : money(lineTotal)}
+            {repricing ? <Loader2 className="h-4 w-4 animate-spin text-zinc-500" /> : money(lineTotal, __sym)}
           </span>
           {canRemove && (
             <button
@@ -271,7 +273,7 @@ export default function StudioUnitEditor({
               onChange={onIndoorDelivery}
               options={[
                 { value: false, label: "Standard" },
-                { value: true, label: "Inside the home", hint: `${plus(indoorFee) ?? ""}${indoorFee > 0 ? " each · " : ""}built & delivered inside` },
+                { value: true, label: "Inside the home", hint: `${plus(indoorFee, __sym) ?? ""}${indoorFee > 0 ? " each · " : ""}built & delivered inside` },
               ]}
             />
           )}
@@ -317,6 +319,7 @@ function ToteOptions({
   onFitToWall: (w: number, h: number) => Promise<{ cols: number; rows: number } | null>;
   measureSlot?: React.ReactNode;
 }) {
+  const __sym = useCurrency().symbol;
   const o = toteOptionsOf(item);
   const mini = o.unitType === "mini";
   const totePrice = mini ? prices.miniTote : o.toteType === "HDX" && o.toteColor === "clear" ? prices.standardToteClear : prices.standardTote;
@@ -384,7 +387,7 @@ function ToteOptions({
           value={o.hasWheels}
           onChange={(hasWheels) => onUpdate({ hasWheels })}
           options={[
-            { value: true, label: "Rolling", hint: plus(mini ? prices.miniWheels : prices.standardWheels) },
+            { value: true, label: "Rolling", hint: plus(mini ? prices.miniWheels : prices.standardWheels, __sym) },
             { value: false, label: "Stationary" },
           ]}
         />
@@ -401,7 +404,7 @@ function ToteOptions({
             value={o.hasTop}
             onChange={(hasTop) => onUpdate({ hasTop })}
             options={[
-              { value: true, label: "Plywood worktop", hint: plus(prices.plywoodTop) },
+              { value: true, label: "Plywood worktop", hint: plus(prices.plywoodTop, __sym) },
               { value: false, label: "Open" },
             ]}
           />
@@ -414,7 +417,7 @@ function ToteOptions({
           value={o.hasTotes}
           onChange={(hasTotes) => onUpdate({ hasTotes })}
           options={[
-            { value: true, label: "Include totes", hint: totePrice > 0 ? `+${money(totePrice)} each · ${o.cols * o.rows} totes` : `${o.cols * o.rows} totes` },
+            { value: true, label: "Include totes", hint: totePrice > 0 ? `+${money(totePrice, __sym)} each · ${o.cols * o.rows} totes` : `${o.cols * o.rows} totes` },
             { value: false, label: "I have my own" },
           ]}
         />
@@ -426,8 +429,8 @@ function ToteOptions({
           value={o.toteColor}
           onChange={(toteColor) => onUpdate({ toteColor })}
           options={[
-            { value: "black", label: "Black / yellow", hint: prices.standardTote > 0 ? `${money(prices.standardTote)} each` : undefined },
-            { value: "clear", label: "Clear / yellow", hint: prices.standardToteClear > 0 ? `${money(prices.standardToteClear)} each` : undefined },
+            { value: "black", label: "Black / yellow", hint: prices.standardTote > 0 ? `${money(prices.standardTote, __sym)} each` : undefined },
+            { value: "clear", label: "Clear / yellow", hint: prices.standardToteClear > 0 ? `${money(prices.standardToteClear, __sym)} each` : undefined },
           ]}
         />
       )}

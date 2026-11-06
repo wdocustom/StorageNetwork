@@ -26,6 +26,7 @@ import {
   RateLimitError,
 } from "@/lib/server/action-rate-limit";
 import { postalKey, INVALID_POSTAL_MESSAGE } from "@/lib/geo/postal";
+import { currencyForInstaller } from "@/lib/server/currency-lookup";
 
 const supabase = getServiceClient();
 
@@ -176,6 +177,8 @@ export async function requestOnSiteMeasure(
           subject: `Site Measure Request from ${name} (${zip})`,
           html,
           replyTo: email,
+          // Money renders as CA$ for Canadian installers' jobs.
+          currency: await currencyForInstaller(input.installerId),
         });
       }
     } catch (err) {

@@ -32,6 +32,7 @@ import { getBlockAvailability } from "@/app/actions/schedule-overrides";
 import { validateDiscountCode } from "@/app/actions/discount-codes";
 import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/delivery-fee";
 import { POSTAL_INPUT_MAX_LENGTH, sanitizePostalInput } from "@/lib/geo/postal";
+import { useCurrency } from "@/components/currency/CurrencyContext";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BookingModal — Multi-Step: Address → Schedule → Pay
@@ -103,6 +104,7 @@ export default function BookingModal({
   initialDiscount,
   onSuccess,
 }: BookingModalProps) {
+  const __cur = useCurrency().currency;
   // Pre-fill address from lead flow data if available
   const prefilled = !!(initialAddress?.line1 && initialAddress?.city && initialAddress?.state && initialAddress?.zip);
   // If both address and date are pre-filled from sidebar, skip directly to payment init
@@ -376,7 +378,7 @@ export default function BookingModal({
                 You&apos;re Booked!
               </h4>
               <p className="mb-1 text-sm text-stone-400">
-                Deposit of {formatCurrency(effectiveDeposit)} received.{discountAmount > 0 && ` Discount of ${formatCurrency(discountAmount)} applied to balance.`}{deliveryFeeAmount > 0 && ` Delivery fee of ${formatCurrency(deliveryFeeAmount)} included.`}
+                Deposit of {formatCurrency(effectiveDeposit, __cur)} received.{discountAmount > 0 && ` Discount of ${formatCurrency(discountAmount, __cur)} applied to balance.`}{deliveryFeeAmount > 0 && ` Delivery fee of ${formatCurrency(deliveryFeeAmount, __cur)} included.`}
               </p>
               {selectedDate ? (
                 <p className="text-sm font-semibold text-yellow-400">
@@ -450,7 +452,7 @@ export default function BookingModal({
                     {deliveryFeeAmount > 0 ? "Build Price" : "Total Price"}
                   </p>
                   <p className="text-2xl font-black text-white">
-                    {formatCurrency(totalPrice)}
+                    {formatCurrency(totalPrice, __cur)}
                   </p>
                 </div>
                 {/* Delivery fee line item (tax-exempt) */}
@@ -460,13 +462,13 @@ export default function BookingModal({
                       <Truck className="h-3 w-3" />
                       Delivery Fee ({deliveryFee.distance} mi)
                     </span>
-                    <span className="text-xs font-bold text-yellow-400">{formatCurrency(deliveryFeeAmount)}</span>
+                    <span className="text-xs font-bold text-yellow-400">{formatCurrency(deliveryFeeAmount, __cur)}</span>
                   </div>
                 )}
                 {deliveryFeeAmount > 0 && (
                   <div className="mb-3 text-center border-t border-slate-700 pt-2">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Grand Total</p>
-                    <p className="text-lg font-black text-white">{formatCurrency(grandTotalWithDelivery)}</p>
+                    <p className="text-lg font-black text-white">{formatCurrency(grandTotalWithDelivery, __cur)}</p>
                   </div>
                 )}
                 <div className="border-t border-slate-700 pt-3 space-y-1">
@@ -474,13 +476,13 @@ export default function BookingModal({
                   <div className="flex items-center justify-between text-sm pt-1">
                     <span className="font-bold text-stone-400">Due Today (Deposit)</span>
                     <span className="font-black text-yellow-400">
-                      {formatCurrency(effectiveDeposit)}
+                      {formatCurrency(effectiveDeposit, __cur)}
                     </span>
                   </div>
                   {/* Balance at installation = remaining - discount + tax */}
                   <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-700/50 mt-2">
                     <span className="text-stone-500">Remaining Balance</span>
-                    <span className="text-stone-400">{formatCurrency(grandTotalWithDelivery - effectiveDeposit)}</span>
+                    <span className="text-stone-400">{formatCurrency(grandTotalWithDelivery - effectiveDeposit, __cur)}</span>
                   </div>
                   {discountApplied && (
                     <div className="flex items-center justify-between text-xs">
@@ -488,18 +490,18 @@ export default function BookingModal({
                         <Tag className="h-3 w-3" />
                         Code: {discountApplied.code}
                       </span>
-                      <span className="text-emerald-400 font-bold">-{formatCurrency(discountApplied.amount)}</span>
+                      <span className="text-emerald-400 font-bold">-{formatCurrency(discountApplied.amount, __cur)}</span>
                     </div>
                   )}
                   {taxInfo && taxInfo.taxAmount > 0 && (
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-stone-500">Sales Tax ({formatTaxRate(taxInfo.taxRate)})</span>
-                      <span className="text-stone-400">{formatCurrency(taxInfo.taxAmount)}</span>
+                      <span className="text-stone-400">{formatCurrency(taxInfo.taxAmount, __cur)}</span>
                     </div>
                   )}
                   <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-700/50">
                     <span className="text-stone-400 font-medium">Total at Installation</span>
-                    <span className="text-stone-300 font-semibold">{formatCurrency(balanceAtInstall)}</span>
+                    <span className="text-stone-300 font-semibold">{formatCurrency(balanceAtInstall, __cur)}</span>
                   </div>
                 </div>
               </div>
@@ -581,7 +583,7 @@ export default function BookingModal({
                 <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
                   <Tag className="h-4 w-4 text-emerald-400" />
                   <span className="flex-1 text-sm font-semibold text-emerald-400">
-                    {discountApplied.code} — {discountApplied.discountType === "percentage" ? `${discountApplied.discountValue}% off` : `${formatCurrency(discountApplied.amount)} off`}
+                    {discountApplied.code} — {discountApplied.discountType === "percentage" ? `${discountApplied.discountValue}% off` : `${formatCurrency(discountApplied.amount, __cur)} off`}
                   </span>
                   <button onClick={handleRemoveDiscount} className="text-stone-500 hover:text-red-400">
                     <X className="h-4 w-4" />
@@ -608,7 +610,7 @@ export default function BookingModal({
                 ) : (
                   <>
                     <CreditCard className="h-5 w-5" />
-                    Pay {formatCurrency(effectiveDeposit)} &amp; Book
+                    Pay {formatCurrency(effectiveDeposit, __cur)} &amp; Book
                   </>
                 )}
               </button>
@@ -731,6 +733,7 @@ function InlinePaymentForm({
   leadId: string;
   onError: (msg: string) => void;
 }) {
+  const __cur = useCurrency().currency;
   const stripe = useStripe();
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
@@ -761,7 +764,7 @@ function InlinePaymentForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="rounded-xl bg-yellow-400/10 px-4 py-3 text-center">
         <span className="text-sm font-bold text-yellow-400">
-          Deposit: {formatCurrency(totalAmount)}
+          Deposit: {formatCurrency(totalAmount, __cur)}
         </span>
         <span className="block text-[10px] text-stone-500 mt-0.5">
           Sales tax collected at installation
@@ -786,7 +789,7 @@ function InlinePaymentForm({
         ) : (
           <>
             <CreditCard className="h-5 w-5" />
-            Pay {formatCurrency(totalAmount)}
+            Pay {formatCurrency(totalAmount, __cur)}
           </>
         )}
       </button>

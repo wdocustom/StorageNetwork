@@ -25,6 +25,7 @@ import { requestOptionsFor, requestWantLabel, type RequestOption } from "@/lib/r
 import type { InstallerPricing } from "@/types/viewModels";
 import type { ServiceOffering } from "@/config/services";
 import { pushToUser } from "@/lib/server/push";
+import { currencyForInstaller } from "@/lib/server/currency-lookup";
 
 const db = () => getServiceClient();
 
@@ -282,6 +283,8 @@ async function notifyInstaller(p: {
     toName: installer.name,
     subject: `${p.name} wants a new quote`,
     html,
+    // Money renders as CA$ for Canadian installers' jobs.
+    currency: await currencyForInstaller(p.installerId),
   });
 }
 

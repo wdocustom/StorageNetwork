@@ -15,6 +15,7 @@ import {
   RateLimitError,
 } from "@/lib/server/action-rate-limit";
 import { isValidPostalCode, parsePostalCode } from "@/lib/geo/postal";
+import { currencyForInstaller } from "@/lib/server/currency-lookup";
 
 // Uses the SERVICE ROLE key so we can insert without a logged-in user.
 const supabase = getServiceClient();
@@ -424,7 +425,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
               customerPhone: input.customer_phone?.trim(),
               grandTotal: input.grand_total,
               quoteData: quoteDataForEmail,
-            }).catch((err) => console.error("[TrialCap] Installer email failed:", err));
+            }, await currencyForInstaller(input.installer_id)).catch((err) => console.error("[TrialCap] Installer email failed:", err));
           }
 
           sendTrialCapCustomerConfirmation(input.customer_email.trim(), {
@@ -433,7 +434,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
             grandTotal: input.grand_total,
             quoteData: quoteDataForEmail,
             diyPlansUrl: diyPlansEmailUrl(input.quote_data, "saved_build_email"),
-          }).catch((err) => console.error("[TrialCap] Customer email failed:", err));
+          }, await currencyForInstaller(input.installer_id)).catch((err) => console.error("[TrialCap] Customer email failed:", err));
         } catch (err) {
           console.error("[TrialCap] Email flow error:", err);
         }
@@ -473,7 +474,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
               customerZip: input.address_zip || null,
               localInstallerName,
               estimatedBounty,
-            });
+            }, await currencyForInstaller(input.installer_id));
           }
         } catch (emailErr) {
           console.error("[Referral] Handoff email failed (non-fatal):", emailErr);

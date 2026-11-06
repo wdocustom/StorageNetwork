@@ -4,6 +4,7 @@ import { diyPlansEmailUrl } from "@/lib/emails/plansTemplates";
 import { getServiceClient } from "@/lib/supabase-server";
 import { sendAbandonedCartEmail } from "@/lib/email";
 import { siteConfig } from "@/config/site";
+import { currencyForInstaller } from "@/lib/server/currency-lookup";
 
 const db = getServiceClient;
 
@@ -234,7 +235,7 @@ export async function processAbandonedCarts(): Promise<{
           resumeUrl,
           installerName,
           diyPlansUrl: diyPlansEmailUrl(lead.quote_data, "abandoned_cart_email"),
-        });
+        }, await currencyForInstaller(lead.installer_id));
 
         // Mark as sent
         await db()

@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { Loader2, CheckCircle2, AlertTriangle, Heart } from "lucide-react";
 import { createBalanceCheckout, getBalanceSummary } from "@/app/actions/payments";
 import { MAX_TIP_DOLLARS } from "@/lib/lead-money";
+import { useCurrency } from "@/components/currency/CurrencyContext";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Balance Payment Page — /payment/collect/[leadId]
@@ -21,8 +22,8 @@ import { MAX_TIP_DOLLARS } from "@/lib/lead-money";
 // If already paid, shows a "paid" confirmation instead.
 // ═══════════════════════════════════════════════════════════════════════════
 
-function money(n: number): string {
-  return "$" + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function money(n: number, sym = "$"): string {
+  return sym + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 // Keep only digits and one decimal point with at most 2 decimals.
@@ -34,6 +35,7 @@ function sanitizeTip(raw: string): string {
 }
 
 export default function BalancePaymentPage() {
+  const __sym = useCurrency().symbol;
   const params = useParams();
   const leadId = params.leadId as string;
 
@@ -117,7 +119,7 @@ export default function BalancePaymentPage() {
             <div className="mb-5 rounded-xl border border-slate-700 bg-slate-800/60 p-4">
               <div className="flex items-baseline justify-between">
                 <span className="text-sm text-stone-400">Balance due</span>
-                <span className="text-lg font-bold text-white">{money(balance)}</span>
+                <span className="text-lg font-bold text-white">{money(balance, __sym)}</span>
               </div>
             </div>
 
@@ -143,24 +145,24 @@ export default function BalancePaymentPage() {
             </div>
             {tipTooLarge && (
               <p className="mb-2 text-xs text-red-400">
-                Tip can&apos;t be more than {money(MAX_TIP_DOLLARS)}.
+                Tip can&apos;t be more than {money(MAX_TIP_DOLLARS, __sym)}.
               </p>
             )}
 
             <div className="mb-5 mt-4 space-y-1 border-t border-slate-800 pt-4 text-sm">
               <div className="flex justify-between text-stone-400">
                 <span>Balance</span>
-                <span>{money(balance)}</span>
+                <span>{money(balance, __sym)}</span>
               </div>
               {tip > 0 && (
                 <div className="flex justify-between text-stone-400">
                   <span>Tip</span>
-                  <span>{money(tip)}</span>
+                  <span>{money(tip, __sym)}</span>
                 </div>
               )}
               <div className="flex justify-between pt-1 text-base font-bold text-white">
                 <span>Total</span>
-                <span>{money(total)}</span>
+                <span>{money(total, __sym)}</span>
               </div>
             </div>
 
@@ -169,7 +171,7 @@ export default function BalancePaymentPage() {
               disabled={tipTooLarge}
               className="w-full rounded-lg bg-yellow-400 px-6 py-3.5 text-sm font-black uppercase tracking-wide text-gray-950 transition-colors hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Pay {money(total)} &rarr;
+              Pay {money(total, __sym)} &rarr;
             </button>
             <p className="mt-3 text-center text-[11px] text-stone-600">
               Payments processed securely via Stripe.

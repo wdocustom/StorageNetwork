@@ -19,6 +19,7 @@ import { addToCalendarHtml, icsAttachment, installEvent, installIcs } from "@/li
 import { computeBalanceDue } from "@/lib/lead-money";
 import { escapeHtml } from "@/utils/escapeHtml";
 import { pushToUser } from "@/lib/server/push";
+import { currencyForInstaller, currencyForLead } from "@/lib/server/currency-lookup";
 
 export type InstallStage = "built" | "loaded" | "on_the_way";
 
@@ -137,6 +138,8 @@ export async function sendBuiltEmail(p: {
     html,
     senderName: p.installer.name,
     replyTo: p.installer.replyTo,
+    // Money renders as CA$ for Canadian installers' jobs.
+    currency: await currencyForLead(p.leadId),
   });
 }
 
@@ -297,5 +300,7 @@ async function sendReminderEmail({
         ),
       ],
     }),
+    // Money renders as CA$ for Canadian installers' jobs.
+    currency: await currencyForLead(leadId),
   });
 }

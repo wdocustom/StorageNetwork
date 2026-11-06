@@ -15,6 +15,7 @@ import {
 import { parsePostalCode, postalKey, INVALID_POSTAL_MESSAGE } from "@/lib/geo/postal";
 import { currencyForCountry } from "@/lib/geo/currency";
 import { sameCountryRadius } from "@/lib/geo/territory-tiers";
+import { currencyForInstaller } from "@/lib/server/currency-lookup";
 
 const supabase = getServiceClient();
 
@@ -329,7 +330,7 @@ export async function submitWaitlistRequest(input: WaitlistInput): Promise<{
       zip: input.customer_zip.trim(),
       quoteData: input.quote_data as Array<{ desc?: string; cols?: number; rows?: number; price?: number }>,
       diyPlansUrl: diyPlansEmailUrl(input.quote_data, "waitlist_email"),
-    }).catch((err) => {
+    }, await currencyForInstaller(input.installer_id)).catch((err) => {
       console.error("[Waitlist] Customer confirmation email failed (non-fatal):", err);
     });
 

@@ -6,7 +6,8 @@ import { siteConfig } from "@/config/site";
 import { z } from "zod/v4";
 import { incrementDiscountCodeUsage } from "./discount-codes";
 import { getAddonDepositAmount, getDepositAmount, getEstimatedSalesTax, getSalesTax } from "./fee-engine";
-import { normalizeCurrency, type CurrencyCode } from "@/lib/geo/currency";
+import { currencySymbol, localizeMoneyText, normalizeCurrency, type CurrencyCode } from "@/lib/geo/currency";
+import { currencyForInstaller, currencyForLead } from "@/lib/server/currency-lookup";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Payment Server Action — Black Box
@@ -850,6 +851,8 @@ export async function sendPaymentInvoice(
       subject: `Balance Due — $${amount.toLocaleString()} from ${resolvedBusinessName}`,
       html: emailHtml,
       senderName: resolvedBusinessName,
+      // Money renders as CA$ for Canadian installers' jobs.
+      currency: await currencyForLead(leadId),
     });
 
     if (!emailResult.success) {
@@ -1032,7 +1035,7 @@ export async function markLeadAsPaid(leadId: string): Promise<{ success: boolean
         jobDescription: lead.notes || "Storage Unit Installation",
         units: quoteDataToBookingUnits(lead.quote_data),
         leadId,
-      });
+      }, await currencyForInstaller(lead.installer_id));
       console.log("[MarkPaid] Booking confirmation result:", result);
     } catch (err) {
       console.error("[MarkPaid] Booking confirmation error:", err);
@@ -2235,7 +2238,7 @@ export async function addItemsAfterDeposit(
   if (addonAmount < 0) {
     return {
       success: false,
-      error: `Once a deposit is paid the quote total can't go below what was booked ($${before.total.toLocaleString()}). This change comes to $${after.total.toLocaleString()}.`,
+      error: localizeMoneyText(`Once a deposit is paid the quote total can't go below what was booked ($${before.total.toLocaleString()}). This change comes to $${after.total.toLocaleString()}.`, await currencyForInstaller(lead.installer_id)),
     };
   }
 
@@ -2465,7 +2468,7 @@ export async function createAddonDepositCheckout(leadId: string): Promise<Balanc
             currency: chargeCurrency(profile),
             product_data: {
               name: `Add-on Deposit — ${a.description || "Add-on"}`,
-              description: `$${a.amount.toLocaleString()} add-on · Job #${leadId.slice(0, 8)}`,
+              description: `${currencySymbol(chargeCurrency(profile))}${a.amount.toLocaleString()} add-on · Job #${leadId.slice(0, 8)}`,
             },
             unit_amount: Math.round(a.deposit_amount * 100),
           },
@@ -2651,6 +2654,8 @@ export async function sendAddonDepositLink(leadId: string): Promise<InvoiceResul
       subject: `Add-on deposit — $${amount.toFixed(2)} from ${businessName}`,
       html,
       senderName: businessName,
+      // Money renders as CA$ for Canadian installers' jobs.
+      currency: await currencyForLead(leadId),
     });
     if (!result.success) return { success: false, error: "Failed to send email." };
     return { success: true };

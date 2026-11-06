@@ -60,7 +60,45 @@ export function formatMoney(
     maximumFractionDigits: showCents ? 2 : 0,
   });
   const sign = amount < 0 ? "-" : "";
-  return `${sign}${cur === "cad" ? "CA$" : "$"}${body}`;
+  return `${sign}${currencySymbol(cur)}${body}`;
+}
+
+/** Money symbol: "$" for USD, "CA$" for CAD. */
+export function currencySymbol(currency: CurrencyCode | string | null | undefined): string {
+  return normalizeCurrency(currency) === "cad" ? "CA$" : "$";
+}
+
+/**
+ * Rewrite every "$<amount>" in already-rendered text (an email body, an SMS)
+ * as "CA$<amount>" when the job is in CAD. Templates keep writing plain "$"
+ * so US output is byte-for-byte unchanged; only CAD sends are localized.
+ * Matches a "$" directly before a digit (optionally after a minus sign),
+ * and leaves any "$" already prefixed ("CA$", "US$") alone.
+ */
+export function localizeMoneyText(
+  text: string,
+  currency: CurrencyCode | string | null | undefined
+): string {
+  if (!text) return text;
+  if (normalizeCurrency(currency) !== "cad") return text.split(USD_MARK).join("");
+  return text
+    .replace(/(?<![A-Za-z\u2060])\$(?=\s?\d)/g, "CA$")
+    .replace(new RegExp(`${USD_MARK}\\$`, "g"), "US$")
+    .split(USD_MARK)
+    .join("");
+}
+
+/**
+ * Invisible marker (U+2060 WORD JOINER) for an amount that is ALWAYS US
+ * dollars even inside a CAD email — e.g. a DIY plan price, which the
+ * platform sells in USD. localizeMoneyText renders "⁠$9" as "US$9" in a CAD
+ * send and strips the marker otherwise, so US emails are unchanged.
+ */
+export const USD_MARK = "\u2060";
+
+/** Mark a pre-formatted "$…" string as always-USD (see USD_MARK). */
+export function usdMoney(formatted: string): string {
+  return formatted.startsWith("$") ? USD_MARK + formatted : formatted;
 }
 
 /** Uppercase ISO code for UI badges ("USD" / "CAD"). */

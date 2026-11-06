@@ -8,6 +8,7 @@ import { Minus, Plus } from "lucide-react";
 import type { ConfiguratorSidebarProps } from "./configurator-types";
 import { CHAIR_FINISHES } from "@/lib/chairs";
 import { calculateChairPriceServer, getChairOptionPrices } from "@/app/actions/platform-defaults";
+import { CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 export function ChairCustomization({
   props,
@@ -61,7 +62,7 @@ export function ChairCustomization({
                 />
                 <span className={`text-[11px] font-semibold ${isSelected ? "text-yellow-400" : "text-zinc-300"}`}>{f.label}</span>
                 {(f.id === "white" || f.id === "black") && optionPrices && (
-                  <span className="text-[10px] font-bold text-yellow-400">+${optionPrices.paintAddon}</span>
+                  <span className="text-[10px] font-bold text-yellow-400">+<CurrencySymbol />{optionPrices.paintAddon}</span>
                 )}
               </button>
             );

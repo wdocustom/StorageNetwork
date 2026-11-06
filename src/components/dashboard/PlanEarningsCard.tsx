@@ -11,8 +11,10 @@ import { useEffect, useState } from "react";
 import { Hammer } from "lucide-react";
 import { getMyPlanEarnings, type MyPlanEarnings } from "@/app/actions/plan-split-earnings";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
+import { useCurrency } from "@/components/currency/CurrencyContext";
 
-export const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+/** Plan-split earnings are paid by the platform in USD — "US$" on a CAD dashboard. */
+export const money = (cents: number, sym = "$") => `${sym}${(cents / 100).toFixed(2)}`;
 
 export function splitLabel(reason: "referral" | "bestseller", bestsellers: string[]): string {
   if (reason === "referral") return "Referral";
@@ -27,6 +29,7 @@ export const STATUS_STYLE: Record<string, string> = {
 };
 
 export default function PlanEarningsCard() {
+  const usd = useCurrency().usdSymbol;
   const [data, setData] = useState<MyPlanEarnings | null>(null);
 
   useEffect(() => {
@@ -48,8 +51,8 @@ export default function PlanEarningsCard() {
 
       <div className="mb-4 grid grid-cols-3 gap-2">
         {[
-          ["Paid to you", money(data.paidCents)],
-          ["On the way", money(data.owedCents)],
+          ["Paid to you", money(data.paidCents, usd)],
+          ["On the way", money(data.owedCents, usd)],
           ["Plan sales", String(data.sales)],
         ].map(([label, value]) => (
           <div key={label} className="rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5">
@@ -66,7 +69,7 @@ export default function PlanEarningsCard() {
               {new Date(r.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
             </span>
             <span className="min-w-0 flex-1 truncate text-stone-300">{splitLabel(r.reason, r.bestsellers)}</span>
-            <span className="font-bold text-white">{money(r.cents)}</span>
+            <span className="font-bold text-white">{money(r.cents, usd)}</span>
             <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${STATUS_STYLE[r.status]}`}>
               {r.status === "failed" ? "pending" : r.status}
             </span>

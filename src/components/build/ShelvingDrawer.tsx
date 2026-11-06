@@ -3,6 +3,7 @@
 import { Loader2, Plus, Check, Grid3X3 } from "lucide-react";
 import BottomDrawer from "./BottomDrawer";
 import { SHELVING_CONFIGS } from "@/lib/shelving";
+import { CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 interface ShelvingDrawerProps {
   isOpen: boolean;
@@ -76,7 +77,7 @@ export default function ShelvingDrawer({
                 </div>
                 <div className="rounded-lg bg-slate-800 p-2">
                   <p className="text-lg font-black text-yellow-400">
-                    ${shelvingPrice.toLocaleString()}
+                    <CurrencySymbol />{shelvingPrice.toLocaleString()}
                   </p>
                   <p className="text-[10px] font-bold uppercase text-stone-500">
                     Open Shelving

@@ -22,6 +22,7 @@ import type { ConfiguratorSidebarProps } from "../configurator-types";
 import OrderItemCard from "../OrderItemCard";
 import { EMAIL_VALIDATION_REGEX } from "@/lib/constants";
 import { formatCurrency } from "@/utils/paymentHelpers";
+import { useCurrency, CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 function fieldBorder(value: string, validate?: (v: string) => boolean): string {
   if (!value.trim()) return "border-zinc-700";
@@ -48,6 +49,7 @@ export default function StepSummary({
   detailsFilled: boolean;
   onBackToDesign: () => void;
 }) {
+  const { symbol: __sym, currency: __cur } = useCurrency();
   return (
     <>
       {/* Order Items */}
@@ -121,7 +123,7 @@ export default function StepSummary({
               <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-2">
                 <Tag className="h-3 w-3 shrink-0 text-emerald-400" />
                 <span className="flex-1 truncate text-[10px] font-semibold text-emerald-400">
-                  {props.discountApplied.code} — {props.discountApplied.discountType === "percentage" ? `${props.discountApplied.discountValue}% off` : `$${props.discountApplied.amount} off`}
+                  {props.discountApplied.code} — {props.discountApplied.discountType === "percentage" ? `${props.discountApplied.discountValue}% off` : `${__sym}${props.discountApplied.amount} off`}
                 </span>
                 <button onClick={props.onRemoveDiscount} className="text-zinc-500 hover:text-red-400">
                   <X className="h-3 w-3" />
@@ -188,7 +190,7 @@ export default function StepSummary({
                     >
                       <span>{label}</span>
                       <span className={`font-black ${isSelected ? "text-yellow-400" : "text-zinc-300"}`}>
-                        ${svc.price}
+                        <CurrencySymbol />{svc.price}
                       </span>
                     </button>
                   );
@@ -426,7 +428,7 @@ export default function StepSummary({
                   : props.submitting
                   ? "Submitting..."
                   : props.stripeAccountId
-                  ? `Reserve with ${formatCurrency(props.depositAmount)} Deposit`
+                  ? `Reserve with ${formatCurrency(props.depositAmount, __cur)} Deposit`
                   : "Submit My Design"}
               </motion.button>
             )}

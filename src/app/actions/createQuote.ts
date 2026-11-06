@@ -38,6 +38,7 @@ import { checkProTrial } from "@/lib/server/pro-trial";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { markSendConverted } from "@/lib/marketing-attribution";
 import { isValidPostalCode, parsePostalCode, INVALID_POSTAL_MESSAGE } from "@/lib/geo/postal";
+import { currencyForInstaller } from "@/lib/server/currency-lookup";
 
 const supabase = getServiceClient();
 
@@ -368,7 +369,7 @@ export async function createQuote(
             zip: deliveryZip,
             quoteData: quote_data as Array<{ desc?: string; cols?: number; rows?: number; price?: number }>,
             diyPlansUrl: diyPlansEmailUrl(quote_data, "waitlist_email"),
-          }).catch((err) => {
+          }, await currencyForInstaller(installer_id)).catch((err) => {
             console.error("[Quote] Waitlist customer confirmation email failed (non-fatal):", err);
           });
         }
@@ -708,6 +709,8 @@ export async function createQuote(
         html: emailHtml,
         senderName: effectiveBusinessName || undefined,
         replyTo: effectiveEmail || undefined,
+        // Money renders as CA$ for Canadian installers' jobs.
+        currency: await currencyForInstaller(effectiveInstallerId),
       });
 
       if (!emailResult.success) {
@@ -739,7 +742,7 @@ export async function createQuote(
               customerZip: delivery_address?.zip || null,
               localInstallerName: coveringInstallerName || null,
               estimatedBounty,
-            });
+            }, await currencyForInstaller(effectiveInstallerId));
           }
         } catch (emailErr) {
           console.error("[Quote] Referral handoff email failed (non-fatal):", emailErr);

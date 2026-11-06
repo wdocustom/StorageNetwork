@@ -23,8 +23,9 @@ import {
 import SystemMap from "@/components/plans/SystemMap";
 import { encodeTotePlanDesign, type TotePlanDesign } from "@/lib/tote-plans";
 import { POSTAL_INPUT_MAX_LENGTH, isValidPostalCode, sanitizePostalInput } from "@/lib/geo/postal";
+import { CurrencyProvider, useCurrency } from "@/components/currency/CurrencyContext";
 
-const money = (n: number) => `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+const money = (n: number, sym = "$") => `${sym}${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
 type Step =
   | { kind: "loading" }
@@ -186,14 +187,17 @@ function BuildSheet({
           )}
 
           {step.kind === "builder" && (
-            <BuilderQuote
-              design={design}
-              builder={step.builder}
-              zip={step.zip}
-              referral={referral}
-              onChangeZip={() => setStep({ kind: "zip" })}
-              onSent={(builder) => setStep({ kind: "sent", builder })}
-            />
+            // The builder quotes in their own currency (CA$ for Canada).
+            <CurrencyProvider currency={step.builder.currency}>
+              <BuilderQuote
+                design={design}
+                builder={step.builder}
+                zip={step.zip}
+                referral={referral}
+                onChangeZip={() => setStep({ kind: "zip" })}
+                onSent={(builder) => setStep({ kind: "sent", builder })}
+              />
+            </CurrencyProvider>
           )}
 
           {step.kind === "none" && (
@@ -255,6 +259,7 @@ function BuilderQuote({
   onChangeZip: () => void;
   onSent: (builder: PlanBuilder) => void;
 }) {
+  const __sym = useCurrency().symbol;
   const [totes, setTotes] = useState(false);
   const [quote, setQuote] = useState<PlanBuildQuoteView | null | "error">(null);
   const [form, setForm] = useState({ name: "", email: "", phone: "", zip: knownZip ?? "" });
@@ -334,7 +339,7 @@ function BuilderQuote({
           <p className="text-sm text-stone-300">We couldn't price this build — you can still send it and they'll quote it.</p>
         ) : (
           <>
-            <p className="text-3xl font-black text-white">{money(quote.total)}</p>
+            <p className="text-3xl font-black text-white">{money(quote.total, __sym)}</p>
             <p className="text-[11px] text-stone-400">
               {quote.lines.length} unit{quote.lines.length === 1 ? "" : "s"} · {quote.totes ? "totes included" : "your totes"} · delivered and installed
             </p>

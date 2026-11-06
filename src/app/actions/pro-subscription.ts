@@ -9,8 +9,8 @@ import { getDepositAmount } from "@/app/actions/fee-engine";
 import Stripe from "stripe";
 import { roundMoney } from "@/utils/mathHelpers";
 import { getAuthenticatedUser } from "@/lib/auth";
-import { PRO_FREE_PROMO, proMonthlyPriceFor } from "@/config/pro-pricing";
-import { normalizeCurrency } from "@/lib/geo/currency";
+import { PRO_FREE_PROMO, PRO_MONTHLY_PRICE } from "@/config/pro-pricing";
+import { currencyForInstaller } from "@/lib/server/currency-lookup";
 
 const db = getServiceClient;
 
@@ -18,8 +18,8 @@ const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY)
   : null;
 
-// Pro subscription price is per-currency (while PRO_FREE_PROMO is on,
-// /upgrade skips Stripe) — see proMonthlyPriceFor.
+// Pro subscription price (while PRO_FREE_PROMO is on, /upgrade skips Stripe)
+const PRO_MONTHLY_PRICE_CENTS = PRO_MONTHLY_PRICE * 100;
 
 /**
  * Create a Stripe checkout session for Pro subscription.
@@ -39,12 +39,9 @@ export async function createProCheckoutSession(
     // Get user email for Stripe
     const { data: profile } = await db()
       .from("profiles")
-      .select("business_name, first_name, last_name, currency")
+      .select("business_name, first_name, last_name")
       .eq("id", userId)
       .single();
-
-    // Bill in the installer's own currency (CAD for Canadian installers).
-    const currency = normalizeCurrency(profile?.currency as string | null);
 
     const { data: authUser } = await db().auth.admin.getUserById(userId);
     const email = authUser?.user?.email;
@@ -67,12 +64,12 @@ export async function createProCheckoutSession(
       line_items: [
         {
           price_data: {
-            currency,
+            currency: "usd",
             product_data: {
               name: "Storage Network Pro",
               description: "Pro subscription: 3% maintenance fee, custom link, branded portfolio, deposit splits",
             },
-            unit_amount: proMonthlyPriceFor(currency) * 100,
+            unit_amount: PRO_MONTHLY_PRICE_CENTS,
             recurring: {
               interval: "month",
             },
@@ -244,7 +241,7 @@ async function unlockWaitlistedLeads(userId: string): Promise<void> {
             estimatedPrice: l.estimated_price,
             leadId: l.id,
           })),
-        }).catch((err) => console.error("[ProSubscription] Waitlist unlock email failed:", err));
+        }, await currencyForInstaller(userId)).catch((err) => console.error("[ProSubscription] Waitlist unlock email failed:", err));
       }
 
       // ── Auto-email each customer with a payment link ──────────
@@ -278,7 +275,7 @@ async function unlockWaitlistedLeads(userId: string): Promise<void> {
             leadId: lead.id,
             quoteData: quoteItems,
             diyPlansUrl: diyPlansEmailUrl(lead.quote_data, "installer_ready_email"),
-          }).catch((err) =>
+          }, await currencyForInstaller(userId)).catch((err) =>
             console.error(`[ProSubscription] Customer payment email failed for lead ${lead.id}:`, err)
           );
         } catch (err) {

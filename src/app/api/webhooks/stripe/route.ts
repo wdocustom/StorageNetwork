@@ -15,6 +15,7 @@ import { getServiceClient } from "@/lib/supabase-server";
 import { requestQuoteUrl, scheduleInstallUrl, trackInstallUrl } from "@/lib/server/request-link";
 import { Redis } from "@upstash/redis";
 import { roundMoney } from "@/utils/mathHelpers";
+import { currencyForLead } from "@/lib/server/currency-lookup";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Stripe Webhook — Automation Brain
@@ -859,7 +860,7 @@ export async function POST(request: NextRequest) {
             completedDate: new Date().toISOString(),
             reviewUrl,
             requestQuoteUrl: requestQuoteUrl(leadId, "receipt"),
-          });
+          }, await currencyForLead(leadId));
           console.log("[Webhook] Receipt email sent to customer");
         }
 
@@ -871,7 +872,7 @@ export async function POST(request: NextRequest) {
             jobTotal: lead?.estimated_price ?? amountPaid,
             leadId,
             tipAmount: parseInt(metadata.tip_cents || "0", 10) / 100,
-          });
+          }, await currencyForLead(leadId));
           console.log("[Webhook] Payment alert sent to installer:", installerEmail);
         }
       });
@@ -1064,7 +1065,7 @@ export async function POST(request: NextRequest) {
             units: quoteDataToBookingUnits(lead.quote_data),
             leadId,
             buildSnapshotUrl: snapshotUrl,
-          });
+          }, await currencyForLead(leadId));
           console.log("[Webhook] Booking confirmation sent for lead:", leadId);
 
           // ── NEW BOOKING alert to installer ────────────────────────────────
@@ -1086,7 +1087,7 @@ export async function POST(request: NextRequest) {
                   totalPrice: lead.estimated_price ?? amountPaid,
                   leadId,
                   buildSnapshotUrl: snapshotUrl,
-                });
+                }, await currencyForLead(leadId));
                 console.log("[Webhook] Installer booking alert sent for lead:", leadId);
               }
             } catch (alertErr) {
@@ -1563,7 +1564,7 @@ export async function POST(request: NextRequest) {
               completedDate: new Date().toISOString(),
               reviewUrl,
               requestQuoteUrl: requestQuoteUrl(leadId, "receipt"),
-            });
+            }, await currencyForLead(leadId));
             console.log("[Webhook] Receipt sent to customer (off-session balance)");
           }
 
@@ -1574,7 +1575,7 @@ export async function POST(request: NextRequest) {
               amountReceived: amountPaidPI,
               jobTotal: lead?.estimated_price ?? amountPaidPI,
               leadId,
-            });
+            }, await currencyForLead(leadId));
             console.log("[Webhook] Payment alert sent to installer (off-session balance):", installerEmail);
           }
         });
@@ -1787,7 +1788,7 @@ export async function POST(request: NextRequest) {
               units: quoteDataToBookingUnits(lead.quote_data),
               leadId,
               buildSnapshotUrl: piSnapshotUrl,
-            });
+            }, await currencyForLead(leadId));
             console.log("[Webhook] Booking confirmation sent (PI flow)");
 
             // Send installer alert
@@ -1804,7 +1805,7 @@ export async function POST(request: NextRequest) {
                   totalPrice: lead.estimated_price ?? amountPaidPI,
                   leadId,
                   buildSnapshotUrl: piSnapshotUrl,
-                });
+                }, await currencyForLead(leadId));
                 console.log("[Webhook] Installer alert sent (PI flow)");
               }
             }
@@ -2034,7 +2035,7 @@ async function processDispute(
         feeCents,
         won: summary.won,
         leadId,
-      });
+      }, summary.currency);
     });
     return;
   }
@@ -2051,7 +2052,7 @@ async function processDispute(
       reason: summary.reasonLabel,
       evidenceDueAt,
       leadId,
-    });
+    }, summary.currency);
     if (sent.success) {
       await getDb()
         .from("disputes")

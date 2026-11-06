@@ -14,6 +14,8 @@ import type { QuoteUnit } from "@/lib/buildEngine.types";
 import { isSameInstallDate } from "@/utils/installDate";
 import { requestQuoteUrl } from "@/lib/server/request-link";
 import { roundMoney } from "@/utils/mathHelpers";
+import { currencyForInstaller } from "@/lib/server/currency-lookup";
+import { currencySymbol } from "@/lib/geo/currency";
 
 const supabase = getServiceClient();
 
@@ -286,7 +288,7 @@ export async function markJobPaidManual(
           completedDate: new Date().toISOString(),
           reviewUrl,
           requestQuoteUrl: requestQuoteUrl(leadId, "receipt"),
-        });
+        }, await currencyForInstaller(updated.installer_id));
         console.log("[MarkPaidManual] Receipt email sent to customer");
       }
 
@@ -297,7 +299,7 @@ export async function markJobPaidManual(
           amountReceived: balanceCollected,
           jobTotal: updated.estimated_price ?? balanceCollected,
           leadId,
-        });
+        }, await currencyForInstaller(updated.installer_id));
         console.log("[MarkPaidManual] Payment alert sent to installer:", installerEmail);
       }
     } catch (emailErr) {
@@ -458,7 +460,10 @@ export async function setJobDiscount(
     }
   }
   if (amount > maxDiscount) {
-    return { success: false, error: `Discount can't be more than the remaining balance ($${maxDiscount.toFixed(2)}).` };
+    return {
+      success: false,
+      error: `Discount can't be more than the remaining balance (${currencySymbol(await currencyForInstaller(lead.installer_id))}${maxDiscount.toFixed(2)}).`,
+    };
   }
 
   const update: Record<string, unknown> = {

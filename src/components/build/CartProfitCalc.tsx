@@ -3,6 +3,7 @@
 import { Calculator } from "lucide-react";
 import type { MaterialBreakdown, MaterialPrices } from "@/utils/calculateMaterials";
 import type { BuildFeeBreakdown } from "@/app/actions/fee-engine";
+import { CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 interface CartProfitCalcProps {
   unitCount: number;
@@ -36,7 +37,7 @@ export default function CartProfitCalc({
               Est. Material Cost
             </span>
             <span className="text-lg font-black text-orange-400">
-              ${displayMaterials.totalCost.toLocaleString()}
+              <CurrencySymbol />{displayMaterials.totalCost.toLocaleString()}
             </span>
           </div>
           <div className="space-y-1 text-xs text-stone-400">
@@ -45,7 +46,7 @@ export default function CartProfitCalc({
                 <span>
                   {item.name} × {item.qty}
                 </span>
-                <span className="font-mono">${item.subtotal.toFixed(2)}</span>
+                <span className="font-mono"><CurrencySymbol />{item.subtotal.toFixed(2)}</span>
               </div>
             ))}
           </div>
@@ -73,25 +74,25 @@ export default function CartProfitCalc({
             <div className="space-y-1 text-xs">
               <div className="flex justify-between text-stone-400">
                 <span>Job Price</span>
-                <span>${displayPrice.toLocaleString()}</span>
+                <span><CurrencySymbol />{displayPrice.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-red-400">
                 <span>Network Fee ({feeBreakdown?.networkFeePercent ?? "..."})</span>
-                <span>-${(feeBreakdown?.networkFeeAmount ?? 0).toLocaleString()}</span>
+                <span>-<CurrencySymbol />{(feeBreakdown?.networkFeeAmount ?? 0).toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-stone-400">
                 <span>You Collect</span>
-                <span>${(feeBreakdown?.networkCollect ?? 0).toLocaleString()}</span>
+                <span><CurrencySymbol />{(feeBreakdown?.networkCollect ?? 0).toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-orange-400">
                 <span>Materials</span>
-                <span>-${displayMaterials.totalCost.toLocaleString()}</span>
+                <span>-<CurrencySymbol />{displayMaterials.totalCost.toLocaleString()}</span>
               </div>
               <div className="mt-2 border-t border-slate-600 pt-2">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-stone-300">Net Profit</span>
                   <span className="text-lg font-black text-emerald-400">
-                    ${(feeBreakdown?.networkNetProfit ?? 0).toLocaleString()}
+                    <CurrencySymbol />{(feeBreakdown?.networkNetProfit ?? 0).toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -108,27 +109,27 @@ export default function CartProfitCalc({
             <div className="space-y-1 text-xs">
               <div className="flex justify-between text-stone-400">
                 <span>Job Price</span>
-                <span>${displayPrice.toLocaleString()}</span>
+                <span><CurrencySymbol />{displayPrice.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-red-400">
                 <span>
                   Maintenance Fee ({feeBreakdown?.directFeePercent ?? "..."})
                 </span>
-                <span>-${(feeBreakdown?.directFeeAmount ?? 0).toLocaleString()}</span>
+                <span>-<CurrencySymbol />{(feeBreakdown?.directFeeAmount ?? 0).toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-stone-400">
                 <span>You Collect</span>
-                <span>${(feeBreakdown?.directCollect ?? 0).toLocaleString()}</span>
+                <span><CurrencySymbol />{(feeBreakdown?.directCollect ?? 0).toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-orange-400">
                 <span>Materials</span>
-                <span>-${displayMaterials.totalCost.toLocaleString()}</span>
+                <span>-<CurrencySymbol />{displayMaterials.totalCost.toLocaleString()}</span>
               </div>
               <div className="mt-2 border-t border-slate-600 pt-2">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-stone-300">Net Profit</span>
                   <span className="text-lg font-black text-emerald-400">
-                    ${(feeBreakdown?.directNetProfit ?? 0).toLocaleString()}
+                    <CurrencySymbol />{(feeBreakdown?.directNetProfit ?? 0).toLocaleString()}
                   </span>
                 </div>
               </div>

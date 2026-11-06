@@ -14,6 +14,7 @@ import {
 import { calculateRaisedBedPriceServer, getRaisedBedOptionPrices } from "@/app/actions/platform-defaults";
 import { RollingPrice } from "./configurator-primitives";
 import type { InstallerPricing } from "@/types/viewModels";
+import { CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Raised Bed Planter Dropdown — Design Configurator Step 1
@@ -301,7 +302,7 @@ export default function RaisedBedDropdown({
                             {f.label}
                           </p>
                           {f.price > 0 && (
-                            <p className="text-[10px] text-zinc-500">+${f.price}</p>
+                            <p className="text-[10px] text-zinc-500">+<CurrencySymbol />{f.price}</p>
                           )}
                         </button>
                       ))}
@@ -318,7 +319,7 @@ export default function RaisedBedDropdown({
                       <label className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 cursor-pointer hover:border-zinc-600 transition-colors">
                         <div>
                           <p className="text-xs font-bold text-zinc-300">Landscape Liner</p>
-                          <p className="text-[10px] text-zinc-500">+${optionPrices?.linerPrice ?? 0}</p>
+                          <p className="text-[10px] text-zinc-500">+<CurrencySymbol />{optionPrices?.linerPrice ?? 0}</p>
                         </div>
                         <input
                           type="checkbox"
@@ -333,7 +334,7 @@ export default function RaisedBedDropdown({
                         <label className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 cursor-pointer hover:border-zinc-600 transition-colors">
                           <div>
                             <p className="text-xs font-bold text-zinc-300">Increase Planting Depth to 12"</p>
-                            <p className="text-[10px] text-zinc-500">+${optionPrices?.depthIncreasePrice ?? 0}</p>
+                            <p className="text-[10px] text-zinc-500">+<CurrencySymbol />{optionPrices?.depthIncreasePrice ?? 0}</p>
                           </div>
                           <input
                             type="checkbox"
@@ -349,7 +350,7 @@ export default function RaisedBedDropdown({
                         <label className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 cursor-pointer hover:border-zinc-600 transition-colors">
                           <div>
                             <p className="text-xs font-bold text-zinc-300">Bottom Shelf</p>
-                            <p className="text-[10px] text-zinc-500">+${optionPrices?.bottomShelfPrice ?? 0}</p>
+                            <p className="text-[10px] text-zinc-500">+<CurrencySymbol />{optionPrices?.bottomShelfPrice ?? 0}</p>
                           </div>
                           <input
                             type="checkbox"
@@ -388,7 +389,7 @@ export default function RaisedBedDropdown({
                                   {opt.label}
                                 </p>
                                 {opt.price > 0 && (
-                                  <p className="text-[9px] text-zinc-500">+${opt.price}</p>
+                                  <p className="text-[9px] text-zinc-500">+<CurrencySymbol />{opt.price}</p>
                                 )}
                               </button>
                             ))}
@@ -401,7 +402,7 @@ export default function RaisedBedDropdown({
                         <label className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 cursor-pointer hover:border-zinc-600 transition-colors">
                           <div>
                             <p className="text-xs font-bold text-zinc-300">Hook</p>
-                            <p className="text-[10px] text-zinc-500">+${optionPrices?.hookPrice ?? 0}</p>
+                            <p className="text-[10px] text-zinc-500">+<CurrencySymbol />{optionPrices?.hookPrice ?? 0}</p>
                           </div>
                           <input
                             type="checkbox"
@@ -417,7 +418,7 @@ export default function RaisedBedDropdown({
                         <label className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 cursor-pointer hover:border-zinc-600 transition-colors">
                           <div>
                             <p className="text-xs font-bold text-zinc-300">High-Wind Weighted Kit</p>
-                            <p className="text-[10px] text-zinc-500">+${optionPrices?.highWindWeightedPrice ?? 0} &middot; Anchors base against tipping</p>
+                            <p className="text-[10px] text-zinc-500">+<CurrencySymbol />{optionPrices?.highWindWeightedPrice ?? 0} &middot; Anchors base against tipping</p>
                           </div>
                           <input
                             type="checkbox"
@@ -459,7 +460,7 @@ export default function RaisedBedDropdown({
                                   {cover.label}
                                 </p>
                                 {totalCoverPrice > 0 && (
-                                  <span className="text-[10px] text-zinc-500">+${totalCoverPrice}</span>
+                                  <span className="text-[10px] text-zinc-500">+<CurrencySymbol />{totalCoverPrice}</span>
                                 )}
                               </div>
                               <p className="text-[10px] text-zinc-500 mt-0.5">{cover.description}</p>
@@ -478,7 +479,7 @@ export default function RaisedBedDropdown({
                         {calculation.breakdown.map((b, i) => (
                           <div key={i} className="flex justify-between text-[11px]">
                             <span className="text-zinc-400">{b.label}</span>
-                            <span className="text-zinc-300 font-semibold">${b.amount}</span>
+                            <span className="text-zinc-300 font-semibold"><CurrencySymbol />{b.amount}</span>
                           </div>
                         ))}
                         <div className="flex justify-between text-sm font-bold pt-1 border-t border-zinc-700 mt-1">

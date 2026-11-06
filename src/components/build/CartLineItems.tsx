@@ -3,6 +3,7 @@
 import { Star, Trash2, PenLine, ArrowUpFromLine, Plus, X, Loader2 } from "lucide-react";
 import type { UnitConfig, UnitOption } from "./types";
 import { isRackUnit } from "./unitOptions";
+import { CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 const OPTION_LABEL: Record<UnitOption, string> = { top: "Top", wheels: "Wheels", totes: "Totes" };
 
@@ -66,7 +67,7 @@ export default function CartLineItems({
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-bold text-yellow-400">
-                    ${groupPrice.toLocaleString()}
+                    <CurrencySymbol />{groupPrice.toLocaleString()}
                   </span>
                   <button
                     onClick={() => onRemoveUnit(unit.id)}
@@ -166,7 +167,7 @@ export default function CartLineItems({
                     className="h-3 w-3 rounded border-slate-600 bg-slate-700 text-yellow-400 focus:ring-yellow-400/50"
                   />
                   <span className="text-[10px] text-stone-500">
-                    Indoor delivery (+${indoorDeliveryConfigFee})
+                    Indoor delivery (+<CurrencySymbol />{indoorDeliveryConfigFee})
                   </span>
                 </label>
               )}
@@ -182,7 +183,7 @@ export default function CartLineItems({
                           className="flex items-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300"
                           aria-label={`Remove added ${OPTION_LABEL[opt]}`}
                         >
-                          {OPTION_LABEL[opt]} +${added.toLocaleString()}
+                          {OPTION_LABEL[opt]} +<CurrencySymbol />{added.toLocaleString()}
                           <X className="h-3 w-3" />
                         </button>
                       );
@@ -211,13 +212,13 @@ export default function CartLineItems({
                 {unit.quantity && unit.quantity > 1 && (unit.raisedBedConfig || unit.chairId) ? (
                   <>
                     <span className="text-[10px] font-normal text-stone-400">
-                      ${Math.round((unit.price || 0) / unit.quantity).toLocaleString()} × {unit.quantity} ={" "}
+                      <CurrencySymbol />{Math.round((unit.price || 0) / unit.quantity).toLocaleString()} × {unit.quantity} ={" "}
                     </span>
-                    ${(unit.price || 0).toLocaleString()}
+                    <CurrencySymbol />{(unit.price || 0).toLocaleString()}
                   </>
                 ) : (
                   <>
-                    $
+                    <CurrencySymbol />
                     {(
                       (unit.price || 0) +
                       (unit.indoorDelivery && unit.indoorDeliveryFee

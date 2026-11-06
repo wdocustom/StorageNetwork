@@ -14,6 +14,7 @@ import {
   type TotePlanDesign,
   type TotePlanTier,
 } from "@/lib/tote-plans";
+import { usdMoney } from "@/lib/geo/currency";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DIY plans footer for build / quote emails
@@ -43,7 +44,7 @@ export function diyPlansEmailBlock(url: string | null | undefined): string {
     <div style="border-top:1px solid #222;padding:18px 0 6px;margin-bottom:20px;text-align:center;">
       <p style="margin:0 0 6px;color:#737373;font-size:12px;">Prefer to build it yourself?</p>
       <a href="${url}" style="color:#facc15;font-size:13px;font-weight:700;text-decoration:none;">
-        Get DIY build plans for this design &mdash; from ${formatPlanPrice(TOTE_PLAN_TIERS.pdf.price)} &rarr;
+        Get DIY build plans for this design &mdash; from ${usdMoney(formatPlanPrice(TOTE_PLAN_TIERS.pdf.price))} &rarr;
       </a>
       <p style="margin:6px 0 0;color:#555;font-size:11px;">Printable PDF or interactive 3D build guide, sized to your build.</p>
     </div>`;

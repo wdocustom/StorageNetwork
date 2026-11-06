@@ -52,6 +52,7 @@ export function mapToDesignViewModel(
       isVerified: hasCustomBranding,
     },
     pricing: installer.installer_pricing ?? undefined,
+    currency: installer.installer_currency ?? "usd",
     servicesConfig: installer.installer_services_config ?? undefined,
     socialProof: {
       completedJobs: installer.installer_completed_jobs ?? 0,

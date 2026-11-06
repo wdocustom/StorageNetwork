@@ -11,7 +11,8 @@ import { DEFAULT_SERVICES, type ServiceOffering } from "@/config/services";
 import { roundMoney, calculateBalanceDue } from "@/utils/mathHelpers";
 import { getDepositAmount } from "@/app/actions/fee-engine";
 import { onAccount, assertDirectChargeReady } from "@/lib/stripe/direct-charges";
-import { normalizeCurrency } from "@/lib/geo/currency";
+import { currencySymbol, normalizeCurrency } from "@/lib/geo/currency";
+import { currencyForInstaller } from "@/lib/server/currency-lookup";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Cleanout Upsell — Automated Pre-Install Upsell Engine
@@ -183,7 +184,7 @@ export async function processCleanoutUpsells(): Promise<{
             description: s.description,
             price: s.price!,
           })),
-        });
+        }, await currencyForInstaller(installer.id));
 
         if (emailResult.success) {
           // Mark as sent
@@ -394,7 +395,8 @@ export async function handleCleanoutUpsellPayment(
 
     // Append cleanout to notes
     const currentNotes = lead.notes || "";
-    const upsellNote = `\n+ Add-On: ${serviceName} ($${servicePrice}) — 50% deposit paid ($${depositAmount})`;
+    const upsellSym = currencySymbol(await currencyForInstaller(installerId));
+    const upsellNote = `\n+ Add-On: ${serviceName} (${upsellSym}${servicePrice}) — 50% deposit paid (${upsellSym}${depositAmount})`;
 
     await db()
       .from("leads")
@@ -450,7 +452,7 @@ export async function handleCleanoutUpsellPayment(
         remainingBalance,
         scheduledDate: lead.scheduled_at || undefined,
         leadId,
-      });
+      }, await currencyForInstaller(installerId));
       console.log("[CleanoutUpsell] Installer notification sent to:", installerEmail);
     }
 
@@ -481,7 +483,7 @@ export async function handleCleanoutUpsellPayment(
         totalDeposit: (lead.estimated_price ? (lead.estimated_price - (lead.balance_due || 0)) : 0) + depositAmount,
         totalBalance: newBalance,
         leadId,
-      });
+      }, await currencyForInstaller(installerId));
       console.log("[CleanoutUpsell] Confirmation email sent to:", lead.customer_email);
     }
   } catch (err) {
@@ -570,12 +572,13 @@ export async function updateLeadWithAddons(
       added_at: new Date().toISOString(),
     }));
 
-    // Build notes about the change
+    // Build notes about the change (in the installer's currency)
+    const noteSym = currencySymbol(await currencyForInstaller(lead.installer_id));
     const currentNotes = lead.notes || "";
     const addonLines = validatedServices
-      .map((svc) => `+ Add-On: ${svc.name} ($${svc.price})`)
+      .map((svc) => `+ Add-On: ${svc.name} (${noteSym}${svc.price})`)
       .join("\n");
-    const depositNote = `Deposit adjusted from $${lead.deposit_amount} → $${newDeposit} (add-on services included)`;
+    const depositNote = `Deposit adjusted from ${noteSym}${lead.deposit_amount} → ${noteSym}${newDeposit} (add-on services included)`;
     const newNotes = currentNotes + (currentNotes ? "\n" : "") + addonLines + "\n" + depositNote;
 
     // Update the lead

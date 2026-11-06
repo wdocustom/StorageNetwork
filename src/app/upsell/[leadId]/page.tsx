@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { createCleanoutUpsellCheckout } from "@/app/actions/cleanout-upsell";
+import { useCurrency, CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Cleanout Upsell Checkout Page
@@ -29,6 +30,7 @@ const SERVICE_MAP: Record<string, { name: string; description: string }> = {
 };
 
 export default function UpsellCheckoutPage() {
+  const __sym = useCurrency().symbol;
   const { leadId } = useParams<{ leadId: string }>();
   const searchParams = useSearchParams();
   const serviceId = searchParams.get("service") || "";
@@ -156,19 +158,19 @@ export default function UpsellCheckoutPage() {
                   <tr>
                     <td className="py-2 text-slate-400">Service Total</td>
                     <td className="py-2 text-right text-white font-bold text-lg">
-                      ${serviceInfo.price.toLocaleString()}
+                      <CurrencySymbol />{serviceInfo.price.toLocaleString()}
                     </td>
                   </tr>
                   <tr className="border-t border-slate-700">
                     <td className="pt-3 pb-1 text-slate-400">Deposit Due Today (50%)</td>
                     <td className="pt-3 pb-1 text-right text-green-400 font-bold text-xl">
-                      ${depositAmount.toLocaleString()}
+                      <CurrencySymbol />{depositAmount.toLocaleString()}
                     </td>
                   </tr>
                   <tr>
                     <td className="py-1 text-slate-500 text-xs">Remaining at Service</td>
                     <td className="py-1 text-right text-slate-400 text-xs">
-                      ${remainingAmount.toLocaleString()}
+                      <CurrencySymbol />{remainingAmount.toLocaleString()}
                     </td>
                   </tr>
                 </tbody>
@@ -209,7 +211,7 @@ export default function UpsellCheckoutPage() {
               disabled={loading}
               className="w-full bg-yellow-400 hover:bg-yellow-300 disabled:bg-yellow-400/50 text-slate-900 font-bold py-4 rounded-xl text-base uppercase tracking-wider transition-colors"
             >
-              {loading ? "Processing..." : `Pay $${depositAmount} Deposit → Secure Checkout`}
+              {loading ? "Processing..." : `Pay ${__sym}${depositAmount} Deposit → Secure Checkout`}
             </button>
 
             <p className="text-center text-slate-500 text-xs mt-3">

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Loader2, AlertTriangle, CheckCircle2, Circle, Phone, CalendarClock, MapPin, RefreshCw } from "lucide-react";
 import { getTrackingPage, type TrackingPageData } from "@/app/actions/install-tracking";
+import { useCurrency } from "@/components/currency/CurrencyContext";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Track Your Install — /track/[token]
@@ -24,8 +25,8 @@ const STEPS: Array<{ id: string; label: string }> = [
   { id: "installed", label: "Installed" },
 ];
 
-function money(n: number) {
-  return "$" + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function money(n: number, sym = "$") {
+  return sym + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function clock(d: Date) {
@@ -59,6 +60,7 @@ function prettyDate(date: string, time?: string | null) {
 }
 
 export default function TrackInstallPage() {
+  const __sym = useCurrency().symbol;
   const params = useParams();
   const token = params.token as string;
   const [data, setData] = useState<TrackingPageData | null>(null);
@@ -215,7 +217,7 @@ export default function TrackInstallPage() {
             {data.balanceDue > 0 && (
               <p className="flex justify-between text-stone-400">
                 <span>Balance due at install</span>
-                <span className="font-semibold text-white">{money(data.balanceDue)}</span>
+                <span className="font-semibold text-white">{money(data.balanceDue, __sym)}</span>
               </p>
             )}
             {data.stage !== "on_the_way" && (

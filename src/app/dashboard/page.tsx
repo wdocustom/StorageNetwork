@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { AlertCircle, ChevronRight, Settings } from "lucide-react";
 import { getAuthenticatedUser } from "@/lib/auth";
+import { currencySymbol } from "@/lib/geo/currency";
 import { getServiceClient } from "@/lib/supabase-server";
 import { loadToday } from "@/lib/server/dashboard-today";
 import { getInstallerLink } from "@/lib/utils";
@@ -137,7 +138,7 @@ export default async function TodayPage() {
             className="flex items-center rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 transition hover:border-slate-700"
           >
             <div className="flex flex-1 items-center justify-around">
-              <Stat value={`$${revenue.toLocaleString()}`} label="Revenue" />
+              <Stat value={`${currencySymbol(profile?.currency)}${revenue.toLocaleString()}`} label="Revenue" />
               <div className="h-6 w-px bg-slate-800" />
               <Stat value={jobsDone} label="Jobs done" />
               <div className="h-6 w-px bg-slate-800" />

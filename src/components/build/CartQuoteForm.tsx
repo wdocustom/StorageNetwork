@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { DeliveryFeeResult } from "@/app/actions/delivery-fee";
 import { POSTAL_INPUT_MAX_LENGTH, sanitizePostalInput } from "@/lib/geo/postal";
+import { CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 export type ZipCheckStatus =
   | "idle"
@@ -147,7 +148,7 @@ export default function CartQuoteForm({
           zipCheckStatus !== "checking" && (
             <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-yellow-400">
               <DollarSign className="h-3 w-3" />
-              Delivery fee: ${deliveryFeeResult.fee} ({deliveryFeeResult.tierLabel} —{" "}
+              Delivery fee: <CurrencySymbol />{deliveryFeeResult.fee} ({deliveryFeeResult.tierLabel} —{" "}
               {deliveryFeeResult.distance} mi)
             </div>
           )}
@@ -169,7 +170,7 @@ export default function CartQuoteForm({
                 <p className="mt-0.5 text-[10px] leading-relaxed text-stone-400">
                   <strong className="text-white">{zipCoveringName}</strong> covers this
                   area. The quote will be handed off to them and you&apos;ll earn a
-                  referral bounty (30% of deposit, min $15).
+                  referral bounty (30% of deposit, min <CurrencySymbol />15).
                 </p>
               </div>
             </div>

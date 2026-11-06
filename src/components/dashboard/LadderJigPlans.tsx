@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { createJigPlanCheckout, verifyJigPlanPurchase, checkJigPlanAccess } from "@/app/actions/jig-plans";
 import { useSearchParams } from "next/navigation";
+import { UsdSymbol } from "@/components/currency/CurrencyContext";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Ladder Jig Plans — $9 Digital Download
@@ -370,7 +371,7 @@ export default function LadderJigPlans() {
             </div>
           </div>
           <div className="text-right">
-            <p className="text-lg font-black text-white">$9</p>
+            <p className="text-lg font-black text-white"><UsdSymbol />9</p>
             <p className="text-[9px] text-stone-500">one-time</p>
           </div>
         </div>
@@ -475,7 +476,7 @@ export default function LadderJigPlans() {
               ) : (
                 <>
                   <ShoppingCart className="h-4 w-4" />
-                  Get the Plans — $9.00
+                  Get the Plans — <UsdSymbol />9.00
                   <ArrowRight className="h-3.5 w-3.5" />
                 </>
               )}

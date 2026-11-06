@@ -22,6 +22,7 @@ import type { BuildFeeBreakdown } from "@/app/actions/fee-engine";
 import CartLineItems from "./CartLineItems";
 import CartProfitCalc from "./CartProfitCalc";
 import CartQuoteForm, { type ZipCheckStatus } from "./CartQuoteForm";
+import { useCurrency, CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 interface CartBarProps {
   units: UnitConfig[];
@@ -83,6 +84,7 @@ interface CartBarProps {
 }
 
 export default function CartBar(props: CartBarProps) {
+  const __sym = useCurrency().symbol;
   const {
     units,
     grandTotal,
@@ -227,13 +229,13 @@ export default function CartBar(props: CartBarProps) {
             </div>
             <p className="text-xs text-stone-500">
               {deliveryFee > 0
-                ? `$${grandTotal.toLocaleString()} + $${deliveryFee} delivery`
+                ? `${__sym}${grandTotal.toLocaleString()} + ${__sym}${deliveryFee} delivery`
                 : "Tap to review & send"}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <p className="text-xl font-black text-yellow-400">
-              ${totalWithDelivery.toLocaleString(undefined, { minimumFractionDigits: taxAmount > 0 ? 2 : 0, maximumFractionDigits: 2 })}
+              <CurrencySymbol />{totalWithDelivery.toLocaleString(undefined, { minimumFractionDigits: taxAmount > 0 ? 2 : 0, maximumFractionDigits: 2 })}
             </p>
             <ChevronUp
               className={`h-5 w-5 text-stone-500 transition-transform ${
@@ -298,7 +300,7 @@ export default function CartBar(props: CartBarProps) {
                             Delivery Fee ({deliveryFeeResult?.distance} mi)
                           </span>
                           <span className="font-semibold text-white">
-                            ${deliveryFee.toLocaleString()}
+                            <CurrencySymbol />{deliveryFee.toLocaleString()}
                           </span>
                         </div>
                       )}
@@ -308,7 +310,7 @@ export default function CartBar(props: CartBarProps) {
                             Est. Sales Tax ({estimatedTax.stateCode}, {(estimatedTax.rate * 100).toFixed(2)}%)
                           </span>
                           <span className="font-semibold text-white">
-                            ${estimatedTax.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            <CurrencySymbol />{estimatedTax.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                       )}
@@ -317,7 +319,7 @@ export default function CartBar(props: CartBarProps) {
                           Grand Total
                         </span>
                         <span className="text-xl font-black text-yellow-400">
-                          ${totalWithDelivery.toLocaleString(undefined, { minimumFractionDigits: estimatedTax && estimatedTax.amount > 0 ? 2 : 0, maximumFractionDigits: 2 })}
+                          <CurrencySymbol />{totalWithDelivery.toLocaleString(undefined, { minimumFractionDigits: estimatedTax && estimatedTax.amount > 0 ? 2 : 0, maximumFractionDigits: 2 })}
                         </span>
                       </div>
                     </div>

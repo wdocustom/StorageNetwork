@@ -6,6 +6,7 @@ import {
   enforceActionRateLimit,
   RateLimitError,
 } from "@/lib/server/action-rate-limit";
+import { currencySymbol } from "@/lib/geo/currency";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SMS Server Actions — Twilio-powered notifications
@@ -81,7 +82,7 @@ export async function startTripNotify(
     // 2. Fetch installer profile
     const { data: installer } = await supabase
       .from("profiles")
-      .select("first_name, is_pro, service_zip")
+      .select("first_name, is_pro, service_zip, currency")
       .eq("id", installerId)
       .single();
 
@@ -95,7 +96,7 @@ export async function startTripNotify(
     const totalPrice = lead.estimated_price || 0;
     const depositPaid = lead.deposit_amount || totalPrice * 0.15;
     const remaining = lead.balance_due || totalPrice - depositPaid;
-    const formattedBalance = `$${remaining.toLocaleString("en-US", {
+    const formattedBalance = `${currencySymbol(installer.currency as string | null)}${remaining.toLocaleString("en-US", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
@@ -160,7 +161,7 @@ export async function sendInstallerBookingSms(
     // Fetch installer profile
     const { data: installer } = await supabase
       .from("profiles")
-      .select("phone, is_pro")
+      .select("phone, is_pro, currency")
       .eq("id", installerId)
       .single();
 
@@ -175,7 +176,8 @@ export async function sendInstallerBookingSms(
     const result = await smsNewBookingAlert(
       installer.phone,
       customerZip,
-      profitEstimate
+      profitEstimate,
+      (installer.currency as string | null) ?? undefined
     );
 
     if (result.success) {

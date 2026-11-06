@@ -27,6 +27,7 @@ import StudioBookingSheet from "./StudioBookingSheet";
 import StudioMap from "./StudioMap";
 import StudioSiteMeasure from "./StudioSiteMeasure";
 import StudioUnitEditor, { type StudioOrganizer, type StudioPrices } from "./StudioUnitEditor";
+import { useCurrency } from "@/components/currency/CurrencyContext";
 
 export default function StudioPanel({
   props,
@@ -54,6 +55,7 @@ export default function StudioPanel({
   previewingPreset: string | null;
   onPreviewBestseller: (presetId: string) => void;
 }) {
+  const __cur = useCurrency().currency;
   const [view, setView] = useState<"design" | "add">("design");
   const [bookOpen, setBookOpen] = useState(false);
   const topRef = useRef<HTMLDivElement>(null);
@@ -225,7 +227,7 @@ export default function StudioPanel({
             </div>
             <p className="truncate text-[11px] font-semibold text-yellow-400">
               {props.stripeAccountId && items.length > 0
-                ? `Book today for ${formatCurrency(props.depositAmount)} deposit`
+                ? `Book today for ${formatCurrency(props.depositAmount, __cur)} deposit`
                 : "Installed by a local pro"}
             </p>
           </div>

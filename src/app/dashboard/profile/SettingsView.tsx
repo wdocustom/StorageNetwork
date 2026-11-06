@@ -65,6 +65,7 @@ import { SETTINGS_PROFILE_COLUMNS } from "./columns";
 import PageHeader from "@/components/dashboard/PageHeader";
 import { PushSettingsCard } from "@/components/dashboard/PushNotifications";
 import { POSTAL_INPUT_MAX_LENGTH, isValidPostalCode, sanitizePostalInput } from "@/lib/geo/postal";
+import { useCurrency } from "@/components/currency/CurrencyContext";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Profile & Settings Page
@@ -153,6 +154,7 @@ function ProfilePageInner({
   initial: SettingsInitial;
   stripeStatus: Promise<StripeStatus>;
 }) {
+  const __sym = useCurrency().symbol;
   const p0 = initial.profile;
   const supabase = getSupabaseBrowserClient();
   const searchParams = useSearchParams();
@@ -1506,7 +1508,7 @@ function ProfilePageInner({
           onToggle={toggleSection("deposit")}
           icon={DollarSign}
           title="Customer Deposit"
-          description={`${depositType === "percentage" ? `${depositValue}%` : `$${depositValue}`} deposit required at booking`}
+          description={`${depositType === "percentage" ? `${depositValue}%` : `${__sym}${depositValue}`} deposit required at booking`}
         >
 
               <p className="mb-4 text-xs text-stone-500">
@@ -1568,7 +1570,7 @@ function ProfilePageInner({
                       ? depositValue === 15
                         ? "Default — standard 15% deposit"
                         : `Customer pays ${depositValue}% of build total upfront`
-                      : `Customer pays $${depositValue} upfront (min 15% of total enforced)`
+                      : `Customer pays ${__sym}${depositValue} upfront (min 15% of total enforced)`
                     }
                   </span>
                 </div>

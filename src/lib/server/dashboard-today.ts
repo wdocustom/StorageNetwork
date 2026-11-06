@@ -13,6 +13,8 @@ import { computeDashboardNudge, type DashboardNudge } from "@/lib/server/dashboa
 
 export interface TodayProfile {
   id: string;
+  /** "usd" | "cad" — the installer's charge currency. */
+  currency?: string | null;
   email: string;
   first_name: string | null;
   business_name: string | null;
@@ -45,7 +47,7 @@ export interface TodayData {
 }
 
 const PROFILE_COLUMNS =
-  "id, email, first_name, business_name, is_pro, is_admin, is_realtor, stripe_account_id, slug, city, state";
+  "id, email, first_name, business_name, is_pro, is_admin, is_realtor, stripe_account_id, slug, city, state, currency";
 
 export async function loadToday(userId: string): Promise<TodayData> {
   const db = getServiceClient();

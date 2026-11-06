@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Loader2, Sparkles, Plus, Check, Send, RotateCcw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { RAISED_BED_SIZES } from "@/lib/raised-beds";
+import { CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 export type AiResultUnit = {
   cols: number;
@@ -58,7 +59,7 @@ function UnitPreviewCard({ unit }: { unit: AiResultUnit }) {
         <div className="flex shrink-0 items-center gap-1">
           {unit.customPrice != null && unit.customPrice > 0 && (
             <span className="rounded-full bg-emerald-400/15 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400">
-              ${unit.customPrice}
+              <CurrencySymbol />{unit.customPrice}
             </span>
           )}
           {unit.presetId && (

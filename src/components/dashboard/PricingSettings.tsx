@@ -33,6 +33,7 @@ import { BESTSELLER_PRESETS } from "@/lib/presets";
 import { SHELVING_CONFIGS } from "@/lib/shelving";
 import { OVERHEAD_GRID_PRESETS } from "@/lib/overhead-storage";
 import { RAISED_BED_SIZES } from "@/lib/raised-beds";
+import { CurrencySymbol, useCurrency } from "@/components/currency/CurrencyContext";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Pricing Settings — Pro installer custom pricing configuration
@@ -98,7 +99,7 @@ function computePresetDefaultTotal(presetId: string, defs: typeof EMPTY_DEFAULTS
     + totalWheelsCost;
 }
 
-function getPriceFields(defs: typeof EMPTY_DEFAULTS): PriceField[] { return [
+function getPriceFields(defs: typeof EMPTY_DEFAULTS, sym = "$"): PriceField[] { return [
   // Standard unit pricing
   {
     key: "standard_slot",
@@ -165,7 +166,7 @@ function getPriceFields(defs: typeof EMPTY_DEFAULTS): PriceField[] { return [
     return {
       key,
       label: preset.name,
-      description: `Total price with ${totalSlots} totes (platform default: $${defs.bestsellers[key] ?? computePresetDefaultTotal(preset.id, defs)})`,
+      description: `Total price with ${totalSlots} totes (platform default: ${sym}${defs.bestsellers[key] ?? computePresetDefaultTotal(preset.id, defs)})`,
       defaultValue: defs.bestsellers[key] ?? computePresetDefaultTotal(preset.id, defs),
       category: "bestsellers" as const,
     };
@@ -179,7 +180,7 @@ function getPriceFields(defs: typeof EMPTY_DEFAULTS): PriceField[] { return [
     return {
       key,
       label: `${cfg.widthFt}' × ${heightLabel}`,
-      description: `${cfg.widthIn}" wide, ${shelfText} (platform default: $${defaultPrice})`,
+      description: `${cfg.widthIn}" wide, ${shelfText} (platform default: ${sym}${defaultPrice})`,
       defaultValue: defaultPrice,
       category: "shelving" as const,
     };
@@ -191,7 +192,7 @@ function getPriceFields(defs: typeof EMPTY_DEFAULTS): PriceField[] { return [
     return {
       key,
       label: `${preset.label} grid`,
-      description: `${preset.toteCount} totes (platform default: $${defaultPrice})`,
+      description: `${preset.toteCount} totes (platform default: ${sym}${defaultPrice})`,
       defaultValue: defaultPrice,
       category: "overhead" as const,
     };
@@ -203,7 +204,7 @@ function getPriceFields(defs: typeof EMPTY_DEFAULTS): PriceField[] { return [
     return {
       key,
       label: `${bed.widthIn}"×${bed.lengthIn}" ${bed.hasStringLightPost ? "+ Post" : ""} ${bed.heightIn}"H`,
-      description: `Elevated (platform default: $${defaultPrice})`,
+      description: `Elevated (platform default: ${sym}${defaultPrice})`,
       defaultValue: defaultPrice,
       category: "raised_beds_elevated" as const,
     };
@@ -215,7 +216,7 @@ function getPriceFields(defs: typeof EMPTY_DEFAULTS): PriceField[] { return [
     return {
       key,
       label: `${bed.widthIn}"×${bed.lengthIn}" ${bed.heightIn}"H`,
-      description: `Ground-level (platform default: $${defaultPrice})`,
+      description: `Ground-level (platform default: ${sym}${defaultPrice})`,
       defaultValue: defaultPrice,
       category: "raised_beds_ground" as const,
     };
@@ -224,70 +225,70 @@ function getPriceFields(defs: typeof EMPTY_DEFAULTS): PriceField[] { return [
   {
     key: "raised_bed_stain_addon" as PricingNumericKey,
     label: "Cedar Stain",
-    description: `Add-on price for stain finish (default: $${defs.raisedBedAddons.raised_bed_stain_addon})`,
+    description: `Add-on price for stain finish (default: ${sym}${defs.raisedBedAddons.raised_bed_stain_addon})`,
     defaultValue: defs.raisedBedAddons.raised_bed_stain_addon,
     category: "raised_beds_addons" as const,
   },
   {
     key: "raised_bed_liner_addon" as PricingNumericKey,
     label: "Landscape Liner",
-    description: `Add-on price for landscape liner (default: $${defs.raisedBedAddons.raised_bed_liner_addon})`,
+    description: `Add-on price for landscape liner (default: ${sym}${defs.raisedBedAddons.raised_bed_liner_addon})`,
     defaultValue: defs.raisedBedAddons.raised_bed_liner_addon,
     category: "raised_beds_addons" as const,
   },
   {
     key: "raised_bed_paint_white_addon" as PricingNumericKey,
     label: "Painted White",
-    description: `Add-on price for painted white finish (default: $${defs.raisedBedAddons.raised_bed_paint_white_addon})`,
+    description: `Add-on price for painted white finish (default: ${sym}${defs.raisedBedAddons.raised_bed_paint_white_addon})`,
     defaultValue: defs.raisedBedAddons.raised_bed_paint_white_addon,
     category: "raised_beds_addons" as const,
   },
   {
     key: "raised_bed_depth_increase_addon" as PricingNumericKey,
     label: "Depth Increase to 12\"",
-    description: `Add-on for deeper planting area (default: $${defs.raisedBedAddons.raised_bed_depth_increase_addon})`,
+    description: `Add-on for deeper planting area (default: ${sym}${defs.raisedBedAddons.raised_bed_depth_increase_addon})`,
     defaultValue: defs.raisedBedAddons.raised_bed_depth_increase_addon,
     category: "raised_beds_addons" as const,
   },
   {
     key: "raised_bed_bottom_shelf_addon" as PricingNumericKey,
     label: "Bottom Shelf",
-    description: `Add-on for bottom storage shelf on tall beds (default: $${defs.raisedBedAddons.raised_bed_bottom_shelf_addon})`,
+    description: `Add-on for bottom storage shelf on tall beds (default: ${sym}${defs.raisedBedAddons.raised_bed_bottom_shelf_addon})`,
     defaultValue: defs.raisedBedAddons.raised_bed_bottom_shelf_addon,
     category: "raised_beds_addons" as const,
   },
   {
     key: "raised_bed_post_72_addon" as PricingNumericKey,
     label: "6' Cedar Post",
-    description: `Add-on for 6' post on elevated beds (default: $${defs.raisedBedAddons.raised_bed_post_72_addon})`,
+    description: `Add-on for 6' post on elevated beds (default: ${sym}${defs.raisedBedAddons.raised_bed_post_72_addon})`,
     defaultValue: defs.raisedBedAddons.raised_bed_post_72_addon,
     category: "raised_beds_addons" as const,
   },
   {
     key: "raised_bed_post_84_addon" as PricingNumericKey,
     label: "7' Cedar Post",
-    description: `Add-on for 7' post on elevated beds (default: $${defs.raisedBedAddons.raised_bed_post_84_addon})`,
+    description: `Add-on for 7' post on elevated beds (default: ${sym}${defs.raisedBedAddons.raised_bed_post_84_addon})`,
     defaultValue: defs.raisedBedAddons.raised_bed_post_84_addon,
     category: "raised_beds_addons" as const,
   },
   {
     key: "raised_bed_post_96_addon" as PricingNumericKey,
     label: "8' Cedar Post",
-    description: `Add-on for 8' post on elevated beds (default: $${defs.raisedBedAddons.raised_bed_post_96_addon})`,
+    description: `Add-on for 8' post on elevated beds (default: ${sym}${defs.raisedBedAddons.raised_bed_post_96_addon})`,
     defaultValue: defs.raisedBedAddons.raised_bed_post_96_addon,
     category: "raised_beds_addons" as const,
   },
   {
     key: "raised_bed_hook_addon" as PricingNumericKey,
     label: "Post Hook",
-    description: `Add-on hook for hanging plants from post (default: $${defs.raisedBedAddons.raised_bed_hook_addon})`,
+    description: `Add-on hook for hanging plants from post (default: ${sym}${defs.raisedBedAddons.raised_bed_hook_addon})`,
     defaultValue: defs.raisedBedAddons.raised_bed_hook_addon,
     category: "raised_beds_addons" as const,
   },
   {
     key: "raised_bed_high_wind_weighted_addon" as PricingNumericKey,
     label: "High-Wind Weighted Kit",
-    description: `Base anchor kit for windy sites — elevated planters only (default: $${defs.raisedBedAddons.raised_bed_high_wind_weighted_addon})`,
+    description: `Base anchor kit for windy sites — elevated planters only (default: ${sym}${defs.raisedBedAddons.raised_bed_high_wind_weighted_addon})`,
     defaultValue: defs.raisedBedAddons.raised_bed_high_wind_weighted_addon,
     category: "raised_beds_addons" as const,
   },
@@ -388,12 +389,13 @@ const EMPTY_DEFAULTS = {
 };
 
 export default function PricingSettings({ userId, embedded }: PricingSettingsProps) {
+  const __sym = useCurrency().symbol;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [message, setMessage] = useState("");
   const [defaults, setDefaults] = useState(EMPTY_DEFAULTS);
-  const PRICE_FIELDS = getPriceFields(defaults);
+  const PRICE_FIELDS = getPriceFields(defaults, __sym);
   const [messageType, setMessageType] = useState<"success" | "error">("success");
 
   // Each field can be: a custom number string, or empty (use default)
@@ -1257,7 +1259,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
             </button>
 
             <p className="text-[11px] leading-relaxed text-stone-600">
-              Define slot-count ranges with their own per-slot price (e.g. 1–10 slots at $25, 12–30 slots at $20).
+              Define slot-count ranges with their own per-slot price (e.g. 1–10 slots at <CurrencySymbol />25, 12–30 slots at <CurrencySymbol />20).
               Slot counts that fall outside every range below use your standard per-slot rate.
             </p>
 

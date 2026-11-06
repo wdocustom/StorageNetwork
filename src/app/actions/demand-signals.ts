@@ -4,6 +4,7 @@ import { getServiceClient } from "@/lib/supabase-server";
 import { depositPercentLabel } from "@/lib/deposit-label";
 import { postalKey, INVALID_POSTAL_MESSAGE } from "@/lib/geo/postal";
 import { sameCountryRadius } from "@/lib/geo/territory-tiers";
+import { currencyForInstaller } from "@/lib/server/currency-lookup";
 
 const supabase = getServiceClient();
 
@@ -327,6 +328,8 @@ async function sendWaitlistActivationEmail(
       toName: signal.customer_name || undefined,
       subject: subjectLine,
       html: emailHtml,
+      // Money renders as CA$ for Canadian installers' jobs.
+      currency: await currencyForInstaller(signal.source_installer_id ?? installerId),
     });
 
     return true;

@@ -60,6 +60,7 @@ import { siteConfig } from "@/config/site";
 import ProPill from "@/components/dashboard/ProPill";
 import PlanSplitsAdmin from "@/components/dashboard/PlanSplitsAdmin";
 import InstallerOutreachModal from "@/components/admin/InstallerOutreachModal";
+import { useCurrency, CurrencySymbol, UsdSymbol } from "@/components/currency/CurrencyContext";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Partner Dashboard — "The Elite View"
@@ -70,6 +71,8 @@ import InstallerOutreachModal from "@/components/admin/InstallerOutreachModal";
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function PartnerDashboardPage() {
+  // Partner commissions are paid by the platform in USD; bounties follow the job.
+  const { symbol: __sym, usdSymbol: __usd } = useCurrency();
   const supabase = getSupabaseBrowserClient();
 
   const [loading, setLoading] = useState(true);
@@ -504,7 +507,7 @@ export default function PartnerDashboardPage() {
               </span>
             </div>
             <p className="text-lg font-extrabold text-white">
-              ${tierRate}
+              <UsdSymbol />{tierRate}
             </p>
             <p className="text-[11px] text-stone-500">per active Pro</p>
           </div>
@@ -532,7 +535,7 @@ export default function PartnerDashboardPage() {
               </span>
             </div>
             <p className="text-lg font-extrabold text-yellow-400">
-              ${projected.toLocaleString()}
+              <UsdSymbol />{projected.toLocaleString()}
             </p>
             <p className="text-[11px] text-stone-500">projected commission</p>
           </div>
@@ -580,7 +583,7 @@ export default function PartnerDashboardPage() {
                   </span>
                 )}
               </div>
-              <p className="mt-1 text-2xl font-black text-white">$35</p>
+              <p className="mt-1 text-2xl font-black text-white"><UsdSymbol />35</p>
               <p className="text-xs text-stone-500">per active Pro (1–50)</p>
             </div>
             <div
@@ -598,7 +601,7 @@ export default function PartnerDashboardPage() {
                   </span>
                 )}
               </div>
-              <p className="mt-1 text-2xl font-black text-white">$25</p>
+              <p className="mt-1 text-2xl font-black text-white"><UsdSymbol />25</p>
               <p className="text-xs text-stone-500">per active Pro (51+)</p>
             </div>
           </div>
@@ -728,7 +731,7 @@ export default function PartnerDashboardPage() {
                           : "text-stone-600"
                       }`}
                     >
-                      {ref.status === "active" ? `$${tierRate}` : "—"}
+                      {ref.status === "active" ? `${__usd}${tierRate}` : "—"}
                     </span>
                   </div>
                 </div>
@@ -1451,10 +1454,10 @@ export default function PartnerDashboardPage() {
               {bountyTotals && (
                 <div className="flex gap-2 text-[10px] font-bold">
                   <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-400">
-                    ${bountyTotals.totalPaid.toFixed(2)} Paid
+                    <CurrencySymbol />{bountyTotals.totalPaid.toFixed(2)} Paid
                   </span>
                   <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-amber-400">
-                    ~${bountyTotals.totalPending.toFixed(2)} Pending
+                    ~<CurrencySymbol />{bountyTotals.totalPending.toFixed(2)} Pending
                   </span>
                   <span className="rounded-full bg-slate-700 px-2 py-0.5 text-stone-400">
                     {bountyTotals.totalReferrals} Total
@@ -1467,11 +1470,11 @@ export default function PartnerDashboardPage() {
             {bountyTotals && (
               <div className="mb-4 grid grid-cols-3 gap-3">
                 <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-center">
-                  <p className="text-lg font-black text-emerald-400">${bountyTotals.totalPaid.toFixed(2)}</p>
+                  <p className="text-lg font-black text-emerald-400"><CurrencySymbol />{bountyTotals.totalPaid.toFixed(2)}</p>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Total Paid</p>
                 </div>
                 <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-center">
-                  <p className="text-lg font-black text-amber-400">~${bountyTotals.totalPending.toFixed(2)}</p>
+                  <p className="text-lg font-black text-amber-400">~<CurrencySymbol />{bountyTotals.totalPending.toFixed(2)}</p>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Est. Pending</p>
                 </div>
                 <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-3 text-center">
@@ -1550,7 +1553,7 @@ export default function PartnerDashboardPage() {
                           <div className="flex items-center gap-4 text-right">
                             <div>
                               <p className="text-xs font-bold text-emerald-400">
-                                ${referrer.total_earned.toFixed(2)}
+                                <CurrencySymbol />{referrer.total_earned.toFixed(2)}
                               </p>
                               <p className="text-[10px] text-stone-500">earned</p>
                             </div>
@@ -1589,11 +1592,11 @@ export default function PartnerDashboardPage() {
                               </div>
                               <div>
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Total Earned</p>
-                                <p className="text-sm font-bold text-emerald-400">${referrer.total_earned.toFixed(2)}</p>
+                                <p className="text-sm font-bold text-emerald-400"><CurrencySymbol />{referrer.total_earned.toFixed(2)}</p>
                               </div>
                               <div>
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Est. Pending</p>
-                                <p className="text-sm font-bold text-amber-400">~${referrer.total_pending_value.toFixed(2)}</p>
+                                <p className="text-sm font-bold text-amber-400">~<CurrencySymbol />{referrer.total_pending_value.toFixed(2)}</p>
                               </div>
                             </div>
 
@@ -1629,7 +1632,7 @@ export default function PartnerDashboardPage() {
                                 </div>
                                 <div className="col-span-2">
                                   <p className={`text-xs font-mono ${lead.deposit_paid ? "text-emerald-400" : "text-stone-400"}`}>
-                                    ${lead.deposit_amount.toFixed(2)}
+                                    <CurrencySymbol />{lead.deposit_amount.toFixed(2)}
                                   </p>
                                   <p className="text-[10px] text-stone-500">
                                     {lead.deposit_paid ? "Paid" : "Unpaid"}
@@ -1644,9 +1647,9 @@ export default function PartnerDashboardPage() {
                                       : "text-stone-500"
                                   }`}>
                                     {lead.bounty_status === "paid" && lead.bounty_amount != null
-                                      ? `$${lead.bounty_amount.toFixed(2)}`
+                                      ? `${__sym}${lead.bounty_amount.toFixed(2)}`
                                       : lead.bounty_status === "pending"
-                                      ? `~$${Math.max(15, lead.deposit_amount * 0.3).toFixed(2)}`
+                                      ? `~${__sym}${Math.max(15, lead.deposit_amount * 0.3).toFixed(2)}`
                                       : "—"}
                                   </p>
                                 </div>

@@ -42,6 +42,8 @@ export interface PlanBuilder {
   referred: boolean;
   /** Installer sells totes with builds */
   totesAvailable: boolean;
+  /** "usd" | "cad" — the builder quotes in this currency */
+  currency: string;
 }
 
 export type FindPlanBuilderResult =
@@ -65,6 +67,7 @@ async function builderFor(id: string, referred: boolean): Promise<PlanBuilder | 
     completedJobs: inst.installer_completed_jobs,
     referred,
     totesAvailable: inst.installer_pricing?.totes_disabled !== true,
+    currency: inst.installer_currency ?? "usd",
   };
 }
 

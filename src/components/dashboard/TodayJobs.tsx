@@ -18,6 +18,7 @@ import { AlertTriangle, CalendarClock, CalendarPlus, CheckCircle2, ChevronRight,
 import type { TodayJob } from "@/lib/server/dashboard-today";
 import { formatInstallDate, todayInstallDateKey, toInstallDateKey } from "@/utils/installDate";
 import { formatCurrency } from "@/utils/paymentHelpers";
+import { useCurrency } from "@/components/currency/CurrencyContext";
 
 const WEEK_DAYS = 7;
 
@@ -47,7 +48,7 @@ function classify(job: TodayJob, today: string): Kind | null {
   return null; // later — counted, not listed
 }
 
-function describe(kind: Kind, job: TodayJob): string {
+function describe(kind: Kind, job: TodayJob, currency?: string): string {
   switch (kind) {
     case "overdue":
       return `Install was ${formatInstallDate(job.scheduled_at)} — wrap it up`;
@@ -58,11 +59,12 @@ function describe(kind: Kind, job: TodayJob): string {
     case "unscheduled":
       return job.status === "new" ? "New booking — pick an install date" : "Needs an install date";
     case "payment":
-      return job.balance_due ? `Waiting on final payment · ${formatCurrency(job.balance_due)}` : "Waiting on final payment";
+      return job.balance_due ? `Waiting on final payment · ${formatCurrency(job.balance_due, currency)}` : "Waiting on final payment";
   }
 }
 
 export default function TodayJobs({ jobs, serverToday }: { jobs: TodayJob[]; serverToday: string }) {
+  const __cur = useCurrency().currency;
   const [today, setToday] = useState(serverToday);
   useEffect(() => setToday(todayInstallDateKey()), []);
 
@@ -113,7 +115,7 @@ export default function TodayJobs({ jobs, serverToday }: { jobs: TodayJob[]; ser
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-bold text-white">{job.customer_name || "Customer"}</span>
-                    <span className="block truncate text-xs text-stone-400">{describe(kind, job)}</span>
+                    <span className="block truncate text-xs text-stone-400">{describe(kind, job, __cur)}</span>
                   </span>
                   <ChevronRight className="h-4 w-4 shrink-0 text-stone-600" />
                 </Link>
