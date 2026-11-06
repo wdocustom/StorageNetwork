@@ -27,6 +27,7 @@ import {
   Send,
   X,
 } from "lucide-react";
+import { POSTAL_INPUT_MAX_LENGTH, isCompletePostalInput, sanitizePostalInput } from "@/lib/geo/postal";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types (display-only — no pricing constants)
@@ -253,7 +254,7 @@ function BookingPageInner() {
     if (zipCheckRef.current) clearTimeout(zipCheckRef.current);
 
     const zip = addressZip.trim();
-    if (!zip || zip.length < 5) {
+    if (!isCompletePostalInput(zip)) {
       setZipOutOfArea(false);
       setZipCheckMsg("");
       return;
@@ -788,10 +789,10 @@ function BookingPageInner() {
                     />
                     <input
                       type="text"
-                      inputMode="numeric"
-                      maxLength={5}
+                      autoCapitalize="characters"
+                      maxLength={POSTAL_INPUT_MAX_LENGTH}
                       value={addressZip}
-                      onChange={(e) => setAddressZip(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                      onChange={(e) => setAddressZip(sanitizePostalInput(e.target.value))}
                       placeholder="ZIP *"
                       className={`w-full rounded-lg border px-3 py-2 text-sm text-white placeholder-stone-500 focus:outline-none ${
                         zipOutOfArea

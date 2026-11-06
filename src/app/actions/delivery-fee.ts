@@ -2,6 +2,7 @@
 
 import { getServiceClient } from "@/lib/supabase-server";
 import zipcodes from "zipcodes";
+import { postalKey } from "@/lib/geo/postal";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Delivery Fee Calculator — Server-side distance-based fee resolution
@@ -59,8 +60,8 @@ export async function calculateDeliveryFee(
 
   if (!installerId || !customerZip) return noFee;
 
-  const trimmedZip = customerZip.trim();
-  if (!/^\d{5}$/.test(trimmedZip)) return noFee;
+  const trimmedZip = postalKey(customerZip);
+  if (!trimmedZip) return noFee;
 
   try {
     const { data: profile } = await supabase

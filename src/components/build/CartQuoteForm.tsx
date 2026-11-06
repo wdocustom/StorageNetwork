@@ -10,6 +10,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import type { DeliveryFeeResult } from "@/app/actions/delivery-fee";
+import { POSTAL_INPUT_MAX_LENGTH, sanitizePostalInput } from "@/lib/geo/postal";
 
 export type ZipCheckStatus =
   | "idle"
@@ -114,14 +115,14 @@ export default function CartQuoteForm({
       </div>
       <div>
         <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-          Customer ZIP Code *
+          Customer ZIP / Postal Code *
         </label>
         <input
           type="text"
           value={deliveryZip}
-          onChange={(e) => onDeliveryZipChange(e.target.value)}
+          onChange={(e) => onDeliveryZipChange(sanitizePostalInput(e.target.value))}
           placeholder="e.g. 30301"
-          maxLength={5}
+          maxLength={POSTAL_INPUT_MAX_LENGTH}
           disabled={disableZipField}
           className="w-32 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none disabled:opacity-50"
         />

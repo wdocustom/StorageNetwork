@@ -272,14 +272,14 @@ export default function StepSummary({
                 type="text"
                 value={props.addrState}
                 onChange={(e) => props.onAddrStateChange(e.target.value)}
-                placeholder="State"
+                placeholder="State / Prov."
                 className={`rounded-lg border ${fieldBorder(props.addrState)} bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none`}
               />
               <input
                 type="text"
                 value={props.addrZip}
                 onChange={(e) => props.onAddrZipChange(e.target.value)}
-                placeholder="Zip"
+                placeholder="ZIP / Postal"
                 className={`rounded-lg border ${fieldBorder(props.addrZip)} bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none`}
               />
             </div>
@@ -383,14 +383,14 @@ export default function StepSummary({
                     type="text"
                     value={props.deliveryState}
                     onChange={(e) => props.onDeliveryStateChange(e.target.value)}
-                    placeholder="State"
+                    placeholder="State / Prov."
                     className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
                   />
                   <input
                     type="text"
                     value={props.deliveryZip}
                     onChange={(e) => props.onDeliveryZipChange(e.target.value)}
-                    placeholder="Zip"
+                    placeholder="ZIP / Postal"
                     className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
                   />
                 </div>

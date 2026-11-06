@@ -59,6 +59,17 @@ assign("America/Phoenix", "AZ");
 assign("America/Los_Angeles", "CA NV OR WA");
 assign("America/Anchorage", "AK");
 assign("Pacific/Honolulu", "HI");
+// Canadian provinces/territories — no code collides with a US state.
+assign("America/Toronto", "ON QC");
+assign("America/Vancouver", "BC");
+assign("America/Edmonton", "AB");
+assign("America/Regina", "SK");
+assign("America/Winnipeg", "MB");
+assign("America/Halifax", "NS NB PE");
+assign("America/St_Johns", "NL");
+assign("America/Whitehorse", "YT");
+assign("America/Yellowknife", "NT");
+assign("America/Iqaluit", "NU");
 
 const STATE_NAMES: Record<string, string> = {
   alabama: "AL", alaska: "AK", arizona: "AZ", arkansas: "AR", california: "CA", colorado: "CO",
@@ -70,16 +81,25 @@ const STATE_NAMES: Record<string, string> = {
   ohio: "OH", oklahoma: "OK", oregon: "OR", pennsylvania: "PA", "rhode island": "RI",
   "south carolina": "SC", "south dakota": "SD", tennessee: "TN", texas: "TX", utah: "UT", vermont: "VT",
   virginia: "VA", washington: "WA", "west virginia": "WV", wisconsin: "WI", wyoming: "WY",
+  ontario: "ON", quebec: "QC", "québec": "QC", "british columbia": "BC", alberta: "AB",
+  saskatchewan: "SK", manitoba: "MB", "nova scotia": "NS", "new brunswick": "NB",
+  "prince edward island": "PE", "newfoundland and labrador": "NL", yukon: "YT",
+  "northwest territories": "NT", nunavut: "NU",
 };
+
+// Trailing US ZIP (+4) or Canadian postal code ("M5V 2T6" / "M5V2T6").
+const POSTAL_SUFFIX = String.raw`(?:\d{5}(?:-\d{4})?|[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d)`;
+const STATE_WITH_POSTAL = new RegExp(String.raw`^([A-Za-z]{2})(?:\s+${POSTAL_SUFFIX})?$`);
+const TRAILING_POSTAL = new RegExp(String.raw`\s+${POSTAL_SUFFIX}$`);
 
 /** IANA zone for "…, Columbus, OH 43215" style addresses; null if no state found. */
 export function zoneForAddress(address: string | undefined): string | null {
   if (!address) return null;
   const parts = address.split(",").map((p) => p.trim()).filter(Boolean);
   for (const part of parts.slice(1).reverse()) {
-    const abbr = /^([A-Za-z]{2})(?:\s+\d{5}(?:-\d{4})?)?$/.exec(part)?.[1]?.toUpperCase();
+    const abbr = STATE_WITH_POSTAL.exec(part)?.[1]?.toUpperCase();
     if (abbr && ZONES[abbr]) return ZONES[abbr];
-    const name = STATE_NAMES[part.replace(/\s+\d{5}(?:-\d{4})?$/, "").toLowerCase()];
+    const name = STATE_NAMES[part.replace(TRAILING_POSTAL, "").toLowerCase()];
     if (name) return ZONES[name];
   }
   return null;

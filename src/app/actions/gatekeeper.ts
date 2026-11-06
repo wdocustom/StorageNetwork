@@ -3,6 +3,7 @@
 import { getServiceClient } from "@/lib/supabase-server";
 import { sendWaitlistJoinedNotice } from "@/lib/email";
 import { recordWaitlistDemand } from "@/app/actions/demand-signals";
+import { postalKey, INVALID_POSTAL_MESSAGE } from "@/lib/geo/postal";
 
 const supabase = getServiceClient();
 
@@ -25,8 +26,8 @@ export interface GatekeeperResult {
 export async function gatekeeperCheck(
   zip: string
 ): Promise<GatekeeperResult> {
-  const trimmed = zip.trim();
-  if (!/^\d{5}$/.test(trimmed)) {
+  const trimmed = postalKey(zip);
+  if (!trimmed) {
     return { available: false, installer_id: null, installer_name: null };
   }
 
@@ -76,11 +77,11 @@ export async function joinWaitlist(
   name?: string
 ): Promise<{ success: boolean; error?: string }> {
   const trimmedEmail = email.trim().toLowerCase();
-  const trimmedZip = zip.trim();
+  const trimmedZip = postalKey(zip);
   const trimmedName = name?.trim() || "Customer";
 
-  if (!/^\d{5}$/.test(trimmedZip)) {
-    return { success: false, error: "Invalid ZIP code." };
+  if (!trimmedZip) {
+    return { success: false, error: INVALID_POSTAL_MESSAGE };
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
     return { success: false, error: "Invalid email address." };

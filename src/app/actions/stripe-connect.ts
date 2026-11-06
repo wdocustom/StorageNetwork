@@ -5,6 +5,8 @@ import { cookies } from "next/headers";
 import { getServiceClient } from "@/lib/supabase-server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import Stripe from "stripe";
+import { syncInstallerLocaleFromAccount } from "@/lib/stripe/account-locale";
+import { normalizeCountry } from "@/lib/geo/currency";
 
 // CSRF state cookie for Stripe Connect (C-2 hotfix).
 // Bound to the originating browser session via an HTTP-only cookie that the
@@ -67,16 +69,23 @@ export async function connectStripe(userId: string): Promise<ConnectResult> {
     // 1. Check if user already has a Stripe account
     const { data: profile } = await supabase
       .from("profiles")
-      .select("stripe_account_id, email")
+      .select("stripe_account_id, email, country")
       .eq("id", resolvedUserId)
       .single();
 
     let stripeAccountId = profile?.stripe_account_id;
 
+    // The Connect account must be created in the installer's country: Stripe
+    // otherwise defaults it to the platform's (US), and an account's country
+    // can never be changed afterwards. A Canadian installer gets a CA account
+    // that settles in CAD — matching the currency their charges use.
+    const accountCountry = normalizeCountry(profile?.country as string | null);
+
     // 2. Create a new Stripe Connect account if needed
     if (!stripeAccountId) {
       const account = await stripe.accounts.create({
         type: "standard",
+        country: accountCountry,
         email: profile?.email || undefined,
         metadata: {
           supabase_user_id: resolvedUserId,
@@ -139,6 +148,7 @@ export async function connectStripe(userId: string): Promise<ConnectResult> {
         // Create a new account
         const newAccount = await stripe.accounts.create({
           type: "standard",
+          country: accountCountry,
           email: profile?.email || undefined,
           metadata: {
             supabase_user_id: resolvedUserId,
@@ -225,6 +235,9 @@ export async function getStripeStatus(userId?: string) {
     }
 
     const account = await stripe.accounts.retrieve(profile.stripe_account_id);
+
+    // Keep country/currency pinned to what Stripe actually has.
+    await syncInstallerLocaleFromAccount(supabase, resolvedUserId, account);
 
     // Update our database with the latest status
     if (account.details_submitted) {

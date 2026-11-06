@@ -45,6 +45,7 @@ import { stampLastLogin } from "@/app/actions/profile";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import PlatformShowcase from "@/components/PlatformShowcase";
 import InstallerTestimonials from "@/components/landing/InstallerTestimonials";
+import { POSTAL_INPUT_MAX_LENGTH, countryOfPostal, isCompletePostalInput, sanitizePostalInput } from "@/lib/geo/postal";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Partner Onboarding — Professional Trade Style (No Stripe Step)
@@ -99,7 +100,9 @@ function PartnerJoinPageInner() {
   const territoryCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const checkTerritory = useCallback(async (zip: string) => {
-    if (zip.length !== 5) {
+    // Canada is keyed by FSA ("M5V"), so talk about postal areas there.
+    const areaWord = countryOfPostal(zip) === "CA" ? "postal areas" : "ZIP codes";
+    if (!isCompletePostalInput(zip)) {
       setTerritoryStatus("idle");
       setTerritoryMessage("");
       return;
@@ -110,7 +113,7 @@ function PartnerJoinPageInner() {
       const result = await checkTerritoryAvailability(zip);
       if (!result.available) {
         setTerritoryStatus("invalid");
-        setTerritoryMessage(result.reason || "Invalid ZIP code.");
+        setTerritoryMessage(result.reason || "Invalid ZIP or postal code.");
         return;
       }
       const preview = result.clusterPreview;
@@ -119,14 +122,14 @@ function PartnerJoinPageInner() {
         setTerritoryStatus("shared");
         setTerritoryMessage(
           existingCount === 1
-            ? `1 installer already serves this area. You'll cover ~${preview?.estimatedZips ?? 0} ZIP codes and compete for jobs via tiered priority.`
-            : `${existingCount} installers already serve this area. You'll cover ~${preview?.estimatedZips ?? 0} ZIP codes and compete for jobs via tiered priority.`
+            ? `1 installer already serves this area. You'll cover ~${preview?.estimatedZips ?? 0} ${areaWord} and compete for jobs via tiered priority.`
+            : `${existingCount} installers already serve this area. You'll cover ~${preview?.estimatedZips ?? 0} ${areaWord} and compete for jobs via tiered priority.`
         );
       } else {
         setTerritoryStatus("available");
         setTerritoryMessage(
           preview
-            ? `No installers here yet! You'll be the first, covering ~${preview.estimatedZips} ZIP codes.`
+            ? `No installers here yet! You'll be the first, covering ~${preview.estimatedZips} ${areaWord}.`
             : "No installers here yet! You'll be the first."
         );
       }
@@ -381,7 +384,7 @@ function PartnerJoinPageInner() {
             {/* Zip Code — with territory check */}
             <div>
               <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
-                Service Zip Code
+                Service ZIP / Postal Code
               </label>
               <div
                 className={`flex overflow-hidden rounded-lg border bg-slate-800 transition-colors ${
@@ -406,11 +409,11 @@ function PartnerJoinPageInner() {
                   type="text"
                   value={zipCode}
                   onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, "").slice(0, 5);
+                    const val = sanitizePostalInput(e.target.value);
                     setZipCode(val);
                     setError("");
                     if (territoryCheckTimer.current) clearTimeout(territoryCheckTimer.current);
-                    if (val.length === 5) {
+                    if (isCompletePostalInput(val)) {
                       territoryCheckTimer.current = setTimeout(() => checkTerritory(val), 400);
                     } else {
                       setTerritoryStatus("idle");
@@ -419,8 +422,8 @@ function PartnerJoinPageInner() {
                   }}
                   onKeyDown={handleKeyDown}
                   placeholder="90210"
-                  inputMode="numeric"
-                  maxLength={5}
+                  autoCapitalize="characters"
+                  maxLength={POSTAL_INPUT_MAX_LENGTH}
                   className="w-full bg-transparent px-3 py-3 text-sm text-white placeholder-stone-600 outline-none"
                   autoComplete="postal-code"
                 />

@@ -23,6 +23,8 @@ export interface PendingLeadDetails {
   installer_id: string | null;
   installer_name: string | null;
   installer_stripe_id: string | null;
+  /** Currency the installer charges in ("usd" | "cad") — see @/lib/geo/currency. */
+  currency: string;
   source: string;
   created_at: string;
   status: string;
@@ -111,18 +113,20 @@ export async function fetchPendingLead(leadId: string): Promise<FetchPendingLead
     // Fetch installer details if assigned
     let installerName: string | null = null;
     let installerStripeId: string | null = null;
+    let currency = "usd";
     let installerServices: Array<{ id: string; name: string; description: string; price: number }> = [];
 
     if (lead.installer_id) {
       const { data: installer } = await db()
         .from("profiles")
-        .select("business_name, first_name, stripe_account_id, services_config")
+        .select("business_name, first_name, stripe_account_id, services_config, currency")
         .eq("id", lead.installer_id)
         .single();
 
       if (installer) {
         installerName = installer.business_name || installer.first_name || null;
         installerStripeId = installer.stripe_account_id || null;
+        currency = (installer.currency as string | null) || "usd";
         // Extract enabled cleanout services for upsell
         if (installer.services_config && Array.isArray(installer.services_config)) {
           installerServices = (installer.services_config as Array<{ id: string; name: string; description: string; price: number | null; enabled: boolean }>)
@@ -138,6 +142,7 @@ export async function fetchPendingLead(leadId: string): Promise<FetchPendingLead
         ...lead,
         installer_name: installerName,
         installer_stripe_id: installerStripeId,
+        currency,
         installer_services: installerServices.length > 0 ? installerServices : undefined,
       } as PendingLeadDetails,
     };

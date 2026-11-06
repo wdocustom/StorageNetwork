@@ -4,6 +4,8 @@ import { getServiceClient } from "@/lib/supabase-server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import zipcodes from "zipcodes";
 import type { DeliveryFeeConfig } from "@/app/actions/delivery-fee";
+import { countryOfPostal, postalKey, INVALID_POSTAL_MESSAGE } from "@/lib/geo/postal";
+import { detectDensityTier, sameCountryRadius } from "@/lib/geo/territory-tiers";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Territory System — Shared ZIP-Cluster Model with Tiered Priority
@@ -27,26 +29,6 @@ import type { DeliveryFeeConfig } from "@/app/actions/delivery-fee";
 // (GIN-indexed array). territory_zips is the source of truth;
 // service_zips is a denormalized cache kept in sync.
 // ═══════════════════════════════════════════════════════════════════════════
-
-// ── Density tiers ──
-// The "density probe" counts ZIPs within 10 miles of the home ZIP.
-// More ZIPs = denser area = smaller territory (but plenty of customers).
-const DENSITY_PROBE_RADIUS = 10; // miles
-
-interface DensityTier {
-  label: string;
-  minDensityCount: number; // min ZIPs within probe radius to qualify
-  targetZips: number;      // max ZIPs to assign
-  searchRadiusMiles: number; // how far to look for candidate ZIPs
-}
-
-const DENSITY_TIERS: DensityTier[] = [
-  // Order matters: checked top-to-bottom, first match wins
-  { label: "urban_core", minDensityCount: 200, targetZips: 15, searchRadiusMiles: 7 },
-  { label: "urban",      minDensityCount: 100, targetZips: 25, searchRadiusMiles: 12 },
-  { label: "suburban",   minDensityCount: 40,  targetZips: 40, searchRadiusMiles: 20 },
-  { label: "rural",      minDensityCount: 0,   targetZips: 60, searchRadiusMiles: 35 },
-];
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Public API
@@ -78,15 +60,15 @@ export async function checkTerritoryAvailability(
   zip: string,
   excludeInstallerId?: string
 ): Promise<TerritoryCheckResult> {
-  const trimmed = zip.trim();
+  const trimmed = postalKey(zip);
 
-  if (!/^\d{5}$/.test(trimmed)) {
-    return { available: false, reason: "Invalid ZIP code format." };
+  if (!trimmed) {
+    return { available: false, reason: INVALID_POSTAL_MESSAGE };
   }
 
   const zipInfo = zipcodes.lookup(trimmed);
   if (!zipInfo) {
-    return { available: false, reason: "ZIP code not found." };
+    return { available: false, reason: "ZIP / postal code not found." };
   }
 
   const supabase = getServiceClient();
@@ -152,15 +134,15 @@ export async function assignTerritoryCluster(
   installerId: string,
   homeZip: string
 ): Promise<ClusterAssignResult> {
-  const trimmed = homeZip.trim();
+  const trimmed = postalKey(homeZip);
 
-  if (!/^\d{5}$/.test(trimmed)) {
-    return { success: false, error: "Invalid ZIP code." };
+  if (!trimmed) {
+    return { success: false, error: INVALID_POSTAL_MESSAGE };
   }
 
   const zipInfo = zipcodes.lookup(trimmed);
   if (!zipInfo) {
-    return { success: false, error: "ZIP code not found." };
+    return { success: false, error: "ZIP / postal code not found." };
   }
 
   const supabase = getServiceClient();
@@ -180,7 +162,7 @@ export async function assignTerritoryCluster(
 
   // ── Step 2: Compute cluster ──
   const tier = detectDensityTier(trimmed);
-  const candidateZips = zipcodes.radius(trimmed, tier.searchRadiusMiles) ?? [];
+  const candidateZips = sameCountryRadius(trimmed, tier.searchRadiusMiles);
 
   // Get this installer's already-claimed ZIPs in this radius
   const { data: ownedRows } = await supabase
@@ -314,7 +296,7 @@ export async function expandTerritoryCluster(
   installerId: string,
   homeZip: string
 ): Promise<{ assignedZips: string[] }> {
-  const trimmed = homeZip.trim();
+  const trimmed = postalKey(homeZip) ?? homeZip.trim();
   const supabase = getServiceClient();
 
   const { data: currentRows } = await supabase
@@ -340,7 +322,7 @@ export async function expandTerritoryCluster(
     return { assignedZips: Array.from(currentZips) };
   }
 
-  const candidateZips = zipcodes.radius(trimmed, tier.searchRadiusMiles) ?? [];
+  const candidateZips = sameCountryRadius(trimmed, tier.searchRadiusMiles);
 
   // Only exclude ZIPs this installer already owns
   const slotsNeeded = tier.targetZips - currentZips.size;
@@ -417,14 +399,14 @@ export async function addServiceZip(
   if (!user) return { success: false, error: "Not authenticated." };
   if (user.id !== installerId) return { success: false, error: "Not authorized." };
 
-  const trimmed = zip.trim();
-  if (!/^\d{5}$/.test(trimmed)) {
-    return { success: false, error: "Please enter a valid 5-digit ZIP code." };
+  const trimmed = postalKey(zip);
+  if (!trimmed) {
+    return { success: false, error: INVALID_POSTAL_MESSAGE };
   }
 
   const zipInfo = zipcodes.lookup(trimmed);
   if (!zipInfo) {
-    return { success: false, error: "ZIP code not found." };
+    return { success: false, error: "ZIP / postal code not found." };
   }
 
   const supabase = getServiceClient();
@@ -437,6 +419,13 @@ export async function addServiceZip(
 
   if (!profileRow?.service_zip) {
     return { success: false, error: "Set your home base ZIP and service radius first." };
+  }
+
+  if (countryOfPostal(profileRow.service_zip) !== countryOfPostal(trimmed)) {
+    return {
+      success: false,
+      error: "Service areas can't cross the US–Canada border — your payments, currency and taxes are tied to one country.",
+    };
   }
 
   const currentZips: string[] = profileRow.service_zips ?? [];
@@ -518,7 +507,7 @@ export async function removeServiceZip(
   if (!user) return { success: false, error: "Not authenticated." };
   if (user.id !== installerId) return { success: false, error: "Not authorized." };
 
-  const trimmed = zip.trim();
+  const trimmed = postalKey(zip) ?? zip.trim();
   const supabase = getServiceClient();
 
   const { data: row } = await supabase
@@ -583,20 +572,3 @@ export async function getManualServiceZips(installerId: string): Promise<ManualS
 // Internal Helpers
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Detect the density tier for a ZIP code by counting how many
- * ZIPs exist within the probe radius.
- */
-function detectDensityTier(zip: string): DensityTier {
-  const probeZips = zipcodes.radius(zip, DENSITY_PROBE_RADIUS) ?? [];
-  const density = probeZips.length;
-
-  for (const tier of DENSITY_TIERS) {
-    if (density >= tier.minDensityCount) {
-      return tier;
-    }
-  }
-
-  // Fallback (should never happen — last tier has minDensityCount: 0)
-  return DENSITY_TIERS[DENSITY_TIERS.length - 1];
-}

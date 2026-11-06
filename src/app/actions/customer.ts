@@ -8,6 +8,7 @@ import type { InstallerPricing } from "@/types/viewModels";
 import type { ServiceOffering } from "@/config/services";
 import { recordAnonymousDemand } from "@/app/actions/demand-signals";
 import { zipCache, installerCache } from "@/lib/cache";
+import { postalKey, INVALID_POSTAL_MESSAGE } from "@/lib/geo/postal";
 
 export interface AvailabilityResult {
   available: boolean;
@@ -105,9 +106,9 @@ function toResult(
 export async function checkAvailability(
   zip: string
 ): Promise<AvailabilityResult> {
-  const trimmed = zip.trim();
-  if (!/^\d{5}$/.test(trimmed)) {
-    return toResult(null, "Please enter a valid 5-digit ZIP code.");
+  const trimmed = postalKey(zip);
+  if (!trimmed) {
+    return toResult(null, INVALID_POSTAL_MESSAGE);
   }
 
   return zipCache.getOrFetch(`avail:${trimmed}`, async () => {
@@ -205,9 +206,9 @@ export async function rerouteToLocalInstaller(
   customerZip: string,
   originalInstallerId: string
 ): Promise<AvailabilityResult> {
-  const trimmed = customerZip.trim();
-  if (!/^\d{5}$/.test(trimmed)) {
-    return toResult(null, "Please enter a valid 5-digit ZIP code.");
+  const trimmed = postalKey(customerZip);
+  if (!trimmed) {
+    return toResult(null, INVALID_POSTAL_MESSAGE);
   }
 
   try {

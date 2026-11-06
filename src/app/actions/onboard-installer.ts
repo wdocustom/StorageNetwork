@@ -7,6 +7,8 @@ import { slugify } from "@/lib/utils";
 import { sendInstallerOnboardingEmail } from "@/lib/email";
 import { assignTerritoryCluster } from "@/app/actions/territory";
 import { getBlockedEmailDomain } from "@/lib/disposable-emails";
+import { parsePostalCode, INVALID_POSTAL_MESSAGE } from "@/lib/geo/postal";
+import { currencyForCountry } from "@/lib/geo/currency";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Installer Onboarding — Create Account → Redirect to Dashboard
@@ -62,10 +64,16 @@ export async function onboardInstaller(
   }
 
   try {
-    // 0. Validate ZIP format
-    const baseZip = zipCode.trim();
-    if (!/^\d{5}$/.test(baseZip)) {
-      return { success: false, error: "Please enter a valid 5-digit ZIP code." };
+    // 0. Validate ZIP / postal code. The home code also decides the
+    //    installer's country (US ZIP → US, Canadian postal code → CA) and with
+    //    it the currency every customer charge is presented in.
+    const postal = parsePostalCode(zipCode);
+    if (!postal) {
+      return { success: false, error: INVALID_POSTAL_MESSAGE };
+    }
+    const baseZip = postal.key;
+    if (!zipcodes.lookup(baseZip)) {
+      return { success: false, error: "We couldn't find that ZIP / postal code. Please double-check it." };
     }
 
     // 1. Create auth user
@@ -105,6 +113,8 @@ export async function onboardInstaller(
       service_radius_miles: DEFAULT_SERVICE_RADIUS,
       service_zips: [baseZip], // Temporary — overwritten by cluster assignment
       subscription_tier: "pro",
+      country: postal.country,
+      currency: currencyForCountry(postal.country),
       latitude: zipGeo?.latitude ?? null,
       longitude: zipGeo?.longitude ?? null,
     });

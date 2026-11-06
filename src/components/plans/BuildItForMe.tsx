@@ -22,6 +22,7 @@ import {
 } from "@/app/actions/plan-build-request";
 import SystemMap from "@/components/plans/SystemMap";
 import { encodeTotePlanDesign, type TotePlanDesign } from "@/lib/tote-plans";
+import { POSTAL_INPUT_MAX_LENGTH, isValidPostalCode, sanitizePostalInput } from "@/lib/geo/postal";
 
 const money = (n: number) => `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
@@ -113,8 +114,8 @@ function BuildSheet({
   }, [referral]);
 
   const checkZip = async () => {
-    if (!/^\d{5}$/.test(zip.trim())) {
-      setStep({ kind: "zip", error: "Enter a 5-digit ZIP code." });
+    if (!isValidPostalCode(zip.trim())) {
+      setStep({ kind: "zip", error: "Enter a valid ZIP or postal code." });
       return;
     }
     setStep({ kind: "loading" });
@@ -162,11 +163,11 @@ function BuildSheet({
               <p className="mb-3 text-xs text-stone-400">We'll find the installer who covers your area and show their price.</p>
               <div className="flex gap-2">
                 <input
-                  inputMode="numeric"
+                  autoCapitalize="characters"
                   autoComplete="postal-code"
-                  maxLength={5}
+                  maxLength={POSTAL_INPUT_MAX_LENGTH}
                   value={zip}
-                  onChange={(e) => setZip(e.target.value.replace(/\D/g, ""))}
+                  onChange={(e) => setZip(sanitizePostalInput(e.target.value))}
                   onKeyDown={(e) => e.key === "Enter" && checkZip()}
                   placeholder="ZIP code"
                   aria-label="ZIP code"
@@ -354,8 +355,8 @@ function BuilderQuote({
           <input type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone (optional)" aria-label="Phone" autoComplete="tel" className={input} />
           <input
             required
-            inputMode="numeric"
-            maxLength={5}
+            autoCapitalize="characters"
+            maxLength={POSTAL_INPUT_MAX_LENGTH}
             value={form.zip}
             onChange={(e) => setForm({ ...form, zip: e.target.value.replace(/\D/g, "") })}
             placeholder="ZIP"

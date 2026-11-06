@@ -33,6 +33,7 @@ import { stampLastLogin } from "@/app/actions/profile";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import InstallerTestimonials from "@/components/landing/InstallerTestimonials";
 import { PRO_FREE_PROMO } from "@/config/pro-pricing";
+import { POSTAL_INPUT_MAX_LENGTH, countryOfPostal, isCompletePostalInput, sanitizePostalInput } from "@/lib/geo/postal";
 
 /**
  * While Pro is free (PRO_FREE_PROMO), the old trial / fee line is shown
@@ -104,7 +105,9 @@ function InvitePageContent() {
   }, [searchParams]);
 
   const checkTerritory = useCallback(async (zip: string) => {
-    if (zip.length !== 5) {
+    // Canada is keyed by FSA ("M5V"), so talk about postal areas there.
+    const areaWord = countryOfPostal(zip) === "CA" ? "postal areas" : "ZIP codes";
+    if (!isCompletePostalInput(zip)) {
       setTerritoryStatus("idle");
       setTerritoryMessage("");
       setDemandWaiting(null);
@@ -127,13 +130,13 @@ function InvitePageContent() {
         const preview = territory.clusterPreview;
         setTerritoryMessage(
           preview
-            ? `Territory available! You'll cover ~${preview.estimatedZips} ZIP codes.`
+            ? `Territory available! You'll cover ~${preview.estimatedZips} ${areaWord}.`
             : "Territory available!"
         );
       } else {
         setTerritoryStatus("taken");
         setTerritoryMessage(
-          territory.reason || "Territory unavailable. Try a different ZIP code."
+          territory.reason || "Territory unavailable. Try a different ZIP or postal code."
         );
       }
 
@@ -324,10 +327,10 @@ function InvitePageContent() {
                   {/* ZIP — territory check + waiting-customer preview */}
                   <div>
                     <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-stone-500">
-                      Your ZIP Code
+                      Your ZIP / Postal Code
                     </label>
                     <p className="mb-2 text-[11px] text-stone-400">
-                      Drop your ZIP — we&rsquo;ll check if customers in your area are <span className="font-semibold text-yellow-400">already asking and waiting</span> for an installer.
+                      Drop your ZIP or postal code — we&rsquo;ll check if customers in your area are <span className="font-semibold text-yellow-400">already asking and waiting</span> for an installer.
                     </p>
                     <div
                       className={`flex items-center rounded-lg border bg-gray-800 transition-colors ${
@@ -349,14 +352,14 @@ function InvitePageContent() {
                       />
                       <input
                         type="text"
-                        inputMode="numeric"
-                        maxLength={5}
+                        autoCapitalize="characters"
+                        maxLength={POSTAL_INPUT_MAX_LENGTH}
                         value={zipCode}
                         onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, "").slice(0, 5);
+                          const val = sanitizePostalInput(e.target.value);
                           setZipCode(val);
                           if (territoryCheckTimer.current) clearTimeout(territoryCheckTimer.current);
-                          if (val.length === 5) {
+                          if (isCompletePostalInput(val)) {
                             territoryCheckTimer.current = setTimeout(() => checkTerritory(val), 400);
                           } else {
                             setTerritoryStatus("idle");

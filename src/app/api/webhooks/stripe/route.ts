@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { waitUntil } from "@vercel/functions";
 import { summarizeDispute } from "@/lib/stripe/disputes";
+import { checkTransferEligibility } from "@/lib/stripe/cross-border";
+import { normalizeCurrency } from "@/lib/geo/currency";
 
 export const dynamic = "force-dynamic";
 import { sendBookingConfirmation, sendNewBookingAlert, sendProWelcomeEmail, sendProRenewalReceipt, sendSubscriptionPaymentFailed, quoteDataToBookingUnits, sendDisputeAlert, sendDisputeResolvedAlert } from "@/lib/email";
@@ -238,6 +240,32 @@ async function processReferralBounty(leadId: string, paymentIntentId: string) {
 
     // 4. Execute the Stripe Transfer
     if (!stripe) return;
+
+    // Cross-border guard: the deposit's currency is the covering installer's
+    // (CAD for a Canadian job), and a US platform can't transfer to a
+    // Canadian Standard account. Either way → park for manual payout rather
+    // than send the wrong amount or throw mid-webhook.
+    const { data: coveringInstaller } = claimed.installer_id
+      ? await getDb().from("profiles").select("currency").eq("id", claimed.installer_id).maybeSingle()
+      : { data: null };
+    const eligibility = await checkTransferEligibility(
+      stripe,
+      referrer.stripe_account_id,
+      normalizeCurrency(coveringInstaller?.currency as string | null)
+    );
+    if (!eligibility.ok) {
+      console.warn(`[Bounty] Lead ${leadId}: ${eligibility.detail} — parked as manual_payout (${bountyAmountCents} minor units)`);
+      await getDb()
+        .from("leads")
+        .update({
+          bounty_status: "manual_payout",
+          bounty_amount: bountyAmountCents / 100,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", leadId);
+      return;
+    }
+
     const transfer = await stripe.transfers.create({
       amount: bountyAmountCents,
       currency: "usd",
@@ -428,7 +456,22 @@ async function processPromoterCommission(session: Stripe.Checkout.Session) {
       return;
     }
 
-    // 4. Execute the transfer.
+    // 4. Cross-border / currency guard (see @/lib/stripe/cross-border).
+    const eligibility = await checkTransferEligibility(
+      stripe,
+      promoter.stripe_account_id,
+      session.currency ?? "usd"
+    );
+    if (!eligibility.ok) {
+      console.warn(`[Promoter] ${promoterId.slice(0, 8)}…: ${eligibility.detail} — needs manual payout`);
+      await getDb()
+        .from("promoter_payouts")
+        .update({ status: "failed", failure_reason: eligibility.reason, updated_at: new Date().toISOString() })
+        .eq("id", payoutRow.id);
+      return;
+    }
+
+    // 5. Execute the transfer.
     const transfer = await stripe.transfers.create({
       amount: commissionCents,
       currency: "usd",
@@ -2101,6 +2144,8 @@ async function processAffiliateInvoicePayout(invoice: Stripe.Invoice) {
       stripeInvoiceId: invoiceId,
       kind: "recurring",
       amountCents: recurringCents,
+      // A % of the recruit's invoice — denominated in that invoice's currency.
+      sourceCurrency: invoice.currency,
       notes: recurringNote,
     });
   }
@@ -2112,6 +2157,7 @@ async function processAffiliateInvoicePayout(invoice: Stripe.Invoice) {
       stripeInvoiceId: invoiceId,
       kind: "signup_bonus",
       amountCents: signupBonusCents,
+      sourceCurrency: "usd", // fixed USD bonus from the agreement
       notes: "One-time signup bonus on recruit's first paid invoice",
     });
   }
@@ -2124,6 +2170,8 @@ interface IssuePayoutInput {
   stripeInvoiceId: string;
   kind: "recurring" | "signup_bonus";
   amountCents: number;
+  /** Currency the amount was computed in (see @/lib/stripe/cross-border). */
+  sourceCurrency: string;
   notes: string;
 }
 
@@ -2181,7 +2229,7 @@ async function issueAffiliatePayout(input: IssuePayoutInput) {
         kind: input.kind,
         stripe_invoice_id: input.stripeInvoiceId,
         amount_cents: input.amountCents,
-        currency: "usd",
+        currency: input.sourceCurrency.toLowerCase(),
         status: "pending",
         notes: input.notes,
       })
@@ -2215,6 +2263,18 @@ async function issueAffiliatePayout(input: IssuePayoutInput) {
     return;
   }
   try {
+    // Cross-border / currency guard — park for manual payout instead of
+    // letting Stripe reject the transfer (or paying CAD cents as USD).
+    const eligibility = await checkTransferEligibility(stripe, stripeAccountId, input.sourceCurrency);
+    if (!eligibility.ok) {
+      console.warn(`[Affiliate] payout ${payoutId}: ${eligibility.detail} — needs manual payout`);
+      await getDb()
+        .from("affiliate_payouts")
+        .update({ status: "failed", failure_reason: eligibility.reason, updated_at: new Date().toISOString() })
+        .eq("id", payoutId);
+      return;
+    }
+
     await getDb()
       .from("affiliate_payouts")
       .update({ status: "processing", updated_at: new Date().toISOString() })

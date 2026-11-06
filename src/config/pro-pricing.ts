@@ -15,6 +15,19 @@ export const PRO_FREE_PROMO = true;
 /** List price in dollars per month. */
 export const PRO_MONTHLY_PRICE = 49;
 
+/**
+ * Canadian installers are billed in CAD so their subscription, their job
+ * charges and any fee invoices all share one currency (Stripe requires an
+ * invoice item's currency to match the billing customer's). Marketing copy
+ * keeps quoting the USD list price.
+ */
+export const PRO_MONTHLY_PRICE_CAD = 69;
+
+/** Monthly price in whole units of `currency` ("usd" | "cad"). */
+export function proMonthlyPriceFor(currency: string): number {
+  return currency === "cad" ? PRO_MONTHLY_PRICE_CAD : PRO_MONTHLY_PRICE;
+}
+
 /** "$49/mo" */
 export const PRO_PRICE_LABEL = `$${PRO_MONTHLY_PRICE}/mo`;
 

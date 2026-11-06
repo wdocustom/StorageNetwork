@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import { sendInstallerWelcome } from "@/lib/email";
 import { getAppUrl } from "@/lib/url-helper";
+import { syncInstallerLocaleFromAccount } from "@/lib/stripe/account-locale";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +92,10 @@ export async function GET(request: NextRequest) {
         stripe_details_submitted: true,
       })
       .eq("id", profile.id);
+
+    // 3a. Pin country + settlement currency to the Connect account so every
+    //     direct charge is presented in the currency it settles in.
+    await syncInstallerLocaleFromAccount(supabase, profile.id, account);
 
     // 4. Send welcome email
     const installerName = [profile.first_name, profile.last_name]

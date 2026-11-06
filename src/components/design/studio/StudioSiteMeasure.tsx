@@ -10,6 +10,7 @@
 import { useState } from "react";
 import { CheckCircle2, Loader2, Send } from "lucide-react";
 import { requestOnSiteMeasure } from "@/app/actions/site-measure";
+import { POSTAL_INPUT_MAX_LENGTH, sanitizePostalInput } from "@/lib/geo/postal";
 
 const input =
   "w-full min-w-0 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none";
@@ -83,10 +84,10 @@ export default function StudioSiteMeasure({
         <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" type="email" aria-label="Email" className={input} />
         <input
           value={zip}
-          onChange={(e) => setZip(e.target.value.replace(/\D/g, "").slice(0, 5))}
+          onChange={(e) => setZip(sanitizePostalInput(e.target.value))}
           placeholder="ZIP"
-          inputMode="numeric"
-          maxLength={5}
+          autoCapitalize="characters"
+          maxLength={POSTAL_INPUT_MAX_LENGTH}
           aria-label="ZIP"
           className={input}
         />

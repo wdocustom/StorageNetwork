@@ -11,6 +11,7 @@ import { DEFAULT_SERVICES, type ServiceOffering } from "@/config/services";
 import { roundMoney, calculateBalanceDue } from "@/utils/mathHelpers";
 import { getDepositAmount } from "@/app/actions/fee-engine";
 import { onAccount, assertDirectChargeReady } from "@/lib/stripe/direct-charges";
+import { normalizeCurrency } from "@/lib/geo/currency";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Cleanout Upsell — Automated Pre-Install Upsell Engine
@@ -260,7 +261,7 @@ export async function createCleanoutUpsellCheckout(
     // Fetch installer's Stripe account
     const { data: installer } = await db()
       .from("profiles")
-      .select("stripe_account_id, business_name, services_config")
+      .select("stripe_account_id, business_name, services_config, currency")
       .eq("id", lead.installer_id)
       .single();
 
@@ -298,7 +299,7 @@ export async function createCleanoutUpsellCheckout(
       line_items: [
         {
           price_data: {
-            currency: "usd",
+            currency: normalizeCurrency(installer.currency as string | null),
             product_data: {
               name: `Add-On: ${serviceName}`,
               description: `50% deposit for ${serviceName} — ${installer.business_name || "Your Installer"}`,

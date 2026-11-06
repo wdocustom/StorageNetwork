@@ -37,6 +37,7 @@ import { getServiceClient } from "@/lib/supabase-server";
 import { checkProTrial } from "@/lib/server/pro-trial";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { markSendConverted } from "@/lib/marketing-attribution";
+import { isValidPostalCode, parsePostalCode, INVALID_POSTAL_MESSAGE } from "@/lib/geo/postal";
 
 const supabase = getServiceClient();
 
@@ -138,7 +139,7 @@ export async function checkDeliveryZip(
   installerId: string,
   zip: string
 ): Promise<ZipCheckResult> {
-  if (!installerId || !zip || zip.trim().length !== 5) {
+  if (!installerId || !isValidPostalCode(zip)) {
     return { in_area: true, waitlist: false }; // Skip if no valid ZIP
   }
 
@@ -285,10 +286,12 @@ export async function createQuote(
     let effectiveQuoteData = quote_data;
     let effectiveTotal = grand_total;
 
-    const deliveryZip = customer_zip?.trim() || delivery_address?.zip?.trim();
+    // Keep the customer's full code ("M5V 2T6") for the address; every
+    // matching/territory helper normalizes it to its key via postalKey().
+    const deliveryZip = parsePostalCode(customer_zip || delivery_address?.zip)?.formatted;
 
-    if (!deliveryZip || !/^\d{5}$/.test(deliveryZip)) {
-      return { success: false, error: "A valid 5-digit ZIP code is required." };
+    if (!deliveryZip) {
+      return { success: false, error: INVALID_POSTAL_MESSAGE };
     }
 
     // Treat "not accepting new leads" exactly like an out-of-area handoff so

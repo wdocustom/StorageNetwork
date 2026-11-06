@@ -25,6 +25,7 @@ import {
   enforceActionRateLimit,
   RateLimitError,
 } from "@/lib/server/action-rate-limit";
+import { postalKey, INVALID_POSTAL_MESSAGE } from "@/lib/geo/postal";
 
 const supabase = getServiceClient();
 
@@ -62,7 +63,7 @@ export async function requestOnSiteMeasure(
   const name = input.customerName?.trim();
   const email = input.customerEmail?.trim().toLowerCase();
   const phone = input.customerPhone?.trim();
-  const zip = input.zip?.trim();
+  const zip = postalKey(input.zip);
   const notes = input.notes?.trim();
 
   if (!name) return { success: false, error: "Your name is required." };
@@ -72,8 +73,8 @@ export async function requestOnSiteMeasure(
   if (!phone || phone.replace(/\D/g, "").length < 10) {
     return { success: false, error: "Please enter a valid phone number." };
   }
-  if (!/^\d{5}$/.test(zip)) {
-    return { success: false, error: "Please enter a 5-digit ZIP code." };
+  if (!zip) {
+    return { success: false, error: INVALID_POSTAL_MESSAGE };
   }
   if (notes && notes.length > 1000) {
     return { success: false, error: "Notes are too long (max 1000 characters)." };

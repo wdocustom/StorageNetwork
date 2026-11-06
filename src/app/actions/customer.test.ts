@@ -114,13 +114,13 @@ describe("checkAvailability", () => {
   it("rejects empty ZIP", async () => {
     const result = await checkAvailability("");
     expect(result.available).toBe(false);
-    expect(result.message).toMatch(/valid 5-digit ZIP/i);
+    expect(result.message).toMatch(/valid ZIP or postal code/i);
   });
 
   it("rejects 4-digit ZIP", async () => {
     const result = await checkAvailability("9021");
     expect(result.available).toBe(false);
-    expect(result.message).toMatch(/valid 5-digit ZIP/i);
+    expect(result.message).toMatch(/valid ZIP or postal code/i);
   });
 
   it("rejects ZIP with letters", async () => {

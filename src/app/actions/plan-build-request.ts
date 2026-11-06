@@ -30,6 +30,7 @@ import { enforceActionRateLimit, RateLimitError } from "@/lib/server/action-rate
 import { priceDesignForInstaller } from "@/lib/server/plan-build-quote";
 import { PLAN_REF_COOKIE, cleanReferralId } from "@/lib/plan-splits";
 import { parseTotePlanDesign } from "@/lib/tote-plans";
+import { parsePostalCode, INVALID_POSTAL_MESSAGE } from "@/lib/geo/postal";
 
 export interface PlanBuilder {
   id: string;
@@ -67,12 +68,11 @@ async function builderFor(id: string, referred: boolean): Promise<PlanBuilder | 
   };
 }
 
-const ZIP = /^\d{5}$/;
 
 /** Who would build this: the referring installer if they serve the ZIP, else the local one. */
 export async function findPlanBuilder(input: { ref?: string | null; zip?: string | null }): Promise<FindPlanBuilderResult> {
   const ref = await referralId(input.ref);
-  const zip = input.zip && ZIP.test(input.zip.trim()) ? input.zip.trim() : null;
+  const zip = parsePostalCode(input.zip)?.formatted ?? null;
 
   if (ref) {
     // Referred: go back to that installer — straight away, or once the ZIP checks out
@@ -138,9 +138,9 @@ export async function requestPlanBuild(input: {
 
   const design = parseTotePlanDesign(input.design);
   const installerId = cleanReferralId(input.installerId);
-  const zip = input.zip?.trim() ?? "";
+  const zip = parsePostalCode(input.zip)?.formatted ?? "";
   if (!design || !installerId) return { ok: false, error: "Something's off with this design — refresh and try again." };
-  if (!ZIP.test(zip)) return { ok: false, error: "Enter your 5-digit ZIP code." };
+  if (!zip) return { ok: false, error: INVALID_POSTAL_MESSAGE };
 
   const inst = await getInstallerById(installerId);
   if (!inst.installer_id) return { ok: false, error: "That installer isn't taking bookings right now." };

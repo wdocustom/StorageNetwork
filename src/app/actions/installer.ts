@@ -12,6 +12,9 @@ import {
   releaseTerritoryCluster,
   expandTerritoryCluster,
 } from "@/app/actions/territory";
+import { parsePostalCode, postalKey, INVALID_POSTAL_MESSAGE } from "@/lib/geo/postal";
+import { currencyForCountry } from "@/lib/geo/currency";
+import { sameCountryRadius } from "@/lib/geo/territory-tiers";
 
 const supabase = getServiceClient();
 
@@ -36,31 +39,49 @@ export interface UpdateProfileResult {
 export async function updateInstallerProfile(
   input: UpdateProfileInput
 ): Promise<UpdateProfileResult> {
-  const { installer_id, service_zip, service_radius_miles } = input;
+  const { installer_id, service_radius_miles } = input;
 
   // Auth check: verify the caller is the installer being updated
   const user = await getAuthenticatedUser();
   if (!user) return { success: false, zips_covered: 0, error: "Not authenticated." };
   if (user.id !== installer_id) return { success: false, zips_covered: 0, error: "Not authorized." };
 
-  // Validate the base zip
-  if (!/^\d{5}$/.test(service_zip)) {
-    return { success: false, zips_covered: 0, error: "Invalid ZIP code." };
+  // Validate the base ZIP / postal code
+  const postal = parsePostalCode(input.service_zip);
+  if (!postal) {
+    return { success: false, zips_covered: 0, error: INVALID_POSTAL_MESSAGE };
   }
+  const service_zip = postal.key;
 
   const zipInfo = zipcodes.lookup(service_zip);
   if (!zipInfo) {
-    return { success: false, zips_covered: 0, error: "ZIP code not found." };
+    return { success: false, zips_covered: 0, error: "ZIP / postal code not found." };
   }
 
   // ── Fetch current profile to detect ZIP change ──
   const { data: currentProfile } = await supabase
     .from("profiles")
-    .select("service_zip")
+    .select("service_zip, country, stripe_account_id")
     .eq("id", installer_id)
     .single();
 
   const isZipChanging = currentProfile?.service_zip !== service_zip;
+
+  // ── Country guard ──
+  // A Stripe account's country is permanent, and every charge settles in its
+  // currency. Once an installer has connected Stripe they can't move their
+  // home base across the border; before that, the move just re-derives
+  // country + currency.
+  const currentCountry = (currentProfile?.country as string | null) ?? "US";
+  const isCountryChanging = currentCountry !== postal.country;
+  if (isCountryChanging && currentProfile?.stripe_account_id) {
+    return {
+      success: false,
+      zips_covered: 0,
+      error:
+        "Your payout account is set up in a different country, so your home base can't move across the US–Canada border. Contact support to switch countries.",
+    };
+  }
 
   // ── Validate new ZIP exists (shared territories — no exclusivity block) ──
   if (isZipChanging) {
@@ -125,7 +146,8 @@ export async function updateInstallerProfile(
         coveredZips = expanded.assignedZips;
       } catch {
         // Expansion failed — fall back to radius computation
-        coveredZips = zipcodes.radius(service_zip, radius) ?? [service_zip];
+        coveredZips = sameCountryRadius(service_zip, radius);
+        if (coveredZips.length === 0) coveredZips = [service_zip];
       }
     }
   }
@@ -139,6 +161,10 @@ export async function updateInstallerProfile(
     service_settings: input.service_settings ?? {},
     latitude: zipGeo?.latitude ?? null,
     longitude: zipGeo?.longitude ?? null,
+    ...(isCountryChanging && {
+      country: postal.country,
+      currency: currencyForCountry(postal.country),
+    }),
   };
 
   if (input.business_name !== undefined) {
@@ -195,9 +221,9 @@ export async function validateServiceArea(
     return { inArea: true }; // No installer or no ZIP = skip validation
   }
 
-  const trimmedZip = customerZip.trim();
-  if (!/^\d{5}$/.test(trimmedZip)) {
-    return { inArea: false, error: "Please enter a valid 5-digit ZIP code." };
+  const trimmedZip = postalKey(customerZip);
+  if (!trimmedZip) {
+    return { inArea: false, error: INVALID_POSTAL_MESSAGE };
   }
 
   try {
@@ -259,8 +285,9 @@ export async function submitWaitlistRequest(input: WaitlistInput): Promise<{
   if (!input.customer_name?.trim() || !input.customer_email?.trim()) {
     return { success: false, error: "Name and email are required." };
   }
-  if (!input.customer_zip?.trim() || !/^\d{5}$/.test(input.customer_zip.trim())) {
-    return { success: false, error: "A valid 5-digit ZIP code is required." };
+  const customerZipKey = postalKey(input.customer_zip);
+  if (!customerZipKey) {
+    return { success: false, error: INVALID_POSTAL_MESSAGE };
   }
 
   try {
@@ -277,7 +304,7 @@ export async function submitWaitlistRequest(input: WaitlistInput): Promise<{
 
     // Persist waitlist demand signal in DB (so we can activate later)
     await recordWaitlistDemand({
-      zip: input.customer_zip.trim(),
+      zip: customerZipKey,
       customerName: input.customer_name.trim(),
       customerEmail: input.customer_email.trim(),
       customerPhone: input.customer_phone?.trim(),

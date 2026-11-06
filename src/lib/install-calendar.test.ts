@@ -62,6 +62,13 @@ describe("zoneForAddress", () => {
     expect(zoneForAddress("1 A St, Denver, Colorado 80202")).toBe("America/Denver");
     expect(zoneForAddress("1 A St, Somewhere")).toBeNull();
   });
+
+  it("reads Canadian provinces with postal codes", () => {
+    expect(zoneForAddress("1 King St W, Toronto, ON M5V 2T6")).toBe("America/Toronto");
+    expect(zoneForAddress("1 Main St, Vancouver, BC V6B1A1")).toBe("America/Vancouver");
+    expect(zoneForAddress("1 Rue, Montréal, Quebec H2X 1Y4")).toBe("America/Toronto");
+    expect(zoneForAddress("1 Ave, Regina, SK")).toBe("America/Regina");
+  });
 });
 
 describe("pickCalendar", () => {

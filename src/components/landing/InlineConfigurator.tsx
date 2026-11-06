@@ -8,6 +8,7 @@ import {
   Paintbrush, Wrench, ShieldCheck,
 } from "lucide-react";
 import { checkAvailability, type AvailabilityResult } from "@/app/actions/customer";
+import { POSTAL_INPUT_MAX_LENGTH, isValidPostalCode, sanitizePostalInput } from "@/lib/geo/postal";
 
 type Step = "zip" | "reveal" | "preview";
 
@@ -52,7 +53,7 @@ export default function InlineConfigurator() {
 
   async function handleSearch() {
     const trimmed = zip.trim();
-    if (trimmed.length < 5) { setError("Enter a valid 5-digit ZIP code."); return; }
+    if (!isValidPostalCode(trimmed)) { setError("Enter a valid ZIP or postal code."); return; }
     setError(""); setSearching(true);
     try {
       const result = await checkAvailability(trimmed);
@@ -118,11 +119,11 @@ export default function InlineConfigurator() {
               </div>
               <input
                 type="text"
-                inputMode="numeric"
-                maxLength={5}
+                autoCapitalize="characters"
+                maxLength={POSTAL_INPUT_MAX_LENGTH}
                 value={zip}
                 aria-label="ZIP code"
-                onChange={(e) => { setZip(e.target.value.replace(/\D/g, "").slice(0, 5)); setError(""); }}
+                onChange={(e) => { setZip(sanitizePostalInput(e.target.value)); setError(""); }}
                 onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
                 placeholder={PLACEHOLDERS[placeholderIdx % PLACEHOLDERS.length]}
                 className="w-full bg-transparent px-3 py-4 text-lg font-medium text-white placeholder-stone-500 outline-none"
@@ -130,7 +131,7 @@ export default function InlineConfigurator() {
               />
               <button
                 onClick={handleSearch}
-                disabled={searching || zip.length < 5}
+                disabled={searching || !isValidPostalCode(zip)}
                 className="m-1.5 flex shrink-0 items-center gap-2 rounded-lg bg-yellow-400 px-5 py-3 text-sm font-bold uppercase tracking-wider text-black transition-all hover:bg-yellow-300 disabled:opacity-50"
               >
                 {searching

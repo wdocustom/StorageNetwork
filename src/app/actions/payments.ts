@@ -6,6 +6,7 @@ import { siteConfig } from "@/config/site";
 import { z } from "zod/v4";
 import { incrementDiscountCodeUsage } from "./discount-codes";
 import { getAddonDepositAmount, getDepositAmount, getEstimatedSalesTax, getSalesTax } from "./fee-engine";
+import { normalizeCurrency, type CurrencyCode } from "@/lib/geo/currency";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Payment Server Action — Black Box
@@ -408,10 +409,19 @@ async function isInstallerPro(installerId: string): Promise<boolean> {
 async function getInstallerProfile(installerId: string) {
   const { data } = await supabase
     .from("profiles")
-    .select("stripe_account_id, is_pro, platform_fee_override, stripe_subscription_id")
+    .select("stripe_account_id, is_pro, platform_fee_override, stripe_subscription_id, currency")
     .eq("id", installerId)
     .single();
   return data;
+}
+
+// ── Helper: currency every charge for this installer is presented in ─────
+// Direct charges settle on the installer's own account, so they must be in
+// that account's currency (USD for US installers, CAD for Canadian ones) —
+// see @/lib/geo/currency. Platform-side charges for installers without
+// Stripe use the same currency so the customer sees one consistent price.
+function chargeCurrency(profile: { currency?: string | null } | null | undefined): CurrencyCode {
+  return normalizeCurrency(profile?.currency);
 }
 
 type InstallerFeeProfile = Pick<
@@ -583,7 +593,7 @@ export async function createPaymentSession(
         line_items: [
           {
             price_data: {
-              currency: "usd",
+              currency: chargeCurrency(profile),
               product_data: {
                 name: description || "Storage Unit — Remaining Balance",
                 description: `Job #${leadId.slice(0, 8)}`,
@@ -702,7 +712,7 @@ export async function createDepositCheckoutSession(
         line_items: [
           {
             price_data: {
-              currency: "usd",
+              currency: split.currency,
               product_data: {
                 name: "Storage Unit — Deposit",
                 description: `Job #${leadId.slice(0, 8)}`,
@@ -932,10 +942,20 @@ export async function markLeadAsPaid(leadId: string): Promise<{ success: boolean
           const customerId =
             typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id;
 
+          // The fee is denominated in the job's currency; an invoice item
+          // must match the billing customer's currency. A Canadian installer
+          // on a legacy USD subscription can't be auto-invoiced in CAD —
+          // surface it for manual billing rather than mis-charge.
+          if (subscription.currency !== chargeCurrency(profile)) {
+            throw new Error(
+              `Billing currency ${subscription.currency} ≠ job currency ${chargeCurrency(profile)} — invoice fee of ${feeCents} manually`
+            );
+          }
+
           await stripe.invoiceItems.create({
             customer: customerId,
             amount: feeCents,
-            currency: "usd",
+            currency: subscription.currency,
             description: `Platform maintenance fee — Job #${leadId.slice(0, 8)} (paid via cash/check/Venmo)`,
           });
 
@@ -1199,7 +1219,7 @@ export async function createBalanceCheckout(
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
       {
         price_data: {
-          currency: "usd",
+          currency: chargeCurrency(profile),
           product_data: {
             name: `Storage Unit — Balance Due (${bizName})`,
             description: `Job #${leadId.slice(0, 8)}`,
@@ -1212,7 +1232,7 @@ export async function createBalanceCheckout(
     if (tipCents > 0) {
       lineItems.push({
         price_data: {
-          currency: "usd",
+          currency: chargeCurrency(profile),
           product_data: { name: `Tip for ${bizName}` },
           unit_amount: tipCents,
         },
@@ -1362,7 +1382,7 @@ export async function chargeBalanceOffSession(
     const paymentIntent = await stripe.paymentIntents.create(
       {
         amount: amountCents,
-        currency: "usd",
+        currency: chargeCurrency(profile),
         customer: scopedCard.customerId,
         payment_method: scopedCard.paymentMethodId,
         off_session: true,
@@ -1521,7 +1541,7 @@ export async function chargeDepositOffSession(
     const paymentIntent = await stripe.paymentIntents.create(
       {
         amount: depositAmountCents,
-        currency: "usd",
+        currency: split.currency,
         customer: scopedCard.customerId,
         payment_method: scopedCard.paymentMethodId,
         off_session: true,
@@ -1667,6 +1687,8 @@ const depositIntentSchema = z.object({
 // see computePlatformFeeCents's comment above for why that's worth
 // guarding against (it already happened once).
 interface DepositFeeSplit {
+  /** Currency of the deposit charge (and so of every amount here). */
+  currency: CurrencyCode;
   platformFeeCents: number;
   installerReceivesCents: number;
   installerStripeId: string | null;
@@ -1688,6 +1710,7 @@ async function resolveDepositFeeSplit(params: {
   const installerProfile = await getInstallerProfile(installerId);
   const isPro = installerProfile?.is_pro === true;
   const installerStripeId = installerProfile?.stripe_account_id ?? null;
+  const currency = chargeCurrency(installerProfile);
   const feeOverride = installerProfile?.platform_fee_override;
   const hasFeeOverride = feeOverride !== null && feeOverride !== undefined;
 
@@ -1700,6 +1723,7 @@ async function resolveDepositFeeSplit(params: {
     // ── First 3 Jobs: Zero Platform Fees ─────────────────────────────────
     const installerReceivesCents = depositAmountCents;
     return {
+      currency,
       platformFeeCents: 0,
       installerReceivesCents,
       installerStripeId,
@@ -1730,6 +1754,7 @@ async function resolveDepositFeeSplit(params: {
     const platformFeeCents = Math.round(totalPriceCents * overrideRate);
     const installerReceivesCents = depositAmountCents - platformFeeCents;
     return {
+      currency,
       platformFeeCents,
       installerReceivesCents,
       installerStripeId,
@@ -1759,6 +1784,7 @@ async function resolveDepositFeeSplit(params: {
     const platformFeeCents = Math.max(0, basePlatformFeeCents - fbShareDiscountCents);
     const installerReceivesCents = depositAmountCents - platformFeeCents;
     return {
+      currency,
       platformFeeCents,
       installerReceivesCents,
       installerStripeId,
@@ -1779,6 +1805,7 @@ async function resolveDepositFeeSplit(params: {
 
   // ── No Stripe connected: Full deposit to Platform ──────────────────────
   return {
+    currency,
     platformFeeCents: depositAmountCents,
     installerReceivesCents: 0,
     installerStripeId: null,
@@ -1899,7 +1926,7 @@ export async function createDepositIntent(
     // balance the installer collects at installation (installer absorbs their own discount codes).
     const paymentIntent = await stripe.paymentIntents.create({
       amount: depositAmountCents,
-      currency: "usd",
+      currency: split.currency,
       payment_method_types: ["card"],
       ...(stripeCustomerId && { customer: stripeCustomerId }),
       setup_future_usage: "off_session",
@@ -2435,7 +2462,7 @@ export async function createAddonDepositCheckout(leadId: string): Promise<Balanc
         mode: "payment",
         line_items: pending.map((a) => ({
           price_data: {
-            currency: "usd",
+            currency: chargeCurrency(profile),
             product_data: {
               name: `Add-on Deposit — ${a.description || "Add-on"}`,
               description: `$${a.amount.toLocaleString()} add-on · Job #${leadId.slice(0, 8)}`,
@@ -2510,7 +2537,7 @@ export async function chargeAddonDepositOffSession(leadId: string): Promise<OffS
     const paymentIntent = await stripe.paymentIntents.create(
       {
         amount: depositCents,
-        currency: "usd",
+        currency: chargeCurrency(profile),
         customer: scopedCard.customerId,
         payment_method: scopedCard.paymentMethodId,
         off_session: true,
@@ -2659,6 +2686,14 @@ export async function invoicePendingAddonFees(leadId: string): Promise<{ success
         return { success: true };
       }
       const subscription = await stripe.subscriptions.retrieve(profile.stripe_subscription_id);
+      if (subscription.currency !== chargeCurrency(profile)) {
+        // Same guard as markLeadAsPaid: never invoice a CAD fee onto a USD
+        // billing customer (Stripe rejects it, and the amount would be wrong).
+        console.warn(
+          `[AddOnFee] Billing currency ${subscription.currency} ≠ job currency ${chargeCurrency(profile)} for installer ${auth.userId}; add-on fee ${feeCents} on lead ${leadId} needs manual invoicing`
+        );
+        return { success: true };
+      }
       const customerId =
         typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id;
       const idemKey = `addon-fee-invoice-${[...addonIds].sort().join("_")}`;
@@ -2680,7 +2715,7 @@ export async function invoicePendingAddonFees(leadId: string): Promise<{ success
           customer: customerId,
           invoice: invoice.id!,
           amount: feeCents,
-          currency: "usd",
+          currency: subscription.currency,
           description: `Platform fee on add-ons — Job #${leadId.slice(0, 8)} (paid via cash/check/Venmo)`,
         },
         { idempotencyKey: `${idemKey}-item` }

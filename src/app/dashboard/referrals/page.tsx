@@ -32,7 +32,7 @@ interface ReferralItem {
 
 /** Estimate the bounty for a pending referral: 30% of deposit, min $15 */
 function estimateBounty(ref: ReferralItem): number {
-  if (ref.bounty_status === "paid" && typeof ref.bounty_amount === "number") {
+  if ((ref.bounty_status === "paid" || ref.bounty_status === "manual_payout") && typeof ref.bounty_amount === "number") {
     return ref.bounty_amount;
   }
   // deposit_amount comes from server; fallback uses the stored amount or 0
@@ -251,6 +251,16 @@ export default function ReferralsPage() {
                         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
                           <CheckCircle2 className="h-3 w-3" />
                           +${bountyAmt}
+                        </span>
+                      ) : ref.bounty_status === "manual_payout" ? (
+                        // Cross-border / CAD bounty — Stripe can't transfer it
+                        // automatically, so the team pays it by hand.
+                        <span
+                          title="This bounty is paid manually by the Storage Network team (cross-border payout)."
+                          className="inline-flex items-center gap-1 rounded-full bg-sky-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-sky-400"
+                        >
+                          <Clock className="h-3 w-3" />
+                          ${bountyAmt} · Manual
                         </span>
                       ) : ref.bounty_status === "pending" ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-400">

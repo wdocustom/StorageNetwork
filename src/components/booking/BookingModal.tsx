@@ -31,6 +31,7 @@ import { getBlackoutDates } from "@/app/actions/blackout-dates";
 import { getBlockAvailability } from "@/app/actions/schedule-overrides";
 import { validateDiscountCode } from "@/app/actions/discount-codes";
 import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/delivery-fee";
+import { POSTAL_INPUT_MAX_LENGTH, sanitizePostalInput } from "@/lib/geo/postal";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BookingModal — Multi-Step: Address → Schedule → Pay
@@ -660,7 +661,7 @@ export default function BookingModal({
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-                    State *
+                    State / Prov. *
                   </label>
                   <input
                     type="text"
@@ -673,14 +674,14 @@ export default function BookingModal({
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-                    Zip *
+                    ZIP / Postal *
                   </label>
                   <input
                     type="text"
                     value={address.zip}
-                    onChange={(e) => setAddress({ ...address, zip: e.target.value.replace(/\D/g, "").slice(0, 5) })}
+                    onChange={(e) => setAddress({ ...address, zip: sanitizePostalInput(e.target.value) })}
                     placeholder="78701"
-                    maxLength={5}
+                    maxLength={POSTAL_INPUT_MAX_LENGTH}
                     className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
                   />
                 </div>

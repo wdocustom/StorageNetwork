@@ -1,8 +1,9 @@
 "use server";
 
-import zipcodes from "zipcodes";
 import { getServiceClient } from "@/lib/supabase-server";
 import { depositPercentLabel } from "@/lib/deposit-label";
+import { postalKey, INVALID_POSTAL_MESSAGE } from "@/lib/geo/postal";
+import { sameCountryRadius } from "@/lib/geo/territory-tiers";
 
 const supabase = getServiceClient();
 
@@ -28,8 +29,8 @@ export async function recordAnonymousDemand(
   zip: string,
   sourceInstallerId?: string
 ): Promise<void> {
-  const trimmed = zip.trim();
-  if (!/^\d{5}$/.test(trimmed)) return;
+  const trimmed = postalKey(zip);
+  if (!trimmed) return;
 
   // Deduplicate: don't record the same ZIP more than once per hour
   // (prevents spam from repeated ZIP checks)
@@ -68,9 +69,9 @@ export async function recordWaitlistDemand(input: {
   sourceInstallerId?: string;
   quoteData?: unknown[];
 }): Promise<{ success: boolean; id?: string; error?: string }> {
-  const trimmed = input.zip.trim();
-  if (!/^\d{5}$/.test(trimmed)) {
-    return { success: false, error: "Invalid ZIP code." };
+  const trimmed = postalKey(input.zip);
+  if (!trimmed) {
+    return { success: false, error: INVALID_POSTAL_MESSAGE };
   }
   if (!input.customerName?.trim() || !input.customerEmail?.trim()) {
     return { success: false, error: "Name and email are required." };
@@ -171,16 +172,17 @@ export async function getDemandPreviewForZip(
   zip: string,
   radiusMiles: number = 85
 ): Promise<{ waitlist: number; total: number; radiusMiles: number; zipsInRadius: number }> {
-  const trimmed = (zip || "").trim();
-  if (!/^\d{5}$/.test(trimmed)) {
+  const trimmed = postalKey(zip);
+  if (!trimmed) {
     return { waitlist: 0, total: 0, radiusMiles, zipsInRadius: 0 };
   }
 
-  // Cap at 85 miles to match the territory model — npm zipcodes returns the
+  // Cap at 85 miles to match the territory model — the zipcodes radius includes the
   // input ZIP itself as the first element when it's a valid US ZIP.
   let nearby: string[] = [];
   try {
-    nearby = zipcodes.radius(trimmed, Math.min(radiusMiles, 85));
+    // Same-country only — an installer can't serve across the border.
+    nearby = sameCountryRadius(trimmed, Math.min(radiusMiles, 85));
   } catch {
     nearby = [trimmed];
   }
