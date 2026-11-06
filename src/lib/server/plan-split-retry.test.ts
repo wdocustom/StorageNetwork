@@ -42,6 +42,7 @@ function fakeDb(tables: Record<string, Row[]>) {
 function fakeStripe(existing: { id: string; metadata: Record<string, string> }[] = []) {
   const created: Row[] = [];
   const stripe = {
+    accounts: { retrieve: async (id: string) => ({ id, country: "US" }) },
     transfers: {
       list: async () => ({ data: existing }),
       create: async (params: Row) => {

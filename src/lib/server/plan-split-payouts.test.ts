@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { clearTransferEligibilityCache } from "@/lib/stripe/cross-border";
 
 vi.mock("server-only", () => ({}));
 
@@ -67,6 +68,8 @@ function fakeStripe() {
   const transfers: Array<{ params: Record<string, unknown>; opts: Record<string, unknown> }> = [];
   const stripe = {
     paymentIntents: { retrieve: async () => ({ latest_charge: "ch_123" }) },
+    // acct_ca_* accounts are Canadian — the cross-border guard parks them.
+    accounts: { retrieve: async (id: string) => ({ id, country: id.startsWith("acct_ca") ? "CA" : "US" }) },
     transfers: {
       create: async (params: Record<string, unknown>, opts: Record<string, unknown>) => {
         transfers.push({ params, opts });
@@ -90,6 +93,7 @@ const session = (metadata: Record<string, string>, extra: Partial<Stripe.Checkou
 
 afterEach(() => {
   delete process.env.PLAN_SPLITS_ENABLED;
+  clearTransferEligibilityCache();
 });
 
 describe("processPlanSplits", () => {
@@ -144,6 +148,16 @@ describe("processPlanSplits", () => {
     const { notify, sent } = spyNotify();
     const results = await processPlanSplits(session({ design: "H3x2wt_rcr" }), { stripe, db: db as unknown as SupabaseClient, notify });
     expect(results).toEqual([{ recipientId: RACK_CITY, cents: 500, status: "failed", reason: "no_connected_stripe_account" }]);
+    expect(transfers).toHaveLength(0);
+    expect(sent).toHaveLength(0);
+  });
+
+  it("parks a share bound for a Canadian account instead of attempting a cross-border transfer", async () => {
+    const db = fakeDb({ [RACK_CITY]: "acct_ca_rct" });
+    const { stripe, transfers } = fakeStripe();
+    const { notify, sent } = spyNotify();
+    const results = await processPlanSplits(session({ design: "H3x2wt_rcr" }), { stripe, db: db as unknown as SupabaseClient, notify });
+    expect(results).toEqual([{ recipientId: RACK_CITY, cents: 500, status: "failed", reason: "cross_border_manual_payout" }]);
     expect(transfers).toHaveLength(0);
     expect(sent).toHaveLength(0);
   });

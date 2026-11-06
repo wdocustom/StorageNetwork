@@ -22,8 +22,10 @@ import {
 } from "@/app/actions/plan-build-request";
 import SystemMap from "@/components/plans/SystemMap";
 import { encodeTotePlanDesign, type TotePlanDesign } from "@/lib/tote-plans";
+import { POSTAL_INPUT_MAX_LENGTH, isValidPostalCode, sanitizePostalInput } from "@/lib/geo/postal";
+import { CurrencyProvider, useCurrency } from "@/components/currency/CurrencyContext";
 
-const money = (n: number) => `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+const money = (n: number, sym = "$") => `${sym}${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
 type Step =
   | { kind: "loading" }
@@ -113,8 +115,8 @@ function BuildSheet({
   }, [referral]);
 
   const checkZip = async () => {
-    if (!/^\d{5}$/.test(zip.trim())) {
-      setStep({ kind: "zip", error: "Enter a 5-digit ZIP code." });
+    if (!isValidPostalCode(zip.trim())) {
+      setStep({ kind: "zip", error: "Enter a valid ZIP or postal code." });
       return;
     }
     setStep({ kind: "loading" });
@@ -162,11 +164,11 @@ function BuildSheet({
               <p className="mb-3 text-xs text-stone-400">We'll find the installer who covers your area and show their price.</p>
               <div className="flex gap-2">
                 <input
-                  inputMode="numeric"
+                  autoCapitalize="characters"
                   autoComplete="postal-code"
-                  maxLength={5}
+                  maxLength={POSTAL_INPUT_MAX_LENGTH}
                   value={zip}
-                  onChange={(e) => setZip(e.target.value.replace(/\D/g, ""))}
+                  onChange={(e) => setZip(sanitizePostalInput(e.target.value))}
                   onKeyDown={(e) => e.key === "Enter" && checkZip()}
                   placeholder="ZIP code"
                   aria-label="ZIP code"
@@ -185,14 +187,17 @@ function BuildSheet({
           )}
 
           {step.kind === "builder" && (
-            <BuilderQuote
-              design={design}
-              builder={step.builder}
-              zip={step.zip}
-              referral={referral}
-              onChangeZip={() => setStep({ kind: "zip" })}
-              onSent={(builder) => setStep({ kind: "sent", builder })}
-            />
+            // The builder quotes in their own currency (CA$ for Canada).
+            <CurrencyProvider currency={step.builder.currency}>
+              <BuilderQuote
+                design={design}
+                builder={step.builder}
+                zip={step.zip}
+                referral={referral}
+                onChangeZip={() => setStep({ kind: "zip" })}
+                onSent={(builder) => setStep({ kind: "sent", builder })}
+              />
+            </CurrencyProvider>
           )}
 
           {step.kind === "none" && (
@@ -254,6 +259,7 @@ function BuilderQuote({
   onChangeZip: () => void;
   onSent: (builder: PlanBuilder) => void;
 }) {
+  const __sym = useCurrency().symbol;
   const [totes, setTotes] = useState(false);
   const [quote, setQuote] = useState<PlanBuildQuoteView | null | "error">(null);
   const [form, setForm] = useState({ name: "", email: "", phone: "", zip: knownZip ?? "" });
@@ -333,7 +339,7 @@ function BuilderQuote({
           <p className="text-sm text-stone-300">We couldn't price this build — you can still send it and they'll quote it.</p>
         ) : (
           <>
-            <p className="text-3xl font-black text-white">{money(quote.total)}</p>
+            <p className="text-3xl font-black text-white">{money(quote.total, __sym)}</p>
             <p className="text-[11px] text-stone-400">
               {quote.lines.length} unit{quote.lines.length === 1 ? "" : "s"} · {quote.totes ? "totes included" : "your totes"} · delivered and installed
             </p>
@@ -354,8 +360,8 @@ function BuilderQuote({
           <input type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone (optional)" aria-label="Phone" autoComplete="tel" className={input} />
           <input
             required
-            inputMode="numeric"
-            maxLength={5}
+            autoCapitalize="characters"
+            maxLength={POSTAL_INPUT_MAX_LENGTH}
             value={form.zip}
             onChange={(e) => setForm({ ...form, zip: e.target.value.replace(/\D/g, "") })}
             placeholder="ZIP"

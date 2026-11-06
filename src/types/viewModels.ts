@@ -215,6 +215,9 @@ export interface DesignPageViewModel {
   /** Installer custom pricing (Pro only). Undefined = use platform defaults. */
   pricing?: InstallerPricing;
 
+  /** "usd" | "cad" — every price in the design flow renders in this currency. */
+  currency?: string;
+
   /** Platform default pricing — populated server-side, never hardcoded in client bundle */
   platformDefaults?: {
     standard_slot: number;

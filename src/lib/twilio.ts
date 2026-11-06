@@ -12,6 +12,7 @@
 //   TWILIO_PHONE_NUMBER    — Platform sending number (e.g., +1234567890)
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { currencySymbol } from "@/lib/geo/currency";
 const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 const TWILIO_FROM = process.env.TWILIO_PHONE_NUMBER;
@@ -112,12 +113,14 @@ export async function sendSms(
 export async function smsNewBookingAlert(
   installerPhone: string,
   customerZip: string,
-  profitEstimate: number
+  profitEstimate: number,
+  /** "usd" | "cad" — Canadian installers see CA$. */
+  currency?: string
 ): Promise<SmsResult> {
   const body = [
     `Storage Network Alert: New Job Confirmed!`,
     `A new build has been booked in ${customerZip || "your area"}.`,
-    `Estimated profit: $${profitEstimate.toLocaleString()}.`,
+    `Estimated profit: ${currencySymbol(currency)}${profitEstimate.toLocaleString()}.`,
     `Log in to your dashboard to view details and accept.`,
   ].join(" ");
 

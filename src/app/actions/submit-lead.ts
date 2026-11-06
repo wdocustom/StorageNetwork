@@ -14,6 +14,8 @@ import {
   enforceActionRateLimit,
   RateLimitError,
 } from "@/lib/server/action-rate-limit";
+import { isValidPostalCode, parsePostalCode } from "@/lib/geo/postal";
+import { currencyForInstaller } from "@/lib/server/currency-lookup";
 
 // Uses the SERVICE ROLE key so we can insert without a logged-in user.
 const supabase = getServiceClient();
@@ -106,7 +108,11 @@ const submitLeadSchema = z.object({
   address_line1: z.string().max(200).optional(),
   address_city: z.string().max(100).optional(),
   address_state: z.string().max(2).optional(),
-  address_zip: z.string().regex(/^\d{5}$/, "Invalid ZIP code").optional(),
+  address_zip: z
+    .string()
+    .refine((v) => isValidPostalCode(v), "Invalid ZIP or postal code")
+    .transform((v) => parsePostalCode(v)!.formatted)
+    .optional(),
   delivery_address: z.string().max(500).optional(),
   quote_data: z.array(z.record(z.string(), z.unknown())).min(1, "At least one unit is required"),
   grand_total: z.number().positive("Total must be positive").max(1_000_000),
@@ -166,8 +172,8 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
       const msg = areaCheck.error
         ? areaCheck.error
         : areaCheck.radiusMiles
-          ? `This address (ZIP ${input.address_zip.trim()}) is outside the installer's ${areaCheck.radiusMiles}-mile service area. Please verify the installation ZIP code or contact the installer directly.`
-          : `This address (ZIP ${input.address_zip.trim()}) is outside the installer's service area. Please verify the installation ZIP code.`;
+          ? `This address (${input.address_zip.trim().toUpperCase()}) is outside the installer's ${areaCheck.radiusMiles}-mile service area. Please verify the installation ZIP / postal code or contact the installer directly.`
+          : `This address (${input.address_zip.trim().toUpperCase()}) is outside the installer's service area. Please verify the installation ZIP / postal code.`;
       return { success: false, error: msg };
     }
   }
@@ -344,7 +350,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
         address_line1: input.address_line1?.trim() || null,
         address_city: input.address_city?.trim() || null,
         address_state: input.address_state?.trim() || null,
-        address_zip: input.address_zip?.trim() || null,
+        address_zip: parsed.data.address_zip || null,
         dimensions: dimensionsSummary,
         quote_data: input.quote_data,
         estimated_price: input.grand_total,
@@ -419,7 +425,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
               customerPhone: input.customer_phone?.trim(),
               grandTotal: input.grand_total,
               quoteData: quoteDataForEmail,
-            }).catch((err) => console.error("[TrialCap] Installer email failed:", err));
+            }, await currencyForInstaller(input.installer_id)).catch((err) => console.error("[TrialCap] Installer email failed:", err));
           }
 
           sendTrialCapCustomerConfirmation(input.customer_email.trim(), {
@@ -428,7 +434,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
             grandTotal: input.grand_total,
             quoteData: quoteDataForEmail,
             diyPlansUrl: diyPlansEmailUrl(input.quote_data, "saved_build_email"),
-          }).catch((err) => console.error("[TrialCap] Customer email failed:", err));
+          }, await currencyForInstaller(input.installer_id)).catch((err) => console.error("[TrialCap] Customer email failed:", err));
         } catch (err) {
           console.error("[TrialCap] Email flow error:", err);
         }
@@ -468,7 +474,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
               customerZip: input.address_zip || null,
               localInstallerName,
               estimatedBounty,
-            });
+            }, await currencyForInstaller(input.installer_id));
           }
         } catch (emailErr) {
           console.error("[Referral] Handoff email failed (non-fatal):", emailErr);

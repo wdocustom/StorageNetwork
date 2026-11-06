@@ -18,6 +18,7 @@ import type { SectionAddon, AddonPricing, PaintColorId } from "@/types/viewModel
 import { PAINT_COLORS } from "@/types/viewModels";
 import { PaintSwatch, PaintColorPicker } from "./PaintPicker";
 import { AddonToggleBtn } from "./configurator-primitives";
+import { useCurrency, CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 export function OrganizerCustomization({
   cols,
@@ -46,6 +47,7 @@ export function OrganizerCustomization({
   onPaintDoorColorChange: (c: PaintColorId | null) => void;
   onPaintSidePanelColorChange: (c: PaintColorId | null) => void;
 }) {
+  const __sym = useCurrency().symbol;
   const [expanded, setExpanded] = useState(false);
   const [railGridOpen, setRailGridOpen] = useState(false);
   const [activeCell, setActiveCell] = useState<{ col: number; row: number } | null>(null);
@@ -180,7 +182,7 @@ export function OrganizerCustomization({
                         </span>
                       </div>
                       <p className="text-[10px] text-zinc-500">
-                        {cols} door{cols !== 1 ? "s" : ""} with Blum concealed hinges &middot; +${doorsTotalPrice}
+                        {cols} door{cols !== 1 ? "s" : ""} with Blum concealed hinges &middot; +<CurrencySymbol />{doorsTotalPrice}
                       </p>
                     </div>
                     {/* Paint color circles for doors — inline horizontal */}
@@ -196,7 +198,7 @@ export function OrganizerCustomization({
                           />
                         ))}
                         {paintDoorColor && (
-                          <span className="ml-1 text-[9px] font-medium text-yellow-400/80">+${paintDoorsPanelsPrice}</span>
+                          <span className="ml-1 text-[9px] font-medium text-yellow-400/80">+<CurrencySymbol />{paintDoorsPanelsPrice}</span>
                         )}
                       </div>
                     )}
@@ -222,7 +224,7 @@ export function OrganizerCustomization({
                       }`}
                     >
                       <PanelLeft className="h-3.5 w-3.5" />
-                      <span className="flex-1">{`Left (+$${sidePanelPrice})`}</span>
+                      <span className="flex-1">{`Left (+${__sym}${sidePanelPrice})`}</span>
                       {/* Paint circles — shown when either panel is active */}
                       {showPaint && (hasAddon("side_panel", "left") || hasAddon("side_panel", "right")) && (
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -236,7 +238,7 @@ export function OrganizerCustomization({
                             />
                           ))}
                           {paintSidePanelColor && (
-                            <span className="ml-1 text-[9px] font-medium text-yellow-400/80">+${paintDoorsPanelsPrice}</span>
+                            <span className="ml-1 text-[9px] font-medium text-yellow-400/80">+<CurrencySymbol />{paintDoorsPanelsPrice}</span>
                           )}
                         </div>
                       )}
@@ -244,7 +246,7 @@ export function OrganizerCustomization({
                     {/* Right panel */}
                     <AddonToggleBtn
                       icon={<PanelLeft className="h-3.5 w-3.5 scale-x-[-1]" />}
-                      label={`Right (+$${sidePanelPrice})`}
+                      label={`Right (+${__sym}${sidePanelPrice})`}
                       active={hasAddon("side_panel", "right")}
                       onToggle={() => toggleAddon("side_panel", "right")}
                     />
@@ -301,7 +303,7 @@ export function OrganizerCustomization({
                       </div>
                       {paintFrameColor && (
                         <span className="ml-auto text-[10px] font-medium text-yellow-400/80">
-                          +${paintFramePrice + (doorsOn && paintDoorColor ? paintDoorsPanelsPrice : 0) + ((hasAddon("side_panel", "left") || hasAddon("side_panel", "right")) && paintSidePanelColor ? paintDoorsPanelsPrice : 0)}
+                          +<CurrencySymbol />{paintFramePrice + (doorsOn && paintDoorColor ? paintDoorsPanelsPrice : 0) + ((hasAddon("side_panel", "left") || hasAddon("side_panel", "right")) && paintSidePanelColor ? paintDoorsPanelsPrice : 0)}
                         </span>
                       )}
                     </div>

@@ -44,6 +44,7 @@ import {
 // exported in a 'use server' file"). Callers that need the helper should
 // import it directly from "@/lib/realtor-fulfillment-payout".
 import { calcInstallerPayoutCents } from "@/lib/realtor-fulfillment-payout";
+import { checkTransferEligibility } from "@/lib/stripe/cross-border";
 
 // ── Eligible-installer query (shared by assign + capacity preview) ───────
 
@@ -928,6 +929,14 @@ export async function payoutToteFulfillment(
       .eq("id", giftId)
       .is("installer_paid_at", null);
     return { ok: true, amountCents: 0 };
+  }
+
+  // Realtor gifts are US-only today, but an installer's account could still
+  // be non-US — never attempt a transfer Stripe will reject.
+  const eligibility = await checkTransferEligibility(getStripeForPayouts(), stripeAccountId);
+  if (!eligibility.ok) {
+    console.warn(`[Fulfillment] Gift ${giftId}: ${eligibility.detail} — pay manually`);
+    return { ok: false, error: eligibility.reason };
   }
 
   // Issue the Stripe transfer. Idempotency key ties retries to this gift.

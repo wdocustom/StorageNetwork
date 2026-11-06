@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Loader2, CheckCircle2, AlertTriangle, PlusCircle } from "lucide-react";
 import { createAddonDepositCheckout, getAddonDepositSummary } from "@/app/actions/payments";
+import { useCurrency } from "@/components/currency/CurrencyContext";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Add-On Deposit Page — /payment/addon/[leadId]
@@ -14,13 +15,14 @@ import { createAddonDepositCheckout, getAddonDepositSummary } from "@/app/action
 // The rest of each add-on is simply part of the final balance.
 // ═══════════════════════════════════════════════════════════════════════════
 
-function money(n: number): string {
-  return "$" + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function money(n: number, sym = "$"): string {
+  return sym + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 type Item = { description: string; amount: number; deposit: number };
 
 export default function AddonDepositPage() {
+  const __sym = useCurrency().symbol;
   const params = useParams();
   const leadId = params.leadId as string;
 
@@ -92,27 +94,27 @@ export default function AddonDepositPage() {
               {items.map((item, i) => (
                 <div key={i} className="flex justify-between gap-3 text-stone-300">
                   <span>{item.description}</span>
-                  <span className="shrink-0">{money(item.amount)}</span>
+                  <span className="shrink-0">{money(item.amount, __sym)}</span>
                 </div>
               ))}
               {items.length > 1 && (
                 <div className="flex justify-between border-t border-slate-700 pt-2 text-stone-400">
                   <span>Added total</span>
-                  <span>{money(addedTotal)}</span>
+                  <span>{money(addedTotal, __sym)}</span>
                 </div>
               )}
             </div>
 
             <div className="mb-5 flex items-baseline justify-between">
               <span className="text-sm font-semibold text-white">Deposit due now</span>
-              <span className="text-2xl font-black text-yellow-400">{money(depositTotal)}</span>
+              <span className="text-2xl font-black text-yellow-400">{money(depositTotal, __sym)}</span>
             </div>
 
             <button
               onClick={handlePay}
               className="w-full rounded-lg bg-yellow-400 px-6 py-3.5 text-sm font-black uppercase tracking-wide text-gray-950 transition-colors hover:bg-yellow-300"
             >
-              Pay {money(depositTotal)} &rarr;
+              Pay {money(depositTotal, __sym)} &rarr;
             </button>
             <p className="mt-3 text-center text-[11px] text-stone-600">
               Payments processed securely via Stripe.

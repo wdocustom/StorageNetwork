@@ -6,6 +6,7 @@ import { submitCustomServiceLead } from "@/app/actions/submit-custom-service-lea
 import BookingModal from "@/components/booking/BookingModal";
 import { formatCurrency } from "@/utils/paymentHelpers";
 import type { ServiceOffering } from "@/config/services";
+import { useCurrency } from "@/components/currency/CurrencyContext";
 
 interface CustomServiceCardProps {
   installerId: string;
@@ -24,6 +25,7 @@ export default function CustomServiceCard({
   schedulingEnabled = true,
   service,
 }: CustomServiceCardProps) {
+  const __cur = useCurrency().currency;
   const [isOpen, setIsOpen] = useState(false);
 
   // Customer info
@@ -110,7 +112,7 @@ export default function CustomServiceCard({
           )}
           {service.price != null && service.price > 0 && (
             <p className="mt-1 text-xs font-bold text-yellow-400">
-              {formatCurrency(service.price)}
+              {formatCurrency(service.price, __cur)}
             </p>
           )}
         </div>
@@ -151,7 +153,7 @@ export default function CustomServiceCard({
                     </div>
                     {service.price != null && service.price > 0 && (
                       <span className="text-xl font-black text-yellow-400">
-                        {formatCurrency(service.price)}
+                        {formatCurrency(service.price, __cur)}
                       </span>
                     )}
                   </div>

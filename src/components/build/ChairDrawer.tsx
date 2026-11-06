@@ -5,6 +5,7 @@ import { Minus, Plus, Package, Check } from "lucide-react";
 import BottomDrawer from "./BottomDrawer";
 import type { InstallerPricing } from "@/types/viewModels";
 import { CHAIR_FINISHES, type ChairFinish } from "@/lib/chairs";
+import { CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 const CHAIR_DEFAULT_PRICE = 265;
 const CHAIR_PAINT_ADDON_DEFAULT = 75;
@@ -80,7 +81,7 @@ export default function ChairDrawer({
                 </div>
                 <span className="text-[11px] font-medium text-stone-400">{f.label}</span>
                 {(f.id === "white" || f.id === "black") && (
-                  <span className="text-[10px] text-amber-400/70">+${paintAddon}</span>
+                  <span className="text-[10px] text-amber-400/70">+<CurrencySymbol />{paintAddon}</span>
                 )}
               </button>
             ))}
@@ -114,9 +115,9 @@ export default function ChairDrawer({
         {/* Price display */}
         <div className="flex items-center justify-between rounded-xl border border-slate-700 bg-slate-800/50 px-4 py-3">
           <p className="text-[13px] text-stone-400">
-            ${priceEach.toLocaleString()} × {quantity}
+            <CurrencySymbol />{priceEach.toLocaleString()} × {quantity}
           </p>
-          <p className="text-xl font-black text-white">${total.toLocaleString()}</p>
+          <p className="text-xl font-black text-white"><CurrencySymbol />{total.toLocaleString()}</p>
         </div>
 
         {/* Add button */}

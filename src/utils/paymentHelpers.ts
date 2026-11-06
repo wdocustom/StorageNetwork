@@ -8,9 +8,12 @@
 
 /**
  * Format currency for display (always shows 2 decimal places).
+ * Pass the installer's currency to get "CA$" for Canadian jobs; USD (the
+ * default) keeps the plain "$" used everywhere else.
  */
-export function formatCurrency(n: number): string {
-  return "$" + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+export function formatCurrency(n: number, currency?: string | null): string {
+  const symbol = currency?.toLowerCase() === "cad" ? "CA$" : "$";
+  return symbol + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 /**

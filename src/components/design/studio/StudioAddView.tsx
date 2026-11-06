@@ -23,6 +23,7 @@ import { getChairDescription } from "@/lib/chairs";
 import type { BestsellerPreset } from "@/lib/presets";
 import { presetTotesChoice } from "@/lib/studio";
 import type { DesignPageViewModel, InstallerPricing } from "@/types/viewModels";
+import { useCurrency } from "@/components/currency/CurrencyContext";
 
 export default function StudioAddView({
   props,
@@ -50,6 +51,7 @@ export default function StudioAddView({
   /** Show a bestseller in the 3D before adding it */
   onPreviewBestseller: (presetId: string) => void;
 }) {
+  const __sym = useCurrency().symbol;
   const [prices, setPrices] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -131,7 +133,7 @@ export default function StudioAddView({
                     </p>
                   </button>
                   <span className="shrink-0 text-sm font-black text-white">
-                    {price != null ? `$${Math.round(price).toLocaleString()}` : <Loader2 className="h-4 w-4 animate-spin text-zinc-600" />}
+                    {price != null ? `${__sym}${Math.round(price).toLocaleString()}` : <Loader2 className="h-4 w-4 animate-spin text-zinc-600" />}
                   </span>
                   <button
                     type="button"
@@ -208,7 +210,7 @@ export default function StudioAddView({
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 transition hover:bg-yellow-300 disabled:opacity-40"
                   >
                     {chairPrice == null ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                    Add chair{chairPrice ? ` · $${Math.round(chairPrice).toLocaleString()}` : ""}
+                    Add chair{chairPrice ? ` · ${__sym}${Math.round(chairPrice).toLocaleString()}` : ""}
                   </button>
                 </div>
               )}

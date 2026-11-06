@@ -5,6 +5,7 @@ import BottomDrawer from "./BottomDrawer";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import type { CompoundBuildResult } from "@/app/actions/calculator";
 import type { InstallerPricing } from "@/types/viewModels";
+import { CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 interface BestsellerDrawerProps {
   isOpen: boolean;
@@ -113,7 +114,7 @@ export default function BestsellerDrawer({
                 </div>
                 <div className="rounded-lg bg-slate-800 p-2">
                   <p className="text-lg font-black text-yellow-400">
-                    ${presetResult.totalPrice.toLocaleString()}
+                    <CurrencySymbol />{presetResult.totalPrice.toLocaleString()}
                   </p>
                   <p className="text-[10px] font-bold uppercase text-stone-500">
                     {presetResult.presetName}

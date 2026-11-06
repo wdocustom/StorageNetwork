@@ -79,7 +79,9 @@ export interface BookingConfirmationData {
 }
 
 export async function sendBookingConfirmation(
-  data: BookingConfirmationData
+  data: BookingConfirmationData,
+  /** "usd" | "cad" — money in this email renders as CA$ for CAD jobs. */
+  currency?: string
 ): Promise<SendEmailResult> {
   console.log("[Email] sendBookingConfirmation triggered for:", data.customerEmail, "| Lead:", data.leadId);
   const {
@@ -223,6 +225,7 @@ export async function sendBookingConfirmation(
       ? `Booking Confirmed — ${installerName}`
       : `Booking Confirmed — ${installerName} on ${formattedDate}`,
     html,
+    currency,
   });
 }
 
@@ -420,7 +423,9 @@ export async function sendJobReceipt(
     tipAmount?: number;
     /** Signed link to request a new quote from the same installer. */
     requestQuoteUrl?: string;
-  }
+  },
+  /** "usd" | "cad" — money in this email renders as CA$ for CAD jobs. */
+  currency?: string
 ): Promise<SendEmailResult> {
   const formattedDate = new Date(data.completedDate).toLocaleDateString("en-US", {
     month: "long",
@@ -522,6 +527,7 @@ export async function sendJobReceipt(
     toName: data.customerName,
     subject: `Receipt — Installation by ${data.installerName} on ${formattedDate}`,
     html,
+    currency,
   });
 }
 
@@ -591,7 +597,9 @@ export async function sendWaitlistCustomerConfirmation(
     zip: string;
     quoteData?: Array<{ desc?: string; cols?: number; rows?: number; price?: number }>;
     diyPlansUrl?: string | null;
-  }
+  },
+  /** "usd" | "cad" — money in this email renders as CA$ for CAD jobs. */
+  currency?: string
 ): Promise<SendEmailResult> {
   const firstName = (data.customerName || "").split(" ")[0] || "there";
   const hasQuote = data.quoteData && data.quoteData.length > 0;
@@ -668,6 +676,7 @@ export async function sendWaitlistCustomerConfirmation(
     toName: data.customerName,
     subject: `${firstName}, you're on the waitlist`,
     html,
+    currency,
   });
 }
 
@@ -852,7 +861,9 @@ export async function sendAbandonedCartEmail(
     resumeUrl: string;
     installerName?: string | null;
     diyPlansUrl?: string | null;
-  }
+  },
+  /** "usd" | "cad" — money in this email renders as CA$ for CAD jobs. */
+  currency?: string
 ): Promise<SendEmailResult> {
   const firstName = (data.customerName || "").split(" ")[0] || "there";
   const installerLine = data.installerName
@@ -908,6 +919,7 @@ export async function sendAbandonedCartEmail(
     toName: data.customerName,
     subject: `${firstName}, your saved build is ready to confirm`,
     html,
+    currency,
   });
 }
 
@@ -996,7 +1008,9 @@ export interface CleanoutUpsellEmailData {
 }
 
 export async function sendCleanoutUpsellEmail(
-  data: CleanoutUpsellEmailData
+  data: CleanoutUpsellEmailData,
+  /** "usd" | "cad" — money in this email renders as CA$ for CAD jobs. */
+  currency?: string
 ): Promise<SendEmailResult> {
   const {
     customerName,
@@ -1103,6 +1117,7 @@ export async function sendCleanoutUpsellEmail(
     subject: `${firstName}, your installation is in 3 days`,
     html,
     senderName: installerName,
+    currency,
   });
 }
 
@@ -1127,7 +1142,9 @@ export interface CleanoutUpsellConfirmationData {
 }
 
 export async function sendCleanoutUpsellConfirmation(
-  data: CleanoutUpsellConfirmationData
+  data: CleanoutUpsellConfirmationData,
+  /** "usd" | "cad" — money in this email renders as CA$ for CAD jobs. */
+  currency?: string
 ): Promise<SendEmailResult> {
   const {
     customerName,
@@ -1239,6 +1256,7 @@ export async function sendCleanoutUpsellConfirmation(
     toName: customerName,
     subject: `Order Updated — ${upsellService.name} added`,
     html,
+    currency,
   });
 }
 
@@ -1250,7 +1268,9 @@ export async function sendTrialCapCustomerConfirmation(
     grandTotal: number;
     quoteData?: Array<{ desc?: string; cols?: number; rows?: number; price?: number }>;
     diyPlansUrl?: string | null;
-  }
+  },
+  /** "usd" | "cad" — money in this email renders as CA$ for CAD jobs. */
+  currency?: string
 ): Promise<SendEmailResult> {
   const firstName = (data.customerName || "").split(" ")[0] || "there";
   const hasQuote = data.quoteData && data.quoteData.length > 0;
@@ -1300,6 +1320,7 @@ export async function sendTrialCapCustomerConfirmation(
     to: customerEmail,
     subject: `Your build with ${data.installerBusinessName} is saved`,
     html,
+    currency,
   });
 }
 
@@ -1313,7 +1334,9 @@ export async function sendWaitlistedLeadPaymentReady(
     leadId: string;
     quoteData?: Array<{ desc?: string; cols?: number; rows?: number; price?: number }>;
     diyPlansUrl?: string | null;
-  }
+  },
+  /** "usd" | "cad" — money in this email renders as CA$ for CAD jobs. */
+  currency?: string
 ): Promise<SendEmailResult> {
   const baseUrl = getAppUrl();
   const payUrl = `${baseUrl}/pay/${data.leadId}`;
@@ -1380,6 +1403,7 @@ export async function sendWaitlistedLeadPaymentReady(
     to: customerEmail,
     subject: `${data.installerBusinessName} is ready — pay your deposit to book`,
     html,
+    currency,
   });
 }
 

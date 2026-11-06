@@ -17,6 +17,7 @@ import {
   deleteDiscountCode,
   type DiscountCode,
 } from "@/app/actions/discount-codes";
+import { useCurrency } from "@/components/currency/CurrencyContext";
 
 interface DiscountCodesCardProps {
   userId: string;
@@ -24,6 +25,7 @@ interface DiscountCodesCardProps {
 }
 
 export default function DiscountCodesCard({ userId, embedded }: DiscountCodesCardProps) {
+  const __sym = useCurrency().symbol;
   const [codes, setCodes] = useState<DiscountCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -274,7 +276,7 @@ export default function DiscountCodesCard({ userId, embedded }: DiscountCodesCar
                     <span className="rounded bg-yellow-400/10 px-1.5 py-0.5 text-[10px] font-bold text-yellow-400">
                       {code.discount_type === "percent"
                         ? `${code.discount_value}% OFF`
-                        : `$${code.discount_value} OFF`}
+                        : `${__sym}${code.discount_value} OFF`}
                     </span>
                     {isExpired && (
                       <span className="rounded bg-red-500/10 px-1.5 py-0.5 text-[9px] font-bold text-red-400">

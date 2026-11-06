@@ -27,6 +27,8 @@ import {
   Send,
   X,
 } from "lucide-react";
+import { POSTAL_INPUT_MAX_LENGTH, isCompletePostalInput, sanitizePostalInput } from "@/lib/geo/postal";
+import { useCurrency, CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types (display-only — no pricing constants)
@@ -115,6 +117,7 @@ function readMarketingToken(installerId: string): string | null {
 }
 
 function BookingPageInner() {
+  const __sym = useCurrency().symbol;
   const params = useParams();
   const installerId = params.installerId as string;
 
@@ -253,7 +256,7 @@ function BookingPageInner() {
     if (zipCheckRef.current) clearTimeout(zipCheckRef.current);
 
     const zip = addressZip.trim();
-    if (!zip || zip.length < 5) {
+    if (!isCompletePostalInput(zip)) {
       setZipOutOfArea(false);
       setZipCheckMsg("");
       return;
@@ -506,7 +509,7 @@ function BookingPageInner() {
                         </span>
                         <span className="flex items-center gap-2">
                           <span className="text-sm font-bold text-yellow-400">
-                            ${u.price.toLocaleString()}
+                            <CurrencySymbol />{u.price.toLocaleString()}
                           </span>
                           <Plus className="h-4 w-4 text-yellow-400" />
                         </span>
@@ -678,7 +681,7 @@ function BookingPageInner() {
           <div className="mt-4 flex items-center gap-3 border-t border-stone-800 pt-4">
             <div className="flex-1 text-center">
               <div className="text-2xl font-black text-white">
-                {buildLoading ? "…" : `$${build.price.toLocaleString()}`}
+                {buildLoading ? "…" : `${__sym}${build.price.toLocaleString()}`}
               </div>
               <div className="text-[10px] font-bold uppercase text-stone-500">
                 Per Unit
@@ -722,7 +725,7 @@ function BookingPageInner() {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-bold text-yellow-400">
-                        ${item.price.toLocaleString()}
+                        <CurrencySymbol />{item.price.toLocaleString()}
                       </span>
                       <button
                         onClick={() => handleRemoveUnit(index)}
@@ -742,11 +745,11 @@ function BookingPageInner() {
                 Estimated Total
               </div>
               <div className="mt-1 text-4xl font-black text-white">
-                ${grandTotal.toLocaleString()}
+                <CurrencySymbol />{grandTotal.toLocaleString()}
               </div>
               <div className="mt-1 text-xs text-stone-500">
                 {depositAmount !== null
-                  ? `$${depositAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })} deposit${depositLabel ? ` (${depositLabel})` : ""} due at booking`
+                  ? `${__sym}${depositAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })} deposit${depositLabel ? ` (${depositLabel})` : ""} due at booking`
                   : "Deposit due at booking"}
               </div>
             </div>
@@ -788,10 +791,10 @@ function BookingPageInner() {
                     />
                     <input
                       type="text"
-                      inputMode="numeric"
-                      maxLength={5}
+                      autoCapitalize="characters"
+                      maxLength={POSTAL_INPUT_MAX_LENGTH}
                       value={addressZip}
-                      onChange={(e) => setAddressZip(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                      onChange={(e) => setAddressZip(sanitizePostalInput(e.target.value))}
                       placeholder="ZIP *"
                       className={`w-full rounded-lg border px-3 py-2 text-sm text-white placeholder-stone-500 focus:outline-none ${
                         zipOutOfArea

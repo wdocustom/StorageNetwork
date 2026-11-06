@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { getAppUrl } from "@/lib/url-helper";
 import { masterEmailLayout } from "./components/masterEmailLayout";
+import { localizeMoneyText } from "@/lib/geo/currency";
 
 let _resend: Resend | null = null;
 function getResend(): Resend | null {
@@ -22,6 +23,12 @@ export interface SendEmailParams {
   headers?: Record<string, string>;
   /** Files to attach, e.g. a calendar invite. */
   attachments?: Array<{ filename: string; content: Buffer | string; content_type?: string }>;
+  /**
+   * The job's currency ("usd" | "cad"). Templates write plain "$"; for a CAD
+   * job every "$<amount>" in the subject and body is sent as "CA$<amount>".
+   * Omit (or "usd") and the email goes out exactly as rendered.
+   */
+  currency?: string;
 }
 
 export interface SendEmailResult {
@@ -39,7 +46,9 @@ export const senderEmail = () => SENDER_EMAIL;
 export async function sendTransactionalEmail(
   params: SendEmailParams
 ): Promise<SendEmailResult> {
-  const { to, subject, html, senderName, replyTo, headers, attachments } = params;
+  const { to, senderName, replyTo, headers, attachments, currency } = params;
+  const subject = localizeMoneyText(params.subject, currency);
+  const html = localizeMoneyText(params.html, currency);
 
   console.log("[Email] Attempting to send email to:", to, "| Subject:", subject);
 

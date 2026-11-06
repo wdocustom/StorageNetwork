@@ -7,6 +7,7 @@
 import { motion } from "framer-motion";
 import { AlertTriangle, CheckCircle2, Loader2, MapPin } from "lucide-react";
 import type { ConfiguratorSidebarProps } from "./configurator-types";
+import { isValidPostalCode, POSTAL_INPUT_MAX_LENGTH, sanitizePostalInput } from "@/lib/geo/postal";
 
 export default function ZipCheckCard({ props }: { props: ConfiguratorSidebarProps }) {
   return (
@@ -21,11 +22,11 @@ export default function ZipCheckCard({ props }: { props: ConfiguratorSidebarProp
           <div className="flex gap-2">
             <input
               type="text"
-              inputMode="numeric"
-              maxLength={5}
+              autoCapitalize="characters"
+              maxLength={POSTAL_INPUT_MAX_LENGTH}
               value={props.zip}
               onChange={(e) => {
-                props.onZipChange(e.target.value.replace(/\D/g, "").slice(0, 5));
+                props.onZipChange(sanitizePostalInput(e.target.value));
                 props.onZipResultClear();
               }}
               placeholder="ZIP Code"
@@ -33,7 +34,7 @@ export default function ZipCheckCard({ props }: { props: ConfiguratorSidebarProp
             />
             <button
               onClick={props.onZipCheck}
-              disabled={props.zip.length < 5 || props.zipChecking}
+              disabled={!isValidPostalCode(props.zip) || props.zipChecking}
               className="shrink-0 rounded-lg bg-yellow-400 px-4 py-2 text-xs font-bold uppercase tracking-wider text-zinc-900 transition-colors hover:bg-yellow-300 disabled:opacity-40"
             >
               {props.zipChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check"}

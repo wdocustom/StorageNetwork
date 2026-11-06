@@ -6,6 +6,7 @@ import { submitCleanOutLead } from "@/app/actions/submit-cleanout-lead";
 import { getDepositLabel } from "@/app/actions/fee-engine";
 import BookingModal from "@/components/booking/BookingModal";
 import { formatCurrency } from "@/utils/paymentHelpers";
+import { useCurrency, CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 interface CleanOutBookingProps {
   installerId: string;
@@ -43,6 +44,7 @@ export default function CleanOutBooking({
   show2Car = true,
   show3Car = true,
 }: CleanOutBookingProps) {
+  const __cur = useCurrency().currency;
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<FlowStep>("select");
   const [serviceType, setServiceType] = useState<ServiceType | null>(null);
@@ -181,7 +183,7 @@ export default function CleanOutBooking({
               </span>
             </h3>
             <p className="mt-1 text-xs text-stone-400">
-              We come, haul it away. Starting at {formatCurrency(Math.min(show1Car ? price1Car : Infinity, show2Car ? price2Car : Infinity, show3Car ? price3Car : Infinity))}.
+              We come, haul it away. Starting at {formatCurrency(Math.min(show1Car ? price1Car : Infinity, show2Car ? price2Car : Infinity, show3Car ? price3Car : Infinity), __cur)}.
             </p>
           </div>
           <ChevronRight className="h-5 w-5 shrink-0 text-stone-600 transition-transform group-hover:translate-x-0.5 group-hover:text-yellow-400" />
@@ -223,7 +225,7 @@ export default function CleanOutBooking({
                       <div className="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
                         <div className="flex items-center justify-between">
                           <h5 className="text-sm font-bold text-white">1-Car Garage</h5>
-                          <span className="text-sm font-black text-yellow-400">Starting at {formatCurrency(price1Car)}</span>
+                          <span className="text-sm font-black text-yellow-400">Starting at {formatCurrency(price1Car, __cur)}</span>
                         </div>
                         <ul className="mt-2 space-y-1 text-xs text-stone-400">
                           <li className="flex items-start gap-1.5">
@@ -246,7 +248,7 @@ export default function CleanOutBooking({
                       <div className="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
                         <div className="flex items-center justify-between">
                           <h5 className="text-sm font-bold text-white">2-Car Garage</h5>
-                          <span className="text-sm font-black text-yellow-400">Starting at {formatCurrency(price2Car)}</span>
+                          <span className="text-sm font-black text-yellow-400">Starting at {formatCurrency(price2Car, __cur)}</span>
                         </div>
                         <ul className="mt-2 space-y-1 text-xs text-stone-400">
                           <li className="flex items-start gap-1.5">
@@ -269,7 +271,7 @@ export default function CleanOutBooking({
                       <div className="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
                         <div className="flex items-center justify-between">
                           <h5 className="text-sm font-bold text-white">3+ Car Garage</h5>
-                          <span className="text-sm font-black text-yellow-400">Starting at {formatCurrency(price3Car)}</span>
+                          <span className="text-sm font-black text-yellow-400">Starting at {formatCurrency(price3Car, __cur)}</span>
                         </div>
                         <ul className="mt-2 space-y-1 text-xs text-stone-400">
                           <li className="flex items-start gap-1.5">
@@ -387,7 +389,7 @@ export default function CleanOutBooking({
                           </p>
                         </div>
                         <div className="text-right">
-                          <span className="text-2xl font-black text-yellow-400">{formatCurrency(price1Car)}</span>
+                          <span className="text-2xl font-black text-yellow-400">{formatCurrency(price1Car, __cur)}</span>
                         </div>
                       </div>
                       <div className="mt-3 flex items-center justify-end gap-1 text-xs font-semibold text-stone-500 transition-colors group-hover:text-yellow-400">
@@ -413,7 +415,7 @@ export default function CleanOutBooking({
                           </p>
                         </div>
                         <div className="text-right">
-                          <span className="text-2xl font-black text-yellow-400">{formatCurrency(price2Car)}</span>
+                          <span className="text-2xl font-black text-yellow-400">{formatCurrency(price2Car, __cur)}</span>
                         </div>
                       </div>
                       <div className="mt-3 flex items-center justify-end gap-1 text-xs font-semibold text-stone-500 transition-colors group-hover:text-yellow-400">
@@ -439,7 +441,7 @@ export default function CleanOutBooking({
                           </p>
                         </div>
                         <div className="text-right">
-                          <span className="text-2xl font-black text-yellow-400">{formatCurrency(price3Car)}</span>
+                          <span className="text-2xl font-black text-yellow-400">{formatCurrency(price3Car, __cur)}</span>
                         </div>
                       </div>
                       <div className="mt-3 flex items-center justify-end gap-1 text-xs font-semibold text-stone-500 transition-colors group-hover:text-yellow-400">
@@ -464,7 +466,7 @@ export default function CleanOutBooking({
                         </p>
                       </div>
                       <span className="text-lg font-black text-yellow-400">
-                        {formatCurrency(basePrice)}
+                        {formatCurrency(basePrice, __cur)}
                       </span>
                     </div>
 
@@ -500,7 +502,7 @@ export default function CleanOutBooking({
                           </p>
                         </div>
                         <span className={`text-sm font-black ${addOrganizer ? "text-yellow-400" : "text-stone-400"}`}>
-                          +$500
+                          +<CurrencySymbol />500
                         </span>
                       </button>
                     </div>
@@ -509,7 +511,7 @@ export default function CleanOutBooking({
                     <div className="mt-3 flex items-center justify-between border-t border-slate-700 pt-3">
                       <span className="text-sm font-bold text-stone-400">Total</span>
                       <span className="text-xl font-black text-white">
-                        {formatCurrency(currentTotal)}
+                        {formatCurrency(currentTotal, __cur)}
                       </span>
                     </div>
                   </div>

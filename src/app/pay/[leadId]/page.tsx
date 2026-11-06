@@ -40,6 +40,7 @@ import { formatCurrency, formatTaxRate } from "@/utils/paymentHelpers";
 import { getSalesTax, getDepositAmount, type SalesTaxResult } from "@/app/actions/fee-engine";
 import { contactInstaller } from "@/app/actions/contact-installer";
 import { updateLeadWithAddons } from "@/app/actions/cleanout-upsell";
+import { POSTAL_INPUT_MAX_LENGTH, sanitizePostalInput } from "@/lib/geo/postal";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Resume Payment Page — /pay/[leadId]
@@ -68,6 +69,8 @@ export default function ResumePaymentPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lead, setLead] = useState<PendingLeadDetails | null>(null);
+  // Prices render in the installer's currency (CA$ for Canadian installers).
+  const money = (n: number) => formatCurrency(n, lead?.currency);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [customerSessionClientSecret, setCustomerSessionClientSecret] = useState<string | null>(null);
   // Connected account the deposit PaymentIntent was created on, if any —
@@ -149,7 +152,8 @@ export default function ResumePaymentPage() {
               line2: "",
               city: parts[parts.length - 2] || "",
               state: stateZip[0] || "",
-              zip: stateZip[1] || "",
+              // Canadian codes contain a space ("ON M5V 2T6") — keep all of it.
+              zip: stateZip.slice(1).join(" "),
             });
           }
         }
@@ -668,7 +672,7 @@ export default function ResumePaymentPage() {
                         </p>
                         <p className="text-xs text-stone-400">{features || "Frame Only"}</p>
                       </div>
-                      <span className="text-sm font-bold text-white">{formatCurrency(groupPrice)}</span>
+                      <span className="text-sm font-bold text-white">{money(groupPrice)}</span>
                     </div>
                   );
                 } else {
@@ -683,7 +687,7 @@ export default function ResumePaymentPage() {
                           {[unit.hasTotes && "Totes", unit.hasWheels && "Wheels", unit.hasTop && "Top", unit.indoorDelivery && "Indoor Delivery"].filter(Boolean).join(", ") || "Frame Only"}
                         </p>
                       </div>
-                      <span className="text-sm font-bold text-white">{formatCurrency(unit.price || 0)}</span>
+                      <span className="text-sm font-bold text-white">{money(unit.price || 0)}</span>
                     </div>
                   );
                 }
@@ -709,7 +713,7 @@ export default function ResumePaymentPage() {
                     </div>
                   </div>
                   <span className="text-sm font-bold text-emerald-400">
-                    {formatCurrency(addon.price)}
+                    {money(addon.price)}
                   </span>
                 </div>
               ))}
@@ -744,7 +748,7 @@ export default function ResumePaymentPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-bold text-emerald-400">
-                          {formatCurrency(svc.price)}
+                          {money(svc.price)}
                         </span>
                         {isSelected ? (
                           <CheckCircle2 className="h-4 w-4 text-emerald-400" />
@@ -772,18 +776,18 @@ export default function ResumePaymentPage() {
           <div className="border-t border-slate-700 pt-4 space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span className="text-stone-400">{deliveryFee > 0 || addonTotal > 0 || indoorDeliveryTotal > 0 ? "Build" : "Total"} ({unitCount} unit{unitCount !== 1 ? "s" : ""})</span>
-              <span className="font-bold text-white">{formatCurrency(deliveryFee > 0 || addonTotal > 0 || indoorDeliveryTotal > 0 ? buildTotal : lead.estimated_price)}</span>
+              <span className="font-bold text-white">{money(deliveryFee > 0 || addonTotal > 0 || indoorDeliveryTotal > 0 ? buildTotal : lead.estimated_price)}</span>
             </div>
             {addonTotal > 0 && (
               <div className="flex items-center justify-between text-sm">
                 <span className="text-emerald-400">Add-On Services</span>
-                <span className="font-bold text-emerald-400">{formatCurrency(addonTotal)}</span>
+                <span className="font-bold text-emerald-400">{money(addonTotal)}</span>
               </div>
             )}
             {indoorDeliveryTotal > 0 && (
               <div className="flex items-center justify-between text-sm">
                 <span className="text-stone-400">Indoor Delivery</span>
-                <span className="font-bold text-white">{formatCurrency(indoorDeliveryTotal)}</span>
+                <span className="font-bold text-white">{money(indoorDeliveryTotal)}</span>
               </div>
             )}
             {deliveryFee > 0 && (
@@ -792,13 +796,13 @@ export default function ResumePaymentPage() {
                   <MapPin className="h-3 w-3 text-yellow-400" />
                   Delivery Fee
                 </span>
-                <span className="font-bold text-white">{formatCurrency(deliveryFee)}</span>
+                <span className="font-bold text-white">{money(deliveryFee)}</span>
               </div>
             )}
             {(deliveryFee > 0 || addonTotal > 0 || indoorDeliveryTotal > 0) && (
               <div className="flex items-center justify-between text-sm border-t border-slate-700/50 pt-2">
                 <span className="text-stone-400">Total</span>
-                <span className="font-bold text-white">{formatCurrency(effectiveEstimatedPrice)}</span>
+                <span className="font-bold text-white">{money(effectiveEstimatedPrice)}</span>
               </div>
             )}
 
@@ -806,12 +810,12 @@ export default function ResumePaymentPage() {
             <div className="mt-2 flex items-center justify-between border-t border-slate-700 pt-2">
               <span className="font-bold text-stone-300">Due Today (Deposit)</span>
               <span className="text-xl font-black text-yellow-400">
-                {formatCurrency(effectiveDeposit)}
+                {money(effectiveDeposit)}
               </span>
             </div>
             {addonTotal > 0 && lead && effectiveDeposit > lead.deposit_amount && (
               <p className="text-[11px] text-yellow-400/70 text-center">
-                Deposit adjusted from {formatCurrency(lead.deposit_amount)} to include add-on services
+                Deposit adjusted from {money(lead.deposit_amount)} to include add-on services
               </p>
             )}
 
@@ -819,7 +823,7 @@ export default function ResumePaymentPage() {
             <div className="mt-2 pt-2 border-t border-slate-700/50 space-y-1">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-stone-500">Remaining Balance</span>
-                <span className="text-stone-400">{formatCurrency(effectiveEstimatedPrice - effectiveDeposit)}</span>
+                <span className="text-stone-400">{money(effectiveEstimatedPrice - effectiveDeposit)}</span>
               </div>
               {discountApplied && (
                 <div className="flex items-center justify-between text-xs">
@@ -827,7 +831,7 @@ export default function ResumePaymentPage() {
                     <Tag className="h-3 w-3" />
                     Code: {discountApplied.code}
                   </span>
-                  <span className="text-emerald-400 font-bold">-{formatCurrency(discountApplied.amount)}</span>
+                  <span className="text-emerald-400 font-bold">-{money(discountApplied.amount)}</span>
                 </div>
               )}
               {/* Tax line - show calculated or notice */}
@@ -841,13 +845,13 @@ export default function ResumePaymentPage() {
                   <span className="text-stone-500">
                     Sales Tax ({formatTaxRate(taxInfo.taxRate)} - {taxInfo.stateName})
                   </span>
-                  <span className="text-stone-400">{formatCurrency(taxInfo.taxAmount)}</span>
+                  <span className="text-stone-400">{money(taxInfo.taxAmount)}</span>
                 </div>
               ) : null}
               {step !== "address" && (
                 <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-700/50">
                   <span className="text-stone-400 font-medium">Total at Installation</span>
-                  <span className="text-stone-300 font-semibold">{formatCurrency(balanceAtInstall)}</span>
+                  <span className="text-stone-300 font-semibold">{money(balanceAtInstall)}</span>
                 </div>
               )}
             </div>
@@ -994,7 +998,7 @@ export default function ResumePaymentPage() {
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-                    State *
+                    State / Prov. *
                   </label>
                   <input
                     type="text"
@@ -1007,14 +1011,14 @@ export default function ResumePaymentPage() {
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-                    Zip *
+                    ZIP / Postal *
                   </label>
                   <input
                     type="text"
                     value={address.zip}
-                    onChange={(e) => setAddress({ ...address, zip: e.target.value.replace(/\D/g, "").slice(0, 5) })}
+                    onChange={(e) => setAddress({ ...address, zip: sanitizePostalInput(e.target.value) })}
                     placeholder="78701"
-                    maxLength={5}
+                    maxLength={POSTAL_INPUT_MAX_LENGTH}
                     className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
                   />
                 </div>
@@ -1080,18 +1084,18 @@ export default function ResumePaymentPage() {
             <div className="mb-4 rounded-lg border border-yellow-400/20 bg-yellow-400/5 p-4">
               <div className="flex items-center justify-between text-sm mb-2">
                 <span className="text-stone-400">Build Total</span>
-                <span className="text-white">{formatCurrency(buildTotal)}</span>
+                <span className="text-white">{money(buildTotal)}</span>
               </div>
               {addonTotal > 0 && (
                 <div className="flex items-center justify-between text-sm mb-2">
                   <span className="text-emerald-400">Add-On Services</span>
-                  <span className="text-emerald-400">{formatCurrency(addonTotal)}</span>
+                  <span className="text-emerald-400">{money(addonTotal)}</span>
                 </div>
               )}
               {indoorDeliveryTotal > 0 && (
                 <div className="flex items-center justify-between text-sm mb-2">
                   <span className="text-stone-400">Indoor Delivery</span>
-                  <span className="text-white">{formatCurrency(indoorDeliveryTotal)}</span>
+                  <span className="text-white">{money(indoorDeliveryTotal)}</span>
                 </div>
               )}
               {deliveryFee > 0 && (
@@ -1100,25 +1104,25 @@ export default function ResumePaymentPage() {
                     <MapPin className="h-3 w-3 text-yellow-400" />
                     Delivery Fee
                   </span>
-                  <span className="text-white">{formatCurrency(deliveryFee)}</span>
+                  <span className="text-white">{money(deliveryFee)}</span>
                 </div>
               )}
               <div className="flex items-center justify-between border-t border-yellow-400/20 pt-2 mt-2">
                 <span className="font-bold text-white">Due Today (Deposit)</span>
                 <span className="text-xl font-black text-yellow-400">
-                  {formatCurrency(effectiveDeposit)}
+                  {money(effectiveDeposit)}
                 </span>
               </div>
               {addonTotal > 0 && lead && effectiveDeposit > lead.deposit_amount && (
                 <p className="text-[11px] text-yellow-400/70 text-center mt-1">
-                  Deposit adjusted from {formatCurrency(lead.deposit_amount)} to include add-on services
+                  Deposit adjusted from {money(lead.deposit_amount)} to include add-on services
                 </p>
               )}
               {/* Balance at installation — discount applied here */}
               <div className="mt-3 pt-2 border-t border-yellow-400/10 space-y-1">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-stone-500">Remaining Balance</span>
-                  <span className="text-stone-400">{formatCurrency(effectiveEstimatedPrice - effectiveDeposit)}</span>
+                  <span className="text-stone-400">{money(effectiveEstimatedPrice - effectiveDeposit)}</span>
                 </div>
                 {discountApplied && (
                   <div className="flex items-center justify-between text-xs">
@@ -1129,18 +1133,18 @@ export default function ResumePaymentPage() {
                         <X className="h-3 w-3" />
                       </button>
                     </span>
-                    <span className="text-emerald-400 font-bold">-{formatCurrency(discountApplied.amount)}</span>
+                    <span className="text-emerald-400 font-bold">-{money(discountApplied.amount)}</span>
                   </div>
                 )}
                 {taxInfo && taxInfo.taxAmount > 0 && (
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-stone-500">Sales Tax ({formatTaxRate(taxInfo.taxRate)})</span>
-                    <span className="text-stone-400">{formatCurrency(taxInfo.taxAmount)}</span>
+                    <span className="text-stone-400">{money(taxInfo.taxAmount)}</span>
                   </div>
                 )}
                 <div className="flex items-center justify-between text-xs pt-1 border-t border-yellow-400/10">
                   <span className="text-stone-400 font-medium">Total at Installation</span>
-                  <span className="text-stone-300 font-semibold">{formatCurrency(balanceAtInstall)}</span>
+                  <span className="text-stone-300 font-semibold">{money(balanceAtInstall)}</span>
                 </div>
               </div>
             </div>
@@ -1180,7 +1184,7 @@ export default function ResumePaymentPage() {
               <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
                 <Tag className="h-4 w-4 text-emerald-400" />
                 <span className="flex-1 text-sm font-semibold text-emerald-400">
-                  {discountApplied.code} — {discountApplied.discountType === "percentage" ? `${discountApplied.discountValue}% off` : `${formatCurrency(discountApplied.amount)} off`}
+                  {discountApplied.code} — {discountApplied.discountType === "percentage" ? `${discountApplied.discountValue}% off` : `${money(discountApplied.amount)} off`}
                 </span>
                 <button onClick={handleRemoveDiscount} className="text-stone-500 hover:text-red-400">
                   <X className="h-4 w-4" />
@@ -1198,7 +1202,7 @@ export default function ResumePaymentPage() {
               ) : (
                 <CreditCard className="h-4 w-4" />
               )}
-              {initializingPayment ? "Initializing..." : `Pay ${formatCurrency(effectiveDeposit)}`}
+              {initializingPayment ? "Initializing..." : `Pay ${money(effectiveDeposit)}`}
             </button>
 
             {/* Trust Badges */}
@@ -1245,6 +1249,7 @@ export default function ResumePaymentPage() {
             >
               <PaymentForm
                 totalAmount={effectiveDeposit}
+                currency={lead?.currency}
                 onSuccess={() => setPaymentSuccess(true)}
                 onError={setError}
               />
@@ -1282,10 +1287,12 @@ export default function ResumePaymentPage() {
 
 function PaymentForm({
   totalAmount,
+  currency,
   onSuccess,
   onError,
 }: {
   totalAmount: number;
+  currency?: string;
   onSuccess: () => void;
   onError: (error: string) => void;
 }) {
@@ -1349,11 +1356,11 @@ function PaymentForm({
         ) : (
           <CreditCard className="h-4 w-4" />
         )}
-        {processing ? "Processing..." : `Pay ${formatCurrency(totalAmount)}`}
+        {processing ? "Processing..." : `Pay ${formatCurrency(totalAmount, currency)}`}
       </button>
 
       <p className="mt-3 text-center text-xs text-stone-500">
-        Your card will be charged {formatCurrency(totalAmount)} for the deposit.
+        Your card will be charged {formatCurrency(totalAmount, currency)} for the deposit.
         Sales tax will be collected by your installer at installation.
       </p>
     </form>

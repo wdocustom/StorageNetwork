@@ -2,6 +2,7 @@
 
 import type { PaintColorId } from "@/types/viewModels";
 import { PAINT_COLORS } from "@/types/viewModels";
+import { CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 /** Small color circle swatch — toggles paint color for a target */
 export function PaintSwatch({
@@ -63,7 +64,7 @@ export function PaintColorPicker({
         ))}
       </div>
       {activeColor && (
-        <span className="ml-auto text-[10px] font-medium text-yellow-400/80">+${price}</span>
+        <span className="ml-auto text-[10px] font-medium text-yellow-400/80">+<CurrencySymbol />{price}</span>
       )}
     </div>
   );

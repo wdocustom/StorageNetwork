@@ -8,6 +8,7 @@ import type { AddonPricing, PaintColorId } from "@/types/viewModels";
 import { PAINT_COLORS } from "@/types/viewModels";
 import { OVERHEAD_GRID_PRESETS } from "@/lib/overhead-storage";
 import { unitLetter } from "@/lib/tote-plans";
+import { CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 export default function OrderItemCard({
   item,
@@ -178,7 +179,7 @@ export default function OrderItemCard({
             </div>
           )}
           <span className="text-sm font-bold text-white">
-            ${((item.price + (item.indoorDelivery && item.indoorDeliveryFee ? item.indoorDeliveryFee : 0)) * (item.quantity || 1)).toLocaleString()}
+            <CurrencySymbol />{((item.price + (item.indoorDelivery && item.indoorDeliveryFee ? item.indoorDeliveryFee : 0)) * (item.quantity || 1)).toLocaleString()}
           </span>
           <button
             onClick={onRemove}
@@ -208,7 +209,7 @@ export default function OrderItemCard({
                       <span className="truncate">{addon.label}</span>
                     </span>
                     {addon.price > 0 && (
-                      <span className="shrink-0 text-zinc-500">${addon.price.toLocaleString()}</span>
+                      <span className="shrink-0 text-zinc-500"><CurrencySymbol />{addon.price.toLocaleString()}</span>
                     )}
                   </li>
                 ))}

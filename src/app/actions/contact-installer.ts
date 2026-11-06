@@ -23,6 +23,7 @@ import {
   enforceActionRateLimit,
   RateLimitError,
 } from "@/lib/server/action-rate-limit";
+import { currencyForInstaller } from "@/lib/server/currency-lookup";
 
 const supabase = getServiceClient();
 
@@ -136,6 +137,8 @@ export async function contactInstaller(
       subject: `New Inquiry from ${customerName.trim()}`,
       html,
       replyTo: customerEmail.trim(),
+      // Money renders as CA$ for Canadian installers' jobs.
+      currency: await currencyForInstaller(installerId),
     });
 
     if (!result.success) {
@@ -252,6 +255,8 @@ export async function contactInstaller(
             subject: `Your quote is saved — return anytime to complete your order`,
             html: confirmHtml,
             replyTo: installerEmail,
+            // Money renders as CA$ for Canadian installers' jobs.
+            currency: await currencyForInstaller(installerId),
           });
 
           console.log("[ContactInstaller] Confirmation email with saved quote link sent to:", customerEmail);

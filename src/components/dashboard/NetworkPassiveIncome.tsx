@@ -5,6 +5,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { DollarSign, Info, ChevronRight } from "lucide-react";
 import { roundMoney } from "@/utils/mathHelpers";
 import Link from "next/link";
+import { CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 interface NetworkPassiveIncomeProps {
   userId: string;
@@ -73,7 +74,7 @@ export default function NetworkPassiveIncome({ userId }: NetworkPassiveIncomePro
           {showTooltip && (
             <div className="absolute bottom-full left-1/2 z-10 mb-2 w-52 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-800 p-2.5 text-left shadow-xl">
               <p className="text-[11px] leading-relaxed text-stone-300">
-                Share your link anywhere. When someone outside your area books with a local installer, you earn 30% of their deposit (min $15).
+                Share your link anywhere. When someone outside your area books with a local installer, you earn 30% of their deposit (min <CurrencySymbol />15).
               </p>
               <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-slate-700" />
             </div>
@@ -86,7 +87,7 @@ export default function NetworkPassiveIncome({ userId }: NetworkPassiveIncomePro
       ) : hasActivity ? (
         <>
           <p className="text-2xl font-black text-yellow-400">
-            ${totalEarnings.toLocaleString()}
+            <CurrencySymbol />{totalEarnings.toLocaleString()}
           </p>
           <p className="mt-0.5 text-[10px] text-stone-600">
             {paidCount} paid{pendingCount > 0 ? ` · ${pendingCount} pending` : ""} · 30% of deposit

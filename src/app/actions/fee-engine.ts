@@ -4,6 +4,7 @@ import { getServiceClient } from "@/lib/supabase-server";
 import zipcodes from "zipcodes";
 import { roundMoney, calculateBalanceDue } from "@/utils/mathHelpers";
 import { isDirectLeadSource } from "@/lib/lead-source";
+import { parsePostalCode, regionCodeFromLookup } from "@/lib/geo/postal";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Fee Engine — Black Box
@@ -48,6 +49,32 @@ const STATE_TAX_RATES: Record<string, number> = {
   VA: 0.053, WA: 0.065, WV: 0.06, WI: 0.05, WY: 0.04,
   DC: 0.06,
 };
+
+// ── Canadian Province / Territory Rates (server-only) ────────────────────
+// Combined consumer rate on goods + installation services:
+//   GST 5% everywhere; HST provinces fold the provincial part into one tax;
+//   BC/MB/SK add a separate PST/RST; Quebec adds QST (9.975%).
+// Nova Scotia's HST dropped 15% → 14% on 2025-04-01.
+// Installers under the CRA $30k small-supplier threshold needn't register —
+// that's what the per-installer sales_tax_enabled toggle is for.
+// No province code collides with a US state code, so both share one lookup.
+const PROVINCE_TAX_RATES: Record<string, number> = {
+  AB: 0.05,                         // GST
+  BC: 0.12,                         // GST 5% + PST 7%
+  MB: 0.12,                         // GST 5% + RST 7%
+  NB: 0.15,                         // HST
+  NL: 0.15,                         // HST
+  NS: 0.14,                         // HST
+  NT: 0.05,                         // GST
+  NU: 0.05,                         // GST
+  ON: 0.13,                         // HST
+  PE: 0.15,                         // HST
+  QC: 0.14975,                      // GST 5% + QST 9.975%
+  SK: 0.11,                         // GST 5% + PST 6%
+  YT: 0.05,                         // GST
+};
+
+const REGION_TAX_RATES: Record<string, number> = { ...STATE_TAX_RATES, ...PROVINCE_TAX_RATES };
 
 // ── Deposit Config Types ─────────────────────────────────────────────────
 
@@ -238,20 +265,21 @@ export async function getSalesTax(
     }
   }
 
-  const taxRate = STATE_TAX_RATES[state] ?? 0;
+  const taxRate = REGION_TAX_RATES[state] ?? 0;
   const taxAmount = roundMoney(subtotal * taxRate);
   const total = roundMoney(subtotal + taxAmount);
   return { taxRate, taxAmount, subtotal, total, stateName: state };
 }
 
 /**
- * Look up the US state code for a 5-digit ZIP. Returns null if invalid
- * or if the ZIP isn't in the dataset (e.g. typo, P.O. box prefix).
+ * Look up the 2-letter region — US state or Canadian province — for a ZIP or
+ * postal code. Returns null if invalid or not in the dataset (e.g. typo,
+ * P.O. box prefix).
  */
 export async function getStateFromZip(zip: string): Promise<string | null> {
-  if (!zip || !/^\d{5}$/.test(zip.trim())) return null;
-  const info = zipcodes.lookup(zip.trim());
-  return info?.state ?? null;
+  const postal = parsePostalCode(zip);
+  if (!postal) return null;
+  return regionCodeFromLookup(zipcodes.lookup(postal.key));
 }
 
 /**

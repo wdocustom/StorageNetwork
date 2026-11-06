@@ -15,6 +15,7 @@ import { formatInstallDate } from "@/utils/installDate";
 import Link from "next/link";
 import { JOB_COLUMNS, JOBS_EXCLUDED, JOBS_OR, UNPAID_COLUMNS, unpaidOr } from "./queries";
 import PageHeader from "@/components/dashboard/PageHeader";
+import { CurrencySymbol } from "@/components/currency/CurrencyContext";
 // TODO: Re-enable calendar after fixing re-render issues
 // import JobCalendar from "@/components/calendar/JobCalendar";
 
@@ -332,7 +333,7 @@ function JobCard({ lead, showDelete, onDelete, showNewQuote }: { lead: LeadItem;
           <div className="text-center">
             <p className="mb-3 text-sm font-bold text-red-400">Delete this quote?</p>
             <p className="mb-4 text-xs text-stone-400">
-              {lead.status === "waitlisted" ? maskName(lead.customer_name) : lead.customer_name} — ${lead.estimated_price?.toLocaleString() ?? "0"}
+              {lead.status === "waitlisted" ? maskName(lead.customer_name) : lead.customer_name} — <CurrencySymbol />{lead.estimated_price?.toLocaleString() ?? "0"}
             </p>
             <div className="flex items-center justify-center gap-3">
               <button
@@ -385,7 +386,7 @@ function JobCard({ lead, showDelete, onDelete, showNewQuote }: { lead: LeadItem;
           <div className="flex items-center gap-3">
             {lead.estimated_price ? (
               <span className="text-lg font-bold text-yellow-400">
-                ${lead.estimated_price.toLocaleString()}
+                <CurrencySymbol />{lead.estimated_price.toLocaleString()}
               </span>
             ) : (
               <span className="text-sm text-stone-500">No quote</span>
@@ -403,7 +404,7 @@ function JobCard({ lead, showDelete, onDelete, showNewQuote }: { lead: LeadItem;
           <div className="mt-2 rounded-lg bg-slate-800 px-3 py-1.5 text-center text-xs font-semibold text-stone-400">
             Collect on completion:{" "}
             <span className="text-white">
-              ${lead.balance_due.toLocaleString()}
+              <CurrencySymbol />{lead.balance_due.toLocaleString()}
             </span>
           </div>
         )}

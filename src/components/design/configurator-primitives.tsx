@@ -3,11 +3,13 @@
 import { useEffect } from "react";
 import { motion, AnimatePresence, useSpring, useTransform } from "framer-motion";
 import { CheckCircle2 } from "lucide-react";
+import { useCurrency, CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 /** Rolling number counter that "ticks" up/down smoothly */
 export function RollingPrice({ value }: { value: number }) {
+  const __sym = useCurrency().symbol;
   const spring = useSpring(value, { stiffness: 100, damping: 30 });
-  const display = useTransform(spring, (v) => `$${Math.round(v).toLocaleString()}`);
+  const display = useTransform(spring, (v) => `${__sym}${Math.round(v).toLocaleString()}`);
 
   useEffect(() => {
     spring.set(value);
@@ -124,7 +126,7 @@ export function AddonToggleBtn({
       {icon}
       <span className="flex-1">{label}</span>
       {price !== undefined && price > 0 && (
-        <span className="text-[10px] text-zinc-500">+${price}</span>
+        <span className="text-[10px] text-zinc-500">+<CurrencySymbol />{price}</span>
       )}
     </button>
   );

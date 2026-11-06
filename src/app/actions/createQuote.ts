@@ -37,6 +37,8 @@ import { getServiceClient } from "@/lib/supabase-server";
 import { checkProTrial } from "@/lib/server/pro-trial";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { markSendConverted } from "@/lib/marketing-attribution";
+import { isValidPostalCode, parsePostalCode, INVALID_POSTAL_MESSAGE } from "@/lib/geo/postal";
+import { currencyForInstaller } from "@/lib/server/currency-lookup";
 
 const supabase = getServiceClient();
 
@@ -138,7 +140,7 @@ export async function checkDeliveryZip(
   installerId: string,
   zip: string
 ): Promise<ZipCheckResult> {
-  if (!installerId || !zip || zip.trim().length !== 5) {
+  if (!installerId || !isValidPostalCode(zip)) {
     return { in_area: true, waitlist: false }; // Skip if no valid ZIP
   }
 
@@ -285,10 +287,12 @@ export async function createQuote(
     let effectiveQuoteData = quote_data;
     let effectiveTotal = grand_total;
 
-    const deliveryZip = customer_zip?.trim() || delivery_address?.zip?.trim();
+    // Keep the customer's full code ("M5V 2T6") for the address; every
+    // matching/territory helper normalizes it to its key via postalKey().
+    const deliveryZip = parsePostalCode(customer_zip || delivery_address?.zip)?.formatted;
 
-    if (!deliveryZip || !/^\d{5}$/.test(deliveryZip)) {
-      return { success: false, error: "A valid 5-digit ZIP code is required." };
+    if (!deliveryZip) {
+      return { success: false, error: INVALID_POSTAL_MESSAGE };
     }
 
     // Treat "not accepting new leads" exactly like an out-of-area handoff so
@@ -365,7 +369,7 @@ export async function createQuote(
             zip: deliveryZip,
             quoteData: quote_data as Array<{ desc?: string; cols?: number; rows?: number; price?: number }>,
             diyPlansUrl: diyPlansEmailUrl(quote_data, "waitlist_email"),
-          }).catch((err) => {
+          }, await currencyForInstaller(installer_id)).catch((err) => {
             console.error("[Quote] Waitlist customer confirmation email failed (non-fatal):", err);
           });
         }
@@ -705,6 +709,8 @@ export async function createQuote(
         html: emailHtml,
         senderName: effectiveBusinessName || undefined,
         replyTo: effectiveEmail || undefined,
+        // Money renders as CA$ for Canadian installers' jobs.
+        currency: await currencyForInstaller(effectiveInstallerId),
       });
 
       if (!emailResult.success) {
@@ -736,7 +742,7 @@ export async function createQuote(
               customerZip: delivery_address?.zip || null,
               localInstallerName: coveringInstallerName || null,
               estimatedBounty,
-            });
+            }, await currencyForInstaller(effectiveInstallerId));
           }
         } catch (emailErr) {
           console.error("[Quote] Referral handoff email failed (non-fatal):", emailErr);

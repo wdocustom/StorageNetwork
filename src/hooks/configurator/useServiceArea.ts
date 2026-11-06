@@ -13,6 +13,7 @@ import { BESTSELLER_PRESETS } from "@/lib/presets";
 import type { DesignPageViewModel } from "@/types/viewModels";
 import type { UnitConfig, ToteType, ToteColor, SavedSignalData } from "./types";
 import { setInstallerCookie } from "./useInstallerContext";
+import { isCompletePostalInput, isValidPostalCode } from "@/lib/geo/postal";
 
 interface UseServiceAreaParams {
   initialZip: string;
@@ -120,14 +121,14 @@ export function useServiceArea({
 
   // Auto ZIP check on mount
   useEffect(() => {
-    if (initialZip.length === 5 && !initialData) {
+    if (isValidPostalCode(initialZip) && !initialData) {
       handleZipCheckAuto(initialZip);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleZipCheck = useCallback(async () => {
-    if (zip.length < 5) return;
+    if (!isValidPostalCode(zip)) return;
     await handleZipCheckAuto(zip);
   }, [zip, handleZipCheckAuto]);
 
@@ -142,7 +143,7 @@ export function useServiceArea({
 
     const zipToCheck = hasDifferentDelivery ? deliveryZip : addrZip;
     const validationTargetId = originalInstallerId.current;
-    if (!validationTargetId || !zipToCheck || zipToCheck.trim().length !== 5) return;
+    if (!validationTargetId || !isCompletePostalInput(zipToCheck)) return;
 
     let isActive = true;
 

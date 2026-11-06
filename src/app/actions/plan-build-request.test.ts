@@ -117,7 +117,7 @@ describe("requestPlanBuild — lead source decides the fee", () => {
   });
 
   it("prices on the server and rejects bad input", async () => {
-    expect(await request(LOCAL, { zip: "12" })).toEqual({ ok: false, error: "Enter your 5-digit ZIP code." });
+    expect(await request(LOCAL, { zip: "12" })).toEqual({ ok: false, error: "Please enter a valid ZIP or postal code." });
     expect((await request("not-an-id")).ok).toBe(false);
     expect(state.submitted).toHaveLength(0);
   });

@@ -11,6 +11,7 @@ import {
   type GroupedReferrer,
 } from "@/app/actions/analytics";
 import PageHeader from "@/components/dashboard/PageHeader";
+import { useCurrency, CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 type TimeRange = 7 | 30 | 90;
 
@@ -96,6 +97,7 @@ function buildKPIs(data: AnalyticsSummary | null) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function AnalyticsPage() {
+  const __sym = useCurrency().symbol;
   const supabase = getSupabaseBrowserClient();
   const [loading,  setLoading]  = useState(true);
   const [data,     setData]     = useState<AnalyticsSummary | null>(null);
@@ -200,7 +202,7 @@ export default function AnalyticsPage() {
               <MetricCard
                 icon={<Briefcase className="h-5 w-5" />}
                 label="Pipeline Value"
-                value={`$${kpis.pipelineValue.toLocaleString()}`}
+                value={`${__sym}${kpis.pipelineValue.toLocaleString()}`}
                 sub="Quotes not yet deposited"
                 accent="yellow"
               />
@@ -214,14 +216,14 @@ export default function AnalyticsPage() {
               <MetricCard
                 icon={<DollarSign className="h-5 w-5" />}
                 label="Avg Job Size"
-                value={kpis.avgJobSize > 0 ? `$${kpis.avgJobSize.toLocaleString()}` : "—"}
+                value={kpis.avgJobSize > 0 ? `${__sym}${kpis.avgJobSize.toLocaleString()}` : "—"}
                 sub="Per completed job"
                 accent="blue"
               />
               <MetricCard
                 icon={<Users className="h-5 w-5" />}
                 label="Revenue / Lead"
-                value={kpis.revenuePerLead > 0 ? `$${kpis.revenuePerLead}` : "—"}
+                value={kpis.revenuePerLead > 0 ? `${__sym}${kpis.revenuePerLead}` : "—"}
                 sub="Your ad-spend ceiling"
                 accent="purple"
               />
@@ -703,7 +705,7 @@ function HotZonesSection({ zones }: { zones: HotZone[] }) {
               {/* Avg job + trend */}
               <div className="flex items-center justify-end gap-1.5">
                 <span className="text-sm font-black text-white">
-                  ${zone.avgJobSize.toLocaleString()}
+                  <CurrencySymbol />{zone.avgJobSize.toLocaleString()}
                 </span>
                 {zone.trend === "up" && (
                   <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
@@ -777,7 +779,7 @@ function ProductMixSection({ mix }: { mix: ProductMixItem[] }) {
             <div className="h-3 w-3 rounded-sm" style={{ backgroundColor: item.color }} />
             <span className="text-xs font-semibold text-slate-300">{item.label}</span>
             <span className="text-[10px] text-slate-500">
-              ${item.revenue.toLocaleString()} · {item.pct}%
+              <CurrencySymbol />{item.revenue.toLocaleString()} · {item.pct}%
             </span>
           </div>
         ))}
@@ -795,7 +797,7 @@ function ProductMixSection({ mix }: { mix: ProductMixItem[] }) {
               />
             </div>
             <span className="w-20 text-right text-xs font-bold text-white">
-              ${item.revenue.toLocaleString()}
+              <CurrencySymbol />{item.revenue.toLocaleString()}
             </span>
           </div>
         ))}
@@ -808,7 +810,7 @@ function ProductMixSection({ mix }: { mix: ProductMixItem[] }) {
           <p className="text-[11px] leading-relaxed text-slate-400">
             <span className="font-bold text-emerald-400">Upsell opportunity:</span> {mix[0]?.pct}%
             of your revenue comes from tote packages. Every Frame Only sale that gets upgraded
-            adds ${Math.round((mix[0]?.revenue ?? 0) / (mix[1]?.revenue ?? 1) * 100)} in average
+            adds <CurrencySymbol />{Math.round((mix[0]?.revenue ?? 0) / (mix[1]?.revenue ?? 1) * 100)} in average
             ticket. Ask about totes on every quote.
           </p>
         </div>

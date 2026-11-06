@@ -6,6 +6,7 @@ import { TOTE_PLAN_TIERS, decodeTotePlanDesign, isTotePlanTier } from "@/lib/tot
 import { PLAN_SPLIT_TOTAL_CENTS, planSplitShares, planSplitsEnabled } from "@/lib/plan-splits";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import { sendPlanSplitEarnedEmail, type PlanSplitEmailData } from "@/lib/emails/planSplitTemplates";
+import { checkTransferEligibility } from "@/lib/stripe/cross-border";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // processPlanSplits — pays the installer share of a confirmed tote plan sale
@@ -140,7 +141,15 @@ export async function processPlanSplits(
         continue;
       }
 
-      // 3. Transfer
+      // 3. Cross-border guard — a US platform can't transfer to a Canadian
+      //    Standard account; park it for manual payout (see cross-border.ts).
+      const eligibility = await checkTransferEligibility(stripe, profile.stripe_account_id);
+      if (!eligibility.ok) {
+        await fail(row.id, eligibility.reason);
+        continue;
+      }
+
+      // 4. Transfer
       const transfer = await stripe.transfers.create(
         {
           amount: share.cents,
@@ -243,6 +252,15 @@ export async function retryPlanSplitPayout(
     const existing = await stripe.transfers.list({ transfer_group: row.stripe_session_id, destination: profile.stripe_account_id, limit: 20 });
     const already = existing.data.find((t) => t.metadata?.type === "plan_split");
     if (already) return await markPaid(already.id);
+
+    const eligibility = await checkTransferEligibility(stripe, profile.stripe_account_id);
+    if (!eligibility.ok) {
+      await db
+        .from("plan_split_payouts")
+        .update({ status: "failed", failure_reason: eligibility.reason, updated_at: new Date().toISOString() })
+        .eq("id", row.id);
+      return { ok: false, status: "failed", error: eligibility.detail };
+    }
 
     const session = await stripe.checkout.sessions.retrieve(row.stripe_session_id);
     const chargeId = await chargeIdFor(stripe, session);

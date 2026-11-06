@@ -35,6 +35,7 @@ import {
 } from "@/hooks/configurator";
 import { useStudio } from "@/hooks/configurator/useStudio";
 import type { DesignConfiguratorProps, UnitConfig, ToteType, ToteColor } from "@/hooks/configurator";
+import { CurrencyProvider } from "@/components/currency/CurrencyContext";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -570,6 +571,8 @@ export default function DesignConfigurator({
   // ═══════════════════════════════════════════════════════════════════════
 
   return (
+    // Prices follow whichever installer the ZIP routed to (CA$ for Canada).
+    <CurrencyProvider currency={installer.data?.currency}>
     <div className="flex h-screen flex-col bg-gray-950">
       {/* ── Analytics: track page view for installer ────────────────────── */}
       {installer.installerId && <PageViewTracker installerId={installer.installerId} page="/design" />}
@@ -901,5 +904,6 @@ export default function DesignConfigurator({
       )}
 
     </div>
+    </CurrencyProvider>
   );
 }

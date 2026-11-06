@@ -10,6 +10,7 @@ import Stripe from "stripe";
 import { roundMoney } from "@/utils/mathHelpers";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { PRO_FREE_PROMO, PRO_MONTHLY_PRICE } from "@/config/pro-pricing";
+import { currencyForInstaller } from "@/lib/server/currency-lookup";
 
 const db = getServiceClient;
 
@@ -240,7 +241,7 @@ async function unlockWaitlistedLeads(userId: string): Promise<void> {
             estimatedPrice: l.estimated_price,
             leadId: l.id,
           })),
-        }).catch((err) => console.error("[ProSubscription] Waitlist unlock email failed:", err));
+        }, await currencyForInstaller(userId)).catch((err) => console.error("[ProSubscription] Waitlist unlock email failed:", err));
       }
 
       // ── Auto-email each customer with a payment link ──────────
@@ -274,7 +275,7 @@ async function unlockWaitlistedLeads(userId: string): Promise<void> {
             leadId: lead.id,
             quoteData: quoteItems,
             diyPlansUrl: diyPlansEmailUrl(lead.quote_data, "installer_ready_email"),
-          }).catch((err) =>
+          }, await currencyForInstaller(userId)).catch((err) =>
             console.error(`[ProSubscription] Customer payment email failed for lead ${lead.id}:`, err)
           );
         } catch (err) {

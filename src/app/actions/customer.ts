@@ -8,6 +8,7 @@ import type { InstallerPricing } from "@/types/viewModels";
 import type { ServiceOffering } from "@/config/services";
 import { recordAnonymousDemand } from "@/app/actions/demand-signals";
 import { zipCache, installerCache } from "@/lib/cache";
+import { postalKey, INVALID_POSTAL_MESSAGE } from "@/lib/geo/postal";
 
 export interface AvailabilityResult {
   available: boolean;
@@ -25,11 +26,13 @@ export interface AvailabilityResult {
   installer_logo_url: string | null;
   installer_pricing: InstallerPricing | null;
   installer_services_config: ServiceOffering[] | null;
+  /** "usd" | "cad" — prices on the design flow render in this currency. */
+  installer_currency?: string;
   message: string;
 }
 
 const INSTALLER_SELECT =
-  "id, business_name, slug, stripe_account_id, avatar_url, phone, lead_time_days, working_days, scheduling_enabled, max_monthly_leads, current_month_leads, leads_reset_at, is_pro, logo_url, pricing_config, services_config, is_suspended, completed_jobs, pro_trial_ends_at, stripe_subscription_id";
+  "id, business_name, slug, stripe_account_id, avatar_url, phone, lead_time_days, working_days, scheduling_enabled, max_monthly_leads, current_month_leads, leads_reset_at, is_pro, logo_url, pricing_config, services_config, is_suspended, completed_jobs, pro_trial_ends_at, stripe_subscription_id, currency";
 
 /**
  * Detect soft-lock state: trial expired but is_pro kept true for active jobs.
@@ -70,6 +73,7 @@ function toResult(
   const name = (data.business_name as string) ?? "A local installer";
   return {
     available: true,
+    installer_currency: (data.currency as string | null) ?? "usd",
     installer_id: data.id as string,
     installer_name: name,
     installer_slug: (data.slug as string) ?? null,
@@ -105,9 +109,9 @@ function toResult(
 export async function checkAvailability(
   zip: string
 ): Promise<AvailabilityResult> {
-  const trimmed = zip.trim();
-  if (!/^\d{5}$/.test(trimmed)) {
-    return toResult(null, "Please enter a valid 5-digit ZIP code.");
+  const trimmed = postalKey(zip);
+  if (!trimmed) {
+    return toResult(null, INVALID_POSTAL_MESSAGE);
   }
 
   return zipCache.getOrFetch(`avail:${trimmed}`, async () => {
@@ -205,9 +209,9 @@ export async function rerouteToLocalInstaller(
   customerZip: string,
   originalInstallerId: string
 ): Promise<AvailabilityResult> {
-  const trimmed = customerZip.trim();
-  if (!/^\d{5}$/.test(trimmed)) {
-    return toResult(null, "Please enter a valid 5-digit ZIP code.");
+  const trimmed = postalKey(customerZip);
+  if (!trimmed) {
+    return toResult(null, INVALID_POSTAL_MESSAGE);
   }
 
   try {

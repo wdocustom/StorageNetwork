@@ -64,6 +64,8 @@ import Link from "next/link";
 import { SETTINGS_PROFILE_COLUMNS } from "./columns";
 import PageHeader from "@/components/dashboard/PageHeader";
 import { PushSettingsCard } from "@/components/dashboard/PushNotifications";
+import { POSTAL_INPUT_MAX_LENGTH, isValidPostalCode, sanitizePostalInput } from "@/lib/geo/postal";
+import { useCurrency } from "@/components/currency/CurrencyContext";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Profile & Settings Page
@@ -119,6 +121,10 @@ export interface Profile {
   phone: string | null;
   service_zip: string | null;
   service_radius_miles: number | null;
+  /** "US" | "CA" — derived from the home postal code, pinned by Stripe. */
+  country?: string | null;
+  /** "usd" | "cad" — what customers are charged in. */
+  currency?: string | null;
   city: string | null;
   state: string | null;
   address_line1: string | null;
@@ -148,6 +154,7 @@ function ProfilePageInner({
   initial: SettingsInitial;
   stripeStatus: Promise<StripeStatus>;
 }) {
+  const __sym = useCurrency().symbol;
   const p0 = initial.profile;
   const supabase = getSupabaseBrowserClient();
   const searchParams = useSearchParams();
@@ -542,8 +549,8 @@ function ProfilePageInner({
   }
 
   async function handleSaveRadius() {
-    if (!profile || !serviceZip || serviceZip.length !== 5) {
-      setRadiusMessage("Please set a valid 5-digit ZIP code first.");
+    if (!profile || !isValidPostalCode(serviceZip)) {
+      setRadiusMessage("Please set a valid ZIP or postal code first.");
       return;
     }
     setRadiusSaving(true);
@@ -568,8 +575,8 @@ function ProfilePageInner({
   async function handleAddZip() {
     if (!profile) return;
     const trimmed = newZipInput.trim();
-    if (trimmed.length !== 5) {
-      setAddZipMessage("Please enter a valid 5-digit ZIP code.");
+    if (!isValidPostalCode(trimmed)) {
+      setAddZipMessage("Please enter a valid ZIP or postal code.");
       return;
     }
     setAddZipSaving(true);
@@ -991,11 +998,11 @@ function ProfilePageInner({
                 </label>
                 <input
                   type="text"
-                  inputMode="numeric"
-                  maxLength={5}
+                  autoCapitalize="characters"
+                  maxLength={POSTAL_INPUT_MAX_LENGTH}
                   value={serviceZip}
                   onChange={(e) =>
-                    setServiceZip(e.target.value.replace(/\D/g, "").slice(0, 5))
+                    setServiceZip(sanitizePostalInput(e.target.value))
                   }
                   placeholder="90210"
                   className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
@@ -1089,7 +1096,7 @@ function ProfilePageInner({
                   <MapPin className="h-5 w-5 text-yellow-400" />
                 </div>
                 <div>
-                  <p className="text-xs text-stone-500">Home Base ZIP</p>
+                  <p className="text-xs text-stone-500">Home Base ZIP / Postal Code</p>
                   <p className="text-lg font-bold text-white">
                     {serviceZip || "Not set"}
                   </p>
@@ -1183,7 +1190,7 @@ function ProfilePageInner({
           {/* Save Button */}
           <button
             onClick={handleSaveRadius}
-            disabled={radiusSaving || !serviceZip || serviceZip.length !== 5}
+            disabled={radiusSaving || !isValidPostalCode(serviceZip)}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
           >
             {radiusSaving ? (
@@ -1204,14 +1211,14 @@ function ProfilePageInner({
             </p>
           )}
 
-          {!serviceZip || serviceZip.length !== 5 ? (
+          {!isValidPostalCode(serviceZip) ? (
             <p className="mt-2 text-center text-xs text-amber-400">
               Set your Service ZIP above to configure your service area.
             </p>
           ) : null}
 
           {/* Add Individual ZIP Codes */}
-          {serviceZip && serviceZip.length === 5 && (
+          {isValidPostalCode(serviceZip) && (
             <div className="mt-5 border-t border-slate-800 pt-5">
               <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-stone-500">
                 Add a Specific ZIP Code
@@ -1222,17 +1229,17 @@ function ProfilePageInner({
               <div className="flex gap-2">
                 <input
                   type="text"
-                  inputMode="numeric"
-                  maxLength={5}
-                  placeholder="ZIP code"
+                  autoCapitalize="characters"
+                  maxLength={POSTAL_INPUT_MAX_LENGTH}
+                  placeholder="ZIP / postal code"
                   value={newZipInput}
-                  onChange={(e) => setNewZipInput(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                  onChange={(e) => setNewZipInput(sanitizePostalInput(e.target.value))}
                   onKeyDown={(e) => { if (e.key === "Enter") handleAddZip(); }}
                   className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-yellow-400 focus:outline-none"
                 />
                 <button
                   onClick={handleAddZip}
-                  disabled={addZipSaving || newZipInput.length !== 5}
+                  disabled={addZipSaving || !isValidPostalCode(newZipInput)}
                   className="flex shrink-0 items-center gap-1.5 rounded-lg bg-yellow-400 px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300 disabled:opacity-50"
                 >
                   {addZipSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
@@ -1501,7 +1508,7 @@ function ProfilePageInner({
           onToggle={toggleSection("deposit")}
           icon={DollarSign}
           title="Customer Deposit"
-          description={`${depositType === "percentage" ? `${depositValue}%` : `$${depositValue}`} deposit required at booking`}
+          description={`${depositType === "percentage" ? `${depositValue}%` : `${__sym}${depositValue}`} deposit required at booking`}
         >
 
               <p className="mb-4 text-xs text-stone-500">
@@ -1563,7 +1570,7 @@ function ProfilePageInner({
                       ? depositValue === 15
                         ? "Default — standard 15% deposit"
                         : `Customer pays ${depositValue}% of build total upfront`
-                      : `Customer pays $${depositValue} upfront (min 15% of total enforced)`
+                      : `Customer pays ${__sym}${depositValue} upfront (min 15% of total enforced)`
                     }
                   </span>
                 </div>
@@ -1776,6 +1783,12 @@ function ProfilePageInner({
                   ? "Your account is fully set up. Deposits from your leads will be sent directly to your bank."
                   : "Connect your Stripe account to receive deposits directly."}
             </p>
+            {profile?.country === "CA" && (
+              <p className="mt-2 text-xs text-stone-500">
+                🇨🇦 Canadian account — customers are charged in <span className="font-semibold text-stone-300">CAD</span> and
+                payouts land in your Canadian bank. Referral bounties are paid manually by our team.
+              </p>
+            )}
           </div>
 
           {stripeMessage && (

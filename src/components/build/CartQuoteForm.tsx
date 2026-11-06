@@ -10,6 +10,8 @@ import {
   DollarSign,
 } from "lucide-react";
 import type { DeliveryFeeResult } from "@/app/actions/delivery-fee";
+import { POSTAL_INPUT_MAX_LENGTH, sanitizePostalInput } from "@/lib/geo/postal";
+import { CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 export type ZipCheckStatus =
   | "idle"
@@ -114,14 +116,14 @@ export default function CartQuoteForm({
       </div>
       <div>
         <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-          Customer ZIP Code *
+          Customer ZIP / Postal Code *
         </label>
         <input
           type="text"
           value={deliveryZip}
-          onChange={(e) => onDeliveryZipChange(e.target.value)}
+          onChange={(e) => onDeliveryZipChange(sanitizePostalInput(e.target.value))}
           placeholder="e.g. 30301"
-          maxLength={5}
+          maxLength={POSTAL_INPUT_MAX_LENGTH}
           disabled={disableZipField}
           className="w-32 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none disabled:opacity-50"
         />
@@ -146,7 +148,7 @@ export default function CartQuoteForm({
           zipCheckStatus !== "checking" && (
             <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-yellow-400">
               <DollarSign className="h-3 w-3" />
-              Delivery fee: ${deliveryFeeResult.fee} ({deliveryFeeResult.tierLabel} —{" "}
+              Delivery fee: <CurrencySymbol />{deliveryFeeResult.fee} ({deliveryFeeResult.tierLabel} —{" "}
               {deliveryFeeResult.distance} mi)
             </div>
           )}
@@ -168,7 +170,7 @@ export default function CartQuoteForm({
                 <p className="mt-0.5 text-[10px] leading-relaxed text-stone-400">
                   <strong className="text-white">{zipCoveringName}</strong> covers this
                   area. The quote will be handed off to them and you&apos;ll earn a
-                  referral bounty (30% of deposit, min $15).
+                  referral bounty (30% of deposit, min <CurrencySymbol />15).
                 </p>
               </div>
             </div>

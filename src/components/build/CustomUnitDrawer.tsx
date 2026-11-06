@@ -5,6 +5,7 @@ import BottomDrawer from "./BottomDrawer";
 import { toFraction } from "@/lib/utils";
 import type { InstallerPricing } from "@/types/viewModels";
 import type { IndoorDeliveryConfig } from "@/app/actions/delivery-fee";
+import { CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 type ToteType = "HDX" | "GM";
 type UnitTypeOption = "standard" | "mini";
@@ -408,7 +409,7 @@ export default function CustomUnitDrawer({
               className="h-4 w-4 accent-yellow-400"
             />
             <span className="text-sm text-stone-300">
-              Indoor Delivery (+${indoorDeliveryConfig.fee})
+              Indoor Delivery (+<CurrencySymbol />{indoorDeliveryConfig.fee})
             </span>
           </label>
         )}
@@ -436,7 +437,7 @@ export default function CustomUnitDrawer({
             </div>
             <div className="rounded-lg bg-slate-800 p-3">
               <p className="text-2xl font-black text-yellow-400">
-                ${buildResult.price.toLocaleString()}
+                <CurrencySymbol />{buildResult.price.toLocaleString()}
               </p>
               <p className="text-[10px] font-bold uppercase text-stone-500">Est. Price</p>
             </div>

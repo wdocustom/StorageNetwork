@@ -5,6 +5,7 @@ import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser
 import { DollarSign, Loader2, CheckCircle2, Clock, MapPin } from "lucide-react";
 import { roundMoney } from "@/utils/mathHelpers";
 import PageHeader from "@/components/dashboard/PageHeader";
+import { useCurrency, CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -32,7 +33,7 @@ interface ReferralItem {
 
 /** Estimate the bounty for a pending referral: 30% of deposit, min $15 */
 function estimateBounty(ref: ReferralItem): number {
-  if (ref.bounty_status === "paid" && typeof ref.bounty_amount === "number") {
+  if ((ref.bounty_status === "paid" || ref.bounty_status === "manual_payout") && typeof ref.bounty_amount === "number") {
     return ref.bounty_amount;
   }
   // deposit_amount comes from server; fallback uses the stored amount or 0
@@ -45,6 +46,7 @@ function estimateBounty(ref: ReferralItem): number {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function ReferralsPage() {
+  const __sym = useCurrency().symbol;
   const supabase = getSupabaseBrowserClient();
   const [referrals, setReferrals] = useState<ReferralItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,7 +127,7 @@ export default function ReferralsPage() {
           <div className="rounded-xl border border-yellow-400/20 bg-slate-900 p-3 text-center">
             <DollarSign className="mx-auto mb-1 h-4 w-4 text-yellow-400" />
             <p className="text-lg font-black text-yellow-400">
-              ${Math.round(totalEarnings * 100 / 100).toLocaleString()}
+              <CurrencySymbol />{Math.round(totalEarnings * 100 / 100).toLocaleString()}
             </p>
             <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500">
               Earned
@@ -176,7 +178,7 @@ export default function ReferralsPage() {
                 3
               </div>
               <p className="text-xs leading-relaxed text-stone-400">
-                <span className="text-stone-200">They book and pay a deposit</span> — the local installer handles the job. You automatically receive <span className="font-semibold text-yellow-400">30% of the deposit</span> (min $15) deposited directly to your Stripe account.
+                <span className="text-stone-200">They book and pay a deposit</span> — the local installer handles the job. You automatically receive <span className="font-semibold text-yellow-400">30% of the deposit</span> (min <CurrencySymbol />15) deposited directly to your Stripe account.
               </p>
             </div>
           </div>
@@ -240,7 +242,7 @@ export default function ReferralsPage() {
                           year: "numeric",
                         })}
                         {ref.estimated_price
-                          ? ` · $${ref.estimated_price.toLocaleString()} job`
+                          ? ` · ${__sym}${ref.estimated_price.toLocaleString()} job`
                           : ""}
                       </p>
                     </div>
@@ -250,12 +252,22 @@ export default function ReferralsPage() {
                       {ref.bounty_status === "paid" ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
                           <CheckCircle2 className="h-3 w-3" />
-                          +${bountyAmt}
+                          +<CurrencySymbol />{bountyAmt}
+                        </span>
+                      ) : ref.bounty_status === "manual_payout" ? (
+                        // Cross-border / CAD bounty — Stripe can't transfer it
+                        // automatically, so the team pays it by hand.
+                        <span
+                          title="This bounty is paid manually by the Storage Network team (cross-border payout)."
+                          className="inline-flex items-center gap-1 rounded-full bg-sky-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-sky-400"
+                        >
+                          <Clock className="h-3 w-3" />
+                          <CurrencySymbol />{bountyAmt} · Manual
                         </span>
                       ) : ref.bounty_status === "pending" ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-400">
                           <Clock className="h-3 w-3" />
-                          ~${bountyAmt}
+                          ~<CurrencySymbol />{bountyAmt}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-stone-500">

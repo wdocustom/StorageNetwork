@@ -14,6 +14,7 @@ import {
 } from "@/app/actions/jobs";
 import { DollarSign, Package, ShoppingCart, Search, ChevronDown, ChevronUp, TrendingUp, Loader2, Star, Phone, MapPin, Ruler, UserPlus } from "lucide-react";
 import PageHeader from "@/components/dashboard/PageHeader";
+import { useCurrency } from "@/components/currency/CurrencyContext";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Sales Insights — CRM / Sales History Dashboard
@@ -27,8 +28,8 @@ import PageHeader from "@/components/dashboard/PageHeader";
 //   - Popular unit rankings for bestseller campaigns
 // ═══════════════════════════════════════════════════════════════════════════
 
-function fmt(n: number) {
-  return "$" + n.toLocaleString();
+function fmt(n: number, sym = "$") {
+  return sym + n.toLocaleString();
 }
 
 function fmtDate(iso: string | null) {
@@ -41,6 +42,7 @@ function fmtDate(iso: string | null) {
 }
 
 export default function SalesInsightsPage() {
+  const __sym = useCurrency().symbol;
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<SalesInsightsData | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -159,7 +161,7 @@ export default function SalesInsightsPage() {
     ) {
       if (data.popularUnits.length > 0) {
         const top = data.popularUnits[0];
-        return `Your most popular configuration is "${top.config}" — ordered ${top.count} time${top.count > 1 ? "s" : ""} for ${fmt(top.totalRevenue)} total revenue.`;
+        return `Your most popular configuration is "${top.config}" — ordered ${top.count} time${top.count > 1 ? "s" : ""} for ${fmt(top.totalRevenue, __sym)} total revenue.`;
       }
     }
     return null;
@@ -188,19 +190,19 @@ export default function SalesInsightsPage() {
           <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
             <DollarSign className="mx-auto mb-1 h-5 w-5 text-yellow-400" />
             <p className="text-lg font-black text-white sm:text-xl">
-              {fmt(data.totalSales)}
+              {fmt(data.totalSales, __sym)}
             </p>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
               Gross Revenue
             </p>
             <p className="mt-0.5 text-[10px] text-stone-600">
-              Net Payout: {fmt(data.netPayout)}
+              Net Payout: {fmt(data.netPayout, __sym)}
             </p>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
             <ShoppingCart className="mx-auto mb-1 h-5 w-5 text-amber-400" />
             <p className="text-lg font-black text-white sm:text-xl">
-              {fmt(data.totalCOGS)}
+              {fmt(data.totalCOGS, __sym)}
             </p>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
               Cost of Goods
@@ -267,7 +269,7 @@ export default function SalesInsightsPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-xs font-bold text-yellow-400">{unit.count}x</p>
-                    <p className="text-[10px] text-stone-500">{fmt(unit.totalRevenue)}</p>
+                    <p className="text-[10px] text-stone-500">{fmt(unit.totalRevenue, __sym)}</p>
                   </div>
                 </div>
               ))}
@@ -392,6 +394,7 @@ function OrderRow({
   onToggle: () => void;
   onOpStatusChange: (orderId: string, status: OperationalStatus) => void;
 }) {
+  const __sym = useCurrency().symbol;
   return (
     <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
       {/* Summary row */}
@@ -409,7 +412,7 @@ function OrderRow({
           </p>
         </div>
         <div className="shrink-0 text-right">
-          <p className="text-sm font-bold text-yellow-400">{fmt(order.totalPrice)}</p>
+          <p className="text-sm font-bold text-yellow-400">{fmt(order.totalPrice, __sym)}</p>
           <p className="text-[10px] text-stone-500">
             {fmtDate(order.completedAt || order.createdAt)}
           </p>
@@ -545,7 +548,7 @@ function OrderRow({
                     <p className="text-[10px] text-stone-500">{addonStr}</p>
                   </div>
                   <span className="text-xs font-bold text-yellow-400">
-                    {fmt(u.price)}
+                    {fmt(u.price, __sym)}
                   </span>
                 </div>
               );
@@ -560,15 +563,15 @@ function OrderRow({
             <div className="grid grid-cols-3 gap-3">
               <div className="text-center">
                 <p className="text-[10px] text-stone-500">Revenue</p>
-                <p className="text-sm font-black text-white">{fmt(order.totalPrice)}</p>
+                <p className="text-sm font-black text-white">{fmt(order.totalPrice, __sym)}</p>
               </div>
               <div className="text-center">
                 <p className="text-[10px] text-stone-500">Materials</p>
-                <p className="text-sm font-black text-amber-400">{fmt(order.materialCost)}</p>
+                <p className="text-sm font-black text-amber-400">{fmt(order.materialCost, __sym)}</p>
               </div>
               <div className="text-center">
                 <p className="text-[10px] text-stone-500">Gross Profit</p>
-                <p className="text-sm font-black text-emerald-400">{fmt(order.profit)}</p>
+                <p className="text-sm font-black text-emerald-400">{fmt(order.profit, __sym)}</p>
               </div>
             </div>
           </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase-server";
 import { zipCache } from "@/lib/cache";
+import { postalKey } from "@/lib/geo/postal";
 
 const INSTALLER_SELECT =
   "id, business_name, stripe_account_id, avatar_url, phone, lead_time_days, working_days, tier, is_pro, is_suspended, completed_jobs, current_month_leads, max_monthly_leads";
@@ -35,11 +36,11 @@ function toInstallerResponse(inst: Record<string, unknown>) {
  */
 export async function GET(req: NextRequest) {
   const supabase = getServiceClient();
-  const zip = req.nextUrl.searchParams.get("zip")?.trim() ?? "";
+  const zip = postalKey(req.nextUrl.searchParams.get("zip")) ?? "";
 
-  if (!/^\d{5}$/.test(zip)) {
+  if (!zip) {
     return NextResponse.json(
-      { available: false, installer: null, message: "Invalid ZIP code." },
+      { available: false, installer: null, message: "Invalid ZIP or postal code." },
       { status: 400 }
     );
   }

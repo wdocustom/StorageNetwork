@@ -12,6 +12,7 @@ import { Check, ChevronDown, Copy, Mail, MessageSquare, Target } from "lucide-re
 import type { OpenQuote, QuoteHeat } from "@/lib/server/marketing";
 import { logActivityClient } from "@/lib/activity-client";
 import { formatCurrency } from "@/utils/paymentHelpers";
+import { useCurrency } from "@/components/currency/CurrencyContext";
 
 const HEAT: Record<QuoteHeat, { label: string; tone: string }> = {
   payment: { label: "At payment", tone: "bg-emerald-500/15 text-emerald-400" },
@@ -45,6 +46,7 @@ function sinceLabel(iso: string): string {
 }
 
 export default function CloseQuotes({ quotes, me, baseUrl }: { quotes: OpenQuote[]; me: string; baseUrl: string }) {
+  const __cur = useCurrency().currency;
   const [showAll, setShowAll] = useState(false);
   const [followed, setFollowed] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState<string | null>(null);
@@ -66,7 +68,7 @@ export default function CloseQuotes({ quotes, me, baseUrl }: { quotes: OpenQuote
         </div>
         {quotes.length > 0 && (
           <p className="text-[11px] text-stone-400">
-            <span className="font-bold text-emerald-400">{formatCurrency(waiting)}</span> waiting · {quotes.length}{" "}
+            <span className="font-bold text-emerald-400">{formatCurrency(waiting, __cur)}</span> waiting · {quotes.length}{" "}
             {quotes.length === 1 ? "quote" : "quotes"}
           </p>
         )}
@@ -90,7 +92,7 @@ export default function CloseQuotes({ quotes, me, baseUrl }: { quotes: OpenQuote
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold text-white">{q.customerName}</p>
                     <p className="truncate text-xs text-stone-500">
-                      {formatCurrency(q.total)}
+                      {formatCurrency(q.total, __cur)}
                       {q.built && ` · ${q.built}`} · sent {sinceLabel(q.sentAt)}
                     </p>
                   </div>

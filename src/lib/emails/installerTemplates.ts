@@ -43,7 +43,9 @@ export async function sendNewBookingAlert(
     totalPrice: number;
     leadId: string;
     buildSnapshotUrl?: string;
-  }
+  },
+  /** "usd" | "cad" — money in this email renders as CA$ for CAD jobs. */
+  currency?: string
 ): Promise<SendEmailResult> {
   console.log("[Email] sendNewBookingAlert triggered for:", installerEmail, "| Lead:", leadDetails.leadId);
   await pushToEmail(installerEmail, {
@@ -109,6 +111,7 @@ export async function sendNewBookingAlert(
     to: installerEmail,
     subject: `New job in ${city} — $${profitEstimate.toLocaleString()} take-home`,
     html,
+    currency,
   });
 }
 
@@ -122,7 +125,9 @@ export async function sendPaymentReceivedAlert(
     leadId: string;
     /** Tip included in amountReceived (no platform fee is taken from it). */
     tipAmount?: number;
-  }
+  },
+  /** "usd" | "cad" — money in this email renders as CA$ for CAD jobs. */
+  currency?: string
 ): Promise<SendEmailResult> {
   const dashboardUrl = `${getAppUrl()}/dashboard/leads/${data.leadId}`;
   await pushToEmail(installerEmail, {
@@ -167,6 +172,7 @@ export async function sendPaymentReceivedAlert(
     toName: data.installerName,
     subject: `Payment Received — $${data.amountReceived.toLocaleString()} from ${data.customerName}`,
     html,
+    currency,
   });
 }
 
@@ -799,7 +805,9 @@ export async function sendReferralHandoffEmail(
     customerZip?: string | null;
     localInstallerName?: string | null;
     estimatedBounty?: number | null;
-  }
+  },
+  /** "usd" | "cad" — money in this email renders as CA$ for CAD jobs. */
+  currency?: string
 ): Promise<SendEmailResult> {
   const location = [data.customerCity, data.customerState].filter(Boolean).join(", ")
     || (data.customerZip ? `ZIP ${data.customerZip}` : "another area");
@@ -837,6 +845,7 @@ export async function sendReferralHandoffEmail(
     toName: data.referrerName,
     subject: `Network referral in ${location} — ${bountyDisplay} owed`,
     html,
+    currency,
   });
 }
 
@@ -847,7 +856,9 @@ export async function sendBountyPaidEmail(
     customerCity?: string | null;
     customerState?: string | null;
     amount: number;
-  }
+  },
+  /** "usd" | "cad" — money in this email renders as CA$ for CAD jobs. */
+  currency?: string
 ): Promise<SendEmailResult> {
   const location = [data.customerCity, data.customerState].filter(Boolean).join(", ") || "a referred customer";
 
@@ -879,6 +890,7 @@ export async function sendBountyPaidEmail(
     toName: data.referrerName,
     subject: `$${data.amount.toFixed(2)} bounty paid — referral from ${location}`,
     html,
+    currency,
   });
 }
 
@@ -950,7 +962,9 @@ export async function sendCleanoutUpsellInstallerAlert(
     remainingBalance: number;
     scheduledDate?: string;
     leadId: string;
-  }
+  },
+  /** "usd" | "cad" — money in this email renders as CA$ for CAD jobs. */
+  currency?: string
 ): Promise<SendEmailResult> {
   const dashboardUrl = `${getAppUrl()}/dashboard/leads/${data.leadId}`;
 
@@ -1006,6 +1020,7 @@ export async function sendCleanoutUpsellInstallerAlert(
     toName: data.installerName,
     subject: `Add-on booked: ${data.serviceName} — $${installerPayout.toLocaleString()} payout`,
     html,
+    currency,
   });
 }
 
@@ -1020,7 +1035,9 @@ export async function sendTrialCapHotLead(
     customerPhone?: string;
     grandTotal: number;
     quoteData?: Array<{ desc?: string; cols?: number; rows?: number; price?: number }>;
-  }
+  },
+  /** "usd" | "cad" — money in this email renders as CA$ for CAD jobs. */
+  currency?: string
 ): Promise<SendEmailResult> {
   const upgradeUrl = `${getAppUrl()}/upgrade`;
 
@@ -1083,6 +1100,7 @@ export async function sendTrialCapHotLead(
     to: installerEmail,
     subject: `$${data.grandTotal.toLocaleString()} job locked — activate Pro to unlock`,
     html,
+    currency,
   });
 }
 
@@ -1097,7 +1115,9 @@ export async function sendWaitlistedLeadsUnlocked(
       estimatedPrice: number | null;
       leadId: string;
     }>;
-  }
+  },
+  /** "usd" | "cad" — money in this email renders as CA$ for CAD jobs. */
+  currency?: string
 ): Promise<SendEmailResult> {
   const baseUrl = getAppUrl();
   const totalValue = data.leads.reduce((sum, l) => sum + (l.estimatedPrice ?? 0), 0);
@@ -1148,6 +1168,7 @@ export async function sendWaitlistedLeadsUnlocked(
     to: installerEmail,
     subject: `${leadCount} ${leadCount === 1 ? "lead" : "leads"} unlocked — $${totalValue.toLocaleString()} in pipeline`,
     html,
+    currency,
   });
 }
 
@@ -1170,7 +1191,9 @@ export async function sendDisputeAlert(
     reason: string;
     evidenceDueAt: Date | null;
     leadId: string | null;
-  }
+  },
+  /** "usd" | "cad" — money in this email renders as CA$ for CAD jobs. */
+  currency?: string
 ): Promise<SendEmailResult> {
   const amount = (data.amountCents / 100).toLocaleString(undefined, {
     minimumFractionDigits: 2,
@@ -1249,6 +1272,7 @@ export async function sendDisputeAlert(
     toName: data.installerName,
     subject: `Action needed — $${total} chargeback from ${data.customerName}`,
     html,
+    currency,
   });
 }
 
@@ -1264,7 +1288,9 @@ export async function sendDisputeResolvedAlert(
     feeCents: number;
     won: boolean;
     leadId: string | null;
-  }
+  },
+  /** "usd" | "cad" — money in this email renders as CA$ for CAD jobs. */
+  currency?: string
 ): Promise<SendEmailResult> {
   const total = ((data.amountCents + data.feeCents) / 100).toLocaleString(undefined, {
     minimumFractionDigits: 2,
@@ -1312,5 +1338,6 @@ export async function sendDisputeResolvedAlert(
       ? `Chargeback won — $${total} returned`
       : `Chargeback lost — $${amount} from ${data.customerName}`,
     html,
+    currency,
   });
 }

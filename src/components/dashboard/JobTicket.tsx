@@ -53,6 +53,7 @@ import { formatInstallDate, todayInstallDateKey } from "@/utils/installDate";
 import { isInventoryRackUnit } from "@/utils/rackInventory";
 import { rescheduleJob, scheduleJob, completeJob, completeJobWithProof, markJobPaidManual, deleteUnpaidQuote, setJobDiscount } from "@/app/actions/jobs";
 import Link from "next/link";
+import { CurrencySymbol, useCurrency } from "@/components/currency/CurrencyContext";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // JobTicket — Hybrid POS Payment Flow
@@ -316,7 +317,8 @@ export default function JobTicket({
   // Unpaid quote: deposit never paid, allow collecting full payment on delivery
   const isUnpaidQuote = !depositPaid && status === "pending_payment";
   const isActive = !isPaid && !isPaymentPending && !isUnpaidQuote && status !== "completed";
-  const fmt = formatCurrency;
+  const { currency: jobCurrency } = useCurrency();
+  const fmt = (n: number) => formatCurrency(n, jobCurrency);
 
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -1870,7 +1872,7 @@ export default function JobTicket({
                   </div>
                   {u.price != null && (
                     <span className="text-sm font-bold text-yellow-400">
-                      ${u.price.toLocaleString()}
+                      <CurrencySymbol />{u.price.toLocaleString()}
                     </span>
                   )}
                 </div>
@@ -2001,7 +2003,7 @@ export default function JobTicket({
               <div className="flex items-center justify-between border-t border-slate-700 px-4 py-3">
                 <span className="text-xs font-bold text-stone-400">Est. Material Cost</span>
                 <span className="text-xs font-mono font-black text-yellow-400">
-                  ${materialBreakdown.totalCost.toFixed(2)}
+                  <CurrencySymbol />{materialBreakdown.totalCost.toFixed(2)}
                 </span>
               </div>
             )}

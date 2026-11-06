@@ -49,6 +49,7 @@ import { isRackUnit, optionPriceDelta, slotsOf } from "@/components/build/unitOp
 import BlueprintCanvas from "@/components/visualizer/BlueprintCanvas";
 import Link from "next/link";
 import PageHeader from "@/components/dashboard/PageHeader";
+import { isCompletePostalInput, isValidPostalCode } from "@/lib/geo/postal";
 
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -567,7 +568,7 @@ export default function BuildConfiguratorPage() {
     setDeliveryFeeResult(null);
 
     const zip = deliveryZip.trim();
-    if (!userId || !zip || zip.length !== 5 || !/^\d{5}$/.test(zip)) return;
+    if (!userId || !zip || !isCompletePostalInput(zip)) return;
 
     setZipCheckStatus("checking");
     zipCheckRef.current = setTimeout(async () => {
@@ -989,7 +990,7 @@ export default function BuildConfiguratorPage() {
   // filter is needed here — server-side createQuote applies it as a safety net.
   useEffect(() => {
     const zip = deliveryZip.trim();
-    if (!zip || !/^\d{5}$/.test(zip) || units.length === 0) {
+    if (!zip || !isValidPostalCode(zip) || units.length === 0) {
       setEstimatedTax(null);
       return;
     }
@@ -1172,7 +1173,7 @@ export default function BuildConfiguratorPage() {
       return;
     }
     const zip = deliveryZip.trim();
-    if (!zip || !/^\d{5}$/.test(zip)) {
+    if (!zip || !isValidPostalCode(zip)) {
       setQuoteError("Customer ZIP code is required to check installer coverage.");
       return;
     }
@@ -1261,7 +1262,7 @@ export default function BuildConfiguratorPage() {
       return;
     }
     const zip = deliveryZip.trim();
-    if (!zip || !/^\d{5}$/.test(zip)) {
+    if (!zip || !isValidPostalCode(zip)) {
       setQuoteError("Customer ZIP code is required to check installer coverage.");
       return;
     }

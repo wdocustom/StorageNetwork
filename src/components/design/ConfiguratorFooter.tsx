@@ -19,6 +19,7 @@ import { RollingPrice } from "./configurator-primitives";
 import { checkDIYPlanAccess } from "@/app/actions/diy-plan-checkout";
 import { TOTE_PLAN_TIERS, designFromItems, formatPlanPrice, totePlanDesignHref, type PlanTranslation } from "@/lib/tote-plans";
 import { formatCurrency } from "@/utils/paymentHelpers";
+import { useCurrency, CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 /**
  * The booking footer at the end of the design studio's Book Install sheet:
@@ -32,6 +33,7 @@ export default function ConfiguratorFooter({
   props: ConfiguratorSidebarProps;
   detailsFilled: boolean;
 }) {
+  const __cur = useCurrency().currency;
   const hasQuoteItems = props.orderItems.length > 0;
 
   return (
@@ -56,7 +58,7 @@ export default function ConfiguratorFooter({
           {props.stripeAccountId && hasQuoteItems && (
             <div className="mt-0.5">
               <span className="text-sm font-bold text-yellow-400">
-                Book today for {formatCurrency(props.depositAmount)} deposit
+                Book today for {formatCurrency(props.depositAmount, __cur)} deposit
               </span>
               <div className="text-[10px] text-zinc-500">
                 Remaining balance paid after installation
@@ -68,7 +70,7 @@ export default function ConfiguratorFooter({
           {props.deliveryFeeAmount > 0 && (
             <div className="flex items-center gap-1 text-[10px] text-zinc-500">
               <Truck className="h-3 w-3 text-amber-400" />
-              +${props.deliveryFeeAmount} delivery
+              +<CurrencySymbol />{props.deliveryFeeAmount} delivery
             </div>
           )}
           {props.selectedCleanout && (() => {
@@ -78,7 +80,7 @@ export default function ConfiguratorFooter({
             return (
               <div className="flex items-center gap-1 text-[10px] text-zinc-500">
                 <Sparkles className="h-3 w-3 text-yellow-400" />
-                +${svc.price} cleanout ({label})
+                +<CurrencySymbol />{svc.price} cleanout ({label})
               </div>
             );
           })()}
@@ -115,7 +117,7 @@ export default function ConfiguratorFooter({
             : props.submitting
             ? "Submitting..."
             : props.stripeAccountId
-            ? `Reserve with ${formatCurrency(props.depositAmount)} Deposit`
+            ? `Reserve with ${formatCurrency(props.depositAmount, __cur)} Deposit`
             : "Submit My Design"}
         </motion.button>
       )}

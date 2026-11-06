@@ -19,6 +19,7 @@ import {
   type ScrewPackage,
 } from "@/app/actions/material-pricing";
 import { DEFAULT_MATERIAL_PRICES } from "@/utils/calculateMaterials";
+import { CurrencySymbol } from "@/components/currency/CurrencyContext";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Material Cost Settings — Profile section for wholesale material pricing
@@ -363,11 +364,11 @@ export default function MaterialCostSettings({ userId, embedded }: Props) {
 
                   {/* Default info */}
                   <p className="mt-1.5 text-[9px] text-stone-600">
-                    Default: {def.label} — {def.count} ct @ ${def.price.toFixed(2)}
-                    {" "}(${(def.price / def.count).toFixed(4)}/ea)
+                    Default: {def.label} — {def.count} ct @ <CurrencySymbol />{def.price.toFixed(2)}
+                    {" "}(<CurrencySymbol />{(def.price / def.count).toFixed(4)}/ea)
                     {sv.count && sv.price && Number(sv.count) > 0 && Number(sv.price) > 0 && (
                       <span className="ml-2 text-yellow-400/80">
-                        Your cost: ${(Number(sv.price) / Number(sv.count)).toFixed(4)}/ea
+                        Your cost: <CurrencySymbol />{(Number(sv.price) / Number(sv.count)).toFixed(4)}/ea
                       </span>
                     )}
                   </p>
