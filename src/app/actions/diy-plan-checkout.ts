@@ -15,6 +15,7 @@ import {
   TOTE_PLAN_LIMITS,
   TOTE_PLAN_TIERS,
   encodeTotePlanDesign,
+  formatPlanPrice,
   isTotePlanTier,
   parseTotePlanDesign,
   totePlanDesignHref,
@@ -153,7 +154,11 @@ export async function createDIYPlanCheckout(
             currency: "usd",
             product_data: {
               name: `${tier.name} — ${name}`,
-              description: `${totePlanSummary(design)}. ${tier.tagline}`,
+              description: `${totePlanSummary(design)}. ${tier.tagline}${
+                tier.listPrice > tier.price
+                  ? ` Sale: ${formatPlanPrice(tier.listPrice - tier.price)} off (regularly ${formatPlanPrice(tier.listPrice)}).`
+                  : ""
+              }`,
             },
             unit_amount: tier.price,
           },

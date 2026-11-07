@@ -33,17 +33,52 @@ export interface TotePlanTierInfo {
   id: TotePlanTier;
   name: string;
   tagline: string;
-  /** Price in cents */
+  /** What the buyer pays, in cents — the list price minus any running sale. */
   price: number;
+  /** Regular price in cents. Shown crossed out while a sale is on. */
+  listPrice: number;
   includes: string[];
 }
+
+// ── Sale ────────────────────────────────────────────────────────────────────
+// Storewide discount on both tote-plan tiers, applied automatically: every
+// checkout, upgrade quote, price label, email and structured-data offer reads
+// `price`, which already has it taken off. While it's on, prices render as
+// "~~$19~~ $14" with a "$5 off" tag. Set TOTE_PLAN_SALE_CENTS to 0 to end
+// the sale — everything reverts to list price with no other change.
+// The PDF→interactive upgrade stays the same ($10) because both tiers drop
+// by the same amount.
+export const TOTE_PLAN_SALE_CENTS = 500;
+
+/**
+ * When the current sale started (ISO date). Purchase rows don't store the
+ * amount paid, so plans analytics prices anything bought before this at
+ * list price and anything after at the sale price. Update it whenever the
+ * sale amount changes.
+ */
+export const TOTE_PLAN_SALE_SINCE = "2026-11-07";
+
+/** What a tote-plan tier sold for at `purchasedAt` (ISO timestamp). */
+export function totePlanPricePaid(tier: TotePlanTier, purchasedAt: string): number {
+  const info = TOTE_PLAN_TIERS[tier];
+  return TOTE_PLAN_SALE_ON && purchasedAt >= TOTE_PLAN_SALE_SINCE ? info.price : info.listPrice;
+}
+
+/** True while a tote-plan sale is running. */
+export const TOTE_PLAN_SALE_ON = TOTE_PLAN_SALE_CENTS > 0;
+
+/** Short tag shown next to sale prices, e.g. "$5 OFF". */
+export const TOTE_PLAN_SALE_TAG = `$${TOTE_PLAN_SALE_CENTS / 100} OFF`;
+
+const salePrice = (listPrice: number) => Math.max(0, listPrice - TOTE_PLAN_SALE_CENTS);
 
 export const TOTE_PLAN_TIERS: Record<TotePlanTier, TotePlanTierInfo> = {
   pdf: {
     id: "pdf",
     name: "PDF Build Plan",
     tagline: "Print it, take it to the garage.",
-    price: 1900,
+    listPrice: 1900,
+    price: salePrice(1900),
     includes: [
       "Every assembly step rendered in 3D for your exact build",
       "Shopping list with exact quantities",
@@ -55,7 +90,8 @@ export const TOTE_PLAN_TIERS: Record<TotePlanTier, TotePlanTierInfo> = {
     id: "interactive",
     name: "Interactive Build Guide",
     tagline: "The same 3D guide our pro installers build from.",
-    price: 2900,
+    listPrice: 2900,
+    price: salePrice(2900),
     includes: [
       "Everything in the PDF Build Plan",
       "Interactive 3D assembly guide — rotate, zoom, step through",

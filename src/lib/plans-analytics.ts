@@ -12,7 +12,7 @@
 // ladder jig is priced from whether the buyer owned a tote plan (owner price).
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { TOTE_PLAN_TIERS, TOTE_PLAN_UPGRADE_PRICE } from "@/lib/tote-plans";
+import { TOTE_PLAN_TIERS, TOTE_PLAN_UPGRADE_PRICE, totePlanPricePaid } from "@/lib/tote-plans";
 import { getPlanById } from "@/lib/plans-config";
 import { LADDER_JIG_OWNER_PRICE, LADDER_JIG_PLAN_ID, LADDER_JIG_PRICE } from "@/lib/ladder-jig";
 
@@ -130,11 +130,12 @@ export function planLabel(row: Pick<PlansPurchaseRow, "plan_id" | "tier" | "upgr
   return getPlanById(row.plan_id)?.name ?? row.plan_id;
 }
 
-/** List price in cents of the original purchase (upgrades counted separately). */
+/** Price in cents of the original purchase (upgrades counted separately). */
 function purchasePrice(row: PlansPurchaseRow, toteOwners: ReadonlySet<string>): number {
   if (row.plan_id === "tote-organizer") {
     // An upgraded row now reads 'interactive' but was bought as the PDF
-    return row.upgraded_at || row.tier !== "interactive" ? TOTE_PLAN_TIERS.pdf.price : TOTE_PLAN_TIERS.interactive.price;
+    // Sale-aware: bought before TOTE_PLAN_SALE_SINCE → list price.
+    return totePlanPricePaid(row.upgraded_at || row.tier !== "interactive" ? "pdf" : "interactive", row.purchased_at);
   }
   if (row.plan_id === LADDER_JIG_PLAN_ID) {
     return toteOwners.has(row.email.toLowerCase()) ? LADDER_JIG_OWNER_PRICE : LADDER_JIG_PRICE;

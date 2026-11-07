@@ -34,6 +34,8 @@ import {
   DEFAULT_TOTE_PLAN_DESIGN,
   DEFAULT_TOTE_PLAN_UNIT,
   TOTE_PLAN_LIMITS,
+  TOTE_PLAN_SALE_ON,
+  TOTE_PLAN_SALE_TAG,
   TOTE_PLAN_TIERS,
   designFromSearchParams,
   designModules,
@@ -41,17 +43,18 @@ import {
   encodeTotePlanDesign,
   fitTotePlanToWall,
   formatPlanPrice,
+  normalizeBestsellers,
   splitHeight,
   splitWidth,
   totePlanDesignHref,
   totePlanName,
-  normalizeBestsellers,
   totePlanSummary,
-  unitLetter,
   type TotePlanDesign,
   type TotePlanTier,
   type TotePlanUnit,
+  unitLetter,
 } from "@/lib/tote-plans";
+import PlanPrice from "@/components/plans/PlanPrice";
 
 
 const TIER_ICONS: Record<TotePlanTier, typeof Box> = { pdf: FileText, interactive: Box };
@@ -395,6 +398,13 @@ function PlansDesigner() {
             </Link>
           </div>
         ) : (
+          <>
+          {TOTE_PLAN_SALE_ON && (
+            <p className="mb-3 flex items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-center text-xs font-bold text-red-300">
+              <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">Sale</span>
+              {TOTE_PLAN_SALE_TAG.replace(" OFF", " off")} either plan — limited time, already applied at checkout
+            </p>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             {(["interactive", "pdf"] as const).map((id) => {
               const tier = TOTE_PLAN_TIERS[id];
@@ -411,7 +421,7 @@ function PlansDesigner() {
                   <div className="mb-1 flex items-center gap-2">
                     <Icon className={`h-4 w-4 ${featured ? "text-yellow-400" : "text-stone-400"}`} />
                     <h3 className="text-sm font-bold text-white">{tier.name}</h3>
-                    <span className="ml-auto text-xl font-black text-white">{formatPlanPrice(tier.price)}</span>
+                    <PlanPrice tier={tier} className="ml-auto justify-end" />
                   </div>
                   <p className="mb-3 text-xs text-stone-500">{tier.tagline}</p>
                   <PlanSampleThumb tier={id} onOpen={() => setSampleTier(id)} />
@@ -433,12 +443,17 @@ function PlansDesigner() {
                     }`}
                   >
                     {loadingTier === id && <Loader2 className="h-4 w-4 animate-spin" />}
-                    {loadingTier === id ? "Redirecting…" : `Get ${featured ? "the Guide" : "the PDF"} — ${formatPlanPrice(tier.price)}`}
+                    {loadingTier === id
+                      ? "Redirecting…"
+                      : `Get ${featured ? "the Guide" : "the PDF"} — ${formatPlanPrice(tier.price)}${
+                          tier.listPrice > tier.price ? ` · Save ${formatPlanPrice(tier.listPrice - tier.price)}` : ""
+                        }`}
                   </button>
                 </div>
               );
             })}
           </div>
+          </>
         )}
         </div>
 

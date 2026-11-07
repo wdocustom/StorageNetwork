@@ -17,7 +17,7 @@ import { useState, useEffect } from "react";
 import type { ConfiguratorSidebarProps } from "./configurator-types";
 import { RollingPrice } from "./configurator-primitives";
 import { checkDIYPlanAccess } from "@/app/actions/diy-plan-checkout";
-import { TOTE_PLAN_TIERS, designFromItems, formatPlanPrice, totePlanDesignHref, type PlanTranslation } from "@/lib/tote-plans";
+import { TOTE_PLAN_SALE_ON, TOTE_PLAN_SALE_TAG, TOTE_PLAN_TIERS, designFromItems, formatPlanPrice, totePlanDesignHref, type PlanTranslation } from "@/lib/tote-plans";
 import { formatCurrency } from "@/utils/paymentHelpers";
 import { useCurrency, CurrencySymbol } from "@/components/currency/CurrencyContext";
 
@@ -198,7 +198,7 @@ export function DIYPlansCTA({ props }: { props: ConfiguratorSidebarProps }) {
   const { design, skipped } = designerPlanTranslation(props);
   if (!design) return null;
 
-  const lowest = formatPlanPrice(TOTE_PLAN_TIERS.pdf.price);
+  const lowest = formatPlanPrice(TOTE_PLAN_TIERS.pdf.price) + (TOTE_PLAN_SALE_ON ? ` (${TOTE_PLAN_SALE_TAG.toLowerCase()})` : "");
 
   return (
     <div className="mt-3 border-t border-zinc-800/50 pt-3">
