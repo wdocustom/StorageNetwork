@@ -8,6 +8,8 @@ import {
   MODULE_MAX_COLS,
   MODULE_MAX_ROWS,
   TOTE_PLAN_LIMITS,
+  TOTE_PLAN_SALE_ON,
+  TOTE_PLAN_SALE_TAG,
   TOTE_PLAN_TIERS,
   UNIT_DEPTH_IN,
   formatPlanPrice,
@@ -27,6 +29,7 @@ import {
   totePlansProductJsonLd,
 } from "@/lib/schema/plans";
 import { ResendLinkPanel } from "@/components/plans/PlansStorefront";
+import PlanPrice from "@/components/plans/PlanPrice";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DIY PLANS STOREFRONT — /plans
@@ -165,6 +168,12 @@ export default function PlansPage() {
               className="object-cover object-left"
             />
           </div>
+          {TOTE_PLAN_SALE_ON && (
+            <p className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-center text-xs font-bold text-red-300">
+              <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">Sale</span>
+              {TOTE_PLAN_SALE_TAG.replace(" OFF", " off")} every tote plan — limited time, applied automatically
+            </p>
+          )}
           <Link
             href="/plans/checkout"
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 py-3.5 text-sm font-black uppercase tracking-wider text-gray-950 transition hover:from-amber-300 hover:to-yellow-400"
@@ -179,7 +188,7 @@ export default function PlansPage() {
                   <Icon className="h-3.5 w-3.5 text-yellow-400" aria-hidden />
                   <h2 className="text-xs font-bold text-white">{tier.name}</h2>
                 </div>
-                <p className="mt-0.5 text-lg font-black text-yellow-400">{formatPlanPrice(tier.price)}</p>
+                <PlanPrice tier={tier} size="sm" nowClassName="text-yellow-400" className="mt-0.5" />
                 <p className="text-[11px] text-stone-500">{tier.tagline}</p>
               </div>
             ))}

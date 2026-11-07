@@ -6,6 +6,9 @@ import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser
 import { getAdminPlansAnalytics } from "@/app/actions/plans-analytics";
 import type { PlansAnalytics, PlansPageKind } from "@/lib/plans-analytics";
 
+/** Day the "clicked buy" step started being recorded (migration 153). */
+const CHECKOUT_TRACKING_SINCE = "Nov 7, 2026";
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Platform Analytics → "Plans" tab: DIY plans storefront activity, funnel,
 // purchases (at list price), traffic sources and installer splits.
@@ -110,6 +113,27 @@ export function PlansAnalyticsView({ data }: { data: PlansAnalytics }) {
             </div>
           ))}
         </div>
+        {kpis.checkoutSessions > 0 && (
+          <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-800 pt-3 text-center">
+            <div>
+              <p className="text-base font-black text-white">{kpis.checkoutSessions}</p>
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500">Payment pages opened</p>
+            </div>
+            <div>
+              <p className="text-base font-black text-red-400">{kpis.abandonedCheckouts}</p>
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500">
+                Left without paying{kpis.abandonedValue > 0 ? ` · ${money(kpis.abandonedValue)}` : ""}
+              </p>
+            </div>
+            <div>
+              <p className="text-base font-black text-amber-400">{kpis.openCheckouts}</p>
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500">Still open (&lt;24h)</p>
+            </div>
+          </div>
+        )}
+        <p className="mt-2 text-[10px] text-stone-600">
+          Buy clicks are tracked from {CHECKOUT_TRACKING_SINCE}; earlier periods show 0 for that step.
+        </p>
       </Card>
 
       {/* Daily */}

@@ -15,6 +15,7 @@ import {
   TOTE_PLAN_LIMITS,
   TOTE_PLAN_TIERS,
   encodeTotePlanDesign,
+  formatPlanPrice,
   isTotePlanTier,
   parseTotePlanDesign,
   totePlanDesignHref,
@@ -102,6 +103,8 @@ export async function createDIYPlanCheckout(
   rawTier: unknown,
   source?: string,
   rawRef?: unknown,
+  /** Anonymous analytics id (localStorage sn_vid) — counts buy clicks per person. */
+  rawVisitorId?: unknown,
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   // SECURITY (H-3): each call provisions a Stripe Checkout Session. Cap
   // per identity to prevent scripted abuse of Stripe's session API.
@@ -153,7 +156,11 @@ export async function createDIYPlanCheckout(
             currency: "usd",
             product_data: {
               name: `${tier.name} — ${name}`,
-              description: `${totePlanSummary(design)}. ${tier.tagline}`,
+              description: `${totePlanSummary(design)}. ${tier.tagline}${
+                tier.listPrice > tier.price
+                  ? ` Sale: ${formatPlanPrice(tier.listPrice - tier.price)} off (regularly ${formatPlanPrice(tier.listPrice)}).`
+                  : ""
+              }`,
             },
             unit_amount: tier.price,
           },
@@ -180,6 +187,17 @@ export async function createDIYPlanCheckout(
       return { success: false, error: "Failed to create checkout session." };
     }
 
+    // Funnel: this buyer clicked Buy and is being sent to Stripe. A session
+    // that never becomes a purchase = left at the payment page. Never block
+    // the redirect on analytics.
+    await recordCheckoutStart({
+      stripeSessionId: session.id,
+      planId: TOTE_PLAN_ID,
+      tier: tier.id,
+      amountCents: tier.price,
+      visitorId: rawVisitorId,
+    });
+
     return { success: true, url: session.url };
   } catch (err) {
     console.error("[DIYPlanCheckout] Stripe session error:", err);
@@ -187,5 +205,29 @@ export async function createDIYPlanCheckout(
       success: false,
       error: "Failed to create checkout. Please try again.",
     };
+  }
+}
+
+/** Log a Stripe Checkout Session for the plans funnel (best-effort). */
+async function recordCheckoutStart(row: {
+  stripeSessionId: string;
+  planId: string;
+  tier: string | null;
+  amountCents: number;
+  visitorId: unknown;
+}): Promise<void> {
+  try {
+    const visitorId =
+      typeof row.visitorId === "string" && /^[\w-]{1,64}$/.test(row.visitorId) ? row.visitorId : null;
+    const { error } = await getServiceClient().from("plan_checkout_starts").insert({
+      stripe_session_id: row.stripeSessionId,
+      plan_id: row.planId,
+      tier: row.tier,
+      amount_cents: row.amountCents,
+      visitor_id: visitorId,
+    });
+    if (error) console.error("[DIYPlanCheckout] checkout-start log failed:", error.message);
+  } catch (err) {
+    console.error("[DIYPlanCheckout] checkout-start log failed:", err);
   }
 }

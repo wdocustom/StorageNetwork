@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { classifyPlansReferrer, plansPageKind, summarizeDeviceSharing, summarizePlansAnalytics, type PlansViewRow } from "./plans-analytics";
+import {
+  classifyPlansReferrer,
+  plansPageKind,
+  summarizeDeviceSharing,
+  summarizePlansAnalytics,
+  type PlansCheckoutStartRow,
+  type PlansViewRow,
+} from "./plans-analytics";
 
 const view = (page_path: string, visitor_id: string, created_at: string, referrer: string | null = null): PlansViewRow => ({
   page_path,
@@ -55,7 +62,7 @@ describe("summarizePlansAnalytics", () => {
     expect(r.kpis).toMatchObject({ visitors: 3, storefrontVisitors: 3, designerVisitors: 1, purchases: 4, splitsPaid: 500 });
     // $19 PDF + $19 (bought as PDF, then upgraded) + $18 chair + $5 jig (tote owner) + $10 upgrade
     expect(r.kpis.revenue).toBe(1900 + 1900 + 1800 + 500 + 1000);
-    expect(r.funnel.map((f) => f.count)).toEqual([3, 1, 2]);
+    expect(r.funnel.map((f) => f.count)).toEqual([3, 1, 0, 2]);
     expect(r.kpis.designerConversion).toBe(200);
     expect(r.pages.find((p) => p.page === "/plans/checkout")).toMatchObject({ visitors: 1, views: 31, kind: "designer" });
     expect(r.sources).toEqual(
@@ -73,8 +80,50 @@ describe("summarizePlansAnalytics", () => {
 
   it("returns an empty, zeroed summary with no activity", () => {
     const r = summarizePlansAnalytics([], [], [], []);
-    expect(r.kpis).toEqual({ visitors: 0, storefrontVisitors: 0, designerVisitors: 0, purchases: 0, revenue: 0, designerConversion: 0, splitsPaid: 0 });
+    expect(r.kpis).toEqual({
+      visitors: 0,
+      storefrontVisitors: 0,
+      designerVisitors: 0,
+      purchases: 0,
+      revenue: 0,
+      designerConversion: 0,
+      splitsPaid: 0,
+      checkoutVisitors: 0,
+      checkoutSessions: 0,
+      abandonedCheckouts: 0,
+      abandonedValue: 0,
+      openCheckouts: 0,
+    });
     expect(r.byDay).toEqual([]);
+  });
+
+  it("tracks the Stripe step: clicked buy, paid, left without paying, still open", () => {
+    const now = Date.parse("2026-11-10T12:00:00Z");
+    const start = (id: string, visitor: string | null, at: string, cents = 1400): PlansCheckoutStartRow => ({
+      stripe_session_id: id,
+      plan_id: "tote-organizer",
+      tier: "pdf",
+      amount_cents: cents,
+      visitor_id: visitor,
+      created_at: at,
+    });
+    const starts = [
+      start("cs_paid", "v1", "2026-11-08T10:00:00Z"),
+      start("cs_gone_a", "v2", "2026-11-08T11:00:00Z", 2400),
+      start("cs_gone_b", "v2", "2026-11-08T11:05:00Z"), // same person, second try
+      start("cs_open", null, "2026-11-10T09:00:00Z"), // < 24h — might still pay
+      { ...start("cs_jig", "v4", "2026-11-08T10:00:00Z"), plan_id: "ladder-jig" }, // not the tote funnel
+    ];
+    const purchases = [
+      { plan_id: "tote-organizer", tier: "pdf", email: "a@x.com", purchased_at: "2026-11-08T10:05:00Z", upgraded_at: null, stripe_session_id: "cs_paid" },
+    ];
+    const r = summarizePlansAnalytics([], purchases, [], [], new Set(), starts, now);
+    expect(r.funnel.find((f) => f.step.startsWith("Clicked buy"))?.count).toBe(3); // v1, v2, anonymous
+    expect(r.funnel.at(-1)?.count).toBe(1);
+    expect(r.kpis.checkoutSessions).toBe(4);
+    expect(r.kpis.abandonedCheckouts).toBe(2);
+    expect(r.kpis.abandonedValue).toBe(2400 + 1400);
+    expect(r.kpis.openCheckouts).toBe(1);
   });
 });
 
