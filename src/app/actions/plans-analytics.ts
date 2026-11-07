@@ -2,15 +2,7 @@
 
 import { getServiceClient } from "@/lib/supabase-server";
 import { MAX_DEVICES } from "@/lib/server/plan-device";
-import {
-  summarizeDeviceSharing,
-  summarizePlansAnalytics,
-  type PlanDeviceRow,
-  type PlansAnalytics,
-  type PlansPurchaseRow,
-  type PlansSplitRow,
-  type PlansViewRow,
-} from "@/lib/plans-analytics";
+import { summarizeDeviceSharing, summarizePlansAnalytics, type PlanDeviceRow, type PlansAnalytics, type PlansPurchaseRow, type PlansSplitRow, type PlansViewRow, type PlansCheckoutStartRow } from "@/lib/plans-analytics";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DIY Plans analytics — admin-only data for the Platform Analytics "Plans" tab.
@@ -53,9 +45,9 @@ export async function getAdminPlansAnalytics(
     if (!profile?.is_admin) return { success: false, error: "Not authorized." };
 
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-    const purchaseCols = "plan_id, tier, email, purchased_at, upgraded_at";
+    const purchaseCols = "plan_id, tier, email, purchased_at, upgraded_at, stripe_session_id";
 
-    const [views, purchasesRes, upgradesRes, splitsRes, devicesRes, codesRes] = await Promise.all([
+    const [views, purchasesRes, upgradesRes, splitsRes, devicesRes, codesRes, startsRes] = await Promise.all([
       fetchPlansViews(since),
       supabase.from("public_plan_purchases").select(purchaseCols).gte("purchased_at", since),
       supabase.from("public_plan_purchases").select(purchaseCols).gte("upgraded_at", since),
@@ -65,7 +57,13 @@ export async function getAdminPlansAnalytics(
         .gte("created_at", since),
       supabase.from("plan_buyer_devices").select("email, verified_by, revoked_at, last_seen_at").limit(5000),
       supabase.from("plan_access_codes").select("email").gte("created_at", since).limit(5000),
+      supabase
+        .from("plan_checkout_starts")
+        .select("stripe_session_id, plan_id, tier, amount_cents, visitor_id, created_at")
+        .gte("created_at", since)
+        .limit(10000),
     ]);
+    if (startsRes.error) console.error("[PlansAnalytics] checkout starts fetch failed", startsRes.error);
     if (purchasesRes.error) console.error("[PlansAnalytics] purchases fetch failed", purchasesRes.error);
     if (splitsRes.error) console.error("[PlansAnalytics] splits fetch failed", splitsRes.error);
 
@@ -102,7 +100,7 @@ export async function getAdminPlansAnalytics(
       MAX_DEVICES,
     );
 
-    return { success: true, data: { ...summarizePlansAnalytics(views, purchases, upgrades, splits, toteOwners), sharing } };
+    return { success: true, data: { ...summarizePlansAnalytics(views, purchases, upgrades, splits, toteOwners, (startsRes.data ?? []) as PlansCheckoutStartRow[]), sharing } };
   } catch (err) {
     console.error("[PlansAnalytics] failed:", err);
     return { success: false, error: "Failed to load plans analytics." };

@@ -30,7 +30,22 @@ export interface PlansPurchaseRow {
   email: string;
   purchased_at: string;
   upgraded_at: string | null;
+  /** Stripe Checkout Session that paid for it — matches plan_checkout_starts. */
+  stripe_session_id?: string | null;
 }
+
+/** One click on "Buy" that sent the buyer to Stripe (plan_checkout_starts). */
+export interface PlansCheckoutStartRow {
+  stripe_session_id: string;
+  plan_id: string;
+  tier: string | null;
+  amount_cents: number;
+  visitor_id: string | null;
+  created_at: string;
+}
+
+/** Stripe keeps an unpaid Checkout Session open this long before it expires. */
+const CHECKOUT_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
 export interface PlansSplitRow {
   amount_cents: number;
@@ -53,6 +68,16 @@ export interface PlansAnalytics {
     /** Tote plan buyers ÷ designer visitors, % */
     designerConversion: number;
     splitsPaid: number;
+    /** Unique visitors who clicked Buy and were sent to Stripe */
+    checkoutVisitors: number;
+    /** Stripe payment pages opened (a visitor can open several) */
+    checkoutSessions: number;
+    /** Sessions that reached Stripe and expired unpaid (older than 24h, no purchase) */
+    abandonedCheckouts: number;
+    /** Cents those abandoned sessions would have brought in */
+    abandonedValue: number;
+    /** Sessions under 24h old with no purchase yet — can still be paid */
+    openCheckouts: number;
   };
   funnel: { step: string; count: number }[];
   byDay: { date: string; visitors: number; purchases: number }[];
@@ -178,6 +203,9 @@ export function summarizePlansAnalytics(
   splits: PlansSplitRow[],
   /** Lower-cased emails that own a tote plan (any time) — for jig owner pricing */
   toteOwners: ReadonlySet<string> = new Set(),
+  /** Buy clicks that reached Stripe (plan_checkout_starts) */
+  checkoutStarts: PlansCheckoutStartRow[] = [],
+  now: number = Date.now(),
 ): PlansAnalytics {
   // A visitor without a stored id still counts, once per session
   const who = (v: PlansViewRow) => v.visitor_id ?? v.session_id ?? `${v.created_at}|${v.page_path}`;
@@ -233,6 +261,23 @@ export function summarizePlansAnalytics(
   }
 
   const toteBuyers = purchases.filter((p) => p.plan_id === "tote-organizer").length;
+
+  // ── Stripe step: clicked Buy → payment page → paid or walked away ──
+  const toteStarts = checkoutStarts.filter((c) => c.plan_id === "tote-organizer");
+  const paidSessions = new Set(purchases.map((p) => p.stripe_session_id).filter(Boolean) as string[]);
+  const checkoutWho = new Set(toteStarts.map((c) => c.visitor_id ?? c.stripe_session_id));
+  let abandonedCheckouts = 0;
+  let abandonedValue = 0;
+  let openCheckouts = 0;
+  for (const c of toteStarts) {
+    if (paidSessions.has(c.stripe_session_id)) continue;
+    if (now - Date.parse(c.created_at) < CHECKOUT_SESSION_TTL_MS) {
+      openCheckouts++;
+    } else {
+      abandonedCheckouts++;
+      abandonedValue += c.amount_cents;
+    }
+  }
   const days = [...new Set([...dayVisitors.keys(), ...dayPurchases.keys()])].sort();
 
   return {
@@ -244,11 +289,17 @@ export function summarizePlansAnalytics(
       revenue,
       designerConversion: pct(toteBuyers, designer.size),
       splitsPaid: splits.filter((s) => s.status === "paid").reduce((n, s) => n + s.amount_cents, 0),
+      checkoutVisitors: checkoutWho.size,
+      checkoutSessions: toteStarts.length,
+      abandonedCheckouts,
+      abandonedValue,
+      openCheckouts,
     },
     funnel: [
       { step: "Visited the plans storefront", count: storefront.size },
       { step: "Opened the designer", count: designer.size },
-      { step: "Bought a tote plan", count: toteBuyers },
+      { step: "Clicked buy → sent to Stripe payment", count: checkoutWho.size },
+      { step: "Paid for a tote plan", count: toteBuyers },
     ],
     byDay: days.map((date) => ({
       date,

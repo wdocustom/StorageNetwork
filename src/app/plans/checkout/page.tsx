@@ -217,7 +217,13 @@ function PlansDesigner() {
   const handleBuy = async (tier: TotePlanTier) => {
     setLoadingTier(tier);
     setError("");
-    const result = await createDIYPlanCheckout(design, tier, source, ref);
+    let visitorId: string | null = null;
+    try {
+      visitorId = localStorage.getItem("sn_vid"); // same id as page-view analytics
+    } catch {
+      /* storage blocked — the click still counts, just not per person */
+    }
+    const result = await createDIYPlanCheckout(design, tier, source, ref, visitorId);
     if (result.success && result.url) {
       window.location.href = result.url;
     } else {
