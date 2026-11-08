@@ -5,6 +5,7 @@ import { getServiceClient } from "@/lib/supabase-server";
 import { sendAbandonedCartEmail } from "@/lib/email";
 import { siteConfig } from "@/config/site";
 import { currencyForInstaller } from "@/lib/server/currency-lookup";
+import { bookedCustomerEmails, ilikeLiteral } from "@/lib/server/lead-dedupe";
 
 const db = getServiceClient;
 
@@ -192,6 +193,7 @@ export async function processAbandonedCarts(): Promise<{
       .lt("created_at", eighteenHoursAgo)
       .gt("created_at", sevenDaysAgo)
       .or("abandoned_email_sent.is.null,abandoned_email_sent.eq.false")
+      .order("created_at", { ascending: false }) // newest first — it's the one we email
       .limit(50); // Process in batches
 
     if (error) {
@@ -203,6 +205,52 @@ export async function processAbandonedCarts(): Promise<{
       return { processed: 0, sent: 0, errors: [] };
     }
 
+    // ── One reminder per customer per installer ─────────────────────────
+    // A customer who resubmitted (or got two quotes) has several pending
+    // leads. Email them once, about their newest build, and mark every copy
+    // handled. And never nag someone who already booked with this installer
+    // on another lead, or who got this reminder in the past week.
+    const markHandled = async (ids: string[]) => {
+      if (ids.length === 0) return;
+      await db().from("leads").update({ abandoned_email_sent: true }).in("id", ids);
+    };
+    const groups = new Map<string, typeof abandonedLeads>();
+    for (const lead of abandonedLeads) {
+      if (!lead.customer_email) continue;
+      const key = `${lead.customer_email.trim().toLowerCase()}|${lead.installer_id ?? ""}`;
+      groups.set(key, [...(groups.get(key) ?? []), lead]);
+    }
+    const toEmail = new Set<string>(); // lead ids that actually get the email
+    for (const group of groups.values()) {
+      const [newest, ...older] = group; // ordered newest first
+      const email = newest.customer_email!.trim().toLowerCase();
+      let suppress: string | null = null;
+      if (newest.installer_id) {
+        const booked = await bookedCustomerEmails(db(), newest.installer_id, [email]);
+        if (booked.has(email)) suppress = "already booked with this installer";
+      }
+      if (!suppress) {
+        let recent = db()
+          .from("leads")
+          .select("id")
+          .ilike("customer_email", ilikeLiteral(email))
+          .eq("abandoned_email_sent", true)
+          .gt("created_at", sevenDaysAgo)
+          .limit(1);
+        recent = newest.installer_id ? recent.eq("installer_id", newest.installer_id) : recent.is("installer_id", null);
+        const { data: alreadyNudged } = await recent;
+        if (alreadyNudged && alreadyNudged.length > 0) suppress = "reminder already sent this week";
+      }
+      if (suppress) {
+        console.log(`[Abandoned Cart] Skipping ${group.length} lead(s) for one customer — ${suppress}`);
+        await markHandled(group.map((l) => l.id));
+        continue;
+      }
+      // Older duplicates are covered by the one email about the newest build.
+      await markHandled(older.map((l) => l.id));
+      toEmail.add(newest.id);
+    }
+
     for (const lead of abandonedLeads) {
       processed++;
 
@@ -210,6 +258,7 @@ export async function processAbandonedCarts(): Promise<{
         errors.push(`Lead ${lead.id}: No email address`);
         continue;
       }
+      if (!toEmail.has(lead.id)) continue; // duplicate / already booked — handled above
 
       try {
         // Get installer name if assigned — skip if installer is suspended
