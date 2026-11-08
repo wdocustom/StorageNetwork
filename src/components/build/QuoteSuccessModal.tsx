@@ -15,6 +15,8 @@ interface QuoteSuccessModalProps {
   customerEmail: string;
   /** The edited quote already had a deposit paid — the increase is an add-on. */
   postDeposit?: boolean;
+  /** This exact quote already went to this customer in the last 24h — not emailed again. */
+  alreadySent?: boolean;
 }
 
 export default function QuoteSuccessModal({
@@ -26,6 +28,7 @@ export default function QuoteSuccessModal({
   quoteCoveringName,
   customerEmail,
   postDeposit = false,
+  alreadySent = false,
 }: QuoteSuccessModalProps) {
   const [copied, setCopied] = useState(false);
 
@@ -34,7 +37,9 @@ export default function QuoteSuccessModal({
   // After a deposit, the link to share is the add-on deposit page, not /pay.
   const linkPath = postDeposit ? `/payment/addon/${quoteLeadId}` : `/pay/${quoteLeadId}`;
 
-  const title = postDeposit
+  const title = alreadySent
+    ? "Already Sent"
+    : postDeposit
     ? "Add-On Saved!"
     : editingLeadId
     ? "Quote Updated!"
@@ -44,7 +49,9 @@ export default function QuoteSuccessModal({
         ? "Quote Sent & Referred"
         : "Quote Created!";
 
-  const message = postDeposit
+  const message = alreadySent
+    ? "You already sent this exact quote to this customer in the last 24 hours, so we didn't email it again. Copy the link below if you want to resend it yourself."
+    : postDeposit
     ? "The added amount gets its own deposit. Charge the card on file or send this add-on deposit link. Anything left unpaid is added to the final balance."
     : editingLeadId
     ? "The quote has been updated. Your customer's pay link will show the new items and total."

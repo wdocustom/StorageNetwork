@@ -31,6 +31,11 @@ function table(name: string) {
     update: (p: Row) => ((patch = p), b),
     eq: (c: string, v: unknown) => (filters.push((r) => r[c] === v), b),
     neq: (c: string, v: unknown) => (filters.push((r) => r[c] !== v), b),
+    ilike: (c: string, v: string) => (filters.push((r) => String(r[c] ?? "").toLowerCase() === v.toLowerCase()), b),
+    // only used as "deposit_paid.eq.true,status.in.(paid,completed)" — the "booked" check
+    or: () => (filters.push((r) => r.deposit_paid === true || r.status === "paid" || r.status === "completed"), b),
+    order: () => b,
+    limit: () => b,
     single: async () => ({ data: hits()[0] ?? null }),
     maybeSingle: async () => ({ data: hits()[0] ?? null }),
     then: (resolve: (v: unknown) => unknown) => {
@@ -71,6 +76,21 @@ describe("activateFreePro", () => {
     expect(await activateFreePro()).toEqual({ success: true });
     expect(profiles[0]).toMatchObject({ is_pro: true, slug: "rack-city-totes" });
     expect(profiles[0].pro_trial_ends_at).toBeTruthy();
+  });
+
+  it("emails a customer once even if they saved the same build twice, and not at all once they've booked", async () => {
+    const { sendWaitlistedLeadPaymentReady } = await import("@/lib/email");
+    const sent = vi.mocked(sendWaitlistedLeadPaymentReady);
+    sent.mockClear();
+    const build = [{ cols: 4, rows: 4, price: 268 }];
+    leads = [
+      { id: "dup-a", installer_id: "inst-1", status: "waitlisted", customer_email: "c@example.com", estimated_price: 268, quote_data: build },
+      { id: "dup-b", installer_id: "inst-1", status: "waitlisted", customer_email: "C@Example.com", estimated_price: 268, quote_data: build },
+      { id: "booked-w", installer_id: "inst-1", status: "waitlisted", customer_email: "b@example.com", estimated_price: 100, quote_data: [] },
+      { id: "booked-p", installer_id: "inst-1", status: "paid", deposit_paid: true, customer_email: "b@example.com", estimated_price: 100, quote_data: [] },
+    ];
+    await activateFreePro();
+    expect(sent.mock.calls.map((c) => c[0].toLowerCase())).toEqual(["c@example.com"]);
   });
 
   it("releases customers who were waiting on the installer", async () => {

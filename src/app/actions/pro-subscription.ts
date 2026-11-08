@@ -11,6 +11,7 @@ import { roundMoney } from "@/utils/mathHelpers";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { PRO_FREE_PROMO, PRO_MONTHLY_PRICE } from "@/config/pro-pricing";
 import { currencyForInstaller } from "@/lib/server/currency-lookup";
+import { bookedCustomerEmails, buildFingerprint } from "@/lib/server/lead-dedupe";
 
 const db = getServiceClient;
 
@@ -211,7 +212,8 @@ async function unlockWaitlistedLeads(userId: string): Promise<void> {
       .from("leads")
       .select("id, customer_name, customer_email, customer_phone, estimated_price, quote_data")
       .eq("installer_id", userId)
-      .eq("status", "waitlisted");
+      .eq("status", "waitlisted")
+      .order("created_at", { ascending: false });
 
     if (waitlistedLeads && waitlistedLeads.length > 0) {
       // Flip status to pending_payment
@@ -248,7 +250,28 @@ async function unlockWaitlistedLeads(userId: string): Promise<void> {
       // The installer doesn't have to do anything — the system
       // sends each customer a deposit link to /pay/[leadId].
       const installerBiz = installerProfile?.business_name || installerProfile?.first_name || "Your Installer";
-      await Promise.all(waitlistedLeads.map(async (lead) => {
+
+      // One email per customer per build: a customer who saved the same
+      // build twice has two waitlisted leads, and must not get two
+      // "ready to confirm" emails. Newest copy wins (ordered above). Skip
+      // customers who've since booked with this installer anyway.
+      const booked = await bookedCustomerEmails(
+        db(),
+        userId,
+        waitlistedLeads.map((l) => l.customer_email).filter(Boolean) as string[]
+      );
+      const seenBuilds = new Set<string>();
+      const leadsToEmail = waitlistedLeads.filter((lead) => {
+        if (!lead.customer_email) return false;
+        const email = lead.customer_email.trim().toLowerCase();
+        if (booked.has(email)) return false;
+        const key = `${email}|${buildFingerprint(lead.quote_data, lead.estimated_price)}`;
+        if (seenBuilds.has(key)) return false;
+        seenBuilds.add(key);
+        return true;
+      });
+
+      await Promise.all(leadsToEmail.map(async (lead) => {
         try {
           if (!lead.customer_email) return;
           const depositAmt = await getDepositAmount(

@@ -39,6 +39,7 @@ import { getAuthenticatedUser } from "@/lib/auth";
 import { markSendConverted } from "@/lib/marketing-attribution";
 import { isValidPostalCode, parsePostalCode, INVALID_POSTAL_MESSAGE } from "@/lib/geo/postal";
 import { currencyForInstaller } from "@/lib/server/currency-lookup";
+import { findDuplicateLead } from "@/lib/server/lead-dedupe";
 
 const supabase = getServiceClient();
 
@@ -118,6 +119,11 @@ export interface CreateQuoteResult {
   email_sent?: boolean;
   referral_status?: ReferralStatus;
   covering_installer_name?: string;
+  /**
+   * This exact quote already went to this customer in the last 24h, so no
+   * new lead was created and no email was sent — lead_id is the existing one.
+   */
+  already_sent?: boolean;
   error?: string;
 }
 
@@ -573,6 +579,35 @@ export async function createQuote(
             campaignRequestIdToClose = reqRow.id as string;
           }
         }
+      }
+    }
+
+    // ── 2b. Duplicate guard ───────────────────────────────────────────────
+    // Same installer, same customer email, identical units + total, still
+    // unpaid, sent in the last 24h → a double-tap or a re-send of an
+    // unchanged quote. Return the existing lead instead of creating a second
+    // one and emailing the customer the same quote again. (Editing a quote
+    // goes through updateQuote, not here; a changed quote is a new one.)
+    if (normalizedEmail) {
+      const existing = await findDuplicateLead(supabase, {
+        email: normalizedEmail,
+        installerId: effectiveInstallerId,
+        quoteData: effectiveQuoteData,
+        total: finalTotal,
+        statuses: ["pending_payment"],
+        withinHours: 24,
+      });
+      if (existing) {
+        console.log(`[Quote] Identical quote already sent to customer — reusing lead ${existing.id}, no email`);
+        return {
+          success: true,
+          lead_id: existing.id,
+          customer_id: customerId ?? undefined,
+          email_sent: false,
+          already_sent: true,
+          referral_status: referralStatus,
+          covering_installer_name: coveringInstallerName,
+        };
       }
     }
 

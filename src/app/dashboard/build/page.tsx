@@ -144,6 +144,8 @@ export default function BuildConfiguratorPage() {
   const [quoteDiscountCode, setQuoteDiscountCode] = useState("");
   const [quoteSending, setQuoteSending] = useState(false);
   const [quoteSent, setQuoteSent] = useState(false);
+  // createQuote found this exact quote already sent in the last 24h
+  const [quoteAlreadySent, setQuoteAlreadySent] = useState(false);
   const [quoteError, setQuoteError] = useState("");
   const [quoteLeadId, setQuoteLeadId] = useState<string | null>(null);
   const [quoteLinkCopied, setQuoteLinkCopied] = useState(false);
@@ -1239,6 +1241,7 @@ export default function BuildConfiguratorPage() {
         return;
       }
 
+      setQuoteAlreadySent(result.already_sent === true);
       // Track referral/handoff status for success screen messaging
       setQuoteReferralStatus(result.referral_status || "none");
       setQuoteCoveringName(result.covering_installer_name || "");
@@ -1324,6 +1327,7 @@ export default function BuildConfiguratorPage() {
         return;
       }
 
+      setQuoteAlreadySent(result.already_sent === true);
       if (result.lead_id) {
         setQuoteLeadId(result.lead_id);
         if (quoteRequest) markQuoteRequestQuoted(quoteRequest.id, result.lead_id).catch(() => {});
@@ -1401,6 +1405,7 @@ export default function BuildConfiguratorPage() {
 
   function resetQuoteModal() {
     setQuoteSent(false);
+    setQuoteAlreadySent(false);
     setQuoteError("");
     setQuoteLinkCopied(false);
     if (!editingLeadId) {
@@ -1756,6 +1761,7 @@ export default function BuildConfiguratorPage() {
         quoteCoveringName={quoteCoveringName}
         customerEmail={customerEmail}
         postDeposit={editingDepositPaid}
+        alreadySent={quoteAlreadySent}
       />
 
 

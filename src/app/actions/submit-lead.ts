@@ -16,6 +16,7 @@ import {
 } from "@/lib/server/action-rate-limit";
 import { isValidPostalCode, parsePostalCode } from "@/lib/geo/postal";
 import { currencyForInstaller } from "@/lib/server/currency-lookup";
+import { findDuplicateLead } from "@/lib/server/lead-dedupe";
 
 // Uses the SERVICE ROLE key so we can insert without a logged-in user.
 const supabase = getServiceClient();
@@ -337,6 +338,42 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
     const depositAmount = await getDepositAmount(input.grand_total, input.installer_id);
     const balanceDue = calculateBalanceDue(input.grand_total, depositAmount);
 
+    // 3b. Duplicate guard — the customer resubmitted the identical build
+    //     (went back from the pay page, double-tapped Book, reopened a saved
+    //     link). Reuse the lead they already have instead of creating a
+    //     second one: two copies meant two of every customer email, and the
+    //     unpaid copy kept nagging after they paid on the other one.
+    const newStatus = input.waitlisted ? "waitlisted" : "pending_payment";
+    const existing = await findDuplicateLead(supabase, {
+      email: input.customer_email,
+      installerId: input.installer_id,
+      quoteData: input.quote_data,
+      total: input.grand_total,
+      statuses: [newStatus],
+      withinHours: 72,
+    });
+    if (existing) {
+      // Keep it current with what they just entered; bumping updated_at
+      // also restarts the 7-day pay-link window. No emails — they were
+      // already sent for this lead.
+      await supabase
+        .from("leads")
+        .update({
+          customer_name: input.customer_name.trim(),
+          customer_phone: input.customer_phone?.trim() || null,
+          address: input.address?.trim() || null,
+          address_line1: input.address_line1?.trim() || null,
+          address_city: input.address_city?.trim() || null,
+          address_state: input.address_state?.trim() || null,
+          address_zip: parsed.data.address_zip || null,
+          ...(input.scheduled_at ? { scheduled_at: input.scheduled_at } : {}),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existing.id);
+      console.log(`[SubmitLead] Identical build resubmitted — reusing lead ${existing.id} (no new lead, no new emails)`);
+      return { success: true, id: existing.id };
+    }
+
     // 4. Create lead in database
     const { data, error } = await supabase
       .from("leads")
@@ -362,7 +399,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
           : input.source || (input.installer_id ? "partner_link" : "platform"),
         marketing_send_id: campaign?.sendId ?? null,
         parent_lead_id: input.parent_lead_id || null,
-        status: input.waitlisted ? "waitlisted" : "pending_payment",
+        status: newStatus,
         scheduled_at: input.scheduled_at || null,
         // Network Referral Bounty: track the original installer who drove traffic
         // Bounty is only eligible if the referring installer is a Pro subscriber
