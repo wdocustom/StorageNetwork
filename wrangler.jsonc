@@ -38,6 +38,11 @@
     // only the compute share (network waits don't count); 5 min is the max.
     "cpu_ms": 300000
   },
+  // Keep plain-text variables added in the dashboard across deploys.
+  // Without this, every `wrangler deploy` (each Workers Build) deletes any
+  // dashboard "Text" variable not listed under "vars" below. Secrets
+  // (type "Secret") always survive; prefer that type for keys.
+  "keep_vars": true,
   "vars": {
     // Keep "false" while Vercel is still live — both would run every job and
     // customers would get each scheduled email twice. Flip to "true" at
