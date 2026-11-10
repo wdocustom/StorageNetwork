@@ -22,9 +22,10 @@ describe("cron jobs", () => {
     for (const c of crons) expect(jobsForSchedule(c).length).toBeGreaterThan(0);
   });
 
-  it("vercel.json matches while Vercel is still deployed", () => {
+  it("jobs run only on Cloudflare: enabled there, not scheduled in vercel.json", () => {
+    expect(readJsonc("wrangler.jsonc").vars.CRONS_ENABLED).toBe("true");
     const v = JSON.parse(readFileSync(path.join(root, "vercel.json"), "utf-8"));
-    expect(v.crons).toEqual(CRON_JOBS);
+    expect(v.crons ?? []).toEqual([]);
   });
 
   it("every job path has a route", () => {
