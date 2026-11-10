@@ -41,7 +41,17 @@ export function getServiceClient(): SupabaseClient {
       // the real client creation until the first actual DB call at runtime.
       return new Proxy({} as SupabaseClient, {
         get(_, prop) {
-          // Re-check env vars at call time (they'll be set at runtime)
+          // Not a promise — keeps `await`/Promise.resolve from probing it.
+          if (prop === "then") return undefined;
+          // Re-check env vars at call time (they'll be set at runtime).
+          // Still missing → fail with a clear message. Calling
+          // getServiceClient() again here would return another proxy and
+          // recurse until "Maximum call stack size exceeded".
+          if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+            throw new Error(
+              "Supabase service client unavailable: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must both be set"
+            );
+          }
           return getServiceClient()[prop as keyof SupabaseClient];
         },
       });
