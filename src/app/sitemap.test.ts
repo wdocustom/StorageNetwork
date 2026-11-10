@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
+const loadActiveInstallerRows = vi.fn(async () => [{ id: "i1" }]);
 vi.mock("@/lib/server/region-pages", () => ({
   getInstallerDerivedRegions: async () => [],
-  getInstallersForRegionSlug: async (slug: string) => (slug === "omaha-ne" ? [{ id: "i1" }] : []),
+  loadActiveInstallerRows: () => loadActiveInstallerRows(),
+  rankInstallersForRegion: (slug: string, rows: unknown[]) => (slug === "omaha-ne" ? rows : []),
   regionSlug: (city: string, state: string) => `${city}-${state}`.toLowerCase(),
 }));
 vi.mock("@supabase/supabase-js", () => ({
@@ -47,5 +49,14 @@ describe("sitemap lastmod", () => {
       expect(Number.isNaN(Date.parse(date)), page).toBe(false);
       expect(Date.parse(date), page).toBeLessThanOrEqual(Date.now());
     }
+  });
+
+  it("loads the installer list once, not once per region", async () => {
+    loadActiveInstallerRows.mockClear();
+    const entries = await sitemap();
+    expect(loadActiveInstallerRows).toHaveBeenCalledTimes(1);
+    const urls = entries.map((e) => e.url);
+    expect(urls).toContain("https://storage-network.app/installers/omaha-ne");
+    expect(urls).not.toContain("https://storage-network.app/installers/miami-fl");
   });
 });
