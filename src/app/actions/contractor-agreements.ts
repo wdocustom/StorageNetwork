@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { getClientIp } from "@/lib/request-meta";
 import { getServiceClient } from "@/lib/supabase-server";
 import { getAppUrl } from "@/lib/url-helper";
 import {
@@ -168,10 +169,7 @@ export async function acceptContractorAgreement(input: {
   let signedUa: string | null = null;
   try {
     const h = await headers();
-    signedIp =
-      h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      h.get("x-real-ip") ||
-      null;
+    signedIp = getClientIp(h);
     signedUa = h.get("user-agent") || null;
   } catch {
     /* edge cases where headers() isn't accessible — skip the audit fields */

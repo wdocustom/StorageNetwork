@@ -1,12 +1,11 @@
-import { readFileSync } from "fs";
-import { join } from "path";
 import { NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
+import { getPrivateFile } from "@/lib/server/private-files";
 
 // Serves the chair plans HTML file only to authenticated users who have purchased.
-// File is stored at /private/chair-plans.html — NOT in public/, so Vercel never
-// serves it directly. Auth check runs on every request; no caching.
+// File is stored at /private/chair-plans.html — NOT in public/, so it is never
+// served directly. Auth check runs on every request; no caching.
 
 export async function GET(request: Request) {
   const { origin } = new URL(request.url);
@@ -49,7 +48,8 @@ export async function GET(request: Request) {
 
 function serveFile() {
   try {
-    const html = readFileSync(join(process.cwd(), "private", "chair-plans.html"), "utf-8");
+    const html = getPrivateFile("chair-plans.html");
+    if (html === null) throw new Error("chair-plans.html not bundled");
     return new NextResponse(html, {
       headers: {
         "Content-Type": "text/html; charset=utf-8",

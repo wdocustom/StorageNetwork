@@ -1,7 +1,7 @@
 /**
  * Webhook handler tests — Tests core logic of the Stripe webhook route.
  *
- * Strategy: Mock Stripe (constructEvent, transfers.create), Supabase, and email.
+ * Strategy: Mock Stripe (constructEventAsync, transfers.create), Supabase, and email.
  * Test the POST handler's behavior for different event types, idempotency,
  * signature verification, and error handling.
  */
@@ -55,6 +55,13 @@ vi.mock("@/app/actions/cleanout-upsell", () => ({
   handleCleanoutUpsellPayment: vi.fn().mockResolvedValue(undefined),
 }));
 
+// ── Mock next/server after() ──────────────────────────────────────────────
+// Outside a real Next request scope after() throws; run the work inline.
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return { ...actual, after: vi.fn((task: unknown) => task) };
+});
+
 // ── Mock Stripe ───────────────────────────────────────────────────────────
 const mockConstructEvent = vi.fn();
 const mockTransferCreate = vi.fn().mockResolvedValue({ id: "tr_test123" });
@@ -62,7 +69,12 @@ const mockTransferCreate = vi.fn().mockResolvedValue({ id: "tr_test123" });
 vi.mock("stripe", () => {
   const MockStripe = function() {
     return {
-      webhooks: { constructEvent: mockConstructEvent },
+      // Route uses the async verifier (required on Cloudflare Workers);
+      // a throwing mock implementation becomes a rejection, like Stripe's.
+      webhooks: {
+        constructEventAsync: (...args: unknown[]) =>
+          Promise.resolve().then(() => mockConstructEvent(...args)),
+      },
       transfers: { create: mockTransferCreate },
     };
   };

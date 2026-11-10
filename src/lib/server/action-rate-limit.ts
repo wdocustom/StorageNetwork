@@ -3,6 +3,7 @@ import "server-only";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { headers } from "next/headers";
+import { getClientIp } from "@/lib/request-meta";
 
 import { getAuthenticatedUser } from "@/lib/auth";
 
@@ -14,8 +15,8 @@ import { getAuthenticatedUser } from "@/lib/auth";
 //
 // Identity strategy:
 //   "user"        — requires an authenticated session; throws 401 if anon.
-//   "ip"          — keys solely on x-forwarded-for (first hop).
-//   "user-or-ip"  — prefers the session id, falls back to x-forwarded-for.
+//   "ip"          — keys solely on the client IP (see lib/request-meta).
+//   "user-or-ip"  — prefers the session id, falls back to the client IP.
 //
 // Throws RateLimitError when the budget is exceeded. The error carries a
 // friendly message and a `retryAfterSeconds` hint so callers can render UX.
@@ -149,12 +150,7 @@ async function resolveIdentity(strategy: IdentityStrategy): Promise<string> {
     }
   }
   const h = await headers();
-  const fwd = h.get("x-forwarded-for") ?? "";
-  // x-forwarded-for is a comma-separated list; the first entry is the client.
-  const ip =
-    fwd.split(",")[0]?.trim() ||
-    h.get("x-real-ip")?.trim() ||
-    "anon";
+  const ip = getClientIp(h) || "anon";
   return `ip:${ip}`;
 }
 
