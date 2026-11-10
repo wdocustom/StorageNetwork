@@ -1,6 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import Stripe from "stripe";
-import { waitUntil } from "@vercel/functions";
 import { summarizeDispute } from "@/lib/stripe/disputes";
 import { checkTransferEligibility } from "@/lib/stripe/cross-border";
 import { normalizeCurrency } from "@/lib/geo/currency";
@@ -39,15 +38,15 @@ function getDb() {
 }
 
 // ── Fire-and-forget helper ───────────────────────────────────────────────
-// Runs async work without blocking the webhook response. Uses waitUntil()
-// to keep the Vercel serverless function alive until emails finish sending,
-// even after the HTTP response is returned to Stripe.
+// Runs async work without blocking the webhook response. Next's after()
+// keeps the request alive (waitUntil on the host platform) until emails
+// finish sending, even after the HTTP response is returned to Stripe.
 function fireAndForget(label: string, fn: () => Promise<void>) {
   console.log(`[Webhook] waitUntil: starting ${label}`);
   const promise = fn()
     .then(() => console.log(`[Webhook] waitUntil: ${label} completed successfully`))
     .catch((err) => console.error(`[Webhook] waitUntil: ${label} failed:`, err));
-  waitUntil(promise);
+  after(promise);
 }
 
 // ── Final payment extras: tip + add-on settlement ─────────────────────────
@@ -538,7 +537,10 @@ export async function POST(request: NextRequest) {
     for (const secret of [WEBHOOK_SECRET, CONNECT_WEBHOOK_SECRET]) {
       if (!secret) continue;
       try {
-        verified = stripe.webhooks.constructEvent(body, signature, secret);
+        // Async variant: on Cloudflare Workers the Stripe SDK verifies with
+        // Web Crypto, which has no synchronous API — constructEvent() throws
+        // there, so every delivery would be rejected.
+        verified = await stripe.webhooks.constructEventAsync(body, signature, secret);
         break;
       } catch (err) {
         lastErr = err;
@@ -989,12 +991,12 @@ export async function POST(request: NextRequest) {
 
       // ── Network Referral Bounty (non-blocking) ───────────────────────
       const piId = session.payment_intent as string;
-      if (piId) waitUntil(processReferralBounty(leadId, piId));
+      if (piId) after(processReferralBounty(leadId, piId));
 
       // ── Realtor Referral Credit (non-blocking, idempotent) ───────────
       // Fires for every deposit-paid event; the RPC is a no-op when the
       // lead has no realtor attribution.
-      waitUntil(processRealtorReferralCredit(leadId));
+      after(processRealtorReferralCredit(leadId));
     } catch (dbError) {
       console.error("[Webhook] CRITICAL: DB update threw!", dbError);
       // Return 500 so Stripe retries. Reset key with short TTL to allow retry.
@@ -1680,10 +1682,10 @@ export async function POST(request: NextRequest) {
             console.log("[Webhook] Deposit recorded for lead:", leadId, "| email:", customerEmail);
 
             // ── Network Referral Bounty (non-blocking) ─────────────────
-            waitUntil(processReferralBounty(leadId, paymentIntent.id));
+            after(processReferralBounty(leadId, paymentIntent.id));
 
             // ── Realtor Referral Credit (non-blocking, idempotent) ─────
-            waitUntil(processRealtorReferralCredit(leadId));
+            after(processRealtorReferralCredit(leadId));
 
             // ── Mirror saved card onto the persistent customer record ──
             // (non-blocking) so it's reusable on this person's other quotes,

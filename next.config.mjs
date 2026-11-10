@@ -9,17 +9,27 @@ const nextConfig = {
   // Never ship source maps to the browser in production
   productionBrowserSourceMaps: false,
 
+  // Load these from node_modules at runtime instead of compiling them into
+  // every server bundle layer. zipcodes (~4.6 MB of postal data) and Resend
+  // (with its svix dependency) were each being included twice, pushing the
+  // Cloudflare Worker close to its 10 MB compressed size limit.
+  serverExternalPackages: ["zipcodes", "resend", "svix"],
+
   experimental: {
     serverActions: {
       bodySizeLimit: "12mb",
     },
   },
 
-  // Ensure private/ files are bundled into the serverless function
-  // that handles /api/chair-plans so they're available at runtime on Vercel.
-  outputFileTracingIncludes: {
-    "/api/chair-plans": ["./private/**/*"],
-    "/api/plans/view": ["./private/**/*"],
+  // Paid plan HTML in private/ is imported as a string (see
+  // src/lib/server/private-files.ts) so it ships inside the server bundle.
+  // Cloudflare Workers have no filesystem to read it from at runtime.
+  webpack(config) {
+    config.module.rules.push({
+      test: /[\\/]private[\\/].*\.html$/,
+      type: "asset/source",
+    });
+    return config;
   },
   images: {
     remotePatterns: [

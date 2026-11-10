@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHash, randomInt, randomUUID, timingSafeEqual } from "crypto";
 import { cookies, headers } from "next/headers";
+import { getClientIp } from "@/lib/request-meta";
 import { getServiceClient } from "@/lib/supabase-server";
 import { sendPlanDeviceCodeEmail } from "@/lib/emails/plansTemplates";
 
@@ -66,7 +67,7 @@ async function ensureDeviceId(): Promise<string> {
 async function requestMeta(): Promise<{ ip: string | null; userAgent: string | null }> {
   const h = await headers();
   return {
-    ip: h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || null,
+    ip: getClientIp(h),
     userAgent: h.get("user-agent")?.slice(0, 300) || null,
   };
 }

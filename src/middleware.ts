@@ -4,6 +4,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { siteConfig } from "@/config/site";
 import { rateLimit } from "@/lib/rate-limit";
 import { getCacheConfig, buildCacheHeader } from "@/lib/edge-config";
+import { getClientIp } from "@/lib/request-meta";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Middleware — Auth Guard + Rate Limiting + Cache Control + Affiliate Cookies
@@ -20,10 +21,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // ── Rate Limiting ────────────────────────────────────────────────────────
-  const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    request.headers.get("x-real-ip") ||
-    "unknown";
+  const ip = getClientIp(request.headers) || "unknown";
 
   const isApi = pathname.startsWith("/api/");
   const limit = isApi ? API_LIMIT : PAGE_LIMIT;

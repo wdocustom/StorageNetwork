@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getClientIp, getRequestGeo } from "@/lib/request-meta";
 import { getServiceClient } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
@@ -38,14 +39,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false }, { status: 400 });
     }
 
-    const ip =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      req.headers.get("x-real-ip") ||
-      "unknown";
+    const ip = getClientIp(req.headers) || "unknown";
 
-    const city = req.headers.get("x-vercel-ip-city") || null;
-    const region = req.headers.get("x-vercel-ip-country-region") || null;
-    const country = req.headers.get("x-vercel-ip-country") || null;
+    const { city, region, country } = getRequestGeo(req.headers);
     const ua = body.userAgent || req.headers.get("user-agent") || null;
     const ipHash = await hashIP(ip);
 

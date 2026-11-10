@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase-server";
 import { getPlanById } from "@/lib/plans-config";
 import { isKnownPlanDevice } from "@/lib/server/plan-device";
-import fs from "fs/promises";
-import path from "path";
+import { getPrivateFile } from "@/lib/server/private-files";
 
 export const dynamic = "force-dynamic";
 
@@ -37,8 +36,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const filePath = path.join(process.cwd(), "private", plan.htmlFile);
-    const html = await fs.readFile(filePath, "utf-8");
+    const html = getPrivateFile(plan.htmlFile);
+    if (html === null) throw new Error(`${plan.htmlFile} not bundled`);
     return new NextResponse(html, {
       headers: {
         "Content-Type": "text/html; charset=utf-8",

@@ -54,7 +54,8 @@ export async function GET(req: NextRequest) {
         path,
         status: res.status,
         durationMs: Date.now() - start,
-        cacheStatus: res.headers.get("x-vercel-cache") ?? "unknown",
+        cacheStatus:
+          res.headers.get("x-vercel-cache") ?? res.headers.get("cf-cache-status") ?? "unknown",
       };
     })
   );
