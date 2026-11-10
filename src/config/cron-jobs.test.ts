@@ -1,4 +1,4 @@
-import { readFileSync } from "fs";
+import { readdirSync, readFileSync } from "fs";
 import path from "path";
 import { CRON_JOBS, jobsForSchedule } from "./cron-jobs";
 
@@ -31,6 +31,17 @@ describe("cron jobs", () => {
     for (const j of CRON_JOBS) {
       const route = path.join(root, "src/app", j.path, "route.ts");
       expect(() => readFileSync(route)).not.toThrow();
+    }
+  });
+
+  it("every cron route refuses requests when CRON_SECRET is unset", () => {
+    // Fail closed: `if (cronSecret && …)` skipped the check entirely when the
+    // secret was missing, leaving customer-email jobs publicly triggerable.
+    const dir = path.join(root, "src/app/api/cron");
+    for (const name of readdirSync(dir)) {
+      const src = readFileSync(path.join(dir, name, "route.ts"), "utf-8");
+      expect(src, name).toContain("process.env.CRON_SECRET");
+      expect(src, name).not.toMatch(/cronSecret\s*&&/);
     }
   });
 });
