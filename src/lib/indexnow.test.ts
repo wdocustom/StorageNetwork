@@ -52,11 +52,18 @@ describe("GET /api/cron/indexnow", () => {
     expect(body.urlList).toContain("https://storage-network.app/plans");
   });
 
+  it("rejects every call when CRON_SECRET is not configured", async () => {
+    vi.stubEnv("CRON_SECRET", "");
+    expect((await call()).status).toBe(401);
+    expect((await call("Bearer ")).status).toBe(401);
+  });
+
   it("does nothing outside production", async () => {
+    vi.stubEnv("CRON_SECRET", "s3cret");
     vi.stubEnv("VERCEL_ENV", "preview");
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    expect(await (await call()).json()).toMatchObject({ skipped: "not production" });
+    expect(await (await call("Bearer s3cret")).json()).toMatchObject({ skipped: "not production" });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
