@@ -181,9 +181,18 @@ export async function getInstallersForRegionSlug(
   slug: string,
   limit = 6,
 ): Promise<RegionInstaller[]> {
-  const parsed = parseRegionSlug(slug);
-  if (!parsed) return [];
+  if (!parseRegionSlug(slug)) return [];
+  return rankInstallersForRegion(slug, await loadActiveInstallerRows(), limit);
+}
 
+export type InstallerRow = RegionInstaller & { stripe_account_id: string | null };
+
+/**
+ * Every active installer with service zips — the input to
+ * rankInstallersForRegion. Callers checking many regions (the sitemap)
+ * load this once instead of once per region.
+ */
+export async function loadActiveInstallerRows(): Promise<InstallerRow[]> {
   const supabase = getServiceClient();
   const { data, error } = await supabase
     .from("profiles")
@@ -194,8 +203,18 @@ export async function getInstallersForRegionSlug(
     .not("service_zips", "is", null);
 
   if (error || !data) return [];
+  return data as InstallerRow[];
+}
 
-  const candidates: Array<RegionInstaller & { stripe_account_id: string | null }> = [];
+/** Rank the rows serving `slug` (pure; see getInstallersForRegionSlug). */
+export function rankInstallersForRegion(
+  slug: string,
+  data: InstallerRow[],
+  limit = 6,
+): RegionInstaller[] {
+  if (!parseRegionSlug(slug)) return [];
+
+  const candidates: InstallerRow[] = [];
   for (const row of data) {
     const zips = (row.service_zips as string[] | null) ?? [];
     const matches = zips.some((zip) => {
@@ -203,7 +222,7 @@ export async function getInstallersForRegionSlug(
       return !!info && regionSlug(info.city, info.state) === slug;
     });
     if (!matches) continue;
-    candidates.push(row as RegionInstaller & { stripe_account_id: string | null });
+    candidates.push(row);
   }
 
   candidates.sort((a, b) => {
