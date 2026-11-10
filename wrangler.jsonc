@@ -5,6 +5,11 @@
   "main": "cloudflare/worker.ts",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  // Test address (storage-network.<account>.workers.dev) and per-branch
+  // preview URLs. Stated explicitly to silence wrangler's default warnings;
+  // consider workers_dev: false after cutover so only the real domain serves.
+  "workers_dev": true,
+  "preview_urls": true,
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
