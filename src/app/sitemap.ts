@@ -5,7 +5,7 @@ import { PAGE_UPDATED, type DatedPage } from "@/lib/sitemap-dates";
 import {
   getInstallerDerivedRegions,
   loadActiveInstallerRows,
-  rankInstallersForRegion,
+  regionSlugsWithInstallers,
   regionSlug as buildRegionSlug,
 } from "@/lib/server/region-pages";
 
@@ -145,16 +145,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   );
 
   // "Does this region have installers?" — load the installer list once and
-  // check every region in memory. (Querying per region meant ~80 identical
-  // full-table reads per request; on Cloudflare Workers, which allow 6
-  // concurrent outbound connections, that took 20-30s.)
+  // map every service zip to its region in one pass. (Querying per region
+  // meant ~80 identical full-table reads, then re-scanning every installer
+  // for each of ~2,000 regions; together 20-30s on Cloudflare Workers.)
   const installerRows = await loadActiveInstallerRows().catch((err) => {
     console.error("[sitemap] Failed to load installers:", err);
     return [];
   });
-  const populatedRegionSlugs = regionSlugs.filter(
-    (slug) => rankInstallersForRegion(slug, installerRows, 1).length > 0,
-  );
+  const servedSlugs = regionSlugsWithInstallers(installerRows);
+  const populatedRegionSlugs = regionSlugs.filter((slug) => servedSlugs.has(slug));
 
   // No lastmod: these list live installers, and nothing records when a
   // region's list last changed — omitting beats claiming "changed now".

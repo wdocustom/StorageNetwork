@@ -4,7 +4,7 @@ const loadActiveInstallerRows = vi.fn(async () => [{ id: "i1" }]);
 vi.mock("@/lib/server/region-pages", () => ({
   getInstallerDerivedRegions: async () => [],
   loadActiveInstallerRows: () => loadActiveInstallerRows(),
-  rankInstallersForRegion: (slug: string, rows: unknown[]) => (slug === "omaha-ne" ? rows : []),
+  regionSlugsWithInstallers: () => new Set(["omaha-ne"]),
   regionSlug: (city: string, state: string) => `${city}-${state}`.toLowerCase(),
 }));
 vi.mock("@supabase/supabase-js", () => ({

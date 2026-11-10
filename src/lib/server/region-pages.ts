@@ -206,6 +206,26 @@ export async function loadActiveInstallerRows(): Promise<InstallerRow[]> {
   return data as InstallerRow[];
 }
 
+/**
+ * Every region slug served by at least one of `rows`, in a single pass over
+ * their service zips. Same membership as
+ * `rankInstallersForRegion(slug, rows, 1).length > 0`, without re-scanning
+ * every installer for each of the ~2,000 regions the sitemap checks.
+ */
+export function regionSlugsWithInstallers(rows: InstallerRow[]): Set<string> {
+  const slugs = new Set<string>();
+  const seenZips = new Set<string>();
+  for (const row of rows) {
+    for (const zip of row.service_zips ?? []) {
+      if (seenZips.has(zip)) continue;
+      seenZips.add(zip);
+      const info = zipcodes.lookup(zip);
+      if (info) slugs.add(regionSlug(info.city, info.state));
+    }
+  }
+  return slugs;
+}
+
 /** Rank the rows serving `slug` (pure; see getInstallersForRegionSlug). */
 export function rankInstallersForRegion(
   slug: string,

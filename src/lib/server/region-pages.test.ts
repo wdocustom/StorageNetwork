@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase-server", () => ({ getServiceClient: () => ({}) }));
 
-import { rankInstallersForRegion, type InstallerRow } from "./region-pages";
+import { rankInstallersForRegion, regionSlugsWithInstallers, type InstallerRow } from "./region-pages";
 
 const row = (id: string, zips: string[], extra: Partial<InstallerRow> = {}): InstallerRow =>
   ({
@@ -39,5 +39,16 @@ describe("rankInstallersForRegion", () => {
 
   it("returns nothing for an unparseable slug", () => {
     expect(rankInstallersForRegion("not a slug", rows)).toEqual([]);
+  });
+});
+
+describe("regionSlugsWithInstallers", () => {
+  it("matches per-region ranking for every slug it returns and misses", () => {
+    const rows = [row("a", ["68105", "68102"]), row("b", ["33101", "bogus"]), row("c", [])];
+    const slugs = regionSlugsWithInstallers(rows);
+    expect(slugs).toEqual(new Set(["omaha-ne", "miami-fl"]));
+    for (const slug of ["omaha-ne", "miami-fl", "denver-co"]) {
+      expect(slugs.has(slug)).toBe(rankInstallersForRegion(slug, rows, 1).length > 0);
+    }
   });
 });
