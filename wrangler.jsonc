@@ -33,6 +33,12 @@
     // only the compute share (network waits don't count); 5 min is the max.
     "cpu_ms": 300000
   },
+  "vars": {
+    // Keep "false" while Vercel is still live — both would run every job and
+    // customers would get each scheduled email twice. Flip to "true" at
+    // cutover, in the same change that removes vercel.json crons.
+    "CRONS_ENABLED": "false"
+  },
   "observability": {
     "enabled": true
   },

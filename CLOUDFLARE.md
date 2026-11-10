@@ -34,7 +34,8 @@ npm run cf:deploy    # build + deploy
    test, or skip and repoint at cutover.
 6. Zone → Rules → Managed Transforms → enable **Add visitor location headers**
    (city/region in analytics; country works without it).
-7. Cutover: add the domain as a Custom Domain on the Worker (domain must be on
+7. Cutover: set `CRONS_ENABLED` to `"true"` in `wrangler.jsonc` (cron jobs are
+   skipped until then so they don't double-run alongside Vercel), add the domain as a Custom Domain on the Worker (domain must be on
    Cloudflare DNS), confirm, then remove the Vercel project.
 
 ## Limits to know
