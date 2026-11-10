@@ -44,10 +44,9 @@
   // (type "Secret") always survive; prefer that type for keys.
   "keep_vars": true,
   "vars": {
-    // Keep "false" while Vercel is still live — both would run every job and
-    // customers would get each scheduled email twice. Flip to "true" at
-    // cutover, in the same change that removes vercel.json crons.
-    "CRONS_ENABLED": "false"
+    // Cron jobs run here (cloudflare/worker.ts). vercel.json no longer
+    // schedules them, so only one host ever runs each job.
+    "CRONS_ENABLED": "true"
   },
   "observability": {
     "enabled": true

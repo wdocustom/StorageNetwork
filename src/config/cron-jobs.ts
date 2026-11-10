@@ -4,7 +4,7 @@
 // Cloudflare: cloudflare/worker.ts runs every job whose schedule matches the
 // firing cron trigger. wrangler.jsonc "triggers.crons" must list each
 // distinct schedule below (src/config/cron-jobs.test.ts checks this, and
-// that vercel.json stays in sync while Vercel is still live).
+// that vercel.json no longer schedules any job).
 //
 // Schedules are UTC, standard 5-field cron.
 // ═══════════════════════════════════════════════════════════════════════════
