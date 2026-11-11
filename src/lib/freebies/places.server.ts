@@ -1,10 +1,14 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // Freebie planner — finding real locations near the veteran
 //
-// Looks up catalog brands in OpenStreetMap (Overpass API: free, no key).
-// Results are cached per ~3.5-mile map cell so a busy Veterans Day morning
-// doesn't hammer a volunteer-run service, and each place is signed so the
-// email route can trust a plan the browser sends back.
+// Looks up catalog brands in OpenStreetMap, through free services that need
+// no key: Photon first (one fast search per brand), and the Overpass API as
+// a fallback. The public Overpass servers were all down or timing out on
+// Veterans Day morning 2026, which is why they are no longer the first choice.
+//
+// Results are cached per ~3.5-mile map cell so a busy morning doesn't hammer
+// volunteer-run services, and each place is signed so the email route can
+// trust a plan the browser sends back.
 //
 // Not a "use server" module: nothing here is callable from a browser.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -15,11 +19,15 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { Redis } from "@upstash/redis";
 import zipcodes from "zipcodes";
 
+import { OFFERS } from "./offers";
 import {
   buildOverpassQuery,
+  buildPhotonUrl,
   nearestPerOffer,
-  parseOverpassElements,
+  parseOsmElements,
+  photonToElements,
   type OsmElement,
+  type PhotonFeature,
   type RawPlace,
 } from "./places";
 import { milesBetween, type LatLon, type Place } from "./schedule";
@@ -38,20 +46,23 @@ export function originFromZip(zip: string): Origin | null {
 }
 
 export function originFromCoords(lat: number, lon: number): Origin {
-  // Nearest ZIP centroid names the area. (The package's own lookupByCoords
-  // leaks a global, which throws once bundled in strict mode.)
-  let best: { city: string; state: string } | null = null;
-  let bestMi = 25;
+  // The area's name is the commonest city among the nearest ZIP centroids —
+  // the single nearest is sometimes one building's private ZIP ("City
+  // National Bank"). (The package's own lookupByCoords leaks a global, which
+  // throws once bundled in strict mode.)
+  const near: { mi: number; label: string }[] = [];
   for (const code of Object.values(zipcodes.codes)) {
     if (code.country !== "US" || !code.latitude || !code.longitude) continue;
     if (Math.abs(code.latitude - lat) > 0.4 || Math.abs(code.longitude - lon) > 0.5) continue;
     const mi = milesBetween({ lat, lon }, { lat: code.latitude, lon: code.longitude });
-    if (mi < bestMi) {
-      bestMi = mi;
-      best = code;
-    }
+    if (mi < 25) near.push({ mi, label: `${code.city}, ${code.state}` });
   }
-  return { lat, lon, label: best ? `${best.city}, ${best.state}` : "your location" };
+  near.sort((a, b) => a.mi - b.mi);
+  const votes = new Map<string, number>();
+  for (const n of near.slice(0, 7)) votes.set(n.label, (votes.get(n.label) ?? 0) + 1);
+  // Map order is nearest-first, so a tie goes to the closer city.
+  const label = [...votes].reduce<[string, number] | null>((best, v) => (!best || v[1] > best[1] ? v : best), null);
+  return { lat, lon, label: label?.[0] ?? "your location" };
 }
 
 // ── Signing ─────────────────────────────────────────────────────────────────
@@ -116,6 +127,71 @@ async function cacheSet(key: string, places: RawPlace[]): Promise<void> {
   }
 }
 
+const USER_AGENT = "StorageNetwork-VeteransDayPlanner/1.0 (+https://storage-network.app/veterans-day)";
+
+// ── Photon ──────────────────────────────────────────────────────────────────
+
+/** Searches in flight at once. Photon answers 503 when pushed harder. */
+const PHOTON_BATCH = 5;
+
+async function photonSearch(url: string): Promise<OsmElement[]> {
+  const res = await fetch(url, {
+    headers: { "User-Agent": USER_AGENT },
+    signal: AbortSignal.timeout(7_000),
+  });
+  if (!res.ok) throw new Error(`Photon responded ${res.status}`);
+  const json = (await res.json()) as { features?: PhotonFeature[] };
+  if (!Array.isArray(json.features)) throw new Error("Malformed Photon response");
+  return photonToElements(json.features);
+}
+
+/**
+ * One Photon search per catalog brand, with one retry for searches that
+ * fail. `complete` is false when some brands still couldn't be searched;
+ * throws when most couldn't, so the caller falls back.
+ */
+async function queryPhoton(
+  center: LatLon,
+  radiusMi: number
+): Promise<{ elements: OsmElement[]; complete: boolean }> {
+  const elements: OsmElement[] = [];
+  let lastError = "unknown error";
+
+  const run = async (urls: string[], batch: number): Promise<string[]> => {
+    const failed: string[] = [];
+    for (let i = 0; i < urls.length; i += batch) {
+      const slice = urls.slice(i, i + batch);
+      const results = await Promise.allSettled(slice.map(photonSearch));
+      results.forEach((r, j) => {
+        if (r.status === "fulfilled") elements.push(...r.value);
+        else {
+          failed.push(slice[j]);
+          lastError = r.reason instanceof Error ? r.reason.message : String(r.reason);
+        }
+      });
+      // Nothing has answered yet: the service is down, not busy. Stop asking.
+      if (failed.length === i + slice.length && failed.length >= batch * 2) {
+        failed.push(...urls.slice(i + batch));
+        break;
+      }
+    }
+    return failed;
+  };
+
+  const urls = OFFERS.map((offer) => buildPhotonUrl(offer, center, radiusMi));
+  let failed = await run(urls, PHOTON_BATCH);
+  if (failed.length === urls.length) throw new PlaceLookupError(`Photon lookup failed: ${lastError}`);
+  if (failed.length) {
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    failed = await run(failed, 3);
+  }
+  if (failed.length > urls.length / 2) throw new PlaceLookupError(`Photon lookup failed: ${lastError}`);
+  if (failed.length) {
+    console.warn(`[Freebies] Photon: ${failed.length} of ${urls.length} brand searches failed (${lastError})`);
+  }
+  return { elements, complete: failed.length === 0 };
+}
+
 // ── Overpass ────────────────────────────────────────────────────────────────
 
 // Public Overpass instances, tried in order. OVERPASS_URLS (comma-separated)
@@ -141,10 +217,10 @@ async function queryOverpass(query: string): Promise<OsmElement[]> {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
-          "User-Agent": "StorageNetwork-VeteransDayPlanner/1.0 (+https://storage-network.app/veterans-day)",
+          "User-Agent": USER_AGENT,
         },
         body: `data=${encodeURIComponent(query)}`,
-        signal: AbortSignal.timeout(16_000),
+        signal: AbortSignal.timeout(9_000),
       });
       if (!res.ok) throw new Error(`${endpoint} responded ${res.status}`);
       const json = (await res.json()) as { elements?: OsmElement[]; remark?: string };
@@ -172,13 +248,22 @@ export async function findPlacesNear(origin: LatLon, radiusMi: number): Promise<
     lat: Math.round(origin.lat / CELL_DEG) * CELL_DEG,
     lon: Math.round(origin.lon / CELL_DEG) * CELL_DEG,
   };
-  const key = `freebies:v1:${cell.lat.toFixed(2)}:${cell.lon.toFixed(2)}:${radiusMi}`;
+  const key = `freebies:v2:${cell.lat.toFixed(2)}:${cell.lon.toFixed(2)}:${radiusMi}`;
 
   let raw = await cacheGet(key);
   if (!raw) {
-    const query = buildOverpassQuery(cell, (radiusMi + CELL_PAD_MI) * MILE_M);
-    raw = parseOverpassElements(await queryOverpass(query));
-    await cacheSet(key, raw);
+    const reach = radiusMi + CELL_PAD_MI;
+    let complete = true;
+    try {
+      const photon = await queryPhoton(cell, reach);
+      raw = parseOsmElements(photon.elements);
+      complete = photon.complete;
+    } catch (err) {
+      console.warn("[Freebies] Photon failed, trying Overpass:", err instanceof Error ? err.message : err);
+      raw = parseOsmElements(await queryOverpass(buildOverpassQuery(cell, reach * MILE_M)));
+    }
+    // A partial answer is fine to show once, but not to remember.
+    if (complete) await cacheSet(key, raw);
   }
 
   return nearestPerOffer(raw, origin, radiusMi).map((p) => {

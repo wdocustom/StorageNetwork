@@ -5,8 +5,12 @@
 // element whose brand matches a catalog offer AND whose tags say it is the
 // right kind of business (a "Target" must be a shop, a "ZIPS" a car wash).
 //
-// Pure module: the Overpass query text and the parsing of its response. The
-// network call and signing live in places.server.ts.
+// Two OpenStreetMap search services are supported: Photon (one quick search
+// per brand) and Overpass (one large query for every brand). Both are reduced
+// to the same OsmElement shape and go through the same checks.
+//
+// Pure module: request text and response parsing. The network calls and
+// signing live in places.server.ts.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { OFFERS, type Offer, type PlaceType } from "./offers";
@@ -37,6 +41,68 @@ export function buildOverpassQuery(center: LatLon, radiusMeters: number): string
     "out center tags 4000;",
   ].join("\n");
 }
+
+// ── Photon ──────────────────────────────────────────────────────────────────
+
+export interface PhotonFeature {
+  geometry?: { coordinates?: [number, number] };
+  properties?: {
+    osm_type?: string;
+    osm_id?: number;
+    osm_key?: string;
+    osm_value?: string;
+    name?: string;
+    housenumber?: string;
+    street?: string;
+    city?: string;
+    state?: string;
+    postcode?: string;
+    countrycode?: string;
+  };
+}
+
+/** Photon search for one brand, limited to a box around the point. */
+export function buildPhotonUrl(offer: Offer, center: LatLon, radiusMi: number): string {
+  const dLat = radiusMi / 69;
+  const dLon = radiusMi / (69 * Math.cos((center.lat * Math.PI) / 180));
+  const params = new URLSearchParams({
+    q: offer.search ?? offer.brand,
+    lat: center.lat.toFixed(4),
+    lon: center.lon.toFixed(4),
+    bbox: [center.lon - dLon, center.lat - dLat, center.lon + dLon, center.lat + dLat]
+      .map((n) => n.toFixed(4))
+      .join(","),
+    limit: "15",
+    lang: "en",
+  });
+  return `https://photon.komoot.io/api/?${params}`;
+}
+
+const PHOTON_TYPE: Record<string, OsmElement["type"]> = { N: "node", W: "way", R: "relation" };
+
+/** Photon results in the shape the Overpass parser already understands. */
+export function photonToElements(features: PhotonFeature[]): OsmElement[] {
+  const out: OsmElement[] = [];
+  for (const f of features) {
+    const p = f.properties;
+    const coords = f.geometry?.coordinates;
+    const type = PHOTON_TYPE[p?.osm_type ?? ""];
+    if (!p || !coords || !type || typeof p.osm_id !== "number" || !p.name) continue;
+    if (p.countrycode && p.countrycode !== "US") continue;
+    const tags: Record<string, string> = { name: p.name };
+    if (p.osm_key && p.osm_value) tags[p.osm_key] = p.osm_value;
+    if (p.housenumber) tags["addr:housenumber"] = p.housenumber;
+    // A way on two roads lists both, separated by ";".
+    if (p.street) tags["addr:street"] = p.street.split(";")[0].trim();
+    if (p.city) tags["addr:city"] = p.city;
+    if (p.state) tags["addr:state"] = p.state;
+    if (p.postcode) tags["addr:postcode"] = p.postcode;
+    out.push({ type, id: p.osm_id, lon: coords[0], lat: coords[1], tags });
+  }
+  return out;
+}
+
+// ── Matching ────────────────────────────────────────────────────────────────
 
 const FOOD_AMENITY = new Set(["restaurant", "fast_food", "cafe", "ice_cream", "bar", "pub", "food_court"]);
 const FOOD_SHOP = new Set(["bakery", "coffee", "pastry", "confectionery"]);
@@ -84,8 +150,8 @@ export function formatUsPhone(raw: string | undefined): string | null {
 /** Two map elements this close with the same brand are one store (a building and its entrance). */
 const SAME_STORE_MI = 0.08;
 
-/** Catalog places among the Overpass elements, one per physical store. */
-export function parseOverpassElements(elements: OsmElement[]): RawPlace[] {
+/** Catalog places among the map elements, one per physical store. */
+export function parseOsmElements(elements: OsmElement[]): RawPlace[] {
   const out: RawPlace[] = [];
   for (const el of elements) {
     const tags = el.tags;
