@@ -191,6 +191,7 @@ export const config = {
     "/features",
     "/technology",
     "/about/:path*",
+    "/veterans-day",
     // API routes
     "/api/:path*",
     // Dashboard (auth-guarded)
