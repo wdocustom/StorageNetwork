@@ -102,6 +102,54 @@ export function photonToElements(features: PhotonFeature[]): OsmElement[] {
   return out;
 }
 
+/** Letters, digits and ordinary address punctuation — nothing that could carry a link or markup. */
+const PLAIN_TEXT = /^[\p{L}\p{N} .,'’#&()\/-]*$/u;
+
+function plain(value: unknown, max: number): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const text = value.split(";")[0].trim();
+  return text && text.length <= max && PLAIN_TEXT.test(text) ? text : undefined;
+}
+
+/**
+ * Photon results that arrived from a browser, reduced to what can be trusted:
+ * well-formed ids and coordinates, and text fields that are plain address
+ * text. A result with a bad name or coordinates is dropped; a bad address
+ * part is just left out.
+ */
+export function sanitizePhotonFeatures(input: unknown): PhotonFeature[] {
+  if (!Array.isArray(input)) return [];
+  const out: PhotonFeature[] = [];
+  for (const raw of input.slice(0, 800)) {
+    const p = (raw as PhotonFeature)?.properties;
+    const c = (raw as PhotonFeature)?.geometry?.coordinates;
+    if (!p || !Array.isArray(c)) continue;
+    const [lon, lat] = c;
+    if (typeof lat !== "number" || typeof lon !== "number" || Math.abs(lat) > 90 || Math.abs(lon) > 180) continue;
+    if (typeof p.osm_id !== "number" || !Number.isSafeInteger(p.osm_id) || p.osm_id <= 0) continue;
+    const name = plain(p.name, 80);
+    if (!name || !/^[NWR]$/.test(p.osm_type ?? "")) continue;
+    const tag = (v: unknown) => (typeof v === "string" && /^[a-z_]{1,30}$/.test(v) ? v : undefined);
+    out.push({
+      geometry: { coordinates: [lon, lat] },
+      properties: {
+        osm_type: p.osm_type,
+        osm_id: p.osm_id,
+        osm_key: tag(p.osm_key),
+        osm_value: tag(p.osm_value),
+        name,
+        housenumber: plain(p.housenumber, 12),
+        street: plain(p.street, 70),
+        city: plain(p.city, 50),
+        state: plain(p.state, 30),
+        postcode: plain(p.postcode, 10),
+        countrycode: p.countrycode === "US" ? "US" : undefined,
+      },
+    });
+  }
+  return out;
+}
+
 // ── Matching ────────────────────────────────────────────────────────────────
 
 const FOOD_AMENITY = new Set(["restaurant", "fast_food", "cafe", "ice_cream", "bar", "pub", "food_court"]);

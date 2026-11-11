@@ -69,7 +69,7 @@ const nextConfig = {
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: blob: https://*.supabase.co https://replicate.delivery",
           "font-src 'self'",
-          "connect-src 'self' https://*.supabase.co https://api.stripe.com https://*.upstash.io https://raw.githack.com",
+          "connect-src 'self' https://*.supabase.co https://api.stripe.com https://*.upstash.io https://raw.githack.com https://photon.komoot.io",
           "frame-src 'self' https://js.stripe.com",
           "object-src 'none'",
           "base-uri 'self'",

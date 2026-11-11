@@ -5,6 +5,7 @@ import {
   buildOverpassQuery,
   buildPhotonUrl,
   photonToElements,
+  sanitizePhotonFeatures,
   formatUsPhone,
   nearestPerOffer,
   parseOsmElements,
@@ -325,6 +326,32 @@ describe("OpenStreetMap parsing", () => {
     );
     expect(places.map((p) => p.offerId)).toEqual(["applebees", "bjs-brewhouse"]);
     expect(places[0]).toMatchObject({ id: "way/1", address: "6315 I 35 Frontage Road, Austin, Texas 78745" });
+  });
+
+  it("cleans search results that arrive from a browser", () => {
+    const f = (props: Record<string, unknown>, coordinates: unknown = [-97.7, 30.3]) => ({
+      geometry: { coordinates },
+      properties: { osm_type: "N", osm_id: 5, osm_key: "amenity", osm_value: "restaurant", name: "Applebee's", countrycode: "US", ...props },
+    });
+    const clean = sanitizePhotonFeatures([
+      f({ housenumber: "12", street: "Elm St;Other Rd", city: "Austin", state: "Texas", postcode: "78701" }),
+      f({ name: "Applebee's http://evil.example" }), // link in the name: dropped
+      f({ name: "<b>Applebee's</b>" }), // markup: dropped
+      f({ street: "Visit evil.example/win@now" }), // bad address part: left out, place kept
+      f({ osm_id: "5" }), // id must be a number
+      f({ osm_type: "X" }),
+      f({}, [-97.7, 300]), // impossible coordinates
+      f({ osm_key: "amenity\"onload" }),
+      "nonsense",
+      null,
+    ]);
+    expect(clean).toHaveLength(3);
+    expect(clean[0].properties).toMatchObject({ street: "Elm St", city: "Austin", postcode: "78701" });
+    expect(clean[1].properties?.street).toBeUndefined();
+    expect(clean[2].properties?.osm_key).toBeUndefined();
+    expect(sanitizePhotonFeatures("not an array")).toEqual([]);
+    // A place with no recognised business type can't pass the type check later.
+    expect(parseOsmElements(photonToElements([clean[2]]))).toEqual([]);
   });
 
   it("formats US phone numbers and rejects the rest", () => {

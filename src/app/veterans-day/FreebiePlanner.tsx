@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeftRight,
   CalendarPlus,
@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 
 import { EXTRA_TYPE_LABEL, VETERANS_DAY, getOffer, type ExtraType } from "@/lib/freebies/offers";
+import { searchPlacesInBrowser } from "@/lib/freebies/photon-browser";
+import type { PhotonFeature } from "@/lib/freebies/places";
 import {
   FOOD_SLOTS,
   SLOT_RULES,
@@ -129,6 +131,7 @@ export default function FreebiePlanner() {
   const [openDetails, setOpenDetails] = useState<string | null>(null);
   const [swapping, setSwapping] = useState<string | null>(null);
   const [adding, setAdding] = useState<FoodSlot | null>(null);
+  const searchCache = useRef<{ key: string; features: PhotonFeature[] } | null>(null);
 
   // ── Change request + email ────────────────────────────────────────────────
   const [change, setChange] = useState("");
@@ -216,17 +219,7 @@ export default function FreebiePlanner() {
     );
   }
 
-  async function requestPlan(extra?: { request: string; current: Record<FoodSlot, string | null> }) {
-    const body = {
-      ...(coords ? coords : { zip }),
-      startMin,
-      radiusMi,
-      ...(extra
-        ? { request: extra.request, current: extra.current }
-        : prefs.trim()
-          ? { request: prefs.trim() }
-          : {}),
-    };
+  async function postPlan(body: Record<string, unknown>) {
     const res = await fetch("/api/veterans-day/plan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -243,6 +236,41 @@ export default function FreebiePlanner() {
       throw new Error(json?.error || (res.status === 429 ? text : "Something went wrong. Please try again."));
     }
     return json;
+  }
+
+  /**
+   * Nearby locations, searched from this device (our servers can't reach the
+   * map service reliably). Remembered per starting point and distance so a
+   * change request doesn't search again. Null means the search failed and
+   * the server should try.
+   */
+  async function nearbyFeatures(where: Record<string, unknown>): Promise<PhotonFeature[] | null> {
+    const key = JSON.stringify([where, radiusMi]);
+    if (searchCache.current?.key === key) return searchCache.current.features;
+    try {
+      const center = coords ?? (await postPlan({ ...where, startMin, radiusMi, locate: true })).origin;
+      const features = await searchPlacesInBrowser(center, radiusMi);
+      if (features) searchCache.current = { key, features };
+      return features;
+    } catch {
+      return null;
+    }
+  }
+
+  async function requestPlan(extra?: { request: string; current: Record<FoodSlot, string | null> }) {
+    const where = coords ? coords : { zip };
+    const features = await nearbyFeatures(where);
+    return postPlan({
+      ...where,
+      startMin,
+      radiusMi,
+      ...(features ? { features } : {}),
+      ...(extra
+        ? { request: extra.request, current: extra.current }
+        : prefs.trim()
+          ? { request: prefs.trim() }
+          : {}),
+    });
   }
 
   async function generate() {
