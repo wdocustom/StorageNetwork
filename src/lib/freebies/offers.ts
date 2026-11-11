@@ -82,6 +82,8 @@ export interface Offer {
   match: RegExp;
   /** POSIX prefix for the Overpass query; `.` stands in for apostrophes. */
   osm: string;
+  /** What to type into a place search when the brand name alone finds it better. */
+  search?: string;
 }
 
 const h = (hours: number, minutes = 0) => hours * 60 + minutes;
@@ -526,8 +528,10 @@ export const OFFERS: Offer[] = [
     tags: "sit-down dessert: warm cookie with ice cream",
     website: "https://www.bjsrestaurants.com",
     placeType: "food",
-    match: /^bj['’]?s (restaurant|brewhouse)/i,
+    // Often mapped as just "BJ's"; the food-place check keeps BJ's Wholesale out.
+    match: /^bj['’]?s\b/i,
     osm: "BJ.s (Restaurant|Brewhouse)",
+    search: "BJ's",
   },
   {
     id: "scooters",
@@ -712,6 +716,7 @@ export const OFFERS: Offer[] = [
     placeType: "carwash",
     match: /^autobell/i,
     osm: "Autobell",
+    search: "Autobell",
   },
   {
     id: "texas-roadhouse",
@@ -823,6 +828,7 @@ export const OFFERS: Offer[] = [
     placeType: "retail",
     match: /^(the )?home depot/i,
     osm: "(The )?Home Depot",
+    search: "Home Depot",
   },
   {
     id: "tractor-supply",
@@ -843,6 +849,7 @@ export const OFFERS: Offer[] = [
     placeType: "retail",
     match: /^tractor supply/i,
     osm: "Tractor Supply",
+    search: "Tractor Supply",
   },
 ];
 

@@ -497,7 +497,7 @@ export default function FreebiePlanner() {
         </button>
         {loading && (
           <p className="mt-2 text-center text-xs text-stone-500">
-            Checking real locations and drive times. This can take up to 20 seconds.
+            Checking real locations and drive times. This usually takes 10 to 20 seconds.
           </p>
         )}
         {error && (

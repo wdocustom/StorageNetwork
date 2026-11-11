@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import { OFFERS, getOffer } from "./offers";
 import {
   buildOverpassQuery,
+  buildPhotonUrl,
+  photonToElements,
   formatUsPhone,
   nearestPerOffer,
-  parseOverpassElements,
+  parseOsmElements,
   type OsmElement,
 } from "./places";
 import {
@@ -253,7 +255,7 @@ describe("OpenStreetMap parsing", () => {
   });
 
   it("accepts a brand only on the right kind of business", () => {
-    const places = parseOverpassElements([
+    const places = parseOsmElements([
       el(1, { brand: "Applebee's Neighborhood Grill & Bar", amenity: "restaurant", "addr:housenumber": "12", "addr:street": "Elm St", "addr:city": "Austin", "addr:state": "TX", "addr:postcode": "78701", phone: "+1 512-555-0100" }),
       el(2, { name: "Target Road", highway: "residential" }),
       el(3, { brand: "Target", shop: "department_store" }, 30.31),
@@ -274,7 +276,7 @@ describe("OpenStreetMap parsing", () => {
   });
 
   it("treats a building and its entrance as one store, keeping the address", () => {
-    const places = parseOverpassElements([
+    const places = parseOsmElements([
       el(1, { brand: "IHOP", amenity: "restaurant" }),
       { type: "way", id: 9, center: { lat: 30.3001, lon: -97.7001 }, tags: { brand: "IHOP", amenity: "restaurant", "addr:housenumber": "5", "addr:street": "Oak Ave" } },
     ]);
@@ -283,13 +285,44 @@ describe("OpenStreetMap parsing", () => {
   });
 
   it("keeps the nearest few of each chain inside the radius", () => {
-    const raw = parseOverpassElements(
+    const raw = parseOsmElements(
       [0.01, 0.02, 0.03, 0.04, 0.5].map((d, i) => el(i + 1, { brand: "Starbucks", amenity: "cafe" }, 30.2672 + d, -97.7431))
     );
     const near = nearestPerOffer(raw, ORIGIN, 10);
     expect(near).toHaveLength(3);
     expect(near.map((p) => p.distanceMi)).toEqual([...near.map((p) => p.distanceMi)].sort((a, b) => a - b));
     expect(near.every((p) => p.distanceMi <= 10)).toBe(true);
+  });
+
+  it("searches Photon for a brand inside a box around the point", () => {
+    const url = new URL(buildPhotonUrl(getOffer("bjs-brewhouse")!, ORIGIN, 10));
+    expect(url.origin + url.pathname).toBe("https://photon.komoot.io/api/");
+    expect(url.searchParams.get("q")).toBe("BJ's");
+    const [w, s, e, n] = url.searchParams.get("bbox")!.split(",").map(Number);
+    expect(w).toBeLessThan(ORIGIN.lon);
+    expect(e).toBeGreaterThan(ORIGIN.lon);
+    expect(n - s).toBeCloseTo(20 / 69, 2);
+  });
+
+  it("reads Photon results through the same brand and business-type checks", () => {
+    const feature = (id: number, name: string, key: string, value: string, extra = {}) => ({
+      geometry: { coordinates: [-97.7 + id / 100, 30.3] as [number, number] },
+      properties: { osm_type: "W", osm_id: id, osm_key: key, osm_value: value, name, countrycode: "US", ...extra },
+    });
+    const places = parseOsmElements(
+      photonToElements([
+        feature(1, "Applebee's", "amenity", "restaurant", { housenumber: "6315", street: "I 35 Frontage Road;South I 35", city: "Austin", state: "Texas", postcode: "78745" }),
+        feature(2, "Target Sortation Center", "building", "warehouse"),
+        feature(3, "Denny Lane", "highway", "residential"),
+        feature(4, "BJ's", "amenity", "restaurant"),
+        feature(5, "BJ's Wholesale Club", "shop", "wholesale"),
+        feature(6, "Tim Hortons", "amenity", "cafe", { countrycode: "CA" }),
+        feature(7, "Starbucks", "amenity", "cafe", { countrycode: "CA" }),
+        { geometry: {}, properties: { name: "Starbucks" } },
+      ])
+    );
+    expect(places.map((p) => p.offerId)).toEqual(["applebees", "bjs-brewhouse"]);
+    expect(places[0]).toMatchObject({ id: "way/1", address: "6315 I 35 Frontage Road, Austin, Texas 78745" });
   });
 
   it("formats US phone numbers and rejects the rest", () => {
