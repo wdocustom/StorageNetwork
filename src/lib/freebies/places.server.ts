@@ -1,9 +1,11 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // Freebie planner — finding real locations near the veteran
 //
-// Looks up catalog brands in OpenStreetMap, through free services that need
-// no key: Photon first (one fast search per brand), and the Overpass API as
-// a fallback. The public Overpass servers were all down or timing out on
+// Normally the visitor's browser runs the location search and posts the
+// results here (placesFromBrowserSearch): Photon lets requests from our
+// Cloudflare servers time out, but answers a phone at once. findPlacesNear
+// is the server-side fallback for when the browser search fails: Photon
+// first (one search per brand), then the Overpass API. The public Overpass servers were all down or timing out on
 // Veterans Day morning 2026, which is why they are no longer the first choice.
 //
 // Results are cached per ~3.5-mile map cell so a busy morning doesn't hammer
@@ -26,6 +28,7 @@ import {
   nearestPerOffer,
   parseOsmElements,
   photonToElements,
+  sanitizePhotonFeatures,
   type OsmElement,
   type PhotonFeature,
   type RawPlace,
@@ -266,8 +269,23 @@ export async function findPlacesNear(origin: LatLon, radiusMi: number): Promise<
     if (complete) await cacheSet(key, raw);
   }
 
-  return nearestPerOffer(raw, origin, radiusMi).map((p) => {
+  return sign(nearestPerOffer(raw, origin, radiusMi));
+}
+
+function sign(places: (RawPlace & { distanceMi: number })[]): Place[] {
+  return places.map((p) => {
     const { distanceMi, ...fields } = p;
     return { ...fields, distanceMi, sig: signature(fields) };
   });
+}
+
+/**
+ * Places from a search the visitor's browser ran (see photon-browser.ts).
+ * Nothing in it is taken on trust: the results are cleaned, then put through
+ * the same brand, business-type and distance checks as our own lookups.
+ * Not cached — it came from outside.
+ */
+export function placesFromBrowserSearch(features: unknown, origin: LatLon, radiusMi: number): Place[] {
+  const clean = sanitizePhotonFeatures(features).filter((f) => f.properties?.countrycode === "US");
+  return sign(nearestPerOffer(parseOsmElements(photonToElements(clean)), origin, radiusMi));
 }
