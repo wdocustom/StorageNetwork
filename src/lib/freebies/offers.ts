@@ -743,6 +743,32 @@ export const OFFERS: Offer[] = [
     osm: "Texas Roadhouse",
   },
 
+  {
+    id: "freddys",
+    brand: "Freddy's Frozen Custard & Steakburgers",
+    kind: "extra",
+    extraType: "voucher",
+    headline: "Free combo meal card — pick up today, eat later",
+    details:
+      "Visit a participating Freddy's on Veterans Day to pick up a card for a free combo meal. " +
+      "No purchase needed, one card per veteran or service member. The card is for a later visit. " +
+      "Bring a military ID in case your restaurant asks.",
+    eligibility: VETS_ACTIVE,
+    window: [h(10, 30), h(20, 30)],
+    windowNote: "Restaurant hours (card pickup)",
+    dwell: 10,
+    dineIn: false,
+    free: true,
+    redeemLater: "Combo meal cards are good through November 25, 2026.",
+    priority: 3,
+    tags: "steakburger combo meal card for another day",
+    website: "https://www.freddys.com/veterans-day",
+    placeType: "food",
+    match: /^freddy['’]?s/i,
+    osm: "Freddy.s",
+    search: "Freddy's",
+  },
+
   // ── Not food: military discounts ─────────────────────────────────────────
   {
     id: "target",

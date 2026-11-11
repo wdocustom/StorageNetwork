@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 
+import { siteConfig } from "@/config/site";
 import { generateBreadcrumbJsonLd } from "@/lib/schema/breadcrumb";
 import {
   OFFERS,
@@ -102,7 +103,7 @@ export default function VeteransDayPage() {
       <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-5 py-3">
           <Link href="/" className="flex items-center gap-2.5">
-            <Image src="/logo-storage-network.png" alt="" width={66} height={36} className="h-9 w-auto" />
+            <Image src={siteConfig.logoPath} alt="" width={94} height={36} className="h-9 w-auto" />
             <span className="leading-tight">
               <span className="block text-[11px] font-semibold uppercase tracking-widest text-stone-500">
                 Provided by
