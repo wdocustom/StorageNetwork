@@ -101,6 +101,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Public pages
     { url: `${BASE}/installer-network`, lastModified: updated("/installer-network"), changeFrequency: "weekly", priority: 0.7 },
     { url: `${BASE}/invite`, lastModified: updated("/invite"), changeFrequency: "monthly", priority: 0.7 },
+    { url: `${BASE}/veterans-day`, lastModified: updated("/veterans-day"), changeFrequency: "yearly", priority: 0.6 },
 
     // DIY plans storefront (build / library / access are token-gated + noindex)
     { url: `${BASE}/plans`, lastModified: updated("/plans"), changeFrequency: "weekly", priority: 0.9 },

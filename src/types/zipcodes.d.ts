@@ -15,5 +15,6 @@ declare module "zipcodes" {
   function distance(zipA: string, zipB: string): number | null;
   function toMiles(kilometers: number): number;
   function toKilometers(miles: number): number;
+  const codes: Record<string, ZipCodeInfo>;
   function lookupByName(city: string, state: string): ZipCodeInfo[];
 }
