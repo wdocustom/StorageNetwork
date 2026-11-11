@@ -67,6 +67,12 @@ function PaymentSuccessInner() {
             : "Thank you for your payment. Your installer has been notified and your job is now complete."}
         </p>
 
+        {/* Canadian pre-authorized debit is authorized at checkout but clears days later. */}
+        <p className="-mt-4 mb-8 max-w-md text-center text-xs text-stone-500">
+          Paid by bank debit? Your bank takes about 5 business days to confirm it, and the payment is
+          complete once it clears.
+        </p>
+
         {/* Email prompt */}
         {!isAddonDeposit && (
         <div className="mb-8 flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-6 py-4">

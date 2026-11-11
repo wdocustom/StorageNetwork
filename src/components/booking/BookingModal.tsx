@@ -744,20 +744,24 @@ function InlinePaymentForm({
 
     setProcessing(true);
 
-    // Stripe-native redirect — Stripe handles navigation to /success
-    const { error } = await stripe.confirmPayment({
+    // Stripe redirects to /success itself when the payment method needs a
+    // redirect (3-D Secure); otherwise it returns here and we navigate.
+    const successUrl = `${window.location.origin}/success?jobId=${leadId}`;
+    const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
-      confirmParams: {
-        return_url: `${window.location.origin}/success?jobId=${leadId}`,
-      },
+      confirmParams: { return_url: successUrl },
+      redirect: "if_required",
     });
 
-    // Only reaches here if there was an immediate error (card declined etc.)
-    setProcessing(false);
-
     if (error) {
+      setProcessing(false);
       onError(error.message || "Payment failed. Please try again.");
+      return;
     }
+
+    // "processing" is a Canadian bank debit: authorized, but it takes days
+    // to clear, so the success page must not say the order is confirmed.
+    window.location.href = paymentIntent?.status === "processing" ? `${successUrl}&pending=1` : successUrl;
   }
 
   return (

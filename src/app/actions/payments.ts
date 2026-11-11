@@ -87,6 +87,9 @@ import {
   onAccount,
   assertDirectChargeReady,
   resolveCardForAccount,
+  PAD_INTENT_PARAMS,
+  canAcceptPad,
+  createDirectCheckoutSession,
 } from "@/lib/stripe/direct-charges";
 import { computeBalanceDue, describeAddon, parseTipCents, quoteTotals } from "@/lib/lead-money";
 import {
@@ -421,6 +424,21 @@ async function getInstallerProfile(installerId: string) {
 // that account's currency (USD for US installers, CAD for Canadian ones) —
 // see @/lib/geo/currency. Platform-side charges for installers without
 // Stripe use the same currency so the customer sees one consistent price.
+/**
+ * Checkout Session for a lead payment. With a connected installer it is a
+ * direct charge on their account, with Canadian bank debit offered next to
+ * cards where the account supports it (see direct-charges.ts); otherwise it
+ * is a plain platform session.
+ */
+function createLeadCheckoutSession(
+  params: Stripe.Checkout.SessionCreateParams,
+  installerStripeId: string | null | undefined
+): Promise<Stripe.Checkout.Session> {
+  return installerStripeId
+    ? createDirectCheckoutSession(stripe, params, installerStripeId)
+    : stripe.checkout.sessions.create(params);
+}
+
 function chargeCurrency(profile: { currency?: string | null } | null | undefined): CurrencyCode {
   return normalizeCurrency(profile?.currency);
 }
@@ -588,7 +606,7 @@ export async function createPaymentSession(
     const ready = await assertDirectChargeReady(stripe, installerStripeId);
     if (!ready.ready) return { success: false, error: ready.reason };
 
-    const session = await stripe.checkout.sessions.create(
+    const session = await createLeadCheckoutSession(
       {
         mode: "payment",
         line_items: [
@@ -618,7 +636,7 @@ export async function createPaymentSession(
           ...(addonIds.length > 0 && { addon_ids: addonIds.join(",") }),
         },
       },
-      onAccount(installerStripeId)
+      installerStripeId
     );
 
     if (!session.url) {
@@ -707,7 +725,7 @@ export async function createDepositCheckoutSession(
       if (!ready.ready) return { success: false, error: ready.reason };
     }
 
-    const session = await stripe.checkout.sessions.create(
+    const session = await createLeadCheckoutSession(
       {
         mode: "payment",
         line_items: [
@@ -739,7 +757,7 @@ export async function createDepositCheckoutSession(
           ...split.metadataFields,
         },
       },
-      split.installerStripeId ? onAccount(split.installerStripeId) : undefined
+      split.installerStripeId
     );
 
     if (!session.url) {
@@ -1243,7 +1261,7 @@ export async function createBalanceCheckout(
       });
     }
 
-    const session = await stripe.checkout.sessions.create(
+    const session = await createLeadCheckoutSession(
       {
         mode: "payment",
         line_items: lineItems,
@@ -1262,7 +1280,7 @@ export async function createBalanceCheckout(
           ...(addonIds.length > 0 && { addon_ids: addonIds.join(",") }),
         },
       },
-      onAccount(installerStripeId)
+      installerStripeId
     );
 
     if (!session.url) {
@@ -1927,10 +1945,18 @@ export async function createDepositIntent(
     // ── Discount codes do NOT affect the deposit or platform fees. ──────────
     // Deposit uses installer's custom rate (min 15%). Discount reduces the
     // balance the installer collects at installation (installer absorbs their own discount codes).
-    const paymentIntent = await stripe.paymentIntents.create({
+    // Canadian installers whose Stripe account has pre-authorized debit on
+    // also offer it here. A PAD deposit stays `processing` for days; the
+    // lead is marked paid by the payment_intent.succeeded webhook when it
+    // clears, never at checkout.
+    const offerPad = await canAcceptPad(stripe, chargeAccountId, split.currency);
+    // The idempotency key covers the request body, so the PAD variant needs
+    // its own key or a retry after the capability changes would be rejected.
+    const depositIdempotencyKey = offerPad ? `deposit-${leadId}-pad` : `deposit-${leadId}`;
+
+    const depositParams: Stripe.PaymentIntentCreateParams = {
       amount: depositAmountCents,
       currency: split.currency,
-      payment_method_types: ["card"],
       ...(stripeCustomerId && { customer: stripeCustomerId }),
       setup_future_usage: "off_session",
       ...(chargeAccountId && {
@@ -1954,9 +1980,28 @@ export async function createDepositIntent(
         delivery_fee_cents: String(deliveryFeeCents),
         ...split.metadataFields,
       },
-    }, chargeAccountId
-      ? onAccount(chargeAccountId, { idempotencyKey: `deposit-${leadId}` })
-      : { idempotencyKey: `deposit-${leadId}` });
+    };
+    const intentOptions = (key: string): Stripe.RequestOptions =>
+      chargeAccountId ? onAccount(chargeAccountId, { idempotencyKey: key }) : { idempotencyKey: key };
+
+    let paymentIntent: Stripe.PaymentIntent | null = null;
+    if (offerPad) {
+      try {
+        paymentIntent = await stripe.paymentIntents.create(
+          { ...depositParams, ...PAD_INTENT_PARAMS },
+          intentOptions(depositIdempotencyKey)
+        );
+      } catch (padErr) {
+        // Adding bank debit must never stop a card deposit.
+        console.error(`[Deposit] PAD intent failed for lead ${leadId}; retrying cards-only:`, padErr);
+      }
+    }
+    if (!paymentIntent) {
+      paymentIntent = await stripe.paymentIntents.create(
+        { ...depositParams, payment_method_types: ["card"] },
+        intentOptions(`deposit-${leadId}`)
+      );
+    }
 
     console.log(`[Deposit] ${split.logLabel}: $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform $${split.platformFeeCents / 100}, Installer $${split.installerReceivesCents / 100}${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax: $${balanceWithTaxCents / 100}`);
 
@@ -2092,6 +2137,9 @@ export async function verifyAndConfirmDeposit(
         if (pm.type === "card" && pm.card) {
           fallbackUpdate.stripe_payment_method_brand = pm.card.brand;
           fallbackUpdate.stripe_payment_method_last4 = pm.card.last4;
+        } else if (pm.type !== "card") {
+          // A bank debit can't be charged off-session: don't save it as the card on file.
+          delete fallbackUpdate.stripe_payment_method_id;
         }
       } catch (pmErr) {
         console.warn("[VerifyDeposit] PM display meta fetch failed:", pmErr);
@@ -2460,7 +2508,7 @@ export async function createAddonDepositCheckout(leadId: string): Promise<Balanc
 
   try {
     const baseUrl = siteConfig.baseUrl;
-    const session = await stripe.checkout.sessions.create(
+    const session = await createLeadCheckoutSession(
       {
         mode: "payment",
         line_items: pending.map((a) => ({
@@ -2489,7 +2537,7 @@ export async function createAddonDepositCheckout(leadId: string): Promise<Balanc
           ...(installerStripeId && { installer_stripe_id: installerStripeId }),
         },
       },
-      installerStripeId ? onAccount(installerStripeId) : undefined
+      installerStripeId
     );
 
     if (!session.url) return { success: false, error: "Failed to create checkout session." };

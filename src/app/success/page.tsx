@@ -24,6 +24,8 @@ function SuccessInner() {
   const installerName = searchParams.get("name") || "";
   const jobId = searchParams.get("jobId") || "";
   const redirectTo = searchParams.get("redirect") || null;
+  // Canadian bank debit: authorized at checkout, cleared by the bank days later.
+  const pending = searchParams.get("pending") === "1";
 
   const [verifying, setVerifying] = useState(!!jobId);
   const [countdown, setCountdown] = useState(redirectTo ? 8 : 0);
@@ -83,9 +85,9 @@ function SuccessInner() {
 
         {/* Headline */}
         <h1 className="mb-2 text-center text-4xl font-black uppercase tracking-tight text-white sm:text-5xl md:text-6xl">
-          Order{" "}
+          {pending ? "Bank Payment" : "Order"}{" "}
           <span className="bg-gradient-to-r from-yellow-300 to-yellow-500 bg-clip-text text-transparent">
-            Confirmed!
+            {pending ? "Started" : "Confirmed!"}
           </span>
         </h1>
 
@@ -105,9 +107,19 @@ function SuccessInner() {
         <div className="mb-8 flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-6 py-4">
           <Mail className="h-5 w-5 shrink-0 text-yellow-400" />
           <p className="text-sm text-stone-400">
-            Check your email for the{" "}
-            <span className="font-semibold text-white">booking receipt</span>{" "}
-            and installer details.
+            {pending ? (
+              <>
+                Your bank takes about{" "}
+                <span className="font-semibold text-white">5 business days</span> to confirm the debit.
+                Your order is confirmed once it clears, and we&apos;ll email your booking receipt then.
+              </>
+            ) : (
+              <>
+                Check your email for the{" "}
+                <span className="font-semibold text-white">booking receipt</span>{" "}
+                and installer details.
+              </>
+            )}
           </p>
         </div>
 
