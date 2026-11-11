@@ -85,6 +85,8 @@ describe("offer catalog", () => {
     expect(canFill("applebees", "treat_pm")).toBe(false);
     expect(canFill("texas-roadhouse", "lunch")).toBe(false); // voucher, no meal today
     expect(canFill("texas-roadhouse", "extra")).toBe(true);
+    expect(canFill("freddys", "lunch")).toBe(false); // card for a later visit
+    expect(canFill("freddys", "extra")).toBe(true);
     expect(canFill("bjs-brewhouse", "treat_am")).toBe(false); // opens at 11
     expect(canFill("bjs-brewhouse", "treat_pm")).toBe(true);
   });
