@@ -178,6 +178,77 @@ export async function sendPaymentReceivedAlert(
 
 
 /**
+ * Canadian pre-authorized debit: the customer authorized a bank payment that
+ * takes days to clear ("pending"), or the bank refused it ("failed"). A
+ * cleared debit sends the normal deposit / payment-received email instead.
+ */
+export async function sendBankDebitAlert(data: {
+  to: string;
+  kind: "pending" | "failed";
+  amount: number;
+  customerName: string;
+  leadId: string;
+  /** "usd" | "cad" — money in this email renders as CA$ for CAD jobs. */
+  currency?: string | null;
+}): Promise<SendEmailResult> {
+  const dashboardUrl = `${getAppUrl()}/dashboard/leads/${data.leadId}`;
+  const amount = `$${data.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  const customer = data.customerName.replace(/[<>&"']/g, "");
+  const pending = data.kind === "pending";
+
+  await pushToEmail(data.to, {
+    title: pending ? `Bank payment started: ${amount}` : `Bank payment failed: ${amount}`,
+    body: pending
+      ? `${customer} paid by bank debit. It is not paid until the bank clears it (about 5 business days).`
+      : `The bank debit from ${customer} did not go through. Nothing was collected.`,
+    url: `/dashboard/leads/${data.leadId}`,
+    tag: `bank-debit-${data.leadId}`,
+  });
+
+  const html = masterEmailLayout(
+    pending ? "Bank Payment Started" : "Bank Payment Failed",
+    pending
+      ? `
+    <p style="margin:0 0 20px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      <strong style="color:#ffffff;">${customer}</strong> chose to pay <strong style="color:#facc15;">${amount}</strong>
+      by pre-authorized bank debit.
+    </p>
+    <div style="border:1px solid #57480a;background:#141204;border-radius:10px;padding:16px;margin:0 0 24px;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;">Not paid yet</p>
+      <p style="margin:0;color:#cccccc;font-size:14px;line-height:1.6;">
+        Bank debits take about 5 business days to clear, and the bank can still refuse them. The job stays
+        unpaid in your dashboard until then. We will email you the moment it clears, or if it fails.
+        Hold off on buying materials until it does.
+      </p>
+    </div>
+    <div style="text-align:center;margin:0 0 8px;">${ctaButton(dashboardUrl, "Open Job Ticket")}</div>`
+      : `
+    <p style="margin:0 0 20px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      The <strong style="color:#facc15;">${amount}</strong> bank debit from
+      <strong style="color:#ffffff;">${customer}</strong> did not go through.
+    </p>
+    <div style="border:1px solid #7f1d1d;background:#1a0a0a;border-radius:10px;padding:16px;margin:0 0 24px;">
+      <p style="margin:0 0 6px;color:#f87171;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;">Nothing was collected</p>
+      <p style="margin:0;color:#cccccc;font-size:14px;line-height:1.6;">
+        The job is still unpaid. Common causes are insufficient funds or a mistyped account number.
+        Contact your customer and send them the payment link again; a card will confirm instantly.
+      </p>
+    </div>
+    <div style="text-align:center;margin:0 0 8px;">${ctaButton(dashboardUrl, "Open Job Ticket")}</div>`
+  );
+
+  return sendTransactionalEmail({
+    to: data.to,
+    subject: pending
+      ? `Bank payment started — ${amount} from ${customer} (not paid yet)`
+      : `Bank payment failed — ${amount} from ${customer}`,
+    html,
+    currency: data.currency ?? undefined,
+  });
+}
+
+
+/**
  * Email 1 — Day 0 (Instant)
  * Subject: Welcome to the Network. Let's get your first job booked.
  * Angle: Don't talk about features. Talk about money.

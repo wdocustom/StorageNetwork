@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import Stripe from "stripe";
 import { summarizeDispute } from "@/lib/stripe/disputes";
+import { isCardPaymentMethod } from "@/lib/stripe/direct-charges";
 import { checkTransferEligibility } from "@/lib/stripe/cross-border";
 import { normalizeCurrency } from "@/lib/geo/currency";
 
 export const dynamic = "force-dynamic";
-import { sendBookingConfirmation, sendNewBookingAlert, sendProWelcomeEmail, sendProRenewalReceipt, sendSubscriptionPaymentFailed, quoteDataToBookingUnits, sendDisputeAlert, sendDisputeResolvedAlert } from "@/lib/email";
+import { sendBookingConfirmation, sendNewBookingAlert, sendProWelcomeEmail, sendProRenewalReceipt, sendSubscriptionPaymentFailed, quoteDataToBookingUnits, sendDisputeAlert, sendDisputeResolvedAlert, sendBankDebitAlert } from "@/lib/email";
 import {
   activateProSubscription,
   deactivateProSubscription,
@@ -47,6 +48,39 @@ function fireAndForget(label: string, fn: () => Promise<void>) {
     .then(() => console.log(`[Webhook] waitUntil: ${label} completed successfully`))
     .catch((err) => console.error(`[Webhook] waitUntil: ${label} failed:`, err));
   after(promise);
+}
+
+// ── Canadian bank debit (PAD): keep the installer informed ────────────────
+// Lead payments made through Checkout. Anything else (plans, gifts) is a
+// card-only platform sale and never has a delayed payment.
+const LEAD_PAYMENT_TYPES = new Set(["booking", "deposit", "final_payment", "addon_deposit", "cleanout_upsell"]);
+
+/**
+ * Tell the installer a customer's bank debit is on its way, or bounced.
+ * A cleared debit needs no message of its own: it triggers the normal
+ * "deposit paid" / "payment received" emails. Never throws.
+ */
+async function notifyInstallerOfBankDebit(leadId: string, kind: "pending" | "failed", amount: number) {
+  const { data: lead } = await getDb()
+    .from("leads")
+    .select("installer_id, customer_name")
+    .eq("id", leadId)
+    .maybeSingle();
+  if (!lead?.installer_id) return;
+  const { data: installer } = await getDb()
+    .from("profiles")
+    .select("email, currency")
+    .eq("id", lead.installer_id)
+    .maybeSingle();
+  if (!installer?.email) return;
+  await sendBankDebitAlert({
+    to: installer.email as string,
+    kind,
+    amount,
+    customerName: (lead.customer_name as string | null) || "Your customer",
+    leadId,
+    currency: installer.currency as string | null,
+  });
 }
 
 // ── Final payment extras: tip + add-on settlement ─────────────────────────
@@ -576,11 +610,36 @@ export async function POST(request: NextRequest) {
   );
 
   // ── Handle checkout.session.completed ─────────────────────────────────
-  if (event.type === "checkout.session.completed") {
+  // ── Bank debit that bounced (Checkout) ───────────────────────────────────
+  // The customer authorized a Canadian pre-authorized debit days ago and the
+  // bank has now refused it. Nothing was ever marked paid, so there is
+  // nothing to undo — the installer just needs to know to collect again.
+  if (event.type === "checkout.session.async_payment_failed") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    const failedLeadId =
+      session.client_reference_id || session.metadata?.leadId || session.metadata?.lead_id;
+    if (failedLeadId && LEAD_PAYMENT_TYPES.has(session.metadata?.type || "booking")) {
+      fireAndForget("bank debit failed alert", () =>
+        notifyInstallerOfBankDebit(failedLeadId, "failed", (session.amount_total || 0) / 100)
+      );
+    }
+    return NextResponse.json({ received: true });
+  }
+
+  // checkout.session.async_payment_succeeded is the delayed "it cleared" for
+  // a bank debit; it carries the same Session and runs the same fulfilment as
+  // an instantly-paid card.
+  const isAsyncSuccess = event.type === "checkout.session.async_payment_succeeded";
+  if (event.type === "checkout.session.completed" || isAsyncSuccess) {
     const session = event.data.object as Stripe.Checkout.Session;
     const metadata = session.metadata || {};
     const leadId = session.client_reference_id || metadata.leadId || metadata.lead_id;
     const installerId = metadata.installerId || metadata.installer_id;
+
+    // Delayed payments only exist on lead payments (installer direct charges).
+    if (isAsyncSuccess && !(leadId && LEAD_PAYMENT_TYPES.has(metadata.type || "booking"))) {
+      return NextResponse.json({ received: true });
+    }
 
     console.log("[Webhook] Session:", session.id, "| Lead:", leadId, "| Installer:", installerId);
 
@@ -695,6 +754,20 @@ export async function POST(request: NextRequest) {
     const paymentType = metadata.type || "booking"; // "booking" (deposit) or "final_payment"
 
     console.log("[Webhook] Payment type:", paymentType, "| Amount:", amountPaid);
+
+    // ── Not collected yet (bank debit still clearing) ───────────────────
+    // Checkout "completes" when the customer authorizes a Canadian
+    // pre-authorized debit, days before the money moves, with
+    // payment_status "unpaid". Nothing below may run until Stripe sends
+    // checkout.session.async_payment_succeeded. (Every card session is
+    // "paid" here; "no_payment_required" is a zero-total session.)
+    if (session.payment_status === "unpaid") {
+      console.log(`[Webhook] Session ${session.id} for lead ${leadId} completed unpaid — waiting for the bank debit to clear`);
+      fireAndForget("bank debit pending alert", () =>
+        notifyInstallerOfBankDebit(leadId, "pending", amountPaid)
+      );
+      return NextResponse.json({ received: true });
+    }
 
     // ═════════════════════════════════════════════════════════════════════
     // CLEANOUT UPSELL — Customer added a cleanout/add-on service
@@ -1441,6 +1514,28 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Handle payment_intent.succeeded (deposits via BookingModal + balance payments) ──
+  // ── In-page deposit by bank debit: authorized, or bounced ───────────────
+  // Only intents our own code created carry lead metadata; Checkout-born
+  // intents don't, and are covered by the session events above.
+  if (event.type === "payment_intent.processing" || event.type === "payment_intent.payment_failed") {
+    const intent = event.data.object as Stripe.PaymentIntent;
+    const intentLeadId = intent.metadata?.leadId || intent.metadata?.lead_id;
+    const viaBankDebit =
+      event.type === "payment_intent.processing"
+        ? intent.payment_method_types?.includes("acss_debit")
+        : intent.last_payment_error?.payment_method?.type === "acss_debit";
+    if (intentLeadId && viaBankDebit) {
+      fireAndForget("bank debit alert", () =>
+        notifyInstallerOfBankDebit(
+          intentLeadId,
+          event.type === "payment_intent.processing" ? "pending" : "failed",
+          (intent.amount || 0) / 100
+        )
+      );
+    }
+    return NextResponse.json({ received: true });
+  }
+
   if (event.type === "payment_intent.succeeded") {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
     const metadata = paymentIntent.metadata || {};
@@ -1639,8 +1734,17 @@ export async function POST(request: NextRequest) {
           if (typeof paymentIntent.customer === "string") {
             updatePayload.stripe_customer_id = paymentIntent.customer;
           }
+          // Cards only: a Canadian bank debit can't be charged off-session,
+          // so it must never become the "card on file". The lookup runs only
+          // when the intent allowed bank debit, i.e. never for card-only intents.
           if (typeof paymentIntent.payment_method === "string") {
-            updatePayload.stripe_payment_method_id = paymentIntent.payment_method;
+            const mayBeBankDebit = paymentIntent.payment_method_types?.includes("acss_debit");
+            if (
+              !mayBeBankDebit ||
+              (stripe && (await isCardPaymentMethod(stripe, paymentIntent.payment_method, eventAccount)))
+            ) {
+              updatePayload.stripe_payment_method_id = paymentIntent.payment_method;
+            }
           }
           // Record which account the saved Customer/PaymentMethod live on.
           // Under direct charges that's the installer's connected account;

@@ -78,6 +78,8 @@ export default function ResumePaymentPage() {
   const [connectedAccountId, setConnectedAccountId] = useState<string | null>(null);
   const [initializingPayment, setInitializingPayment] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  // A Canadian bank debit is authorized now but takes days to clear.
+  const [paymentPending, setPaymentPending] = useState(false);
   // After the deposit: link to pick (or view) the install date.
   const [scheduleLink, setScheduleLink] = useState<{ url?: string; scheduledDate?: string | null } | null>(null);
 
@@ -520,11 +522,21 @@ export default function ResumePaymentPage() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10">
             <CheckCircle2 className="h-8 w-8 text-emerald-400" />
           </div>
-          <h1 className="mb-2 text-xl font-bold text-white">Payment Complete!</h1>
-          <p className="mb-6 text-sm text-stone-400">
-            Your order has been confirmed. You&apos;ll receive a confirmation email shortly
-            with your installation details.
-          </p>
+          <h1 className="mb-2 text-xl font-bold text-white">
+            {paymentPending ? "Bank Payment Started" : "Payment Complete!"}
+          </h1>
+          {paymentPending ? (
+            <p className="mb-6 text-sm text-stone-400">
+              Your bank debit is on its way. Banks take about 5 business days to confirm it, and your
+              order is confirmed once it clears. You&apos;ll get an email from us then, and one from
+              Stripe now with your debit agreement.
+            </p>
+          ) : (
+            <p className="mb-6 text-sm text-stone-400">
+              Your order has been confirmed. You&apos;ll receive a confirmation email shortly
+              with your installation details.
+            </p>
+          )}
           {scheduleLink?.url && !scheduleLink.scheduledDate ? (
             <a
               href={scheduleLink.url}
@@ -1250,7 +1262,10 @@ export default function ResumePaymentPage() {
               <PaymentForm
                 totalAmount={effectiveDeposit}
                 currency={lead?.currency}
-                onSuccess={() => setPaymentSuccess(true)}
+                onSuccess={(pending) => {
+                  setPaymentPending(pending);
+                  setPaymentSuccess(true);
+                }}
                 onError={setError}
               />
             </Elements>
@@ -1293,7 +1308,8 @@ function PaymentForm({
 }: {
   totalAmount: number;
   currency?: string;
-  onSuccess: () => void;
+  /** `pending` is true for a bank debit that is authorized but not yet cleared. */
+  onSuccess: (pending: boolean) => void;
   onError: (error: string) => void;
 }) {
   const stripe = useStripe();
@@ -1317,7 +1333,7 @@ function PaymentForm({
       return;
     }
 
-    const { error: confirmError } = await stripe.confirmPayment({
+    const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
       elements,
       confirmParams: {
         return_url: `${window.location.origin}/payment/success`,
@@ -1331,8 +1347,8 @@ function PaymentForm({
       return;
     }
 
-    // Payment succeeded
-    onSuccess();
+    // Paid (card), or authorized and clearing (Canadian bank debit).
+    onSuccess(paymentIntent?.status === "processing");
     setProcessing(false);
   }
 

@@ -175,3 +175,132 @@ describe("resolveCardForAccount", () => {
     expect(resolved).toBeNull();
   });
 });
+
+// ── Canadian pre-authorized debit (PAD) ────────────────────────────────────
+import {
+  PAD_INTENT_PARAMS,
+  canAcceptPad,
+  clearPadCache,
+  createDirectCheckoutSession,
+  isCardPaymentMethod,
+} from "./direct-charges";
+
+describe("Canadian pre-authorized debit", () => {
+  beforeEach(() => {
+    clearPadCache();
+  });
+
+  const padAccount = { capabilities: { card_payments: "active", acss_debit_payments: "active" } } as Partial<Stripe.Account>;
+  const cardOnlyAccount = { capabilities: { card_payments: "active" } } as Partial<Stripe.Account>;
+
+  function stripeFor(account: Partial<Stripe.Account>, create = vi.fn().mockResolvedValue({ id: "cs_1", url: "https://stripe.test/cs_1" })) {
+    return {
+      stripe: {
+        accounts: { retrieve: vi.fn().mockResolvedValue(account) },
+        checkout: { sessions: { create } },
+      } as unknown as Stripe,
+      create,
+    };
+  }
+
+  const sessionParams = (currency: string): Stripe.Checkout.SessionCreateParams => ({
+    mode: "payment",
+    line_items: [{ price_data: { currency, product_data: { name: "Deposit" }, unit_amount: 50000 }, quantity: 1 }],
+    payment_intent_data: { application_fee_amount: 2500 },
+    success_url: "https://example.test/ok",
+    metadata: { lead_id: "lead_1", type: "deposit" },
+  });
+
+  describe("canAcceptPad", () => {
+    it("is offered only for CAD on an account with the capability active", async () => {
+      expect(await canAcceptPad(stripeFor(padAccount).stripe, ACCOUNT, "cad")).toBe(true);
+      clearPadCache();
+      expect(await canAcceptPad(stripeFor(cardOnlyAccount).stripe, ACCOUNT, "cad")).toBe(false);
+      clearPadCache();
+      expect(
+        await canAcceptPad(stripeFor({ capabilities: { acss_debit_payments: "pending" } } as Partial<Stripe.Account>).stripe, ACCOUNT, "cad")
+      ).toBe(false);
+    });
+
+    it("never looks at Stripe for a US-dollar charge or a platform charge", async () => {
+      const { stripe } = stripeFor(padAccount);
+      expect(await canAcceptPad(stripe, ACCOUNT, "usd")).toBe(false);
+      expect(await canAcceptPad(stripe, null, "cad")).toBe(false);
+      expect(stripe.accounts.retrieve).not.toHaveBeenCalled();
+    });
+
+    it("falls back to cards only when the lookup fails", async () => {
+      const stripe = { accounts: { retrieve: vi.fn().mockRejectedValue(new Error("stripe down")) } } as unknown as Stripe;
+      expect(await canAcceptPad(stripe, ACCOUNT, "cad")).toBe(false);
+    });
+
+    it("caches the answer per account", async () => {
+      const { stripe } = stripeFor(padAccount);
+      await canAcceptPad(stripe, ACCOUNT, "cad");
+      await canAcceptPad(stripe, ACCOUNT, "CAD");
+      expect(stripe.accounts.retrieve).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("createDirectCheckoutSession", () => {
+    it("adds bank debit next to cards for a Canadian account that supports it", async () => {
+      const { stripe, create } = stripeFor(padAccount);
+      await createDirectCheckoutSession(stripe, sessionParams("cad"), ACCOUNT);
+      expect(create).toHaveBeenCalledTimes(1);
+      const [params, opts] = create.mock.calls[0];
+      expect(opts).toEqual({ stripeAccount: ACCOUNT });
+      expect(params.payment_method_types).toEqual(["card", "acss_debit"]);
+      expect(params.payment_method_options.acss_debit.mandate_options).toEqual({
+        payment_schedule: "sporadic",
+        transaction_type: "personal",
+      });
+      // The rest of the session is untouched — fee and metadata included.
+      expect(params.payment_intent_data).toEqual({ application_fee_amount: 2500 });
+      expect(params.metadata).toEqual({ lead_id: "lead_1", type: "deposit" });
+    });
+
+    it("leaves a US session exactly as it was", async () => {
+      const { stripe, create } = stripeFor(padAccount);
+      const params = sessionParams("usd");
+      await createDirectCheckoutSession(stripe, params, ACCOUNT);
+      expect(create).toHaveBeenCalledWith(params, { stripeAccount: ACCOUNT });
+    });
+
+    it("leaves a Canadian session as it was when the account has no bank-debit capability", async () => {
+      const { stripe, create } = stripeFor(cardOnlyAccount);
+      const params = sessionParams("cad");
+      await createDirectCheckoutSession(stripe, params, ACCOUNT);
+      expect(create).toHaveBeenCalledWith(params, { stripeAccount: ACCOUNT });
+    });
+
+    it("retries cards-only if Stripe rejects the bank-debit version", async () => {
+      const create = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("acss_debit is not available"))
+        .mockResolvedValueOnce({ id: "cs_2", url: "https://stripe.test/cs_2" });
+      const { stripe } = stripeFor(padAccount, create);
+      const params = sessionParams("cad");
+      const session = await createDirectCheckoutSession(stripe, params, ACCOUNT);
+      expect(session.id).toBe("cs_2");
+      expect(create).toHaveBeenCalledTimes(2);
+      expect(create.mock.calls[1]).toEqual([params, { stripeAccount: ACCOUNT }]);
+    });
+  });
+
+  it("in-page deposits offer card and bank debit with the same agreement terms", () => {
+    expect(PAD_INTENT_PARAMS.payment_method_types).toEqual(["card", "acss_debit"]);
+    expect(PAD_INTENT_PARAMS.payment_method_options.acss_debit.mandate_options.payment_schedule).toBe("sporadic");
+  });
+
+  describe("isCardPaymentMethod", () => {
+    const stripeWithPm = (type: string) =>
+      ({ paymentMethods: { retrieve: vi.fn().mockResolvedValue({ id: "pm_1", type }) } }) as unknown as Stripe;
+
+    it("tells a card from a bank debit, looking on the charging account", async () => {
+      const card = stripeWithPm("card");
+      expect(await isCardPaymentMethod(card, "pm_1", ACCOUNT)).toBe(true);
+      expect(card.paymentMethods.retrieve).toHaveBeenCalledWith("pm_1", { stripeAccount: ACCOUNT });
+      expect(await isCardPaymentMethod(stripeWithPm("acss_debit"), "pm_1", ACCOUNT)).toBe(false);
+    });
+  });
+});

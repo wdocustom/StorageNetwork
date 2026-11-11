@@ -53,6 +53,7 @@ export {
   maskEmail,
   maskPhone,
   maskName,
+  sendBankDebitAlert,
   type CustomerInquiryData,
 } from "./emails/installerTemplates";
 
