@@ -20,6 +20,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import Stripe from "stripe";
+import { stripeConfig } from "@/lib/stripe/http";
 import { siteConfig } from "@/config/site";
 import { getServiceClient } from "@/lib/supabase-server";
 import { generateDIYPlan, type CompleteDIYPlan } from "@/app/actions/generate-plan";
@@ -45,7 +46,7 @@ import {
 
 let _stripe: Stripe | null = null;
 function getStripe(): Stripe {
-  if (!_stripe) _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  if (!_stripe) _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, stripeConfig());
   return _stripe;
 }
 

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { timingSafeEqual } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
+import { stripeConfig } from "@/lib/stripe/http";
 import { sendInstallerWelcome } from "@/lib/email";
 import { getAppUrl } from "@/lib/url-helper";
 import { syncInstallerLocaleFromAccount } from "@/lib/stripe/account-locale";
@@ -24,7 +25,7 @@ export const dynamic = "force-dynamic";
 const STRIPE_OAUTH_STATE_COOKIE = "stripe_oauth_state";
 
 const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, stripeConfig())
   : null;
 
 function safeEqual(a: string, b: string): boolean {

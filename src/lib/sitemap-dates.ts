@@ -24,7 +24,7 @@ export const PAGE_UPDATED = {
   /** /plans/[slug] pages (plan-pages.ts) */
   "/plans/[slug]": PLANS_UPDATED,
   "/about": "2026-10-06",
-  "/veterans-day": "2026-11-11",
+  "/veterans-day": "2026-11-12",
   "/about/scheduling": "2026-06-11",
   "/legal/privacy": "2026-06-11",
   "/legal/terms": "2026-06-11",

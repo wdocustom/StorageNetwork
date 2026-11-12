@@ -1,6 +1,7 @@
 "use server";
 
 import Stripe from "stripe";
+import { stripeConfig } from "@/lib/stripe/http";
 import { cookies } from "next/headers";
 import { siteConfig } from "@/config/site";
 import { getAuthenticatedUser } from "@/lib/auth";
@@ -18,7 +19,6 @@ import {
   formatPlanPrice,
   isTotePlanTier,
   parseTotePlanDesign,
-  totePlanDesignHref,
   totePlanName,
   totePlanSummary,
 } from "@/lib/tote-plans";
@@ -44,6 +44,7 @@ import { PLAN_REF_COOKIE, cleanReferralId } from "@/lib/plan-splits";
 // ═══════════════════════════════════════════════════════════════════════════
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  ...stripeConfig(),
   apiVersion: "2025-12-15.clover",
 });
 
@@ -105,7 +106,7 @@ export async function createDIYPlanCheckout(
   rawRef?: unknown,
   /** Anonymous analytics id (localStorage sn_vid) — counts buy clicks per person. */
   rawVisitorId?: unknown,
-): Promise<{ success: boolean; url?: string; error?: string }> {
+): Promise<{ success: boolean; clientSecret?: string; error?: string }> {
   // SECURITY (H-3): each call provisions a Stripe Checkout Session. Cap
   // per identity to prevent scripted abuse of Stripe's session API.
   try {
@@ -146,10 +147,14 @@ export async function createDIYPlanCheckout(
     const referralInstallerId = await resolvePlanReferral(rawRef);
 
     const name = totePlanName(design);
-    const cancelHref = totePlanDesignHref(design, sourceTag || undefined, referralInstallerId);
 
+    // Embedded Checkout: the payment form renders inside our own page
+    // (/plans/checkout) instead of sending the buyer to checkout.stripe.com.
+    // Same session, metadata and webhook as before; when payment completes,
+    // Stripe redirects the page to return_url.
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
+      ui_mode: "embedded",
       line_items: [
         {
           price_data: {
@@ -167,8 +172,7 @@ export async function createDIYPlanCheckout(
           quantity: 1,
         },
       ],
-      success_url: `${baseUrl}/plans/build?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}${cancelHref}${cancelHref.includes("?") ? "&" : "?"}cancelled=1`,
+      return_url: `${baseUrl}/plans/build?session_id={CHECKOUT_SESSION_ID}`,
       metadata: {
         type: "diy_plan",
         plan_id: TOTE_PLAN_ID,
@@ -183,7 +187,7 @@ export async function createDIYPlanCheckout(
       },
     });
 
-    if (!session.url) {
+    if (!session.client_secret) {
       return { success: false, error: "Failed to create checkout session." };
     }
 
@@ -198,7 +202,7 @@ export async function createDIYPlanCheckout(
       visitorId: rawVisitorId,
     });
 
-    return { success: true, url: session.url };
+    return { success: true, clientSecret: session.client_secret };
   } catch (err) {
     console.error("[DIYPlanCheckout] Stripe session error:", err);
     return {

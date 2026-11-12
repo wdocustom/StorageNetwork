@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { stripeConfig } from "@/lib/stripe/http";
 import { siteConfig } from "@/config/site";
 import { getPlanById } from "@/lib/plans-config";
 import { resolvePromoterReferralCode } from "@/app/actions/promoter-program";
@@ -23,7 +24,7 @@ async function resolvePromoterAttribution(
 
 let _stripe: Stripe | null = null;
 function getStripe(): Stripe {
-  if (!_stripe) _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  if (!_stripe) _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, stripeConfig());
   return _stripe;
 }
 

@@ -2,14 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { OFFERS, getOffer } from "./offers";
 import {
-  buildOverpassQuery,
-  buildPhotonUrl,
-  photonToElements,
-  sanitizePhotonFeatures,
   formatUsPhone,
   nearestPerOffer,
-  parseOsmElements,
-  type OsmElement,
 } from "./places";
 import {
   FOOD_SLOTS,
@@ -242,121 +236,20 @@ describe("links and formatting", () => {
   });
 });
 
-describe("OpenStreetMap parsing", () => {
-  const el = (id: number, tags: Record<string, string>, lat = 30.3, lon = -97.7): OsmElement => ({
-    type: "node",
-    id,
-    lat,
-    lon,
-    tags,
-  });
-
-  it("queries every catalog brand around the point", () => {
-    const q = buildOverpassQuery(ORIGIN, 16000);
-    expect(q).toContain("around:16000,30.26720,-97.74310");
-    for (const o of OFFERS) expect(q).toContain(o.osm);
-    expect(q).not.toContain("'"); // apostrophes are matched with "."
-  });
-
-  it("accepts a brand only on the right kind of business", () => {
-    const places = parseOsmElements([
-      el(1, { brand: "Applebee's Neighborhood Grill & Bar", amenity: "restaurant", "addr:housenumber": "12", "addr:street": "Elm St", "addr:city": "Austin", "addr:state": "TX", "addr:postcode": "78701", phone: "+1 512-555-0100" }),
-      el(2, { name: "Target Road", highway: "residential" }),
-      el(3, { brand: "Target", shop: "department_store" }, 30.31),
-      el(4, { name: "Lowes Foods", shop: "supermarket" }, 30.32),
-      el(5, { brand: "ZIPS Car Wash", amenity: "car_wash" }, 30.33),
-      el(6, { brand: "Starbucks", "disused:amenity": "cafe" }, 30.34),
-      el(7, { name: "Wendy's Flowers", shop: "florist" }, 30.35),
-      el(8, { name: "Great Clips", shop: "hairdresser" }, 30.36),
-    ]);
-    expect(places.map((p) => p.offerId)).toEqual(["applebees", "target", "zips", "great-clips"]);
-    expect(places[0]).toMatchObject({
-      id: "node/1",
-      address: "12 Elm St, Austin, TX 78701",
-      city: "Austin",
-      phone: "(512) 555-0100",
-    });
-    expect(places[1].address).toBeNull();
-  });
-
-  it("treats a building and its entrance as one store, keeping the address", () => {
-    const places = parseOsmElements([
-      el(1, { brand: "IHOP", amenity: "restaurant" }),
-      { type: "way", id: 9, center: { lat: 30.3001, lon: -97.7001 }, tags: { brand: "IHOP", amenity: "restaurant", "addr:housenumber": "5", "addr:street": "Oak Ave" } },
-    ]);
-    expect(places).toHaveLength(1);
-    expect(places[0].address).toBe("5 Oak Ave");
-  });
-
+describe("place helpers", () => {
   it("keeps the nearest few of each chain inside the radius", () => {
-    const raw = parseOsmElements(
-      [0.01, 0.02, 0.03, 0.04, 0.5].map((d, i) => el(i + 1, { brand: "Starbucks", amenity: "cafe" }, 30.2672 + d, -97.7431))
-    );
+    const raw = [0.01, 0.02, 0.03, 0.04, 0.5].map((d, i) => ({
+      ...place("starbucks", 0, d * 69, i + 1),
+    }));
     const near = nearestPerOffer(raw, ORIGIN, 10);
     expect(near).toHaveLength(3);
     expect(near.map((p) => p.distanceMi)).toEqual([...near.map((p) => p.distanceMi)].sort((a, b) => a - b));
     expect(near.every((p) => p.distanceMi <= 10)).toBe(true);
   });
 
-  it("searches Photon for a brand inside a box around the point", () => {
-    const url = new URL(buildPhotonUrl(getOffer("bjs-brewhouse")!, ORIGIN, 10));
-    expect(url.origin + url.pathname).toBe("https://photon.komoot.io/api/");
-    expect(url.searchParams.get("q")).toBe("BJ's");
-    const [w, s, e, n] = url.searchParams.get("bbox")!.split(",").map(Number);
-    expect(w).toBeLessThan(ORIGIN.lon);
-    expect(e).toBeGreaterThan(ORIGIN.lon);
-    expect(n - s).toBeCloseTo(20 / 69, 2);
-  });
-
-  it("reads Photon results through the same brand and business-type checks", () => {
-    const feature = (id: number, name: string, key: string, value: string, extra = {}) => ({
-      geometry: { coordinates: [-97.7 + id / 100, 30.3] as [number, number] },
-      properties: { osm_type: "W", osm_id: id, osm_key: key, osm_value: value, name, countrycode: "US", ...extra },
-    });
-    const places = parseOsmElements(
-      photonToElements([
-        feature(1, "Applebee's", "amenity", "restaurant", { housenumber: "6315", street: "I 35 Frontage Road;South I 35", city: "Austin", state: "Texas", postcode: "78745" }),
-        feature(2, "Target Sortation Center", "building", "warehouse"),
-        feature(3, "Denny Lane", "highway", "residential"),
-        feature(4, "BJ's", "amenity", "restaurant"),
-        feature(5, "BJ's Wholesale Club", "shop", "wholesale"),
-        feature(6, "Tim Hortons", "amenity", "cafe", { countrycode: "CA" }),
-        feature(7, "Starbucks", "amenity", "cafe", { countrycode: "CA" }),
-        { geometry: {}, properties: { name: "Starbucks" } },
-      ])
-    );
-    expect(places.map((p) => p.offerId)).toEqual(["applebees", "bjs-brewhouse"]);
-    expect(places[0]).toMatchObject({ id: "way/1", address: "6315 I 35 Frontage Road, Austin, Texas 78745" });
-  });
-
-  it("cleans search results that arrive from a browser", () => {
-    const f = (props: Record<string, unknown>, coordinates: unknown = [-97.7, 30.3]) => ({
-      geometry: { coordinates },
-      properties: { osm_type: "N", osm_id: 5, osm_key: "amenity", osm_value: "restaurant", name: "Applebee's", countrycode: "US", ...props },
-    });
-    const clean = sanitizePhotonFeatures([
-      f({ housenumber: "12", street: "Elm St;Other Rd", city: "Austin", state: "Texas", postcode: "78701" }),
-      f({ name: "Applebee's http://evil.example" }), // link in the name: dropped
-      f({ name: "<b>Applebee's</b>" }), // markup: dropped
-      f({ street: "Visit evil.example/win@now" }), // bad address part: left out, place kept
-      f({ osm_id: "5" }), // id must be a number
-      f({ osm_type: "X" }),
-      f({}, [-97.7, 300]), // impossible coordinates
-      f({ osm_key: "amenity\"onload" }),
-      "nonsense",
-      null,
-    ]);
-    expect(clean).toHaveLength(3);
-    expect(clean[0].properties).toMatchObject({ street: "Elm St", city: "Austin", postcode: "78701" });
-    expect(clean[1].properties?.street).toBeUndefined();
-    expect(clean[2].properties?.osm_key).toBeUndefined();
-    expect(sanitizePhotonFeatures("not an array")).toEqual([]);
-    // A place with no recognised business type can't pass the type check later.
-    expect(parseOsmElements(photonToElements([clean[2]]))).toEqual([]);
-  });
-
   it("formats US phone numbers and rejects the rest", () => {
     expect(formatUsPhone("+1-512-555-0100")).toBe("(512) 555-0100");
+    expect(formatUsPhone("5125550100")).toBe("(512) 555-0100");
     expect(formatUsPhone("512.555.0100; 512.555.0199")).toBe("(512) 555-0100");
     expect(formatUsPhone("555-0100")).toBeNull();
     expect(formatUsPhone(undefined)).toBeNull();
