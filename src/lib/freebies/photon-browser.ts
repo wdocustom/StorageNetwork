@@ -77,5 +77,7 @@ export async function searchPlacesInBrowser(center: LatLon, radiusMi: number): P
     await new Promise((resolve) => setTimeout(resolve, 600));
     failed = await run(failed, 3);
   }
-  return failed.length > urls.length / 4 ? null : features;
+  // A few brands missing is fine (the plan uses real places either way);
+  // most missing means the service is down.
+  return failed.length > urls.length / 2 ? null : features;
 }

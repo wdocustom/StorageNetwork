@@ -85,6 +85,26 @@ describe("planDay", () => {
     expect(prompt).not.toContain("Great Clips");
   });
 
+  it("asks Gemini without thinking, so it answers inside the time limit", async () => {
+    generateObject.mockResolvedValue(answer({}));
+    await planDay({ places: PLACES, origin: ORIGIN, startMin: START });
+    expect(generateObject.mock.calls[0][0].providerOptions).toEqual({
+      google: { thinkingConfig: { thinkingBudget: 0 } },
+    });
+  });
+
+  it("shows Gemini only the two nearest locations of each chain", async () => {
+    generateObject.mockResolvedValue(answer({}));
+    const wendys = [1, 2, 3, 4].map((d) => ({ ...place("wendys", d, 0), id: `node/wendys-${d}` }));
+    await planDay({ places: [...PLACES, ...wendys], origin: ORIGIN, startMin: START });
+    const prompt = generateObject.mock.calls[0][0].prompt as string;
+    expect(prompt.match(/\| Wendy's \|/g)).toHaveLength(2);
+    // The nearest two, not any two.
+    expect(prompt).toContain("1.0 mi east");
+    expect(prompt).toContain("2.0 mi east");
+    expect(prompt).not.toContain("4.0 mi east");
+  });
+
   it("repairs picks that break the rules or don't exist", async () => {
     // Golden Corral can't be lunch, p99 doesn't exist, Denny's can't be dinner.
     generateObject.mockResolvedValue(answer({ breakfast: "p99", lunch: "p6", dinner: "p1" }));
