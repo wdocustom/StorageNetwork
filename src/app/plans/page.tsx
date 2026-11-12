@@ -34,7 +34,8 @@ import { ResendLinkPanel } from "@/components/plans/PlansStorefront";
 // DIY PLANS STOREFRONT — /plans
 //
 // The landing page for plan ads (≈90% phones, mostly Facebook). Its one
-// job: a tap on "Design yours free". Calm and short on purpose: a two-line
+// job: a tap on "Design your rack". (Not "…free": with $19 on the page that
+// reads as a bait-and-switch. The line under the button says it plainly.) Calm and short on purpose: a two-line
 // promise, the photo and the button; how it works in three lines; the
 // offer with the lumber-cost anchor; the samples; four questions; a close.
 // No competing choices (bestsellers live inside the designer), boxes kept
@@ -187,7 +188,7 @@ export default async function PlansPage() {
             </span>
           </h1>
           <p className="mt-4 text-lg leading-relaxed text-stone-400">
-            Design it free. Build it with a step-by-step 3D guide.
+            Size it to your wall. Build it with a step-by-step 3D guide.
           </p>
 
           <div className="relative mt-7 aspect-[4/3] w-full overflow-hidden rounded-3xl">
@@ -203,9 +204,12 @@ export default async function PlansPage() {
 
           <div id="hero-cta" className="mt-7">
             <Link href="/plans/checkout" className={cta}>
-              Design yours free <ArrowRight className="h-5 w-5" aria-hidden />
+              Design your rack <ArrowRight className="h-5 w-5" aria-hidden />
             </Link>
-            <p className="mt-3 text-center text-sm text-stone-500">
+            <p className="mt-3 text-center text-sm text-stone-400">
+              Free to design. {PLANS_PRICES.allAccess} for the plans, for life.
+            </p>
+            <p className="mt-1 text-center text-xs text-stone-500">
               For 27-gallon HDX &amp; Greenmade totes · {PRO_INSTALLS} pro installs
             </p>
           </div>
@@ -249,7 +253,7 @@ export default async function PlansPage() {
             after it.
           </p>
           <Link href="/plans/checkout" className={`${cta} mt-8`}>
-            Design yours free <ArrowRight className="h-5 w-5" aria-hidden />
+            Design your rack <ArrowRight className="h-5 w-5" aria-hidden />
           </Link>
         </section>
 
@@ -305,9 +309,9 @@ export default async function PlansPage() {
         {/* ── Close ────────────────────────────────────────────────── */}
         <section className="border-t border-white/5 py-16 text-center">
           <h2 className="text-3xl font-extrabold tracking-tight text-white">Build it right the first time.</h2>
-          <p className="mt-3 text-[15px] text-stone-400">Free to design. {PLANS_PRICES.allAccess} for every plan, for life.</p>
+          <p className="mt-3 text-[15px] text-stone-400">Free to design. {PLANS_PRICES.allAccess} for every plan you&apos;ll ever need.</p>
           <Link href="/plans/checkout" className={`${cta} mt-8`}>
-            Design yours free <ArrowRight className="h-5 w-5" aria-hidden />
+            Design your rack <ArrowRight className="h-5 w-5" aria-hidden />
           </Link>
         </section>
 
@@ -342,8 +346,8 @@ export default async function PlansPage() {
       <StickyPlanCta
         watchId="hero-cta"
         price={`${PLANS_PRICES.allAccess} for life`}
-        note="Every plan, any size"
-        label="Design free"
+        note="Free to design"
+        label="Start designing"
         href="/plans/checkout"
       />
     </div>
