@@ -21,7 +21,7 @@ import {
   Send,
   CalendarCheck,
 } from "lucide-react";
-import { TOTE_PLAN_TIERS, designFromItems, formatPlanPrice, totePlanDesignHref, type PlanSourceItem } from "@/lib/tote-plans";
+import { TOTE_PLAN_ALL_ACCESS, designFromItems, formatPlanPrice, totePlanDesignHref, type PlanSourceItem } from "@/lib/tote-plans";
 import { getStripePromise } from "@/lib/stripe/client";
 import { SavedCardDisclosure } from "@/components/payments/SavedCardDisclosure";
 import {
@@ -1284,8 +1284,8 @@ export default function ResumePaymentPage() {
             <span className="min-w-0 flex-1">
               <span className="block text-xs font-semibold text-stone-300">Prefer to build it yourself?</span>
               <span className="block text-[11px] text-stone-500">
-                DIY build plans for this exact design — printable PDF or interactive 3D guide, from{" "}
-                {formatPlanPrice(TOTE_PLAN_TIERS.pdf.price)}.
+                DIY build plans for this exact design, with the 3D guide and a PDF:{" "}
+                {formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price)} once for every size you design.
               </span>
             </span>
             <ArrowRight className="h-4 w-4 shrink-0 text-stone-600 group-hover:text-yellow-400" />

@@ -15,10 +15,9 @@ import {
 import {
   TOTE_PLAN_ID,
   TOTE_PLAN_LIMITS,
-  TOTE_PLAN_TIERS,
+  TOTE_PLAN_ALL_ACCESS,
+  TOTE_PLAN_ALL_ACCESS_TIER,
   encodeTotePlanDesign,
-  formatPlanPrice,
-  isTotePlanTier,
   parseTotePlanDesign,
   totePlanName,
   totePlanSummary,
@@ -31,9 +30,10 @@ import { PLAN_REF_COOKIE, cleanReferralId } from "@/lib/plan-splits";
 // Purchase flow:
 //   1. A customer sizes a design on /plans/checkout — directly, or handed
 //      over from any installer's designer, quote page or quote email
-//   2. They pick a tier (PDF or Interactive)
+//   2. They buy All-Access ($19, lifetime): this plan and every tote
+//      organizer they design next, 3D guide + PDF (see tote-plans.ts)
 //   3. createDIYPlanCheckout() creates a Stripe Checkout Session; the
-//      validated design (compact form) + tier ride in session metadata
+//      validated design (compact form) rides in session metadata
 //   4. Stripe returns to /plans/build?session_id=… where
 //      tote-plan-access.ts verifies payment, records the purchase in
 //      public_plan_purchases and emails a permanent access link
@@ -102,7 +102,6 @@ async function resolvePlanReferral(rawRef: unknown): Promise<string | null> {
 
 export async function createDIYPlanCheckout(
   rawDesign: unknown,
-  rawTier: unknown,
   source?: string,
   rawRef?: unknown,
   /** Anonymous analytics id (localStorage sn_vid) — counts buy clicks per person. */
@@ -131,10 +130,7 @@ export async function createDIYPlanCheckout(
       error: `Plans cover up to ${TOTE_PLAN_LIMITS.maxUnits} standard tote units, each up to ${TOTE_PLAN_LIMITS.maxCols} wide × ${TOTE_PLAN_LIMITS.maxRows} tall.`,
     };
   }
-  if (!isTotePlanTier(rawTier)) {
-    return { success: false, error: "Pick a plan option." };
-  }
-  const tier = TOTE_PLAN_TIERS[rawTier];
+  const product = TOTE_PLAN_ALL_ACCESS;
   const sourceTag = typeof source === "string" ? source.replace(/[^a-z0-9_-]/gi, "").slice(0, 40) : "";
 
   try {
@@ -160,14 +156,10 @@ export async function createDIYPlanCheckout(
           price_data: {
             currency: "usd",
             product_data: {
-              name: `${tier.name} — ${name}`,
-              description: `${totePlanSummary(design)}. ${tier.tagline}${
-                tier.listPrice > tier.price
-                  ? ` Sale: ${formatPlanPrice(tier.listPrice - tier.price)} off (regularly ${formatPlanPrice(tier.listPrice)}).`
-                  : ""
-              }`,
+              name: `${product.name} — starting with your ${name}`,
+              description: `Lifetime access: this plan (${totePlanSummary(design)}) and a free plan for every tote organizer you design after it. Interactive 3D guide + printable PDF for each.`,
             },
-            unit_amount: tier.price,
+            unit_amount: product.price,
           },
           quantity: 1,
         },
@@ -176,7 +168,8 @@ export async function createDIYPlanCheckout(
       metadata: {
         type: "diy_plan",
         plan_id: TOTE_PLAN_ID,
-        tier: tier.id,
+        tier: TOTE_PLAN_ALL_ACCESS_TIER,
+        product: "all_access",
         design: encodeTotePlanDesign(design),
         ...(design.name ? { design_name: design.name } : {}),
         ...(sourceTag ? { source: sourceTag } : {}),
@@ -197,8 +190,8 @@ export async function createDIYPlanCheckout(
     await recordCheckoutStart({
       stripeSessionId: session.id,
       planId: TOTE_PLAN_ID,
-      tier: tier.id,
-      amountCents: tier.price,
+      tier: TOTE_PLAN_ALL_ACCESS_TIER,
+      amountCents: product.price,
       visitorId: rawVisitorId,
     });
 

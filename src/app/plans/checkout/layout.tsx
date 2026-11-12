@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { generateBreadcrumbJsonLd } from "@/lib/schema/breadcrumb";
 import { PLANS_PRICES } from "@/lib/schema/plans";
 
-const DESCRIPTION = `Size your tote rack in 3D for free: pick totes wide and high, HDX or Greenmade, casters and worktop. Then get build plans for exactly that size: PDF ${PLANS_PRICES.pdf}, or ${PLANS_PRICES.interactive} with the interactive 3D guide.`;
+const DESCRIPTION = `Size your tote rack in 3D for free: pick totes wide and high, HDX or Greenmade, casters and worktop. Then get build plans for exactly that size, with the interactive 3D guide and a printable PDF: ${PLANS_PRICES.allAccess} once covers every size you design, for life.`;
 
 export const metadata: Metadata = {
   title: "Design Your Tote Rack & Get Custom Build Plans | Storage Network",

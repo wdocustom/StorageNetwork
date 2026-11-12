@@ -238,8 +238,8 @@ export default async function PlanPage({ params }: { params: Promise<{ slug: str
           <h2 className="text-base font-black text-white">More DIY Plans: Tote Storage Racks</h2>
           <p className="mt-1 text-sm text-stone-400">
             Build a 2×4 tote rack for 27-gallon HDX or Greenmade totes, sized to your wall, with a cut list,
-            shopping list and every step in 3D. {PLANS_PRICES.pdf} for the PDF, {PLANS_PRICES.interactive} with the
-            interactive guide.
+            shopping list and every step in 3D. {PLANS_PRICES.allAccess} once for unlimited plans: every size you
+            design, with the 3D guide and a PDF.
           </p>
           <Link
             href="/plans"

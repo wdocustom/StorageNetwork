@@ -33,7 +33,6 @@ import type {
 import { AFFILIATE_DISCLOSURE } from "@/lib/plan-product-links";
 import { LADDER_JIG_OWNER_PRICE } from "@/lib/ladder-jig";
 import {
-  TOTE_PLAN_UPGRADE_PRICE,
   designLayout,
   formatPlanPrice,
   moduleTypeTitle,
@@ -98,12 +97,12 @@ export interface DIYPDFInput {
   /** Storage Network wordmark as a PNG data URL (the browser loads it; tests omit it) */
   logoDataUrl?: string;
   /**
-   * Back-page call to action. upgradeUrl → PDF buyer, offer the 3D guide;
-   * guideUrl → they already own it, link straight to it.
+   * Back-page call to action: guideUrl opens their 3D guide.
    */
   links?: {
-    upgradeUrl?: string;
     guideUrl?: string;
+    /** All-Access: the designer in "included" mode, for their next plan */
+    buildAnotherUrl?: string;
     /** The buyer's My Builds library */
     libraryUrl?: string;
     /** Ladder jig: the $5 owner offer, or their own jig plans when jigOwned */
@@ -1456,9 +1455,8 @@ function renderGoodToKnow(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan, links:
 }
 
 function renderGuidePage(doc: jsPDF, cur: Cursor, links: NonNullable<DIYPDFInput["links"]>) {
-  const url = links.upgradeUrl ?? links.guideUrl;
+  const url = links.guideUrl;
   if (url) {
-    const upgrade = !!links.upgradeUrl;
     cur.ensure(70);
     if (cur.y > BODY_TOP) cur.y += 4;
     const top = cur.y;
@@ -1468,21 +1466,13 @@ function renderGuidePage(doc: jsPDF, cur: Cursor, links: NonNullable<DIYPDFInput
     doc.setFillColor(...COLORS.accent);
     doc.rect(MARGIN, top, CONTENT_W, 1.4, "F");
 
-    kicker(doc, upgrade ? "See it in 3D" : "Your interactive guide", MARGIN + 8, top + 12, COLORS.accent);
+    kicker(doc, "Your interactive guide", MARGIN + 8, top + 12, COLORS.accent);
     setText(doc, 17, COLORS.white, "bold");
-    doc.text(
-      upgrade
-        ? `Add the Interactive 3D Build Guide — ${formatPlanPrice(TOTE_PLAN_UPGRADE_PRICE)}`
-        : "Build along with the interactive 3D guide",
-      MARGIN + 8,
-      top + 22,
-    );
+    doc.text("Build along with the interactive 3D guide", MARGIN + 8, top + 22);
     setText(doc, 10, COLORS.coverMuted);
     paragraph(
       doc,
-      upgrade
-        ? "Rotate, zoom and step through every module on your phone, with a live map of your whole system showing which module you're on. Pay only the difference."
-        : "Rotate, zoom and step through every module on your phone, with a live map of your system showing which module you're on.",
+      "Rotate, zoom and step through every module on your phone, with a live map of your system showing which module you're on.",
       MARGIN + 8,
       top + 30,
       CONTENT_W - 16,
@@ -1494,12 +1484,23 @@ function renderGuidePage(doc: jsPDF, cur: Cursor, links: NonNullable<DIYPDFInput
     doc.setFillColor(...COLORS.accent);
     doc.roundedRect(MARGIN + 8, btnY, btnW, 10, 5, 5, "F");
     setText(doc, 10, COLORS.ink, "bold");
-    doc.text(upgrade ? "Upgrade my plan" : "Open my guide", MARGIN + 8 + btnW / 2, btnY + 6.6, { align: "center" });
+    doc.text("Open my guide", MARGIN + 8 + btnW / 2, btnY + 6.6, { align: "center" });
     doc.link(MARGIN + 8, btnY, btnW, 10, { url });
 
     setText(doc, 7.5, COLORS.coverMuted);
     doc.textWithLink(pdfText(url.replace(/^https?:\/\//, "")), MARGIN + 8 + btnW + 6, btnY + 6.3, { url });
     cur.y = top + h + 4;
+  }
+
+  if (links.buildAnotherUrl) {
+    cur.ensure(10);
+    setText(doc, 9, COLORS.body);
+    const lead = "Building another? Every tote organizer you design is included: ";
+    doc.text(lead, MARGIN, cur.y + 4);
+    const leadW = doc.getTextWidth(lead);
+    setText(doc, 9, COLORS.link, "bold");
+    doc.textWithLink("Build another plan", MARGIN + leadW, cur.y + 4, { url: links.buildAnotherUrl });
+    cur.y += 7;
   }
 
   if (links.libraryUrl) {

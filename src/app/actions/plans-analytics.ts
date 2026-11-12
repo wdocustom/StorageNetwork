@@ -49,7 +49,8 @@ export async function getAdminPlansAnalytics(
 
     const [views, purchasesRes, upgradesRes, splitsRes, devicesRes, codesRes, startsRes] = await Promise.all([
       fetchPlansViews(since),
-      supabase.from("public_plan_purchases").select(purchaseCols).gte("purchased_at", since),
+      // Plans built free under All-Access (included_from set) aren't sales.
+      supabase.from("public_plan_purchases").select(purchaseCols).gte("purchased_at", since).is("included_from", null),
       supabase.from("public_plan_purchases").select(purchaseCols).gte("upgraded_at", since),
       supabase
         .from("plan_split_payouts")

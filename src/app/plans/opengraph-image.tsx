@@ -97,7 +97,7 @@ export default function OgImage() {
                 color: "#0a0e1a",
               }}
             >
-              PDF {PLANS_PRICES.pdf}
+              All-Access {PLANS_PRICES.allAccess}
             </div>
             <div
               style={{
@@ -110,7 +110,7 @@ export default function OgImage() {
                 color: "#facc15",
               }}
             >
-              3D Guide {PLANS_PRICES.interactive}
+              Unlimited plans · lifetime
             </div>
           </div>
         </div>

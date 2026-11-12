@@ -188,16 +188,20 @@ describe("generateDIYPDF", () => {
     expect(generateDIYPDF({ plan: p, snapshots: {} }).output()).not.toContain("Licensed to");
   });
 
-  it("links PDF buyers to the $10 upgrade, guide owners to their guide", async () => {
+  it("links to the 3D guide and to building another plan, never to a paid upgrade", async () => {
     const p = await plan("H4x4wt");
-    const upgrade = generateDIYPDF({ plan: p, snapshots: {}, links: { upgradeUrl: "https://x.test/plans/build?token=t&upgrade=1" } });
-    const upgradeOut = upgrade.output();
-    expect(upgradeOut).toContain("https://x.test/plans/build?token=t&upgrade=1");
-    expect(upgradeOut).toContain("$10");
-
-    const guide = generateDIYPDF({ plan: p, snapshots: {}, links: { guideUrl: "https://x.test/plans/build?token=t&guide=1" } }).output();
-    expect(guide).toContain("guide=1");
-    expect(guide).not.toContain("Upgrade my plan");
+    const out = generateDIYPDF({
+      plan: p,
+      snapshots: {},
+      links: {
+        guideUrl: "https://x.test/plans/build?token=t&guide=1",
+        buildAnotherUrl: "https://x.test/plans/checkout?member=t",
+      },
+    }).output();
+    expect(out).toContain("guide=1");
+    expect(out).toContain("https://x.test/plans/checkout?member=t");
+    expect(out).not.toContain("Upgrade my plan");
+    expect(out).not.toContain("$10");
 
     expect(generateDIYPDF({ plan: p, snapshots: {} }).output()).not.toContain("/plans/build");
   });
@@ -208,7 +212,7 @@ describe("generateDIYPDF", () => {
       plan: p,
       snapshots: {},
       links: {
-        upgradeUrl: "https://x.test/plans/build?token=t&upgrade=1",
+        guideUrl: "https://x.test/plans/build?token=t&guide=1",
         libraryUrl: "https://x.test/plans/library?token=t",
         jigUrl: "https://x.test/plans/jig?owner=t",
       },

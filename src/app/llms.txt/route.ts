@@ -1,12 +1,8 @@
 import { PUBLIC_PLANS } from "@/lib/plans-config";
 import { getPlanPage, planPageHref } from "@/lib/plan-pages";
-import { BAY_OPENING_IN, MODULE_MAX_COLS, MODULE_MAX_ROWS, TOTE_PLAN_LIMITS, TOTE_PLAN_TIERS, UNIT_DEPTH_IN, formatPlanPrice } from "@/lib/tote-plans";
+import { BAY_OPENING_IN, MODULE_MAX_COLS, MODULE_MAX_ROWS, TOTE_PLAN_ALL_ACCESS, TOTE_PLAN_LIMITS, UNIT_DEPTH_IN, formatPlanPrice } from "@/lib/tote-plans";
 import { LADDER_JIG_NAME, LADDER_JIG_TAGLINE } from "@/lib/ladder-jig";
 import { PLANS_FAQS, PLANS_PRICES } from "@/lib/schema/plans";
-
-/** " (on sale — regularly $19)" while a tote-plan sale is running. */
-const onSale = (t: { price: number; listPrice: number }) =>
-  t.listPrice > t.price ? ` (on sale — regularly ${formatPlanPrice(t.listPrice)})` : "";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // /llms.txt — plain-markdown site guide for AI assistants (llmstxt.org)
@@ -45,9 +41,8 @@ Key facts:
 - Built from standard 2×4×8' lumber; rails are 2×4s ripped in half on a table saw. Units are ${UNIT_DEPTH_IN}" deep.
 - Any size from 1×1 to ${TOTE_PLAN_LIMITS.maxCols} totes wide × ${TOTE_PLAN_LIMITS.maxRows} high per unit, up to ${TOTE_PLAN_LIMITS.maxUnits} units per plan. Large walls are split into modules of up to ${MODULE_MAX_COLS} wide × ${MODULE_MAX_ROWS} high so every part fits an 8' board.
 - Options: swivel casters (rolling tote rack) and a plywood worktop.
-- ${TOTE_PLAN_TIERS.pdf.name}: ${formatPlanPrice(TOTE_PLAN_TIERS.pdf.price)}${onSale(TOTE_PLAN_TIERS.pdf)}. ${TOTE_PLAN_TIERS.pdf.includes.join("; ")}.
-- ${TOTE_PLAN_TIERS.interactive.name}: ${formatPlanPrice(TOTE_PLAN_TIERS.interactive.price)}${onSale(TOTE_PLAN_TIERS.interactive)}. ${TOTE_PLAN_TIERS.interactive.includes.join("; ")}.
-- PDF owners can upgrade to the interactive guide for ${PLANS_PRICES.upgrade}. One-time purchase; a permanent access link is emailed.
+- ${TOTE_PLAN_ALL_ACCESS.name}: ${PLANS_PRICES.allAccess} once, lifetime. ${TOTE_PLAN_ALL_ACCESS.includes.join("; ")}.
+- After the first plan, buyers generate a plan for any other size they design at no charge ("Build another plan"). A permanent access link is emailed.
 
 ## Other DIY plans
 

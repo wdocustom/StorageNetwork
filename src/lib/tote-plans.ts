@@ -1,12 +1,17 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // TOTE ORGANIZER PLANS — DIY plan products sold network-wide
 //
-// Two tiers, offered on /plans, in every installer's designer, on quote
-// pages and in quote emails:
-//   • "pdf"         — printable PDF build plan (cut list, shopping list,
-//                     every assembly step rendered in 3D)
-//   • "interactive" — everything in "pdf" PLUS lifetime access to the
-//                     interactive 3D Assembly Guide installers use
+// Since Nov 12, 2026 there is ONE product: All-Access Build Plans
+// (TOTE_PLAN_ALL_ACCESS), $19 once, for life. The buyer designs any size,
+// gets that plan, and can generate a plan for every other tote organizer
+// they design afterwards at no charge ("Build another plan"). Every plan
+// comes with the interactive 3D guide AND the printable PDF.
+//
+// Purchase rows still carry a tier: new purchases and included plans are
+// recorded as "interactive", and every tote row opens with full access
+// whatever its tier (past PDF-only buyers were upgraded to All-Access).
+// TOTE_PLAN_TIERS below is kept for history: what the two old tiers were
+// called and sold for, for analytics and referral payouts.
 //
 // A plan covers a DESIGN: one or more freestanding units (a bestseller such
 // as Indiana Joe is three units). Each unit is split into self-contained
@@ -17,7 +22,8 @@
 //
 // Purchases are guest checkouts recorded in public_plan_purchases under
 // plan_id = TOTE_PLAN_ID, so one email address can recover every plan it
-// bought via /plans "Resend my link".
+// owns via /plans "Resend my link". Plans built free under All-Access are
+// rows too, with included_from set to the paid purchase they came from.
 //
 // Client-safe: no server imports.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -40,6 +46,32 @@ export interface TotePlanTierInfo {
   includes: string[];
 }
 
+// ── All-Access (the product sold today) ─────────────────────────────────────
+
+export const TOTE_PLAN_ALL_ACCESS = {
+  name: "All-Access Build Plans",
+  /** In cents. One payment, lifetime. */
+  price: 1900,
+  tagline: "Every tote organizer you design, for life.",
+  includes: [
+    "Unlimited plans: design any size, any time, and generate its plan free",
+    "Interactive 3D build guide for every plan — rotate, zoom, step through",
+    "Printable PDF for every plan: shopping list, cut diagrams, every step",
+    "One payment, lifetime access. No subscription, no per-plan fees",
+  ],
+} as const;
+
+/** Tier recorded on All-Access purchases and included plans: full access. */
+export const TOTE_PLAN_ALL_ACCESS_TIER: TotePlanTier = "interactive";
+
+/** When All-Access replaced the two tiers (ISO date). Analytics prices purchases from here at $19. */
+export const TOTE_PLAN_ALL_ACCESS_SINCE = "2026-11-12";
+
+// ── Old tiers (history) ─────────────────────────────────────────────────────
+// Sold until TOTE_PLAN_ALL_ACCESS_SINCE. Kept so analytics and referral
+// payouts can name and price past purchases; nothing is sold at these
+// prices any more.
+
 // ── Sale ────────────────────────────────────────────────────────────────────
 // Storewide discount on both tote-plan tiers, applied automatically: every
 // checkout, upgrade quote, price label, email and structured-data offer reads
@@ -60,6 +92,7 @@ export const TOTE_PLAN_SALE_SINCE = "2026-11-07";
 
 /** What a tote-plan tier sold for at `purchasedAt` (ISO timestamp). */
 export function totePlanPricePaid(tier: TotePlanTier, purchasedAt: string): number {
+  if (purchasedAt >= TOTE_PLAN_ALL_ACCESS_SINCE) return TOTE_PLAN_ALL_ACCESS.price;
   const info = TOTE_PLAN_TIERS[tier];
   return TOTE_PLAN_SALE_ON && purchasedAt >= TOTE_PLAN_SALE_SINCE ? info.price : info.listPrice;
 }
@@ -101,7 +134,7 @@ export const TOTE_PLAN_TIERS: Record<TotePlanTier, TotePlanTierInfo> = {
   },
 };
 
-/** Cost to move an existing PDF purchase up to the interactive tier. */
+/** What the old PDF → interactive upgrade cost (history; no longer sold). */
 export const TOTE_PLAN_UPGRADE_PRICE =
   TOTE_PLAN_TIERS.interactive.price - TOTE_PLAN_TIERS.pdf.price;
 

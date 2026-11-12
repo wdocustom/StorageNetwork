@@ -14,6 +14,7 @@ import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import DeviceVerify from "@/components/plans/DeviceVerify";
 import Link from "next/link";
+import { BuildForALiving } from "@/components/plans/AllAccessOffer";
 import { AlertCircle, Armchair, Box, ChevronRight, Loader2, Mail, Plus, Wrench } from "lucide-react";
 import { listMyPlans, type LibraryItem, type LibraryResult } from "@/app/actions/plan-library";
 import { CONTACT_EMAIL } from "@/lib/plan-library";
@@ -105,6 +106,24 @@ function LibraryInner() {
           </div>
         ) : (
           <>
+            {result.buildAnotherHref && (
+              <Link
+                href={result.buildAnotherHref}
+                className="flex items-center gap-4 rounded-2xl border border-emerald-500/40 bg-emerald-500/5 p-4 transition hover:border-emerald-400"
+              >
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10">
+                  <Plus className="h-5 w-5 text-emerald-400" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-black text-white">Build another plan — included</p>
+                  <p className="text-xs text-stone-400">
+                    All-Access covers every tote organizer you design. New size, new plan, free.
+                  </p>
+                </div>
+                <ChevronRight className="h-5 w-5 shrink-0 text-emerald-400" />
+              </Link>
+            )}
+
             {result.items.length === 0 ? (
               <p className="py-10 text-center text-sm text-stone-500">No plans yet.</p>
             ) : (
@@ -129,13 +148,17 @@ function LibraryInner() {
               </Link>
             )}
 
-            <Link
-              href="/plans/checkout"
-              className="flex items-center justify-center gap-2 rounded-2xl border border-slate-800 py-3 text-xs font-semibold text-stone-400 transition hover:border-slate-700 hover:text-stone-200"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Plans for another build
-            </Link>
+            {!result.buildAnotherHref && (
+              <Link
+                href="/plans/checkout"
+                className="flex items-center justify-center gap-2 rounded-2xl border border-slate-800 py-3 text-xs font-semibold text-stone-400 transition hover:border-slate-700 hover:text-stone-200"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Plans for another build
+              </Link>
+            )}
+
+            {result.buildAnotherHref && <BuildForALiving />}
           </>
         )}
 

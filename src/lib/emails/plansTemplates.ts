@@ -4,7 +4,7 @@ import { getAppUrl } from "@/lib/url-helper";
 import type { PublicPlan } from "@/lib/plans-config";
 import { LADDER_JIG_NAME, LADDER_JIG_TAGLINE } from "@/lib/ladder-jig";
 import {
-  TOTE_PLAN_TIERS,
+  TOTE_PLAN_ALL_ACCESS,
   designFromItems,
   formatPlanPrice,
   totePlanDesignHref,
@@ -44,9 +44,9 @@ export function diyPlansEmailBlock(url: string | null | undefined): string {
     <div style="border-top:1px solid #222;padding:18px 0 6px;margin-bottom:20px;text-align:center;">
       <p style="margin:0 0 6px;color:#737373;font-size:12px;">Prefer to build it yourself?</p>
       <a href="${url}" style="color:#facc15;font-size:13px;font-weight:700;text-decoration:none;">
-        Get DIY build plans for this design &mdash; from ${usdMoney(formatPlanPrice(TOTE_PLAN_TIERS.pdf.price))} &rarr;
+        Get DIY build plans for this design &mdash; ${usdMoney(formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price))} lifetime &rarr;
       </a>
-      <p style="margin:6px 0 0;color:#555;font-size:11px;">Printable PDF or interactive 3D build guide, sized to your build.</p>
+      <p style="margin:6px 0 0;color:#555;font-size:11px;">Interactive 3D guide + printable PDF, and unlimited plans for every size you design.</p>
     </div>`;
 }
 
@@ -106,7 +106,10 @@ export async function sendTotePlanAccessEmail(
   const appUrl = getAppUrl();
   const accessUrl = `${appUrl}/plans/build?token=${accessToken}`;
   const name = totePlanName(design);
-  const info = TOTE_PLAN_TIERS[tier];
+  const info = TOTE_PLAN_ALL_ACCESS;
+  // Every tote plan opens with full access (All-Access); the tier is history.
+  void tier;
+  const buildAnotherUrl = `${appUrl}/plans/checkout?member=${accessToken}`;
 
   const body = `
     <div style="background:#111;border-radius:12px;padding:28px 24px;margin-bottom:20px;border:1px solid #222;">
@@ -117,7 +120,7 @@ export async function sendTotePlanAccessEmail(
 
     <div style="text-align:center;margin-bottom:28px;">
       <a href="${accessUrl}" style="display:inline-block;background:#facc15;color:#000;font-weight:800;font-size:15px;text-decoration:none;padding:14px 32px;border-radius:10px;letter-spacing:0.02em;">
-        ${tier === "interactive" ? "Open My Build Guide →" : "Get My Build Plan →"}
+        Open My Build Plan →
       </a>
       <p style="margin:12px 0 0;color:#555;font-size:11px;">Bookmark this link — it's yours permanently.</p>
       <p style="margin:8px 0 0;color:#888;font-size:12px;">All your plans in one place: <a href="${appUrl}/plans/library?token=${accessToken}" style="color:#facc15;text-decoration:none;">My Builds</a></p>
@@ -132,6 +135,18 @@ export async function sendTotePlanAccessEmail(
         </div>`).join("")}
     </div>
 
+    <div style="background:#06281e;border:1px solid #065f46;border-radius:8px;padding:16px 20px;margin-bottom:20px;text-align:center;">
+      <p style="margin:0 0 4px;color:#6ee7b7;font-size:14px;font-weight:800;">Build another? It&rsquo;s included.</p>
+      <p style="margin:0 0 10px;color:#a7f3d0;font-size:12px;line-height:1.5;">All-Access covers every tote organizer you design, for life. New size, new plan, free.</p>
+      <a href="${buildAnotherUrl}" style="color:#6ee7b7;font-size:13px;font-weight:800;text-decoration:none;">Build another plan &rarr;</a>
+    </div>
+
+    <div style="background:#0a0a0a;border:1px solid #1e1e1e;border-radius:8px;padding:16px 20px;margin-bottom:20px;">
+      <p style="margin:0 0 4px;color:#facc15;font-size:13px;font-weight:800;">Interested in building these for a living?</p>
+      <p style="margin:0 0 8px;color:#999;font-size:12px;line-height:1.5;">Neighbors pay real money for a garage like yours. Storage Network installers get customers who design and pay a deposit online, exact cut lists for every job, and instant payouts.</p>
+      <a href="${appUrl}/join?src=plans-email" style="color:#facc15;font-size:12px;font-weight:700;text-decoration:none;">See how installers earn &rarr;</a>
+    </div>
+
     <div style="background:#0a0a0a;border:1px solid #1e1e1e;border-radius:8px;padding:14px 20px;">
       <p style="margin:0;color:#555;font-size:12px;line-height:1.6;">
         <strong style="color:#888;">Lost this email?</strong> Visit
@@ -143,7 +158,7 @@ export async function sendTotePlanAccessEmail(
 
   return sendTransactionalEmail({
     to: email,
-    subject: `Your ${name} ${tier === "interactive" ? "build guide" : "build plan"}`,
+    subject: `Your ${name} build plan — All-Access is yours`,
     html: masterEmailLayout(`${name} — ${info.name}`, body),
   });
 }
