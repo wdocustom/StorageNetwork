@@ -12,7 +12,6 @@
 import Link from "next/link";
 import { ArrowRight, Box, CheckCircle, FileText, Hammer, Infinity as InfinityIcon, Loader2, Sparkles } from "lucide-react";
 
-import { PlanSampleThumb } from "@/components/plans/PlanSample";
 import { TOTE_PLAN_ALL_ACCESS, formatPlanPrice, type TotePlanTier } from "@/lib/tote-plans";
 
 const PRICE = formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price);
@@ -27,62 +26,57 @@ export function AllAccessOffer({
   onSample: (tier: TotePlanTier) => void;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-yellow-400/40 bg-slate-900 p-5 sm:p-6">
+    <div className="relative overflow-hidden rounded-2xl border border-yellow-400/40 bg-slate-900 p-5">
       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-400 to-yellow-500" />
 
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+      <div className="flex items-end justify-between gap-3">
+        <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-yellow-400">
             <InfinityIcon className="h-4 w-4" /> Unlimited plans
           </p>
-          <h3 className="mt-1 text-xl font-black text-white">{TOTE_PLAN_ALL_ACCESS.name}</h3>
-          <p className="mt-1 text-sm text-stone-400">{TOTE_PLAN_ALL_ACCESS.tagline}</p>
+          <h3 className="mt-1 text-lg font-black leading-tight text-white">Get the plan for this design</h3>
         </div>
-        <div className="sm:text-right">
+        <div className="shrink-0 text-right">
           <p className="text-4xl font-black leading-none text-white">{PRICE}</p>
-          <p className="mt-1 text-xs font-bold uppercase tracking-wider text-yellow-400">Lifetime · one time</p>
+          <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-yellow-400">Once, for life</p>
         </div>
       </div>
 
-      <p className="mt-4 rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-sm leading-relaxed text-stone-300">
-        Most plans cover one size. Yours covers <strong className="text-white">every size you design</strong>: get
-        this plan today, then come back for your garage, your shed, a friend&apos;s basement. Every new plan is free.
+      <p className="mt-3 text-sm leading-relaxed text-stone-300">
+        Plus a free plan for <strong className="text-white">every tote organizer you design after it</strong>. Your
+        garage today, the shed next spring.
       </p>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <div>
-          <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-stone-300">
-            <Box className="h-3.5 w-3.5 text-yellow-400" /> Interactive 3D guide
-          </p>
-          <PlanSampleThumb tier="interactive" onOpen={() => onSample("interactive")} />
-        </div>
-        <div>
-          <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-stone-300">
-            <FileText className="h-3.5 w-3.5 text-yellow-400" /> Printable PDF
-          </p>
-          <PlanSampleThumb tier="pdf" onOpen={() => onSample("pdf")} />
-        </div>
-      </div>
-
-      <ul className="mb-5 mt-4 space-y-2">
-        {TOTE_PLAN_ALL_ACCESS.includes.map((item) => (
-          <li key={item} className="flex items-start gap-2 text-sm text-stone-300">
-            <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
-            {item}
-          </li>
-        ))}
+      <ul className="mt-3 grid gap-x-3 gap-y-1.5 text-xs text-stone-300 sm:grid-cols-2">
+        {["Unlimited plans, any size", "Interactive 3D build guide", "Printable PDF with cut list", "No subscription, ever"].map(
+          (item) => (
+            <li key={item} className="flex items-center gap-1.5">
+              <CheckCircle className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+              {item}
+            </li>
+          )
+        )}
       </ul>
 
       <button
         onClick={onBuy}
         disabled={loading}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 py-3.5 text-sm font-black uppercase tracking-wider text-gray-950 transition hover:from-amber-300 hover:to-yellow-400 disabled:opacity-60"
+        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 py-4 text-base font-black uppercase tracking-wide text-gray-950 shadow-lg shadow-yellow-500/20 transition hover:from-amber-300 hover:to-yellow-400 disabled:opacity-60"
       >
         {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-        {loading ? "Opening checkout…" : `Get All-Access — ${PRICE} lifetime`}
+        {loading ? "Opening checkout…" : `Get my plans — ${PRICE}`}
       </button>
       <p className="mt-2 text-center text-[11px] text-stone-500">
-        One payment. No subscription. We email you a permanent link, no account needed.
+        Instant access · permanent link by email · no account needed
+      </p>
+      <p className="mt-2 flex items-center justify-center gap-3 text-xs text-stone-400">
+        See a sample:
+        <button type="button" onClick={() => onSample("interactive")} className="inline-flex items-center gap-1 font-semibold text-yellow-300 hover:underline">
+          <Box className="h-3.5 w-3.5" /> 3D guide
+        </button>
+        <button type="button" onClick={() => onSample("pdf")} className="inline-flex items-center gap-1 font-semibold text-yellow-300 hover:underline">
+          <FileText className="h-3.5 w-3.5" /> PDF
+        </button>
       </p>
     </div>
   );

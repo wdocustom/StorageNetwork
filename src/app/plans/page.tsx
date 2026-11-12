@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Box, CheckCircle, ChevronDown, FileText, Infinity as InfinityIcon, Star, Wrench } from "lucide-react";
-import { BuildForALiving } from "@/components/plans/AllAccessOffer";
+import { ArrowRight, Check, ChevronDown } from "lucide-react";
+import PlanSamplesRow from "@/components/plans/PlanSamplesRow";
+import StickyPlanCta from "@/components/plans/StickyPlanCta";
+import { estimatePlanMaterials } from "@/app/actions/plan-materials";
 import { PUBLIC_PLANS } from "@/lib/plans-config";
 import {
   BAY_OPENING_IN,
@@ -10,13 +12,12 @@ import {
   MODULE_MAX_ROWS,
   TOTE_PLAN_LIMITS,
   TOTE_PLAN_ALL_ACCESS,
+  DEFAULT_TOTE_PLAN_DESIGN,
   UNIT_DEPTH_IN,
-  formatPlanPrice,
 } from "@/lib/tote-plans";
-import { LADDER_JIG_NAME, LADDER_JIG_TAGLINE } from "@/lib/ladder-jig";
+import { LADDER_JIG_NAME } from "@/lib/ladder-jig";
 import { generateBreadcrumbJsonLd } from "@/lib/schema/breadcrumb";
 import { planPageHref } from "@/lib/plan-pages";
-import { PLAN_BESTSELLERS } from "@/lib/plan-bestsellers";
 import {
   PLANS_FAQS,
   PLANS_PRICES,
@@ -32,10 +33,15 @@ import { ResendLinkPanel } from "@/components/plans/PlansStorefront";
 // ═══════════════════════════════════════════════════════════════════════════
 // DIY PLANS STOREFRONT — /plans
 //
-// Server-rendered so search engines see the copy, FAQ and structured data;
-// only the resend form is a client component. Kept lean: one pitch and a
-// CTA up top, facts in the spec table, detail in the collapsed FAQ.
-// Prices and dimensions all come from the plan constants.
+// The landing page for plan ads (≈90% phones, mostly Facebook). Its one
+// job: a tap on "Design your rack". (Not "…free": with $19 on the page that
+// reads as a bait-and-switch. The line under the button says it plainly.) Calm and short on purpose: a two-line
+// promise, the photo and the button; how it works in three lines; the
+// offer with the lumber-cost anchor; the samples; four questions; a close.
+// No competing choices (bestsellers live inside the designer), boxes kept
+// to a minimum, one type scale, lots of space. A sticky bar keeps the
+// button in reach once the hero's scrolls away. Server-rendered for SEO;
+// every FAQ stays on the page and in the structured data.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const TITLE = "DIY Tote Rack Plans for 27-Gal HDX & Greenmade Totes | Storage Network";
@@ -84,8 +90,15 @@ const jsonLd = [
   plansFaqJsonLd(),
 ];
 
+// ── Proof ────────────────────────────────────────────────────────────────────
+// Paid jobs completed by Storage Network installers with the same build
+// system (73 on Nov 12, 2026: leads paid/completed). A floor, rounded down
+// so it stays true; raise it as the network grows.
+const PRO_INSTALLS = "70+";
+
 // ── At a glance ──────────────────────────────────────────────────────────────
-// A plain spec table: the format answer engines quote most readily.
+// A plain spec table: the format answer engines quote most readily. Shown
+// collapsed under the FAQ.
 
 const AT_A_GLANCE: [string, string][] = [
   ["Totes", "27-gal HDX (Home Depot) or Greenmade (Costco)"],
@@ -95,27 +108,51 @@ const AT_A_GLANCE: [string, string][] = [
   ["Includes", "Cut list · shopping list · every step in 3D"],
 ];
 
+// The questions buyers actually hesitate on, shown open to read; the rest
+// (still in the FAQ structured data) sit under "More questions".
+const TOP_FAQ_QUESTIONS = [
+  "Can I make plans for more than one size?",
+  "What totes do these tote rack plans fit?",
+  "What tools do I need to build it?",
+  "How do I get my plans after I buy?",
+];
+
+const STEPS = [
+  { title: "Design it", text: "Set the size, totes and options. Free, in 3D." },
+  { title: "Get the plan", text: "Cut list, shopping list and every step. Instantly." },
+  { title: "Build it", text: "Follow the 3D guide on your phone, or print the PDF." },
+];
+
+const INCLUDED = [
+  "Plans for every size you design",
+  "Interactive 3D build guide",
+  "Printable PDF with cut list",
+  "Lifetime access, no subscription",
+];
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-export default function PlansPage() {
+export default async function PlansPage() {
+  // What lumber for the default 4×4 costs at retail: the price anchor.
+  const materials = await estimatePlanMaterials(DEFAULT_TOTE_PLAN_DESIGN).catch(() => null);
+  const lumber = materials ? `$${Math.round(materials.materialsTotal / 10) * 10}` : null;
+
   const otherPlans = [
-    {
-      href: "/plans/jig",
-      title: `${LADDER_JIG_NAME} Plans`,
-      line: `${PLANS_PRICES.jig} · ${PLANS_PRICES.jigOwner} with a tote plan`,
-      Icon: Wrench,
-    },
-    ...PUBLIC_PLANS.map((plan) => ({
-      href: planPageHref(plan.id) ?? "/plans",
-      title: `${plan.name} Plans`,
-      line: `${formatPlanPrice(plan.price)} · ${plan.tagline}`,
-      Icon: null,
-      image: plan.previewImage,
-    })),
+    { href: "/plans/jig", title: `${LADDER_JIG_NAME} Plans` },
+    ...PUBLIC_PLANS.map((plan) => ({ href: planPageHref(plan.id) ?? "/plans", title: `${plan.name} Plans` })),
   ];
+  const topFaqs = TOP_FAQ_QUESTIONS.map((q) => PLANS_FAQS.find((f) => f.question === q)).filter(
+    (f): f is (typeof PLANS_FAQS)[number] => !!f
+  );
+  const moreFaqs = PLANS_FAQS.filter((f) => !TOP_FAQ_QUESTIONS.includes(f.question));
+
+  const cta =
+    "flex w-full items-center justify-center gap-2 rounded-2xl bg-yellow-400 py-4 text-base font-extrabold text-gray-950 transition hover:bg-yellow-300 active:scale-[0.99]";
+  const eyebrow = "text-xs font-bold uppercase tracking-[0.18em] text-yellow-400";
+  const h2 = "mt-2 text-2xl font-extrabold tracking-tight text-white";
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-slate-950 pb-24 text-stone-300 antialiased">
       {jsonLd.map((schema, i) => (
         <script
           key={i}
@@ -124,190 +161,195 @@ export default function PlansPage() {
         />
       ))}
 
-      <header className="border-b border-slate-800 bg-slate-900 px-4 py-3">
-        <div className="mx-auto flex max-w-2xl items-center gap-3">
-          <Link href="/">
-            <Image src="/landing_page_logo.png" alt="Storage Network home" width={32} height={32} className="rounded" />
-          </Link>
-          <nav aria-label="Breadcrumb" className="flex-1 text-[11px] text-stone-500">
-            <ol className="flex items-center gap-1.5">
-              <li>
-                <Link href="/" className="hover:text-stone-300">Home</Link>
-              </li>
-              <li aria-hidden>›</li>
-              <li aria-current="page" className="font-bold text-white">DIY Build Plans</li>
-            </ol>
-          </nav>
-        </div>
+      <header className="mx-auto flex max-w-xl items-center justify-between px-5 pt-5">
+        <Link href="/" aria-label="Storage Network home">
+          <Image src="/landing_page_logo.png" alt="Storage Network" width={84} height={32} className="h-8 w-auto" />
+        </Link>
+        <nav aria-label="Breadcrumb" className="sr-only">
+          <ol>
+            <li><Link href="/">Home</Link></li>
+            <li aria-current="page">DIY Build Plans</li>
+          </ol>
+        </nav>
+        <a href="#my-plans" className="text-sm text-stone-400 hover:text-white">
+          My plans
+        </a>
       </header>
 
-      <main className="mx-auto max-w-2xl space-y-7 px-4 py-6">
+      <main className="mx-auto max-w-xl px-5">
         {/* ── Hero ───────────────────────────────────────────────── */}
-        <section>
-          <h1 className="text-2xl font-black leading-tight text-white sm:text-3xl">
-            DIY Tote Rack Plans, Sized to Your Wall
+        <section className="pb-14 pt-8">
+          <h1 className="text-[34px] font-extrabold leading-[1.08] tracking-tight text-white sm:text-5xl">
+            Any size tote rack.
+            <br />
+            <span className="text-yellow-400">
+              Every plan, <br className="sm:hidden" />
+              {PLANS_PRICES.allAccess} for life.
+            </span>
           </h1>
-          <p className="mt-2 text-sm text-stone-400">
-            A 2×4 rack for 27-gallon HDX or Greenmade totes, any size. Design it free in 3D, get a plan with
-            every cut and step, and one price covers every size you&apos;ll ever build.
+          <p className="mt-4 text-lg leading-relaxed text-stone-400">
+            Size it to your wall. Build it with a step-by-step 3D guide.
           </p>
-          <div className="relative mt-4 aspect-[16/9] w-full overflow-hidden rounded-2xl border border-slate-800">
+
+          <div className="relative mt-7 aspect-[4/3] w-full overflow-hidden rounded-3xl">
             <Image
               src="/hero-rack.webp"
               alt="Rolling 2×4 tote storage rack, 4 totes wide by 4 high, holding 27-gallon yellow-lid totes on casters"
               fill
               priority
-              sizes="(max-width: 672px) 100vw, 640px"
+              sizes="(max-width: 576px) 100vw, 576px"
               className="object-cover object-left"
             />
           </div>
-          {/* ── All-Access: the one plan product ── */}
-          <div className="relative mt-4 overflow-hidden rounded-2xl border border-yellow-400/40 bg-slate-900 p-4 sm:p-5">
-            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-400 to-yellow-500" />
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-yellow-400">
-                  <InfinityIcon className="h-4 w-4" aria-hidden /> Unlimited plans · lifetime
-                </p>
-                <h2 className="mt-1 text-lg font-black text-white">{TOTE_PLAN_ALL_ACCESS.name}</h2>
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="text-3xl font-black leading-none text-white">{PLANS_PRICES.allAccess}</p>
-                <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-yellow-400">Once, for life</p>
-              </div>
-            </div>
-            <p className="mt-3 text-sm leading-relaxed text-stone-300">
-              Most plans cover one size. All-Access covers <strong className="text-white">every tote organizer you
-              design</strong>: buy once, then build another plan whenever you need one, free. Your garage today, the
-              shed next spring, a friend&apos;s basement after that.
+
+          <div id="hero-cta" className="mt-7">
+            <Link href="/plans/checkout" className={cta}>
+              Design your rack <ArrowRight className="h-5 w-5" aria-hidden />
+            </Link>
+            <p className="mt-3 text-center text-sm text-stone-400">
+              Free to design. {PLANS_PRICES.allAccess} for the plans, for life.
             </p>
-            <ul className="mt-3 grid gap-1.5 text-xs text-stone-300 sm:grid-cols-2">
-              {[
-                ["Unlimited plans, any size", InfinityIcon],
-                ["Interactive 3D build guide", Box],
-                ["Printable PDF for every plan", FileText],
-                ["One payment, no subscription", CheckCircle],
-              ].map(([label, Icon]) => {
-                const I = Icon as typeof Box;
-                return (
-                  <li key={label as string} className="flex items-center gap-1.5">
-                    <I className="h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden />
-                    {label as string}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-          <Link
-            href="/plans/checkout"
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 py-3.5 text-sm font-black uppercase tracking-wider text-gray-950 transition hover:from-amber-300 hover:to-yellow-400"
-          >
-            Design Yours &amp; Get All-Access — {PLANS_PRICES.allAccess}
-            <ArrowRight className="h-4 w-4" aria-hidden />
-          </Link>
-          <p className="mt-2 text-center text-[11px] text-stone-600">
-            Designing is free · {PLANS_PRICES.allAccess} once for every plan, for life · permanent link by email
-          </p>
-        </section>
-
-        {/* ── Bestsellers ────────────────────────────────────────── */}
-        {PLAN_BESTSELLERS.length > 0 && (
-          <section>
-            <h2 className="mb-2 flex items-center gap-1.5 text-sm font-black text-white">
-              <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" aria-hidden />
-              Start From a Bestseller
-            </h2>
-            <ul className="flex flex-wrap gap-2">
-              {PLAN_BESTSELLERS.map((b) => (
-                <li key={b.preset.id}>
-                  <Link
-                    href={b.href}
-                    className="block rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-stone-300 transition hover:border-yellow-400/60 hover:text-white"
-                  >
-                    <span className="font-bold text-white">{b.preset.name}</span> · {b.totes} totes
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {/* ── At a glance ────────────────────────────────────────── */}
-        <section>
-          <h2 className="mb-2 text-sm font-black text-white">Tote Rack Plans at a Glance</h2>
-          <div className="overflow-hidden rounded-xl border border-slate-800">
-            <table className="w-full text-left text-xs">
-              <tbody className="divide-y divide-slate-800">
-                {AT_A_GLANCE.map(([label, value]) => (
-                  <tr key={label}>
-                    <th scope="row" className="w-20 bg-slate-900/60 px-3 py-2 align-top font-semibold text-stone-500">
-                      {label}
-                    </th>
-                    <td className="px-3 py-2 text-stone-200">{value}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <p className="mt-1 text-center text-xs text-stone-500">
+              For 27-gallon HDX &amp; Greenmade totes · {PRO_INSTALLS} pro installs
+            </p>
           </div>
         </section>
 
-        {/* ── More plans ─────────────────────────────────────────── */}
-        <section>
-          <h2 className="mb-2 text-sm font-black text-white">More DIY Plans</h2>
-          <div className="divide-y divide-slate-800 overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
-            {otherPlans.map((p) => (
-              <Link key={p.href} href={p.href} className="group flex items-center gap-3 px-3 py-3 transition hover:bg-slate-800/60">
-                <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-emerald-400/10">
-                  {"image" in p && p.image ? (
-                    <Image src={p.image} alt="" fill sizes="40px" className="object-cover" />
-                  ) : p.Icon ? (
-                    <p.Icon className="h-5 w-5 text-emerald-400" aria-hidden />
-                  ) : null}
+        {/* ── How it works ─────────────────────────────────────────── */}
+        <section className="border-t border-white/5 py-14">
+          <p className={eyebrow}>How it works</p>
+          <h2 className={h2}>Three steps to a finished rack.</h2>
+          <ol className="mt-8 space-y-7">
+            {STEPS.map((s, i) => (
+              <li key={s.title} className="flex gap-4">
+                <span className="text-3xl font-extrabold leading-none text-yellow-400/90 tabular-nums">{i + 1}</span>
+                <div>
+                  <h3 className="text-base font-bold text-white">{s.title}</h3>
+                  <p className="mt-1 text-[15px] text-stone-400">{s.text}</p>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-sm font-bold text-white">{p.title}</h3>
-                  <p className="truncate text-[11px] text-stone-500">{p.line}</p>
-                </div>
-                <ArrowRight className="h-4 w-4 shrink-0 text-stone-500 transition group-hover:translate-x-0.5 group-hover:text-yellow-400" aria-hidden />
-              </Link>
+              </li>
             ))}
-          </div>
+          </ol>
         </section>
 
-        {/* ── FAQ ────────────────────────────────────────────────── */}
-        <section>
-          <h2 className="mb-2 text-sm font-black text-white">Tote Rack Plans FAQ</h2>
-          <div className="divide-y divide-slate-800 rounded-xl border border-slate-800 bg-slate-900">
-            {PLANS_FAQS.map((faq) => (
-              <details key={faq.question} className="group px-4 py-3">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-bold text-white">
+        {/* ── The offer ────────────────────────────────────────────── */}
+        <section className="border-t border-white/5 py-14">
+          <p className={eyebrow}>{TOTE_PLAN_ALL_ACCESS.name}</p>
+          <div className="mt-2 flex items-baseline gap-3">
+            <span className="text-6xl font-extrabold tracking-tight text-white">{PLANS_PRICES.allAccess}</span>
+            <span className="text-base text-stone-400">once, for life</span>
+          </div>
+          <ul className="mt-7 space-y-3.5">
+            {INCLUDED.map((item) => (
+              <li key={item} className="flex items-center gap-3 text-base text-stone-200">
+                <Check className="h-5 w-5 shrink-0 text-yellow-400" strokeWidth={3} aria-hidden />
+                {item}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-7 text-[15px] leading-relaxed text-stone-400">
+            {lumber ? <>The lumber for a 4×4 rack is about {lumber}. </> : null}
+            The plan that gets every cut right is {PLANS_PRICES.allAccess}, and it covers every rack you build
+            after it.
+          </p>
+          <Link href="/plans/checkout" className={`${cta} mt-8`}>
+            Design your rack <ArrowRight className="h-5 w-5" aria-hidden />
+          </Link>
+        </section>
+
+        {/* ── See it ───────────────────────────────────────────────── */}
+        <section className="border-t border-white/5 py-14">
+          <p className={eyebrow}>See it</p>
+          <h2 className={h2}>The guide our pros build from.</h2>
+          <p className="mb-6 mt-2 text-[15px] text-stone-400">Tap a sample to look inside.</p>
+          <PlanSamplesRow />
+        </section>
+
+        {/* ── Questions ────────────────────────────────────────────── */}
+        <section className="border-t border-white/5 py-14">
+          <p className={eyebrow}>Questions</p>
+          <div className="mt-4 divide-y divide-white/5">
+            {topFaqs.map((faq) => (
+              <details key={faq.question} className="group py-4">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-base font-semibold text-white">
                   <h3>{faq.question}</h3>
-                  <ChevronDown className="h-4 w-4 shrink-0 text-stone-500 transition group-open:rotate-180" aria-hidden />
+                  <ChevronDown className="h-5 w-5 shrink-0 text-stone-500 transition group-open:rotate-180" aria-hidden />
                 </summary>
-                <p className="mt-2 text-xs leading-relaxed text-stone-400">{faq.answer}</p>
+                <p className="mt-3 text-[15px] leading-relaxed text-stone-400">{faq.answer}</p>
               </details>
             ))}
+            <details className="group py-4">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-base font-semibold text-stone-400">
+                <span>More questions</span>
+                <ChevronDown className="h-5 w-5 shrink-0 text-stone-500 transition group-open:rotate-180" aria-hidden />
+              </summary>
+              <div className="mt-4 space-y-5">
+                {moreFaqs.map((faq) => (
+                  <div key={faq.question}>
+                    <h3 className="text-[15px] font-semibold text-white">{faq.question}</h3>
+                    <p className="mt-1 text-[15px] leading-relaxed text-stone-400">{faq.answer}</p>
+                  </div>
+                ))}
+                <table className="w-full text-left text-sm">
+                  <caption className="mb-2 text-left text-[15px] font-semibold text-white">Plan specs</caption>
+                  <tbody className="divide-y divide-white/5">
+                    {AT_A_GLANCE.map(([label, value]) => (
+                      <tr key={label}>
+                        <th scope="row" className="w-20 py-2 pr-3 align-top font-medium text-stone-500">{label}</th>
+                        <td className="py-2 text-stone-300">{value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
           </div>
         </section>
 
-        <BuildForALiving />
-
-        <ResendLinkPanel />
-
-        <p className="pb-2 text-center text-[11px] text-stone-600">
-          Rather have it built?{" "}
-          <Link href="/design" className="text-stone-400 underline hover:text-stone-200">Design it in 3D</Link> and{" "}
-          <Link href="/installer-network" className="text-stone-400 underline hover:text-stone-200">
-            find a tote rack installer
+        {/* ── Close ────────────────────────────────────────────────── */}
+        <section className="border-t border-white/5 py-16 text-center">
+          <h2 className="text-3xl font-extrabold tracking-tight text-white">Build it right the first time.</h2>
+          <p className="mt-3 text-[15px] text-stone-400">Free to design. {PLANS_PRICES.allAccess} for every plan you&apos;ll ever need.</p>
+          <Link href="/plans/checkout" className={`${cta} mt-8`}>
+            Design your rack <ArrowRight className="h-5 w-5" aria-hidden />
           </Link>
-          {" · "}
-          <Link href="/invite" className="text-stone-400 underline hover:text-stone-200">Installers: join</Link>
-          {" · "}Updated{" "}
-          <time dateTime={PLANS_UPDATED}>
-            {new Date(`${PLANS_UPDATED}T00:00:00Z`).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}
-          </time>
-        </p>
+        </section>
+
+        {/* ── Footer ───────────────────────────────────────────────── */}
+        <footer className="space-y-6 border-t border-white/5 pb-8 pt-10 text-sm text-stone-500">
+          <details id="my-plans" className="group scroll-mt-6">
+            <summary className="cursor-pointer list-none font-semibold text-stone-300 hover:text-white">
+              Already bought? Get your plan link
+            </summary>
+            <div className="mt-4">
+              <ResendLinkPanel />
+            </div>
+          </details>
+          <nav aria-label="More plans" className="flex flex-wrap gap-x-5 gap-y-2">
+            {otherPlans.map((p) => (
+              <Link key={p.href} href={p.href} className="hover:text-stone-200">
+                {p.title}
+              </Link>
+            ))}
+            <Link href="/installer-network" className="hover:text-stone-200">Find an installer</Link>
+            <Link href="/join?src=plans" className="hover:text-stone-200">Build these for a living</Link>
+          </nav>
+          <p className="text-xs text-stone-600">
+            © Storage Network · Updated{" "}
+            <time dateTime={PLANS_UPDATED}>
+              {new Date(`${PLANS_UPDATED}T00:00:00Z`).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}
+            </time>
+          </p>
+        </footer>
       </main>
+
+      <StickyPlanCta
+        watchId="hero-cta"
+        price={`${PLANS_PRICES.allAccess} for life`}
+        note="Free to design"
+        label="Start designing"
+        href="/plans/checkout"
+      />
     </div>
   );
 }
