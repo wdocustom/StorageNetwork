@@ -27,6 +27,7 @@ import { Segmented, Stepper } from "@/components/designer/controls";
 import PlanRack3D from "@/components/plans/PlanRack3D";
 import MaterialCostCard from "@/components/plans/MaterialCostCard";
 import BuildItForMe from "@/components/plans/BuildItForMe";
+import EmbeddedPlanCheckout from "@/components/plans/EmbeddedPlanCheckout";
 import { PlanSampleLightbox, PlanSampleThumb } from "@/components/plans/PlanSample";
 import { BestsellersButton, BestsellersLightbox } from "@/components/plans/PlanBestsellers";
 import { PLAN_REF_COOKIE, cleanReferralId } from "@/lib/plan-splits";
@@ -150,6 +151,8 @@ function PlansDesigner() {
   const [selected, setSelected] = useState(0);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loadingTier, setLoadingTier] = useState<TotePlanTier | null>(null);
+  // Open checkout panel: Stripe's form, embedded in this page.
+  const [checkout, setCheckout] = useState<{ tier: TotePlanTier; clientSecret: string } | null>(null);
   const [sampleTier, setSampleTier] = useState<TotePlanTier | null>(null);
   const [error, setError] = useState("");
   const [freeAccess, setFreeAccess] = useState<{ hasFreeAccess: boolean; reason?: "pro" | "admin" } | null>(null);
@@ -224,11 +227,11 @@ function PlansDesigner() {
       /* storage blocked — the click still counts, just not per person */
     }
     const result = await createDIYPlanCheckout(design, tier, source, ref, visitorId);
-    if (result.success && result.url) {
-      window.location.href = result.url;
+    setLoadingTier(null);
+    if (result.success && result.clientSecret) {
+      setCheckout({ tier, clientSecret: result.clientSecret });
     } else {
       setError(result.error || "Something went wrong. Please try again.");
-      setLoadingTier(null);
     }
   };
 
@@ -450,7 +453,7 @@ function PlansDesigner() {
                   >
                     {loadingTier === id && <Loader2 className="h-4 w-4 animate-spin" />}
                     {loadingTier === id
-                      ? "Redirecting…"
+                      ? "Opening checkout…"
                       : `Get ${featured ? "the Guide" : "the PDF"} — ${formatPlanPrice(tier.price)}${
                           tier.listPrice > tier.price ? ` · Save ${formatPlanPrice(tier.listPrice - tier.price)}` : ""
                         }`}
@@ -464,6 +467,14 @@ function PlansDesigner() {
         </div>
 
         {sampleTier && <PlanSampleLightbox tier={sampleTier} onClose={() => setSampleTier(null)} />}
+        {checkout && (
+          <EmbeddedPlanCheckout
+            clientSecret={checkout.clientSecret}
+            title={`${TOTE_PLAN_TIERS[checkout.tier].name} — ${totePlanName(design)}`}
+            price={formatPlanPrice(TOTE_PLAN_TIERS[checkout.tier].price)}
+            onClose={() => setCheckout(null)}
+          />
+        )}
 
         {/* Back to an installer: the referring one, or a local pro by ZIP */}
         <BuildItForMe
