@@ -55,6 +55,8 @@ const SelectionSchema = z.object({
   tips: z.array(z.string()).max(3).describe("Up to 3 short practical tips specific to this plan"),
 });
 
+const AI_PLACES_PER_BRAND = 2;
+
 export interface PlanResult {
   stops: PlanStop[];
   summary: string | null;
@@ -158,7 +160,17 @@ export async function planDay(input: PlanInput): Promise<PlanResult> {
     ai: false,
   });
 
-  const foodPlaces = places.filter((p) => slotsFor(p).length > 0);
+  // Gemini sees the two nearest locations of each chain: enough to choose a
+  // route, and a short prompt keeps it fast. Swaps still offer every one.
+  // (Places arrive nearest-first, from nearestPerOffer.)
+  const perBrand = new Map<string, number>();
+  const foodPlaces = places
+    .filter((p) => slotsFor(p).length > 0)
+    .filter((p) => {
+      const n = perBrand.get(p.offerId) ?? 0;
+      perBrand.set(p.offerId, n + 1);
+      return n < AI_PLACES_PER_BRAND;
+    });
   if (!foodPlaces.length || !hasChatProvider()) return baseline();
 
   const ids = new Map<string, Place>(foodPlaces.map((p, i) => [`p${i + 1}`, p]));
@@ -173,6 +185,11 @@ export async function planDay(input: PlanInput): Promise<PlanResult> {
         schema: SelectionSchema,
         prompt,
         temperature: 0.4,
+        // Gemini 2.5 "thinks" before answering by default. With ~80 places
+        // in the prompt that ran past 20 s on every request (Nov 11), so
+        // every plan fell back to the baseline. Choosing from a list
+        // doesn't need it.
+        providerOptions: { google: { thinkingConfig: { thinkingBudget: 0 } } },
         abortSignal: AbortSignal.timeout(20_000),
       });
       selection = object;
