@@ -44,19 +44,19 @@ export default function StickyPlanCta({
   }, [watchId]);
 
   const button =
-    "flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 px-5 text-sm font-black uppercase tracking-wide text-gray-950 shadow-lg shadow-yellow-500/20 transition hover:from-amber-300 hover:to-yellow-400 disabled:opacity-60";
+    "flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-2xl bg-yellow-400 px-5 text-[15px] font-extrabold text-gray-950 transition hover:bg-yellow-300 disabled:opacity-60";
 
   return (
     <div
       aria-hidden={!show}
-      className={`fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-slate-950/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur transition-transform duration-300 ${
+      className={`fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/90 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur transition-transform duration-300 ${
         show ? "translate-y-0" : "pointer-events-none translate-y-full"
       }`}
     >
       <div className="mx-auto flex max-w-2xl items-center gap-3">
         <div className="min-w-0 flex-1 leading-tight">
-          <p className="text-lg font-black text-white">{price}</p>
-          <p className="truncate text-[11px] font-semibold text-yellow-400">{note}</p>
+          <p className="text-lg font-extrabold tracking-tight text-white">{price}</p>
+          <p className="truncate text-xs text-stone-400">{note}</p>
         </div>
         {href ? (
           <Link href={href} className={button} tabIndex={show ? 0 : -1}>
