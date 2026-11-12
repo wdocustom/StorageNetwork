@@ -6,7 +6,8 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { CONTACT_EMAIL } from "@/lib/plan-library";
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import EmbeddedCheckoutPanel from "@/components/payments/EmbeddedCheckoutPanel";
 import { CheckCircle, Loader2, Mail } from "lucide-react";
 
 // ── Buy button (fixed-price plans) ───────────────────────────────────────────
@@ -14,6 +15,8 @@ import { CheckCircle, Loader2, Mail } from "lucide-react";
 export function BuyPlanButton({ planId, priceDisplay }: { planId: string; priceDisplay: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const closeCheckout = useCallback(() => setClientSecret(null), []);
 
   async function handleBuy() {
     setLoading(true);
@@ -25,10 +28,11 @@ export function BuyPlanButton({ planId, priceDisplay }: { planId: string; priceD
         body: JSON.stringify({ planId }),
       });
       const data = await res.json();
-      if (!res.ok || !data.url) throw new Error(data.error || "Checkout failed");
-      window.location.href = data.url;
+      if (!res.ok || !data.clientSecret) throw new Error(data.error || "Checkout failed");
+      setClientSecret(data.clientSecret);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
       setLoading(false);
     }
   }
@@ -47,12 +51,13 @@ export function BuyPlanButton({ planId, priceDisplay }: { planId: string; priceD
         {loading ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            Redirecting…
+            Opening checkout…
           </>
         ) : (
           `Get the Plans — ${priceDisplay}`
         )}
       </button>
+      {clientSecret && <EmbeddedCheckoutPanel clientSecret={clientSecret} onClose={closeCheckout} />}
     </>
   );
 }

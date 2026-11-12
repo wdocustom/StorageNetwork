@@ -17,6 +17,7 @@
 
 import Stripe from "stripe";
 import { stripeConfig } from "@/lib/stripe/http";
+import { createEmbeddedCheckoutSession } from "@/lib/stripe/embedded-checkout";
 import { siteConfig } from "@/config/site";
 import { getServiceClient } from "@/lib/supabase-server";
 import { enforceActionRateLimit, RateLimitError } from "@/lib/server/action-rate-limit";
@@ -99,7 +100,7 @@ export async function getLadderJigOffer(ownerToken?: string | null): Promise<Lad
 
 export async function createLadderJigCheckout(
   ownerToken?: string | null,
-): Promise<{ success: boolean; url?: string; error?: string }> {
+): Promise<{ success: boolean; clientSecret?: string; error?: string }> {
   try {
     await enforceActionRateLimit({ action: "ladder-jig-checkout", limit: 10, window: "60 s", identify: "user-or-ip" });
   } catch (err) {
@@ -115,7 +116,7 @@ export async function createLadderJigCheckout(
   try {
     const baseUrl = siteConfig.baseUrl;
     const back = isOwner ? `${baseUrl}/plans/jig?owner=${owner!.access_token}` : `${baseUrl}/plans/jig`;
-    const session = await getStripe().checkout.sessions.create({
+    const session = await createEmbeddedCheckoutSession(getStripe(), {
       mode: "payment",
       ...(isOwner ? { customer_email: owner!.email } : {}),
       line_items: [
@@ -139,8 +140,8 @@ export async function createLadderJigCheckout(
         ...(isOwner ? { owner_token: owner!.access_token } : {}),
       },
     });
-    if (!session.url) return { success: false, error: "Failed to create checkout session." };
-    return { success: true, url: session.url };
+    if (!session.client_secret) return { success: false, error: "Failed to create checkout session." };
+    return { success: true, clientSecret: session.client_secret };
   } catch (err) {
     console.error("[LadderJig] Checkout error:", err);
     return { success: false, error: "Failed to create checkout. Please try again." };

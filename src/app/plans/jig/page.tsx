@@ -10,7 +10,8 @@
 //   /plans/jig?token=<token>    the purchased guide (permanent link)
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import EmbeddedCheckoutPanel from "@/components/payments/EmbeddedCheckoutPanel";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -60,6 +61,7 @@ function Offer({ ownerToken }: { ownerToken: string | null }) {
   const [offer, setOffer] = useState<LadderJigOffer | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const cancelled = searchParams.get("cancelled") === "1";
 
@@ -71,15 +73,15 @@ function Offer({ ownerToken }: { ownerToken: string | null }) {
     setLoading(true);
     setError("");
     const result = await createLadderJigCheckout(ownerToken);
-    if (result.success && result.url) window.location.href = result.url;
-    else {
-      setError(result.error ?? "Something went wrong.");
-      setLoading(false);
-    }
+    setLoading(false);
+    if (result.success && result.clientSecret) setClientSecret(result.clientSecret);
+    else setError(result.error ?? "Something went wrong.");
   };
+  const closeCheckout = useCallback(() => setClientSecret(null), []);
 
   return (
     <div className="space-y-5">
+      {clientSecret && <EmbeddedCheckoutPanel clientSecret={clientSecret} onClose={closeCheckout} />}
       {cancelled && (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400">
           Checkout was cancelled. You can try again below.
@@ -141,7 +143,7 @@ function Offer({ ownerToken }: { ownerToken: string | null }) {
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3.5 text-sm font-black uppercase tracking-wider text-gray-950 transition hover:bg-yellow-300 disabled:opacity-60"
             >
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              {loading ? "Redirecting…" : `Get the Jig Plans — ${formatPlanPrice(offer.price)}`}
+              {loading ? "Opening checkout…" : `Get the Jig Plans — ${formatPlanPrice(offer.price)}`}
             </button>
             <p className="mt-2 text-center text-[11px] text-stone-600">
               One-time purchase · permanent link by email
