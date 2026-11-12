@@ -16,7 +16,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useSearchParams } from "next/navigation";
-import { useState, useMemo, useEffect, Suspense } from "react";
+import { useState, useMemo, useEffect, useCallback, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Box, CheckCircle, Crown, FileText, Layers, Loader2, Plus, Ruler, Trash2 } from "lucide-react";
@@ -27,7 +27,7 @@ import { Segmented, Stepper } from "@/components/designer/controls";
 import PlanRack3D from "@/components/plans/PlanRack3D";
 import MaterialCostCard from "@/components/plans/MaterialCostCard";
 import BuildItForMe from "@/components/plans/BuildItForMe";
-import EmbeddedPlanCheckout from "@/components/plans/EmbeddedPlanCheckout";
+import EmbeddedCheckoutPanel from "@/components/payments/EmbeddedCheckoutPanel";
 import { PlanSampleLightbox, PlanSampleThumb } from "@/components/plans/PlanSample";
 import { BestsellersButton, BestsellersLightbox } from "@/components/plans/PlanBestsellers";
 import { PLAN_REF_COOKIE, cleanReferralId } from "@/lib/plan-splits";
@@ -216,6 +216,8 @@ function PlansDesigner() {
   const moduleCount = useMemo(() => designModules(design).modules.length, [design]);
   const hasFree = freeAccess?.hasFreeAccess === true;
   const note = moduleNote(unit);
+
+  const closeCheckout = useCallback(() => setCheckout(null), []);
 
   const handleBuy = async (tier: TotePlanTier) => {
     setLoadingTier(tier);
@@ -468,12 +470,7 @@ function PlansDesigner() {
 
         {sampleTier && <PlanSampleLightbox tier={sampleTier} onClose={() => setSampleTier(null)} />}
         {checkout && (
-          <EmbeddedPlanCheckout
-            clientSecret={checkout.clientSecret}
-            title={`${TOTE_PLAN_TIERS[checkout.tier].name} — ${totePlanName(design)}`}
-            price={formatPlanPrice(TOTE_PLAN_TIERS[checkout.tier].price)}
-            onClose={() => setCheckout(null)}
-          />
+          <EmbeddedCheckoutPanel clientSecret={checkout.clientSecret} onClose={closeCheckout} />
         )}
 
         {/* Back to an installer: the referring one, or a local pro by ZIP */}

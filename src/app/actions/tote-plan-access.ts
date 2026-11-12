@@ -21,6 +21,7 @@
 
 import Stripe from "stripe";
 import { stripeConfig } from "@/lib/stripe/http";
+import { createEmbeddedCheckoutSession } from "@/lib/stripe/embedded-checkout";
 import { siteConfig } from "@/config/site";
 import { getServiceClient } from "@/lib/supabase-server";
 import { generateDIYPlan, type CompleteDIYPlan } from "@/app/actions/generate-plan";
@@ -319,7 +320,7 @@ async function applyUpgrade(row: PurchaseRow, upgradeSessionId: string): Promise
  */
 export async function createTotePlanUpgradeCheckout(
   token: string,
-): Promise<{ success: boolean; url?: string; error?: string }> {
+): Promise<{ success: boolean; clientSecret?: string; error?: string }> {
   try {
     await enforceActionRateLimit({
       action: "tote-plan-upgrade-checkout",
@@ -343,7 +344,7 @@ export async function createTotePlanUpgradeCheckout(
 
   try {
     const baseUrl = siteConfig.baseUrl;
-    const session = await getStripe().checkout.sessions.create({
+    const session = await createEmbeddedCheckoutSession(getStripe(), {
       mode: "payment",
       customer_email: row.email,
       line_items: [
@@ -367,8 +368,8 @@ export async function createTotePlanUpgradeCheckout(
         access_token: row.access_token,
       },
     });
-    if (!session.url) return { success: false, error: "Failed to create checkout session." };
-    return { success: true, url: session.url };
+    if (!session.client_secret) return { success: false, error: "Failed to create checkout session." };
+    return { success: true, clientSecret: session.client_secret };
   } catch (err) {
     console.error("[TotePlanAccess] Upgrade checkout error:", err);
     return { success: false, error: "Failed to create checkout. Please try again." };

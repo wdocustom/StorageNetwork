@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripeConfig } from "@/lib/stripe/http";
+import { createEmbeddedCheckoutSession } from "@/lib/stripe/embedded-checkout";
 import { siteConfig } from "@/config/site";
 import { getPlanById } from "@/lib/plans-config";
 import { resolvePromoterReferralCode } from "@/app/actions/promoter-program";
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
 
     const baseUrl = siteConfig.baseUrl;
     const attribution = await resolvePromoterAttribution(request);
-    const session = await getStripe().checkout.sessions.create({
+    const session = await createEmbeddedCheckoutSession(getStripe(), {
       mode: "payment",
       customer_email: undefined, // Stripe will collect email in checkout
       line_items: [
@@ -65,10 +66,10 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (!session.url) {
+    if (!session.client_secret) {
       return NextResponse.json({ error: "Failed to create checkout session." }, { status: 500 });
     }
-    return NextResponse.json({ url: session.url });
+    return NextResponse.json({ clientSecret: session.client_secret });
   } catch (err) {
     console.error("[PlansCheckout]", err);
     return NextResponse.json({ error: "Checkout failed. Please try again." }, { status: 500 });

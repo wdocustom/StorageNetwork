@@ -17,6 +17,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import EmbeddedCheckoutPanel from "@/components/payments/EmbeddedCheckoutPanel";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -278,6 +279,7 @@ function GuideCard({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
   const autoStarted = useRef(false);
 
   const upgrade = useCallback(async () => {
@@ -285,13 +287,11 @@ function GuideCard({
     setLoading(true);
     setError("");
     const result = await createTotePlanUpgradeCheckout(data.token);
-    if (result.success && result.url) {
-      window.location.href = result.url;
-    } else {
-      setError(result.error ?? "Something went wrong.");
-      setLoading(false);
-    }
+    setLoading(false);
+    if (result.success && result.clientSecret) setClientSecret(result.clientSecret);
+    else setError(result.error ?? "Something went wrong.");
   }, [data.token]);
+  const closeCheckout = useCallback(() => setClientSecret(null), []);
 
   // "Upgrade my plan" on the PDF's back page lands here with &upgrade=1.
   useEffect(() => {
@@ -328,6 +328,7 @@ function GuideCard({
 
   return (
     <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/60 p-5">
+      {clientSecret && <EmbeddedCheckoutPanel clientSecret={clientSecret} onClose={closeCheckout} />}
       <div className="mb-3 flex items-center gap-2">
         <Lock className="h-4 w-4 text-stone-500" />
         <h2 className="text-sm font-bold text-white">Interactive 3D Build Guide</h2>

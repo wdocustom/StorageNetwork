@@ -2,6 +2,7 @@
 
 import Stripe from "stripe";
 import { stripeConfig } from "@/lib/stripe/http";
+import { createEmbeddedCheckoutSession } from "@/lib/stripe/embedded-checkout";
 import { cookies } from "next/headers";
 import { siteConfig } from "@/config/site";
 import { getAuthenticatedUser } from "@/lib/auth";
@@ -152,9 +153,8 @@ export async function createDIYPlanCheckout(
     // (/plans/checkout) instead of sending the buyer to checkout.stripe.com.
     // Same session, metadata and webhook as before; when payment completes,
     // Stripe redirects the page to return_url.
-    const session = await stripe.checkout.sessions.create({
+    const session = await createEmbeddedCheckoutSession(stripe, {
       mode: "payment",
-      ui_mode: "embedded",
       line_items: [
         {
           price_data: {
