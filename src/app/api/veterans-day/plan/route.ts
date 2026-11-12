@@ -4,8 +4,8 @@ import { z } from "zod";
 import { enforceActionRateLimit, RateLimitError } from "@/lib/server/action-rate-limit";
 import {
   PlaceLookupError,
+  assetFileReader,
   findPlacesNear,
-  placesFromBrowserSearch,
   originFromCoords,
   originFromZip,
 } from "@/lib/freebies/places.server";
@@ -16,9 +16,8 @@ import { getOffer } from "@/lib/freebies/offers";
 // POST /api/veterans-day/plan
 //
 // Builds (or modifies) a veteran's day of freebies: resolves the starting
-// point, takes the nearby locations the browser found (re-checked here) or
-// looks them up itself, and has Gemini choose and order the stops within the
-// planner's rules. Public, rate-limited by IP.
+// point, reads nearby store locations from our own location files, and has
+// Gemini choose and order the stops within the planner's rules. Public, rate-limited by IP.
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const maxDuration = 60;
@@ -32,10 +31,6 @@ const BodySchema = z
     lon: z.number().min(-180).max(-64).optional(),
     startMin: z.number().int().min(0).max(1439),
     radiusMi: z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(25)]),
-    /** Only resolve the starting point (the browser needs it to search). */
-    locate: z.boolean().optional(),
-    /** Photon results from the browser's own search; checked server-side. */
-    features: z.array(z.unknown()).max(800).optional(),
     request: z.string().trim().max(300).optional(),
     current: z
       .object({
@@ -65,7 +60,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Enter a 5-digit ZIP code or share your location." }, { status: 400 });
   }
-  const { zip, lat, lon, startMin, radiusMi, request, current, locate, features } = parsed.data;
+  const { zip, lat, lon, startMin, radiusMi, request, current } = parsed.data;
 
   const origin = zip ? originFromZip(zip) : originFromCoords(lat!, lon!);
   if (!origin) {
@@ -75,11 +70,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (locate) return NextResponse.json({ origin });
-
   let places;
   try {
-    places = features ? placesFromBrowserSearch(features, origin, radiusMi) : await findPlacesNear(origin, radiusMi);
+    places = await findPlacesNear(origin, radiusMi, assetFileReader(req.nextUrl.origin));
   } catch (err) {
     if (err instanceof PlaceLookupError) {
       console.error("[VeteransDay] place lookup failed:", err.message);

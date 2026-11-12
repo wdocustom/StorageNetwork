@@ -1,16 +1,16 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // Freebie planner — finding real locations near the veteran
 //
-// Normally the visitor's browser runs the location search and posts the
-// results here (placesFromBrowserSearch): Photon lets requests from our
-// Cloudflare servers time out, but answers a phone at once. findPlacesNear
-// is the server-side fallback for when the browser search fails: Photon
-// first (one search per brand), then the Overpass API. The public Overpass servers were all down or timing out on
-// Veterans Day morning 2026, which is why they are no longer the first choice.
+// Locations come from files we host ourselves: public/freebies/locations/
+// <lat>_<lon>.json, one per 1°×1° map square, built from the All The Places
+// open dataset of chain store locators (scripts/freebies/build-locations.mjs).
+// A plan reads the one to four squares its driving radius touches.
 //
-// Results are cached per ~3.5-mile map cell so a busy morning doesn't hammer
-// volunteer-run services, and each place is signed so the email route can
-// trust a plan the browser sends back.
+// This replaced live searches of free map services (Overpass, then Photon),
+// which dropped or refused too many requests on Veterans Day 2026 to rely on.
+//
+// Each place is signed so the email route can trust a plan the browser
+// sends back.
 //
 // Not a "use server" module: nothing here is callable from a browser.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -18,21 +18,10 @@
 import "server-only";
 
 import { createHmac, timingSafeEqual } from "crypto";
-import { Redis } from "@upstash/redis";
 import zipcodes from "zipcodes";
 
-import { OFFERS } from "./offers";
-import {
-  buildOverpassQuery,
-  buildPhotonUrl,
-  nearestPerOffer,
-  parseOsmElements,
-  photonToElements,
-  sanitizePhotonFeatures,
-  type OsmElement,
-  type PhotonFeature,
-  type RawPlace,
-} from "./places";
+import { getOffer } from "./offers";
+import { formatUsPhone, nearestPerOffer, type RawPlace } from "./places";
 import { milesBetween, type LatLon, type Place } from "./schedule";
 
 // ── Starting point ──────────────────────────────────────────────────────────
@@ -92,118 +81,10 @@ export function verifyPlace(p: Place): boolean {
   return expected.length === given.length && timingSafeEqual(expected, given);
 }
 
-// ── Cache ───────────────────────────────────────────────────────────────────
+// ── Location files ──────────────────────────────────────────────────────────
 
-const CELL_DEG = 0.05;
-/** Farthest a point can be from its cell's center, in miles (with margin). */
-const CELL_PAD_MI = 2.6;
-const CACHE_TTL_S = 12 * 60 * 60;
-const MILE_M = 1609.344;
-
-const redis =
-  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
-    ? new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN })
-    : null;
-
-const memory = new Map<string, { at: number; places: RawPlace[] }>();
-
-async function cacheGet(key: string): Promise<RawPlace[] | null> {
-  const local = memory.get(key);
-  if (local && Date.now() - local.at < CACHE_TTL_S * 1000) return local.places;
-  if (!redis) return null;
-  try {
-    return (await redis.get<RawPlace[]>(key)) ?? null;
-  } catch (err) {
-    console.warn("[Freebies] cache read failed:", err);
-    return null;
-  }
-}
-
-async function cacheSet(key: string, places: RawPlace[]): Promise<void> {
-  if (memory.size > 200) memory.clear();
-  memory.set(key, { at: Date.now(), places });
-  if (!redis) return;
-  try {
-    await redis.set(key, places, { ex: CACHE_TTL_S });
-  } catch (err) {
-    console.warn("[Freebies] cache write failed:", err);
-  }
-}
-
-const USER_AGENT = "StorageNetwork-VeteransDayPlanner/1.0 (+https://storage-network.app/veterans-day)";
-
-// ── Photon ──────────────────────────────────────────────────────────────────
-
-/** Searches in flight at once. Photon answers 503 when pushed harder. */
-const PHOTON_BATCH = 5;
-
-async function photonSearch(url: string): Promise<OsmElement[]> {
-  const res = await fetch(url, {
-    headers: { "User-Agent": USER_AGENT },
-    signal: AbortSignal.timeout(7_000),
-  });
-  if (!res.ok) throw new Error(`Photon responded ${res.status}`);
-  const json = (await res.json()) as { features?: PhotonFeature[] };
-  if (!Array.isArray(json.features)) throw new Error("Malformed Photon response");
-  return photonToElements(json.features);
-}
-
-/**
- * One Photon search per catalog brand, with one retry for searches that
- * fail. `complete` is false when some brands still couldn't be searched;
- * throws when most couldn't, so the caller falls back.
- */
-async function queryPhoton(
-  center: LatLon,
-  radiusMi: number
-): Promise<{ elements: OsmElement[]; complete: boolean }> {
-  const elements: OsmElement[] = [];
-  let lastError = "unknown error";
-
-  const run = async (urls: string[], batch: number): Promise<string[]> => {
-    const failed: string[] = [];
-    for (let i = 0; i < urls.length; i += batch) {
-      const slice = urls.slice(i, i + batch);
-      const results = await Promise.allSettled(slice.map(photonSearch));
-      results.forEach((r, j) => {
-        if (r.status === "fulfilled") elements.push(...r.value);
-        else {
-          failed.push(slice[j]);
-          lastError = r.reason instanceof Error ? r.reason.message : String(r.reason);
-        }
-      });
-      // Nothing has answered yet: the service is down, not busy. Stop asking.
-      if (failed.length === i + slice.length && failed.length >= batch * 2) {
-        failed.push(...urls.slice(i + batch));
-        break;
-      }
-    }
-    return failed;
-  };
-
-  const urls = OFFERS.map((offer) => buildPhotonUrl(offer, center, radiusMi));
-  let failed = await run(urls, PHOTON_BATCH);
-  if (failed.length === urls.length) throw new PlaceLookupError(`Photon lookup failed: ${lastError}`);
-  if (failed.length) {
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    failed = await run(failed, 3);
-  }
-  if (failed.length > urls.length / 2) throw new PlaceLookupError(`Photon lookup failed: ${lastError}`);
-  if (failed.length) {
-    console.warn(`[Freebies] Photon: ${failed.length} of ${urls.length} brand searches failed (${lastError})`);
-  }
-  return { elements, complete: failed.length === 0 };
-}
-
-// ── Overpass ────────────────────────────────────────────────────────────────
-
-// Public Overpass instances, tried in order. OVERPASS_URLS (comma-separated)
-// replaces the list, e.g. to point at a private instance.
-const OVERPASS_ENDPOINTS = process.env.OVERPASS_URLS?.split(",").map((u) => u.trim()).filter(Boolean) ?? [
-  "https://overpass-api.de/api/interpreter",
-  "https://overpass.private.coffee/api/interpreter",
-  "https://overpass.kumi.systems/api/interpreter",
-];
+/** [offerId, lat, lon, street, city, state, postcode, phoneDigits, sourceId] */
+export type LocationRow = [string, number, number, string, string, string, string, string, string];
 
 export class PlaceLookupError extends Error {
   constructor(message: string) {
@@ -212,80 +93,79 @@ export class PlaceLookupError extends Error {
   }
 }
 
-async function queryOverpass(query: string): Promise<OsmElement[]> {
-  let lastError: unknown = null;
-  for (const endpoint of OVERPASS_ENDPOINTS) {
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "User-Agent": USER_AGENT,
-        },
-        body: `data=${encodeURIComponent(query)}`,
-        signal: AbortSignal.timeout(9_000),
-      });
-      if (!res.ok) throw new Error(`${endpoint} responded ${res.status}`);
-      const json = (await res.json()) as { elements?: OsmElement[]; remark?: string };
-      // A timed-out query still answers 200, with a remark and partial data.
-      if (json.remark && /error|timed out/i.test(json.remark)) throw new Error(json.remark);
-      if (!Array.isArray(json.elements)) throw new Error("Malformed Overpass response");
-      return json.elements;
-    } catch (err) {
-      lastError = err;
-      console.warn("[Freebies] Overpass attempt failed:", err instanceof Error ? err.message : err);
+/** The 1°×1° squares a radius around the point touches, as file keys ("41_-96"). */
+export function locationFileKeys(origin: LatLon, radiusMi: number): string[] {
+  const dLat = radiusMi / 69;
+  const dLon = radiusMi / (69 * Math.max(0.2, Math.cos((origin.lat * Math.PI) / 180)));
+  const keys: string[] = [];
+  for (let lat = Math.floor(origin.lat - dLat); lat <= Math.floor(origin.lat + dLat); lat++) {
+    for (let lon = Math.floor(origin.lon - dLon); lon <= Math.floor(origin.lon + dLon); lon++) {
+      keys.push(`${lat}_${lon}`);
     }
   }
-  throw new PlaceLookupError(
-    `Location lookup failed: ${lastError instanceof Error ? lastError.message : "unknown error"}`
-  );
+  return keys;
 }
+
+/** A file row as a place, or null when it names an offer we no longer run. */
+export function rowToPlace(row: LocationRow): RawPlace | null {
+  const [offerId, lat, lon, street, city, state, rawPostcode, phone, sourceId] = row;
+  // Some chains publish ZIP+4 without the hyphen ("681143632").
+  const postcode = /^\d{9}$/.test(rawPostcode) ? rawPostcode.slice(0, 5) : rawPostcode;
+  if (!getOffer(offerId) || typeof lat !== "number" || typeof lon !== "number") return null;
+  const cityLine = [city, [state, postcode].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+  return {
+    id: `atp/${sourceId || `${lat},${lon}`}`,
+    offerId,
+    address: street ? [street, cityLine].filter(Boolean).join(", ") : null,
+    city: city || null,
+    phone: formatUsPhone(phone),
+    lat,
+    lon,
+  };
+}
+
+export type ReadLocationFile = (key: string) => Promise<LocationRow[]>;
+
+// Files only change on a deploy, so an isolate can keep what it has read.
+const fileCache = new Map<string, LocationRow[]>();
 
 /**
- * Catalog places within `radiusMi` of the starting point — the nearest few
- * of each chain, measured and signed. Throws PlaceLookupError when the map
- * service can't be reached.
+ * Reads a location file from this site's static assets: through the ASSETS
+ * binding on Cloudflare, or over HTTP from `siteUrl` elsewhere (next dev).
+ * A square with no file has no stores.
  */
-export async function findPlacesNear(origin: LatLon, radiusMi: number): Promise<Place[]> {
-  const cell = {
-    lat: Math.round(origin.lat / CELL_DEG) * CELL_DEG,
-    lon: Math.round(origin.lon / CELL_DEG) * CELL_DEG,
-  };
-  const key = `freebies:v2:${cell.lat.toFixed(2)}:${cell.lon.toFixed(2)}:${radiusMi}`;
-
-  let raw = await cacheGet(key);
-  if (!raw) {
-    const reach = radiusMi + CELL_PAD_MI;
-    let complete = true;
+export function assetFileReader(siteUrl: string): ReadLocationFile {
+  return async (key) => {
+    const cached = fileCache.get(key);
+    if (cached) return cached;
+    const url = new URL(`/freebies/locations/${key}.json`, siteUrl);
+    let res: Response | null = null;
     try {
-      const photon = await queryPhoton(cell, reach);
-      raw = parseOsmElements(photon.elements);
-      complete = photon.complete;
-    } catch (err) {
-      console.warn("[Freebies] Photon failed, trying Overpass:", err instanceof Error ? err.message : err);
-      raw = parseOsmElements(await queryOverpass(buildOverpassQuery(cell, reach * MILE_M)));
+      const { getCloudflareContext } = await import("@opennextjs/cloudflare");
+      const assets = (getCloudflareContext().env as { ASSETS?: { fetch: typeof fetch } }).ASSETS;
+      if (assets) res = await assets.fetch(url);
+    } catch {
+      // Not running on Cloudflare.
     }
-    // A partial answer is fine to show once, but not to remember.
-    if (complete) await cacheSet(key, raw);
-  }
-
-  return sign(nearestPerOffer(raw, origin, radiusMi));
+    if (!res) res = await fetch(url);
+    if (res.status === 404) {
+      fileCache.set(key, []);
+      return [];
+    }
+    if (!res.ok) throw new PlaceLookupError(`Location file ${key} → ${res.status}`);
+    const rows = (await res.json()) as LocationRow[];
+    if (fileCache.size > 400) fileCache.clear();
+    fileCache.set(key, rows);
+    return rows;
+  };
 }
 
-function sign(places: (RawPlace & { distanceMi: number })[]): Place[] {
-  return places.map((p) => {
+/** The nearest few locations of each offer within the radius, measured and signed. */
+export async function findPlacesNear(origin: LatLon, radiusMi: number, read: ReadLocationFile): Promise<Place[]> {
+  const files = await Promise.all(locationFileKeys(origin, radiusMi).map(read));
+  const places = files.flat().map(rowToPlace).filter((p): p is RawPlace => p !== null);
+  return nearestPerOffer(places, origin, radiusMi).map((p) => {
     const { distanceMi, ...fields } = p;
     return { ...fields, distanceMi, sig: signature(fields) };
   });
-}
-
-/**
- * Places from a search the visitor's browser ran (see photon-browser.ts).
- * Nothing in it is taken on trust: the results are cleaned, then put through
- * the same brand, business-type and distance checks as our own lookups.
- * Not cached — it came from outside.
- */
-export function placesFromBrowserSearch(features: unknown, origin: LatLon, radiusMi: number): Place[] {
-  const clean = sanitizePhotonFeatures(features).filter((f) => f.properties?.countrycode === "US");
-  return sign(nearestPerOffer(parseOsmElements(photonToElements(clean)), origin, radiusMi));
 }

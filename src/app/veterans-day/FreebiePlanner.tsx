@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeftRight,
   CalendarPlus,
@@ -22,8 +22,6 @@ import {
 } from "lucide-react";
 
 import { EXTRA_TYPE_LABEL, VETERANS_DAY, getOffer, type ExtraType } from "@/lib/freebies/offers";
-import { searchPlacesInBrowser } from "@/lib/freebies/photon-browser";
-import type { PhotonFeature } from "@/lib/freebies/places";
 import {
   FOOD_SLOTS,
   SLOT_RULES,
@@ -131,7 +129,6 @@ export default function FreebiePlanner() {
   const [openDetails, setOpenDetails] = useState<string | null>(null);
   const [swapping, setSwapping] = useState<string | null>(null);
   const [adding, setAdding] = useState<FoodSlot | null>(null);
-  const searchCache = useRef<{ key: string; features: PhotonFeature[] } | null>(null);
 
   // ── Change request + email ────────────────────────────────────────────────
   const [change, setChange] = useState("");
@@ -238,43 +235,11 @@ export default function FreebiePlanner() {
     return json;
   }
 
-  /**
-   * Nearby locations, searched from this device (our servers can't reach the
-   * map service reliably). Remembered per starting point and distance so a
-   * change request doesn't search again. Null means the search failed and
-   * the server should try.
-   */
-  async function nearbyFeatures(where: Record<string, unknown>): Promise<PhotonFeature[] | null> {
-    const key = JSON.stringify([where, radiusMi]);
-    if (searchCache.current?.key === key) return searchCache.current.features;
-    const center = coords ?? (await postPlan({ ...where, startMin, radiusMi, locate: true })).origin;
-    // One retry: the map service is free and shared, and a busy moment
-    // usually passes in a second or two.
-    let features = await searchPlacesInBrowser(center, radiusMi).catch(() => null);
-    if (!features) {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      features = await searchPlacesInBrowser(center, radiusMi).catch(() => null);
-    }
-    if (features) searchCache.current = { key, features };
-    return features;
-  }
-
   async function requestPlan(extra?: { request: string; current: Record<FoodSlot, string | null> }) {
-    const where = coords ? coords : { zip };
-    const features = await nearbyFeatures(where);
-    // Our servers can't reach the map services (they refuse requests from
-    // Cloudflare), so asking the server to search instead only adds 30 s of
-    // spinner before the same error.
-    if (!features) {
-      throw new Error(
-        "The map service we use to find nearby locations isn't responding right now. Please try again in a minute — the full list of offers is below in the meantime."
-      );
-    }
     return postPlan({
-      ...where,
+      ...(coords ? coords : { zip }),
       startMin,
       radiusMi,
-      features,
       ...(extra
         ? { request: extra.request, current: extra.current }
         : prefs.trim()
@@ -535,7 +500,7 @@ export default function FreebiePlanner() {
         </button>
         {loading && (
           <p className="mt-2 text-center text-xs text-stone-500">
-            Checking real locations and drive times. This usually takes 10 to 20 seconds.
+            Checking real locations and drive times. This takes a few seconds.
           </p>
         )}
         {error && (
