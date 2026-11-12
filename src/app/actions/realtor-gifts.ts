@@ -1,6 +1,7 @@
 "use server";
 
 import Stripe from "stripe";
+import { stripeConfig } from "@/lib/stripe/http";
 
 import { siteConfig } from "@/config/site";
 import { getAuthenticatedUser } from "@/lib/auth";
@@ -46,6 +47,7 @@ let _stripe: Stripe | null = null;
 function getStripe(): Stripe {
   if (_stripe) return _stripe;
   _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    ...stripeConfig(),
     apiVersion: "2025-12-15.clover",
   });
   return _stripe;

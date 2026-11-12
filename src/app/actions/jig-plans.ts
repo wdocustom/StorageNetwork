@@ -1,6 +1,7 @@
 "use server";
 
 import Stripe from "stripe";
+import { stripeConfig } from "@/lib/stripe/http";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import { siteConfig } from "@/config/site";
@@ -21,6 +22,7 @@ import { siteConfig } from "@/config/site";
 // ═══════════════════════════════════════════════════════════════════════════
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  ...stripeConfig(),
   apiVersion: "2025-12-15.clover",
 });
 

@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { getServiceClient } from "@/lib/supabase-server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import Stripe from "stripe";
+import { stripeConfig } from "@/lib/stripe/http";
 import { syncInstallerLocaleFromAccount } from "@/lib/stripe/account-locale";
 import { normalizeCountry } from "@/lib/geo/currency";
 
@@ -32,7 +33,7 @@ const supabase = getServiceClient();
 
 // Initialize Stripe only if key is present
 const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, stripeConfig())
   : null;
 
 export interface ConnectResult {

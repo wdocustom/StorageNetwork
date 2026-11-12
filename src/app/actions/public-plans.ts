@@ -1,6 +1,7 @@
 "use server";
 
 import Stripe from "stripe";
+import { stripeConfig } from "@/lib/stripe/http";
 import { getServiceClient } from "@/lib/supabase-server";
 import { getPlanById } from "@/lib/plans-config";
 import { sendPlanAccessEmail } from "@/lib/emails/plansTemplates";
@@ -8,7 +9,7 @@ import { checkPlanDevice } from "@/lib/server/plan-device";
 
 let _stripe: Stripe | null = null;
 function getStripe(): Stripe {
-  if (!_stripe) _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  if (!_stripe) _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, stripeConfig());
   return _stripe;
 }
 

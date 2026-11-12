@@ -7,6 +7,7 @@ import { getAppUrl } from "@/lib/url-helper";
 import { sendWaitlistedLeadsUnlocked, sendWaitlistedLeadPaymentReady } from "@/lib/email";
 import { getDepositAmount } from "@/app/actions/fee-engine";
 import Stripe from "stripe";
+import { stripeConfig } from "@/lib/stripe/http";
 import { roundMoney } from "@/utils/mathHelpers";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { PRO_FREE_PROMO, PRO_MONTHLY_PRICE } from "@/config/pro-pricing";
@@ -16,7 +17,7 @@ import { bookedCustomerEmails, buildFingerprint } from "@/lib/server/lead-dedupe
 const db = getServiceClient;
 
 const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, stripeConfig())
   : null;
 
 // Pro subscription price (while PRO_FREE_PROMO is on, /upgrade skips Stripe)

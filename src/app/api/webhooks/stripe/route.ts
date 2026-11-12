@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import Stripe from "stripe";
+import { stripeConfig } from "@/lib/stripe/http";
 import { summarizeDispute } from "@/lib/stripe/disputes";
 import { isCardPaymentMethod } from "@/lib/stripe/direct-charges";
 import { checkTransferEligibility } from "@/lib/stripe/cross-border";
@@ -114,7 +115,7 @@ async function recordFinalPaymentExtras(leadId: string, metadata: Stripe.Metadat
 }
 
 const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, stripeConfig())
   : null;
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;

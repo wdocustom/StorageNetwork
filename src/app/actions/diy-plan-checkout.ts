@@ -1,6 +1,7 @@
 "use server";
 
 import Stripe from "stripe";
+import { stripeConfig } from "@/lib/stripe/http";
 import { cookies } from "next/headers";
 import { siteConfig } from "@/config/site";
 import { getAuthenticatedUser } from "@/lib/auth";
@@ -43,6 +44,7 @@ import { PLAN_REF_COOKIE, cleanReferralId } from "@/lib/plan-splits";
 // ═══════════════════════════════════════════════════════════════════════════
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  ...stripeConfig(),
   apiVersion: "2025-12-15.clover",
 });
 

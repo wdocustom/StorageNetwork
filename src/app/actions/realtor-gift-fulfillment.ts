@@ -1,6 +1,7 @@
 "use server";
 
 import Stripe from "stripe";
+import { stripeConfig } from "@/lib/stripe/http";
 import zipcodes from "zipcodes";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
@@ -859,7 +860,7 @@ function getStripeForPayouts(): Stripe {
   if (_stripeForPayouts) return _stripeForPayouts;
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error("STRIPE_SECRET_KEY missing — cannot transfer installer payouts.");
-  _stripeForPayouts = new Stripe(key);
+  _stripeForPayouts = new Stripe(key, stripeConfig());
   return _stripeForPayouts;
 }
 

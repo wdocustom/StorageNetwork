@@ -2,6 +2,7 @@
 
 import { getServiceClient } from "@/lib/supabase-server";
 import Stripe from "stripe";
+import { stripeConfig } from "@/lib/stripe/http";
 import {
   sendCleanoutUpsellEmail,
   sendCleanoutUpsellInstallerAlert,
@@ -40,7 +41,7 @@ const db = getServiceClient;
 
 let _stripe: Stripe | null = null;
 function getStripe() {
-  if (!_stripe) _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2025-12-15.clover" });
+  if (!_stripe) _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { ...stripeConfig(), apiVersion: "2025-12-15.clover" });
   return _stripe;
 }
 

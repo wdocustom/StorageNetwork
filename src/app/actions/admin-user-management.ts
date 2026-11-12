@@ -2,6 +2,7 @@
 
 import { getServiceClient } from "@/lib/supabase-server";
 import Stripe from "stripe";
+import { stripeConfig } from "@/lib/stripe/http";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Admin User Management — Hard-Delete a Platform User
@@ -44,7 +45,7 @@ import Stripe from "stripe";
 // ═══════════════════════════════════════════════════════════════════════════
 
 const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, stripeConfig())
   : null;
 
 export interface UserDeletionPreflight {
