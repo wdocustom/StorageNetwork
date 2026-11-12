@@ -17,7 +17,7 @@ import { useState, useEffect } from "react";
 import type { ConfiguratorSidebarProps } from "./configurator-types";
 import { RollingPrice } from "./configurator-primitives";
 import { checkDIYPlanAccess } from "@/app/actions/diy-plan-checkout";
-import { TOTE_PLAN_SALE_ON, TOTE_PLAN_SALE_TAG, TOTE_PLAN_TIERS, designFromItems, formatPlanPrice, totePlanDesignHref, type PlanTranslation } from "@/lib/tote-plans";
+import { TOTE_PLAN_ALL_ACCESS, designFromItems, formatPlanPrice, totePlanDesignHref, type PlanTranslation } from "@/lib/tote-plans";
 import { formatCurrency } from "@/utils/paymentHelpers";
 import { useCurrency, CurrencySymbol } from "@/components/currency/CurrencyContext";
 
@@ -198,7 +198,7 @@ export function DIYPlansCTA({ props }: { props: ConfiguratorSidebarProps }) {
   const { design, skipped } = designerPlanTranslation(props);
   if (!design) return null;
 
-  const lowest = formatPlanPrice(TOTE_PLAN_TIERS.pdf.price) + (TOTE_PLAN_SALE_ON ? ` (${TOTE_PLAN_SALE_TAG.toLowerCase()})` : "");
+  const allAccess = formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price);
 
   return (
     <div className="mt-3 border-t border-zinc-800/50 pt-3">
@@ -213,7 +213,7 @@ export function DIYPlansCTA({ props }: { props: ConfiguratorSidebarProps }) {
         }`}
       >
         <Hammer className="h-3.5 w-3.5" />
-        {freeAccess ? "Get DIY Build Plans" : `Or build it yourself — DIY plans from ${lowest}`}
+        {freeAccess ? "Get DIY Build Plans" : `Or build it yourself — unlimited DIY plans, ${allAccess} lifetime`}
       </button>
       <p className="mt-1.5 text-center text-[9px] text-zinc-600">
         {freeAccess

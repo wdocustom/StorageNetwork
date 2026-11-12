@@ -35,7 +35,9 @@ describe("My Builds", () => {
       "/plans/build?token=11111111-1111-4111-8111-111111111111",
       "/plans/access?token=22222222-2222-4222-8222-222222222222",
     ]);
-    expect(res.items[0]).toMatchObject({ kind: "tote", title: "4×4 Tote Organizer", badge: "PDF Build Plan" });
+    // Past PDF buyers were upgraded to All-Access, so they can build more plans.
+    expect(res.items[0]).toMatchObject({ kind: "tote", title: "4×4 Tote Organizer", badge: "All-Access" });
+    expect(res.buildAnotherHref).toBe("/plans/checkout?member=11111111-1111-4111-8111-111111111111");
     expect(res.jigOffer).toEqual({ href: "/plans/jig?owner=11111111-1111-4111-8111-111111111111", price: 500 });
   });
 

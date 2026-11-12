@@ -13,8 +13,7 @@ import {
   MODULE_MAX_COLS,
   MODULE_MAX_ROWS,
   TOTE_PLAN_LIMITS,
-  TOTE_PLAN_TIERS,
-  TOTE_PLAN_UPGRADE_PRICE,
+  TOTE_PLAN_ALL_ACCESS,
   formatPlanPrice,
 } from "@/lib/tote-plans";
 import {
@@ -28,9 +27,8 @@ const BASE = "https://storage-network.app";
 const ORGANIZATION_ID = `${BASE}/#organization`;
 
 export const PLANS_PRICES = {
-  pdf: formatPlanPrice(TOTE_PLAN_TIERS.pdf.price),
-  interactive: formatPlanPrice(TOTE_PLAN_TIERS.interactive.price),
-  upgrade: formatPlanPrice(TOTE_PLAN_UPGRADE_PRICE),
+  /** All-Access tote plans: one payment, unlimited plans, for life */
+  allAccess: formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price),
   jig: formatPlanPrice(LADDER_JIG_PRICE),
   jigOwner: formatPlanPrice(LADDER_JIG_OWNER_PRICE),
 };
@@ -46,12 +44,12 @@ export const PLANS_FAQS: PlansFaq[] = [
     answer: `27-gallon HDX totes from Home Depot and 27-gallon Greenmade totes from Costco. Every bay is a ${BAY_OPENING_IN}" opening between 2×4 uprights, which fits both brands, and each tote hangs by its rim on a pair of 2×4 rails so it slides in and out like a drawer.`,
   },
   {
-    question: "What's the difference between the PDF plan and the interactive 3D guide?",
-    answer: `The PDF Build Plan (${PLANS_PRICES.pdf}) is a printable plan for your exact size: every assembly step rendered in 3D, a shopping list with exact quantities, board-by-board cut diagrams including the 2×4 rail rips, and a tools checklist. The Interactive Build Guide (${PLANS_PRICES.interactive}) includes the PDF plus lifetime access to the interactive 3D assembly guide our pro installers build from. You can rotate, zoom and step through it on your phone in the garage.`,
+    question: "What does All-Access include?",
+    answer: `One payment of ${PLANS_PRICES.allAccess} gets you lifetime All-Access: build plans for every tote organizer you design, not just one size. Each plan comes with the interactive 3D build guide (rotate, zoom and step through it on your phone in the garage) and a printable PDF with every assembly step, a shopping list with exact quantities, board-by-board cut diagrams including the 2×4 rail rips, and a tools checklist.`,
   },
   {
-    question: "Can I upgrade from the PDF to the interactive guide later?",
-    answer: `Yes. If you bought the PDF plan, you can upgrade to the interactive 3D guide for the ${PLANS_PRICES.upgrade} difference. The link is on your plan page.`,
+    question: "Can I make plans for more than one size?",
+    answer: `Yes, as many as you like. After your first plan, open it and tap "Build another plan": design a new size and its plan is generated at no charge. Your garage, your shed, a friend's basement: every tote organizer you design is included, for life.`,
   },
   {
     question: "How big a tote rack can I build?",
@@ -79,7 +77,7 @@ export const PLANS_FAQS: PlansFaq[] = [
   },
   {
     question: "Are these tote rack plans free?",
-    answer: `Sizing your build and previewing it in 3D is free. The plan itself is a one-time purchase of ${PLANS_PRICES.pdf} for the PDF or ${PLANS_PRICES.interactive} with the interactive guide, generated for exactly the size you designed.`,
+    answer: `Sizing your build and previewing it in 3D is free. Plans are ${PLANS_PRICES.allAccess} once, for life, with no subscription: that covers the plan for the size you designed and every tote organizer you design after it, each with the 3D guide and the PDF.`,
   },
 ];
 
@@ -113,14 +111,13 @@ export function totePlansProductJsonLd() {
     "@type": "Product",
     "@id": `${BASE}/plans#tote-organizer-plans`,
     name: "DIY Tote Rack Plans: Custom-Size Tote Organizer",
-    description: `Build plans for a 2×4 tote storage rack sized to your wall, for 27-gallon HDX and Greenmade totes. Cut list, shopping list and every assembly step in 3D. PDF ${PLANS_PRICES.pdf}, or ${PLANS_PRICES.interactive} with the interactive 3D build guide.`,
+    description: `Build plans for 2×4 tote storage racks sized to your wall, for 27-gallon HDX and Greenmade totes. Cut list, shopping list and every assembly step in 3D, with the interactive 3D build guide and a printable PDF. ${PLANS_PRICES.allAccess} once for unlimited plans: every size you design, for life.`,
     image: [`${BASE}/hero-rack.webp`],
     category: "DIY Woodworking Plans",
     brand: { "@id": ORGANIZATION_ID },
     url: `${BASE}/plans`,
     offers: [
-      offer(TOTE_PLAN_TIERS.pdf.name, TOTE_PLAN_TIERS.pdf.price, `${BASE}/plans/checkout`),
-      offer(TOTE_PLAN_TIERS.interactive.name, TOTE_PLAN_TIERS.interactive.price, `${BASE}/plans/checkout`),
+      offer(TOTE_PLAN_ALL_ACCESS.name, TOTE_PLAN_ALL_ACCESS.price, `${BASE}/plans/checkout`),
     ],
   };
 }

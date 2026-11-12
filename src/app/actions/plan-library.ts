@@ -7,6 +7,10 @@
 // them. Any valid token unlocks the library of purchases made with the same
 // email, and each item opens with ITS OWN token — so access is exactly what
 // was bought, nothing more.
+//
+// All-Access: owning any tote plan means unlimited tote plans, so the
+// library offers "Build another plan" (buildAnotherHref) and marks free
+// plans "Included".
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { getServiceClient } from "@/lib/supabase-server";
@@ -14,7 +18,6 @@ import { checkPlanDevice } from "@/lib/server/plan-device";
 import { getPlanById } from "@/lib/plans-config";
 import {
   TOTE_PLAN_ID,
-  TOTE_PLAN_TIERS,
   isTotePlanTier,
   parseTotePlanDesign,
   totePlanName,
@@ -41,6 +44,8 @@ export type LibraryResult =
       items: LibraryItem[];
       /** Shown when they own a tote plan but not the jig */
       jigOffer?: { href: string; price: number };
+      /** All-Access owners: the designer in "included" mode */
+      buildAnotherHref?: string;
     }
   | { ok: false; error: string; verify?: { token: string; emailHint: string } };
 
@@ -57,6 +62,7 @@ interface Row {
   tier: string | null;
   build_config: unknown;
   purchased_at: string;
+  included_from: string | null;
 }
 
 export async function listMyPlans(token: string): Promise<LibraryResult> {
@@ -80,7 +86,7 @@ export async function listMyPlans(token: string): Promise<LibraryResult> {
 
     const { data: rows } = await db
       .from("public_plan_purchases")
-      .select("access_token, email, plan_id, tier, build_config, purchased_at")
+      .select("access_token, email, plan_id, tier, build_config, purchased_at, included_from")
       .eq("email", me.email)
       .order("purchased_at", { ascending: false });
 
@@ -97,7 +103,7 @@ export async function listMyPlans(token: string): Promise<LibraryResult> {
           kind: "tote",
           title: totePlanName(design),
           subtitle: totePlanSummary(design),
-          badge: TOTE_PLAN_TIERS[row.tier].name,
+          badge: row.included_from ? "Included" : "All-Access",
           purchasedAt: row.purchased_at,
           href: `/plans/build?token=${row.access_token}`,
         });
@@ -132,6 +138,7 @@ export async function listMyPlans(token: string): Promise<LibraryResult> {
       ...(firstToteToken && !ownsJig
         ? { jigOffer: { href: `/plans/jig?owner=${firstToteToken}`, price: LADDER_JIG_OWNER_PRICE } }
         : {}),
+      ...(firstToteToken ? { buildAnotherHref: `/plans/checkout?member=${firstToteToken}` } : {}),
     };
   } catch (err) {
     console.error("[PlanLibrary]", err);

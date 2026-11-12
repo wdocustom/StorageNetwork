@@ -12,7 +12,13 @@
 // ladder jig is priced from whether the buyer owned a tote plan (owner price).
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { TOTE_PLAN_TIERS, TOTE_PLAN_UPGRADE_PRICE, totePlanPricePaid } from "@/lib/tote-plans";
+import {
+  TOTE_PLAN_ALL_ACCESS,
+  TOTE_PLAN_ALL_ACCESS_SINCE,
+  TOTE_PLAN_TIERS,
+  TOTE_PLAN_UPGRADE_PRICE,
+  totePlanPricePaid,
+} from "@/lib/tote-plans";
 import { getPlanById } from "@/lib/plans-config";
 import { LADDER_JIG_OWNER_PRICE, LADDER_JIG_PLAN_ID, LADDER_JIG_PRICE } from "@/lib/ladder-jig";
 
@@ -146,8 +152,11 @@ export function plansPageKind(path: string): PlansPageKind {
 }
 
 /** Human-readable plan name for a purchase row. */
-export function planLabel(row: Pick<PlansPurchaseRow, "plan_id" | "tier" | "upgraded_at">): string {
+export function planLabel(
+  row: Pick<PlansPurchaseRow, "plan_id" | "tier" | "upgraded_at"> & { purchased_at?: string }
+): string {
   if (row.plan_id === "tote-organizer") {
+    if (row.purchased_at && row.purchased_at >= TOTE_PLAN_ALL_ACCESS_SINCE) return `Tote plan — ${TOTE_PLAN_ALL_ACCESS.name}`;
     const tier = row.tier === "interactive" ? TOTE_PLAN_TIERS.interactive.name : TOTE_PLAN_TIERS.pdf.name;
     return `Tote plan — ${tier}${row.upgraded_at ? " (upgraded)" : ""}`;
   }

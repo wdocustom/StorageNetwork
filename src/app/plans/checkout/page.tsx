@@ -19,7 +19,7 @@ import { useSearchParams } from "next/navigation";
 import { useState, useMemo, useEffect, useCallback, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Box, CheckCircle, Crown, FileText, Layers, Loader2, Plus, Ruler, Trash2 } from "lucide-react";
+import { Crown, Layers, Loader2, Plus, Ruler, Trash2 } from "lucide-react";
 import { createDIYPlanCheckout, checkDIYPlanAccess } from "@/app/actions/diy-plan-checkout";
 import { toFraction } from "@/lib/utils";
 import SystemMap from "@/components/plans/SystemMap";
@@ -28,6 +28,8 @@ import PlanRack3D from "@/components/plans/PlanRack3D";
 import MaterialCostCard from "@/components/plans/MaterialCostCard";
 import BuildItForMe from "@/components/plans/BuildItForMe";
 import EmbeddedCheckoutPanel from "@/components/payments/EmbeddedCheckoutPanel";
+import { AllAccessOffer, IncludedPlanCard } from "@/components/plans/AllAccessOffer";
+import { checkAllAccess, createIncludedPlan } from "@/app/actions/tote-plan-access";
 import { PlanSampleLightbox, PlanSampleThumb } from "@/components/plans/PlanSample";
 import { BestsellersButton, BestsellersLightbox } from "@/components/plans/PlanBestsellers";
 import { PLAN_REF_COOKIE, cleanReferralId } from "@/lib/plan-splits";
@@ -35,15 +37,11 @@ import {
   DEFAULT_TOTE_PLAN_DESIGN,
   DEFAULT_TOTE_PLAN_UNIT,
   TOTE_PLAN_LIMITS,
-  TOTE_PLAN_SALE_ON,
-  TOTE_PLAN_SALE_TAG,
-  TOTE_PLAN_TIERS,
   designFromSearchParams,
   designModules,
   designOuterSize,
   encodeTotePlanDesign,
   fitTotePlanToWall,
-  formatPlanPrice,
   normalizeBestsellers,
   splitHeight,
   splitWidth,
@@ -55,10 +53,8 @@ import {
   type TotePlanUnit,
   unitLetter,
 } from "@/lib/tote-plans";
-import PlanPrice from "@/components/plans/PlanPrice";
 
 
-const TIER_ICONS: Record<TotePlanTier, typeof Box> = { pdf: FileText, interactive: Box };
 
 // ── Controls ─────────────────────────────────────────────────────────────
 
@@ -141,6 +137,9 @@ function moduleNote(unit: TotePlanUnit): string | null {
   return `Built as ${parts.join(" and ")} so every part fits an 8' board. Your plan walks you through each module.`;
 }
 
+/** This device's All-Access plan link, once the buyer has used it here. */
+const MEMBER_KEY = "sn_plan_member";
+
 // ── Page ─────────────────────────────────────────────────────────────────
 
 function PlansDesigner() {
@@ -150,9 +149,12 @@ function PlansDesigner() {
   );
   const [selected, setSelected] = useState(0);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [loadingTier, setLoadingTier] = useState<TotePlanTier | null>(null);
+  const [buying, setBuying] = useState(false);
   // Open checkout panel: Stripe's form, embedded in this page.
-  const [checkout, setCheckout] = useState<{ tier: TotePlanTier; clientSecret: string } | null>(null);
+  const [checkout, setCheckout] = useState<{ clientSecret: string } | null>(null);
+  // All-Access owner: their plan link (from ?member= or this device), checked server-side.
+  const [member, setMember] = useState<{ token: string; emailHint: string } | null>(null);
+  const [memberNote, setMemberNote] = useState<{ text: string; href?: string } | null>(null);
   const [sampleTier, setSampleTier] = useState<TotePlanTier | null>(null);
   const [error, setError] = useState("");
   const [freeAccess, setFreeAccess] = useState<{ hasFreeAccess: boolean; reason?: "pro" | "admin" } | null>(null);
@@ -165,6 +167,38 @@ function PlansDesigner() {
 
   useEffect(() => {
     checkDIYPlanAccess().then(setFreeAccess);
+  }, []);
+
+  // "Build another plan" links carry the buyer's plan link as ?member=; this
+  // device remembers it so the designer keeps showing "included".
+  useEffect(() => {
+    let token = searchParams.get("member");
+    try {
+      if (token) localStorage.setItem(MEMBER_KEY, token);
+      else token = localStorage.getItem(MEMBER_KEY);
+    } catch {
+      /* storage blocked */
+    }
+    if (!token) return;
+    const memberToken = token;
+    checkAllAccess(memberToken).then((res) => {
+      if (res.ok) {
+        setMember({ token: memberToken, emailHint: res.emailHint });
+      } else if (res.verify) {
+        setMemberNote({
+          text: "Confirm it's you on this device to use your included plans.",
+          href: `/plans/library?token=${res.verify.token}`,
+        });
+      } else {
+        try {
+          localStorage.removeItem(MEMBER_KEY);
+        } catch {
+          /* storage blocked */
+        }
+      }
+    });
+    // Read once on load; the URL is rewritten as the design changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Browsers cap cookie lifetimes (Chrome: 400 days), so every visit renews
@@ -219,8 +253,8 @@ function PlansDesigner() {
 
   const closeCheckout = useCallback(() => setCheckout(null), []);
 
-  const handleBuy = async (tier: TotePlanTier) => {
-    setLoadingTier(tier);
+  const handleBuy = async () => {
+    setBuying(true);
     setError("");
     let visitorId: string | null = null;
     try {
@@ -228,12 +262,30 @@ function PlansDesigner() {
     } catch {
       /* storage blocked — the click still counts, just not per person */
     }
-    const result = await createDIYPlanCheckout(design, tier, source, ref, visitorId);
-    setLoadingTier(null);
+    const result = await createDIYPlanCheckout(design, source, ref, visitorId);
+    setBuying(false);
     if (result.success && result.clientSecret) {
-      setCheckout({ tier, clientSecret: result.clientSecret });
+      setCheckout({ clientSecret: result.clientSecret });
     } else {
       setError(result.error || "Something went wrong. Please try again.");
+    }
+  };
+
+  // All-Access owners: generate this design's plan at no charge and open it.
+  const handleIncluded = async () => {
+    if (!member) return;
+    setBuying(true);
+    setError("");
+    const result = await createIncludedPlan(member.token, design);
+    if (result.ok) {
+      window.location.href = `/plans/build?token=${result.token}`;
+      return;
+    }
+    setBuying(false);
+    if (result.verify) {
+      setMemberNote({ text: result.error, href: `/plans/library?token=${result.verify.token}` });
+    } else {
+      setError(result.error);
     }
   };
 
@@ -400,7 +452,7 @@ function PlansDesigner() {
               <Crown className="h-4 w-4" />
               {freeAccess?.reason === "admin" ? "Admin access" : "Included with Pro"}
             </div>
-            <p className="mb-4 text-xs text-stone-400">PDF plan and the interactive build guide, no charge.</p>
+            <p className="mb-4 text-xs text-stone-400">Every plan, with the PDF and the interactive build guide, no charge.</p>
             <Link
               href={`/plans/build?access=pro&design=${encodeTotePlanDesign(design)}${design.name ? `&name=${encodeURIComponent(design.name)}` : ""}`}
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-emerald-500"
@@ -408,62 +460,21 @@ function PlansDesigner() {
               Open My Build Plan
             </Link>
           </div>
+        ) : member ? (
+          <IncludedPlanCard emailHint={member.emailHint} loading={buying} onGenerate={handleIncluded} />
         ) : (
           <>
-          {TOTE_PLAN_SALE_ON && (
-            <p className="mb-3 flex items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-center text-xs font-bold text-red-300">
-              <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">Sale</span>
-              {TOTE_PLAN_SALE_TAG.replace(" OFF", " off")} either plan — limited time, already applied at checkout
-            </p>
-          )}
-          <div className="grid gap-4 sm:grid-cols-2">
-            {(["interactive", "pdf"] as const).map((id) => {
-              const tier = TOTE_PLAN_TIERS[id];
-              const Icon = TIER_ICONS[id];
-              const featured = id === "interactive";
-              return (
-                <div
-                  key={id}
-                  className={`relative flex flex-col overflow-hidden rounded-2xl border bg-slate-900 p-5 ${
-                    featured ? "border-yellow-400/40" : "border-slate-800"
-                  }`}
-                >
-                  {featured && <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-400 to-yellow-500" />}
-                  <div className="mb-1 flex items-center gap-2">
-                    <Icon className={`h-4 w-4 ${featured ? "text-yellow-400" : "text-stone-400"}`} />
-                    <h3 className="text-sm font-bold text-white">{tier.name}</h3>
-                    <PlanPrice tier={tier} className="ml-auto justify-end" />
-                  </div>
-                  <p className="mb-3 text-xs text-stone-500">{tier.tagline}</p>
-                  <PlanSampleThumb tier={id} onOpen={() => setSampleTier(id)} />
-                  <ul className="mb-5 flex-1 space-y-2">
-                    {tier.includes.map((item) => (
-                      <li key={item} className="flex items-start gap-2 text-xs text-stone-300">
-                        <CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                  <button
-                    onClick={() => handleBuy(id)}
-                    disabled={loadingTier !== null}
-                    className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-black uppercase tracking-wider transition disabled:opacity-60 ${
-                      featured
-                        ? "bg-gradient-to-r from-amber-400 to-yellow-500 text-gray-950 hover:from-amber-300 hover:to-yellow-400"
-                        : "border border-slate-700 text-white hover:bg-slate-800"
-                    }`}
-                  >
-                    {loadingTier === id && <Loader2 className="h-4 w-4 animate-spin" />}
-                    {loadingTier === id
-                      ? "Opening checkout…"
-                      : `Get ${featured ? "the Guide" : "the PDF"} — ${formatPlanPrice(tier.price)}${
-                          tier.listPrice > tier.price ? ` · Save ${formatPlanPrice(tier.listPrice - tier.price)}` : ""
-                        }`}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+            {memberNote && (
+              <p className="mb-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">
+                {memberNote.text}{" "}
+                {memberNote.href && (
+                  <a href={memberNote.href} className="font-bold underline">
+                    Confirm now
+                  </a>
+                )}
+              </p>
+            )}
+            <AllAccessOffer loading={buying} onBuy={handleBuy} onSample={setSampleTier} />
           </>
         )}
         </div>
@@ -481,8 +492,8 @@ function PlansDesigner() {
         />
 
         <p className="pb-4 text-center text-[11px] text-stone-600">
-          One price for your whole design, any size. One-time purchase — we email you a permanent link, no account needed.
-          Start with the PDF and you can upgrade to the interactive guide later for {formatPlanPrice(TOTE_PLAN_TIERS.interactive.price - TOTE_PLAN_TIERS.pdf.price)}.
+          One price, every design: All-Access covers this plan and every tote organizer you design after it, for life.
+          Already own it? Open any of your plans and tap &ldquo;Build another plan&rdquo;.
         </p>
       </div>
     </main>

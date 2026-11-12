@@ -5,19 +5,20 @@
 //
 //   /plans/build?session_id=…   first visit from Stripe (verified server-side)
 //   /plans/build?token=…        permanent link from the purchase email
-//     &upgrade=1                from the PDF's back page — starts the upgrade
 //     &guide=1                  from the PDF's back page — opens the 3D guide
+//     &upgrade=1                old PDFs' "upgrade" link — opens the guide too
 //   /plans/build?access=pro&design=…   Pro installers / admins
 //
 // Delivers both products:
 //   • Printable PDF — every step of every module type rendered offscreen,
 //     then jsPDF
 //   • Interactive 3D Build Guide — module by module, with a live map of the
-//     system (PDF-tier buyers see an upgrade for the price difference)
+//     system
+// …and, for buyers, "Build another plan": All-Access covers every tote
+// organizer they design, so it opens the designer in "included" mode.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import EmbeddedCheckoutPanel from "@/components/payments/EmbeddedCheckoutPanel";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -33,22 +34,22 @@ import {
   Mail,
   FileText,
   Loader2,
-  Lock,
   Play,
+  Plus,
+  Infinity as InfinityIcon,
   ShoppingCart,
   Wrench,
 } from "lucide-react";
 import Link from "next/link";
+import { BuildForALiving } from "@/components/plans/AllAccessOffer";
 import { LADDER_JIG_OWNER_PRICE } from "@/lib/ladder-jig";
 import {
   openTotePlan,
-  createTotePlanUpgradeCheckout,
   type OpenTotePlanInput,
   type OpenTotePlanResult,
 } from "@/app/actions/tote-plan-access";
 import {
-  TOTE_PLAN_TIERS,
-  TOTE_PLAN_UPGRADE_PRICE,
+  TOTE_PLAN_ALL_ACCESS,
   designFromSearchParams,
   formatPlanPrice,
   planSnapshotKey,
@@ -167,9 +168,8 @@ function PdfCard({ data }: { data: Ready }) {
         const origin = window.location.origin;
         const links = data.token
           ? {
-              ...(data.tier === "pdf"
-                ? { upgradeUrl: `${origin}/plans/build?token=${data.token}&upgrade=1` }
-                : { guideUrl: `${origin}/plans/build?token=${data.token}&guide=1` }),
+              guideUrl: `${origin}/plans/build?token=${data.token}&guide=1`,
+              buildAnotherUrl: `${origin}/plans/checkout?member=${data.token}`,
               libraryUrl: `${origin}${libraryHref(data.token)}`,
               ...(data.jig ? { jigUrl: `${origin}${data.jig.href}`, jigOwned: data.jig.owned } : {}),
             }
@@ -268,88 +268,57 @@ function PdfCard({ data }: { data: Ready }) {
 
 // ── Interactive guide card ───────────────────────────────────────────────
 
-function GuideCard({
-  data,
-  onLaunch,
-  autoUpgrade,
-}: {
-  data: Ready;
-  onLaunch: () => void;
-  autoUpgrade: boolean;
-}) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const autoStarted = useRef(false);
-
-  const upgrade = useCallback(async () => {
-    if (!data.token) return;
-    setLoading(true);
-    setError("");
-    const result = await createTotePlanUpgradeCheckout(data.token);
-    setLoading(false);
-    if (result.success && result.clientSecret) setClientSecret(result.clientSecret);
-    else setError(result.error ?? "Something went wrong.");
-  }, [data.token]);
-  const closeCheckout = useCallback(() => setClientSecret(null), []);
-
-  // "Upgrade my plan" on the PDF's back page lands here with &upgrade=1.
-  useEffect(() => {
-    if (autoUpgrade && data.tier === "pdf" && !autoStarted.current) {
-      autoStarted.current = true;
-      upgrade();
-    }
-  }, [autoUpgrade, data.tier, upgrade]);
-
-  if (data.tier === "interactive") {
-    return (
-      <div className="relative overflow-hidden rounded-2xl border border-yellow-400/30 bg-slate-900 p-5">
-        <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-yellow-400/10 blur-3xl" />
-        <div className="mb-3 flex items-center gap-2">
-          <Box className="h-4 w-4 text-yellow-400" />
-          <h2 className="text-sm font-bold text-white">Interactive 3D Build Guide</h2>
-        </div>
-        <p className="mb-4 text-xs text-stone-400">
-          {data.plan.moduleCount > 1
-            ? "Builds one module at a time — a live map shows which module you're on and where it goes."
-            : "Step through the build in 3D. Rotate and zoom, hover any part for its exact size."}{" "}
-          Prop your phone up in the garage and go.
-        </p>
-        <button
-          onClick={onLaunch}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 py-3 text-sm font-black uppercase tracking-wider text-gray-950 transition hover:from-amber-300 hover:to-yellow-400"
-        >
-          <Play className="h-4 w-4" />
-          Launch Build Guide
-        </button>
-      </div>
-    );
-  }
-
+function GuideCard({ data, onLaunch }: { data: Ready; onLaunch: () => void }) {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/60 p-5">
-      {clientSecret && <EmbeddedCheckoutPanel clientSecret={clientSecret} onClose={closeCheckout} />}
+    <div className="relative overflow-hidden rounded-2xl border border-yellow-400/30 bg-slate-900 p-5">
+      <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-yellow-400/10 blur-3xl" />
       <div className="mb-3 flex items-center gap-2">
-        <Lock className="h-4 w-4 text-stone-500" />
+        <Box className="h-4 w-4 text-yellow-400" />
         <h2 className="text-sm font-bold text-white">Interactive 3D Build Guide</h2>
       </div>
-      <ul className="mb-4 space-y-1.5">
-        {TOTE_PLAN_TIERS.interactive.includes.slice(1).map((item) => (
-          <li key={item} className="flex items-start gap-2 text-xs text-stone-400">
-            <CheckCircle className="mt-0.5 h-3 w-3 shrink-0 text-emerald-400" />
-            {item}
-          </li>
-        ))}
-      </ul>
-      {error && <p className="mb-2 text-xs font-medium text-red-400">{error}</p>}
+      <p className="mb-4 text-xs text-stone-400">
+        {data.plan.moduleCount > 1
+          ? "Builds one module at a time — a live map shows which module you're on and where it goes."
+          : "Step through the build in 3D. Rotate and zoom, hover any part for its exact size."}{" "}
+        Prop your phone up in the garage and go.
+      </p>
       <button
-        onClick={upgrade}
-        disabled={loading || !data.token}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-yellow-400/40 py-3 text-sm font-bold text-yellow-400 transition hover:bg-yellow-400/10 disabled:opacity-60"
+        onClick={onLaunch}
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 py-3 text-sm font-black uppercase tracking-wider text-gray-950 transition hover:from-amber-300 hover:to-yellow-400"
       >
-        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Box className="h-4 w-4" />}
-        {loading ? "Opening checkout…" : `Upgrade for ${formatPlanPrice(TOTE_PLAN_UPGRADE_PRICE)}`}
+        <Play className="h-4 w-4" />
+        Launch Build Guide
       </button>
+    </div>
+  );
+}
+
+// ── Build another (All-Access) ───────────────────────────────────────────
+
+function BuildAnotherCard({ token }: { token: string }) {
+  return (
+    <div className="flex flex-col gap-4 rounded-2xl border border-emerald-500/40 bg-emerald-500/5 p-5 sm:flex-row sm:items-center">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10">
+        <InfinityIcon className="h-6 w-6 text-emerald-400" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-base font-black text-white">Build another? It&apos;s included.</p>
+        <p className="mt-0.5 text-sm text-stone-400">
+          All-Access covers every tote organizer you design, for life. Pick a new size and get its plan, 3D guide
+          and PDF, free.
+        </p>
+      </div>
+      <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+        <Link
+          href={`/plans/checkout?member=${token}`}
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black uppercase tracking-wider text-white transition hover:bg-emerald-500"
+        >
+          <Plus className="h-4 w-4" /> Build another plan
+        </Link>
+        <Link href={libraryHref(token)} className="text-center text-xs font-semibold text-emerald-300 hover:underline">
+          All my plans
+        </Link>
+      </div>
     </div>
   );
 }
@@ -415,7 +384,6 @@ function BuildPlanInner() {
   const router = useRouter();
   const [result, setResult] = useState<OpenTotePlanResult | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
-  const [autoUpgrade, setAutoUpgrade] = useState(false);
   const started = useRef(false);
   /** What to re-open with after the device is verified (keeps an upgrade session). */
   const reopenRef = useRef<OpenTotePlanInput | null>(null);
@@ -427,8 +395,9 @@ function BuildPlanInner() {
     const token = searchParams.get("token");
     const sessionId = searchParams.get("session_id");
     const upgradeSessionId = searchParams.get("upgrade_session_id") ?? undefined;
+    // Old PDFs link "upgrade=1": everyone has the guide now, so open it.
     const wantsUpgrade = searchParams.get("upgrade") === "1";
-    const wantsGuide = searchParams.get("guide") === "1";
+    const wantsGuide = searchParams.get("guide") === "1" || wantsUpgrade;
 
     let input: OpenTotePlanInput | null = null;
     if (token) input = { token, upgradeSessionId };
@@ -448,7 +417,6 @@ function BuildPlanInner() {
       // New device: the verify screen re-opens with the token itself.
       if (!res.ok && res.verify && sessionId) router.replace(`/plans/build?token=${res.verify.token}`);
       if (!res.ok) return;
-      if (wantsUpgrade) setAutoUpgrade(true);
       if (wantsGuide && res.tier === "interactive") setGuideOpen(true);
       // Swap one-time params for the permanent link.
       if (res.token && (sessionId || upgradeSessionId || wantsUpgrade || wantsGuide)) {
@@ -522,7 +490,7 @@ function BuildPlanInner() {
           </a>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-sm font-bold text-white">{plan.name}</h1>
-            <p className="text-[10px] text-stone-500">{TOTE_PLAN_TIERS[result.tier].name}</p>
+            <p className="text-[10px] text-stone-500">{result.access === "purchase" ? TOTE_PLAN_ALL_ACCESS.name : "3D guide + PDF"}</p>
           </div>
           {result.access !== "purchase" && (
             <span className="flex items-center gap-1 rounded-full bg-emerald-400/10 px-3 py-1 text-[10px] font-semibold text-emerald-400">
@@ -581,7 +549,7 @@ function BuildPlanInner() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <GuideCard data={result} onLaunch={() => setGuideOpen(true)} autoUpgrade={autoUpgrade} />
+          <GuideCard data={result} onLaunch={() => setGuideOpen(true)} />
           <PdfCard data={result} />
         </div>
 
@@ -607,7 +575,11 @@ function BuildPlanInner() {
           </Link>
         )}
 
+        {result.access === "purchase" && result.token && <BuildAnotherCard token={result.token} />}
+
         <Checklists data={result} />
+
+        {result.access === "purchase" && <BuildForALiving />}
 
         {result.token && (
           <p className="text-center text-[11px] text-stone-600">

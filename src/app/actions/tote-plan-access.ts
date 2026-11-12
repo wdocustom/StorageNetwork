@@ -17,12 +17,16 @@
 // The design is always read from Stripe metadata or the purchase row,
 // never trusted from the URL, and the full plan (shopping list, cut plan,
 // steps) is only generated after access is established.
+//
+// All-Access (since Nov 12, 2026): every tote purchase opens with the full
+// plan (3D guide + PDF), whatever tier the row records, and its link lets
+// the buyer generate plans for more designs at no charge
+// (createIncludedPlan). Those plans are rows of their own, with
+// included_from pointing at the paid purchase.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import Stripe from "stripe";
 import { stripeConfig } from "@/lib/stripe/http";
-import { createEmbeddedCheckoutSession } from "@/lib/stripe/embedded-checkout";
-import { siteConfig } from "@/config/site";
 import { getServiceClient } from "@/lib/supabase-server";
 import { generateDIYPlan, type CompleteDIYPlan } from "@/app/actions/generate-plan";
 import { checkDIYPlanAccess } from "@/app/actions/diy-plan-checkout";
@@ -34,13 +38,13 @@ import {
 } from "@/lib/server/action-rate-limit";
 import { LADDER_JIG_PLAN_ID, ladderJigHref } from "@/lib/ladder-jig";
 import {
+  TOTE_PLAN_ALL_ACCESS_TIER,
   TOTE_PLAN_ID,
-  TOTE_PLAN_UPGRADE_PRICE,
   TOTE_PLAN_LIMITS,
   decodeTotePlanDesign,
+  encodeTotePlanDesign,
   isTotePlanTier,
   parseTotePlanDesign,
-  totePlanName,
   type TotePlanDesign,
   type TotePlanTier,
 } from "@/lib/tote-plans";
@@ -90,9 +94,11 @@ interface PurchaseRow {
   build_config: unknown;
   plan_id: string;
   customer_name: string | null;
+  /** All-Access: the paid purchase this free plan was built under */
+  included_from: string | null;
 }
 
-const PURCHASE_COLUMNS = "access_token, email, tier, build_config, plan_id, customer_name";
+const PURCHASE_COLUMNS = "access_token, email, tier, build_config, plan_id, customer_name, included_from";
 
 /** "Skyler Camacho" → "Skyler"; null when there's nothing usable. */
 function firstNameOf(name: string | null | undefined): string | undefined {
@@ -120,7 +126,9 @@ async function buildResult(
     .maybeSingle();
   return {
     ok: true,
-    tier: row.tier,
+    // All-Access: every tote plan opens with the 3D guide and the PDF,
+    // including ones bought as "pdf" before Nov 12, 2026.
+    tier: TOTE_PLAN_ALL_ACCESS_TIER,
     design,
     plan,
     token: row.access_token,
@@ -265,11 +273,9 @@ async function openFromToken(token: string, upgradeSessionId?: string): Promise<
   const device = await checkPlanDevice(row.email);
   if (!device.ok) return needsCode(row, device.emailHint);
 
-  if (upgradeSessionId && row.tier === "pdf") {
-    await applyUpgrade(row, upgradeSessionId);
-    const refreshed = await findByToken(token);
-    if (refreshed) return buildResult(refreshed);
-  }
+  // A PDF → guide upgrade paid before All-Access: record it (the plan
+  // opens with full access either way).
+  if (upgradeSessionId && row.tier === "pdf") await applyUpgrade(row, upgradeSessionId);
   return buildResult(row);
 }
 
@@ -313,65 +319,118 @@ async function applyUpgrade(row: PurchaseRow, upgradeSessionId: string): Promise
   if (error) console.error("[TotePlanAccess] Upgrade update failed:", error);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// All-Access: more plans, included
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type AllAccessResult =
+  | { ok: true; emailHint: string }
+  | { ok: false; error: string; verify?: { token: string; emailHint: string } };
+
+function maskEmail(email: string): string {
+  const [user, domain] = email.split("@");
+  return domain ? `${user.slice(0, 2)}•••@${domain}` : "your email";
+}
+
+/** The tote purchase behind an access link, if it unlocks All-Access on this device. */
+async function allAccessRow(
+  token: string
+): Promise<{ row: PurchaseRow } | { error: string; verify?: { token: string; emailHint: string } }> {
+  const row = await findByToken(token);
+  if (!row || row.plan_id !== TOTE_PLAN_ID) return { error: "This link isn't for a tote organizer plan." };
+  const device = await checkPlanDevice(row.email);
+  if (!device.ok) {
+    return {
+      error: "Confirm it's you to use your plans on this device.",
+      verify: { token: row.access_token, emailHint: device.emailHint },
+    };
+  }
+  return { row };
+}
+
+/** Does this link unlock free plans? (The designer asks before showing "Generate — included".) */
+export async function checkAllAccess(token: string): Promise<AllAccessResult> {
+  try {
+    const found = await allAccessRow(token);
+    if ("error" in found) return { ok: false, ...found };
+    return { ok: true, emailHint: maskEmail(found.row.email) };
+  } catch (err) {
+    console.error("[TotePlanAccess] checkAllAccess:", err);
+    return { ok: false, error: "We couldn't check your plans. Please try again." };
+  }
+}
+
+export type IncludedPlanResult =
+  | { ok: true; token: string }
+  | { ok: false; error: string; verify?: { token: string; emailHint: string } };
+
 /**
- * Checkout for moving a PDF purchase up to the Interactive Build Guide.
- * Charges the price difference; the upgrade is applied when Stripe sends
- * the buyer back to their /plans/build link.
+ * "Build another plan": a plan for a new design, at no charge, for anyone
+ * whose link is a tote plan purchase. The new plan is its own row (own
+ * access link, same email), so it shows up in My Builds and opens like any
+ * other. Asking twice for the same design returns the plan already made.
  */
-export async function createTotePlanUpgradeCheckout(
-  token: string,
-): Promise<{ success: boolean; clientSecret?: string; error?: string }> {
+export async function createIncludedPlan(token: string, rawDesign: unknown): Promise<IncludedPlanResult> {
   try {
     await enforceActionRateLimit({
-      action: "tote-plan-upgrade-checkout",
-      limit: 10,
-      window: "60 s",
+      action: "tote-plan-included",
+      limit: 30,
+      window: "1 h",
       identify: "user-or-ip",
     });
   } catch (err) {
-    if (err instanceof RateLimitError) return { success: false, error: err.message };
+    if (err instanceof RateLimitError) return { ok: false, error: err.message };
     throw err;
   }
 
-  const row = await findByToken(token);
-  const design = row ? parseTotePlanDesign(row.build_config) : null;
-  if (!row || !design || row.plan_id !== TOTE_PLAN_ID) {
-    return { success: false, error: "We couldn't find that purchase." };
-  }
-  if (row.tier === "interactive") {
-    return { success: false, error: "You already have the Interactive Build Guide." };
-  }
-
   try {
-    const baseUrl = siteConfig.baseUrl;
-    const session = await createEmbeddedCheckoutSession(getStripe(), {
-      mode: "payment",
-      customer_email: row.email,
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: `Upgrade to Interactive Build Guide — ${totePlanName(design)}`,
-              description: "Interactive 3D assembly guide for the plan you already own.",
-            },
-            unit_amount: TOTE_PLAN_UPGRADE_PRICE,
-          },
-          quantity: 1,
-        },
-      ],
-      success_url: `${baseUrl}/plans/build?token=${row.access_token}&upgrade_session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/plans/build?token=${row.access_token}`,
-      metadata: {
-        type: "diy_plan_upgrade",
+    const design = parseTotePlanDesign(rawDesign);
+    if (!design) {
+      return {
+        ok: false,
+        error: `Plans cover up to ${TOTE_PLAN_LIMITS.maxUnits} standard tote units, each up to ${TOTE_PLAN_LIMITS.maxCols} wide × ${TOTE_PLAN_LIMITS.maxRows} tall.`,
+      };
+    }
+    const found = await allAccessRow(token);
+    if ("error" in found) return { ok: false, ...found };
+    const { row } = found;
+    const db = getServiceClient();
+
+    // Same design already in their plans? Open that one.
+    const wanted = encodeTotePlanDesign(design);
+    const { data: owned } = await db
+      .from("public_plan_purchases")
+      .select("access_token, build_config")
+      .eq("email", row.email)
+      .eq("plan_id", TOTE_PLAN_ID);
+    for (const o of (owned ?? []) as { access_token: string; build_config: unknown }[]) {
+      const d = parseTotePlanDesign(o.build_config);
+      if (d && encodeTotePlanDesign(d) === wanted) return { ok: true, token: o.access_token };
+    }
+
+    const { data: inserted, error } = await db
+      .from("public_plan_purchases")
+      .insert({
+        email: row.email,
         plan_id: TOTE_PLAN_ID,
-        access_token: row.access_token,
-      },
-    });
-    if (!session.client_secret) return { success: false, error: "Failed to create checkout session." };
-    return { success: true, clientSecret: session.client_secret };
+        tier: TOTE_PLAN_ALL_ACCESS_TIER,
+        build_config: design,
+        // NOT NULL and unique; included plans have no Stripe session.
+        stripe_session_id: `included_${crypto.randomUUID()}`,
+        customer_name: row.customer_name,
+        // Nothing to email: it opens right away and lives in My Builds.
+        email_sent: true,
+        included_from: row.included_from ?? row.access_token,
+      })
+      .select("access_token")
+      .single();
+    if (error || !inserted) {
+      console.error("[TotePlanAccess] Included plan insert failed:", error);
+      return { ok: false, error: "We couldn't create that plan. Please try again." };
+    }
+    return { ok: true, token: inserted.access_token as string };
   } catch (err) {
-    console.error("[TotePlanAccess] Upgrade checkout error:", err);
-    return { success: false, error: "Failed to create checkout. Please try again." };
+    console.error("[TotePlanAccess] createIncludedPlan:", err);
+    return { ok: false, error: "We couldn't create that plan. Please try again." };
   }
 }

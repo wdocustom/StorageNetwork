@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Box, ChevronDown, FileText, Star, Wrench } from "lucide-react";
+import { ArrowRight, Box, CheckCircle, ChevronDown, FileText, Infinity as InfinityIcon, Star, Wrench } from "lucide-react";
+import { BuildForALiving } from "@/components/plans/AllAccessOffer";
 import { PUBLIC_PLANS } from "@/lib/plans-config";
 import {
   BAY_OPENING_IN,
   MODULE_MAX_COLS,
   MODULE_MAX_ROWS,
   TOTE_PLAN_LIMITS,
-  TOTE_PLAN_SALE_ON,
-  TOTE_PLAN_SALE_TAG,
-  TOTE_PLAN_TIERS,
+  TOTE_PLAN_ALL_ACCESS,
   UNIT_DEPTH_IN,
   formatPlanPrice,
 } from "@/lib/tote-plans";
@@ -29,7 +28,6 @@ import {
   totePlansProductJsonLd,
 } from "@/lib/schema/plans";
 import { ResendLinkPanel } from "@/components/plans/PlansStorefront";
-import PlanPrice from "@/components/plans/PlanPrice";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DIY PLANS STOREFRONT — /plans
@@ -41,7 +39,7 @@ import PlanPrice from "@/components/plans/PlanPrice";
 // ═══════════════════════════════════════════════════════════════════════════
 
 const TITLE = "DIY Tote Rack Plans for 27-Gal HDX & Greenmade Totes | Storage Network";
-const DESCRIPTION = `Tote rack plans sized to your wall: a 2×4 build for 27-gallon HDX and Greenmade totes with a cut list, shopping list and every step in 3D. PDF ${PLANS_PRICES.pdf}, or ${PLANS_PRICES.interactive} with the interactive 3D guide.`;
+const DESCRIPTION = `Tote rack plans sized to your wall: a 2×4 build for 27-gallon HDX and Greenmade totes with a cut list, shopping list and every step in 3D. ${PLANS_PRICES.allAccess} once for unlimited plans, every size you design, for life: 3D guide + printable PDF.`;
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -95,11 +93,6 @@ const AT_A_GLANCE: [string, string][] = [
   ["Size", `Up to ${TOTE_PLAN_LIMITS.maxCols} wide × ${TOTE_PLAN_LIMITS.maxRows} high, ${TOTE_PLAN_LIMITS.maxUnits} units; split into ${MODULE_MAX_COLS}×${MODULE_MAX_ROWS} modules`],
   ["Options", "Casters · plywood worktop"],
   ["Includes", "Cut list · shopping list · every step in 3D"],
-];
-
-const TIERS = [
-  { tier: TOTE_PLAN_TIERS.pdf, Icon: FileText },
-  { tier: TOTE_PLAN_TIERS.interactive, Icon: Box },
 ];
 
 // ── Page ─────────────────────────────────────────────────────────────────────
@@ -156,7 +149,7 @@ export default function PlansPage() {
           </h1>
           <p className="mt-2 text-sm text-stone-400">
             A 2×4 rack for 27-gallon HDX or Greenmade totes, any size. Design it free in 3D, get a plan with
-            every cut and step.
+            every cut and step, and one price covers every size you&apos;ll ever build.
           </p>
           <div className="relative mt-4 aspect-[16/9] w-full overflow-hidden rounded-2xl border border-slate-800">
             <Image
@@ -168,33 +161,52 @@ export default function PlansPage() {
               className="object-cover object-left"
             />
           </div>
-          {TOTE_PLAN_SALE_ON && (
-            <p className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-center text-xs font-bold text-red-300">
-              <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">Sale</span>
-              {TOTE_PLAN_SALE_TAG.replace(" OFF", " off")} every tote plan — limited time, applied automatically
+          {/* ── All-Access: the one plan product ── */}
+          <div className="relative mt-4 overflow-hidden rounded-2xl border border-yellow-400/40 bg-slate-900 p-4 sm:p-5">
+            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-400 to-yellow-500" />
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-yellow-400">
+                  <InfinityIcon className="h-4 w-4" aria-hidden /> Unlimited plans · lifetime
+                </p>
+                <h2 className="mt-1 text-lg font-black text-white">{TOTE_PLAN_ALL_ACCESS.name}</h2>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="text-3xl font-black leading-none text-white">{PLANS_PRICES.allAccess}</p>
+                <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-yellow-400">Once, for life</p>
+              </div>
+            </div>
+            <p className="mt-3 text-sm leading-relaxed text-stone-300">
+              Most plans cover one size. All-Access covers <strong className="text-white">every tote organizer you
+              design</strong>: buy once, then build another plan whenever you need one, free. Your garage today, the
+              shed next spring, a friend&apos;s basement after that.
             </p>
-          )}
+            <ul className="mt-3 grid gap-1.5 text-xs text-stone-300 sm:grid-cols-2">
+              {[
+                ["Unlimited plans, any size", InfinityIcon],
+                ["Interactive 3D build guide", Box],
+                ["Printable PDF for every plan", FileText],
+                ["One payment, no subscription", CheckCircle],
+              ].map(([label, Icon]) => {
+                const I = Icon as typeof Box;
+                return (
+                  <li key={label as string} className="flex items-center gap-1.5">
+                    <I className="h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden />
+                    {label as string}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
           <Link
             href="/plans/checkout"
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 py-3.5 text-sm font-black uppercase tracking-wider text-gray-950 transition hover:from-amber-300 hover:to-yellow-400"
           >
-            Design Yours &amp; Get Plans
+            Design Yours &amp; Get All-Access — {PLANS_PRICES.allAccess}
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {TIERS.map(({ tier, Icon }) => (
-              <div key={tier.id} className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5">
-                <div className="flex items-center gap-1.5">
-                  <Icon className="h-3.5 w-3.5 text-yellow-400" aria-hidden />
-                  <h2 className="text-xs font-bold text-white">{tier.name}</h2>
-                </div>
-                <PlanPrice tier={tier} size="sm" nowClassName="text-yellow-400" className="mt-0.5" />
-                <p className="text-[11px] text-stone-500">{tier.tagline}</p>
-              </div>
-            ))}
-          </div>
           <p className="mt-2 text-center text-[11px] text-stone-600">
-            One-time · permanent link by email · PDF owners upgrade for {PLANS_PRICES.upgrade}
+            Designing is free · {PLANS_PRICES.allAccess} once for every plan, for life · permanent link by email
           </p>
         </section>
 
@@ -277,6 +289,8 @@ export default function PlansPage() {
             ))}
           </div>
         </section>
+
+        <BuildForALiving />
 
         <ResendLinkPanel />
 
