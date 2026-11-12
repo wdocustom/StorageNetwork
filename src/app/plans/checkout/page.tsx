@@ -29,6 +29,7 @@ import MaterialCostCard from "@/components/plans/MaterialCostCard";
 import BuildItForMe from "@/components/plans/BuildItForMe";
 import EmbeddedCheckoutPanel from "@/components/payments/EmbeddedCheckoutPanel";
 import { AllAccessOffer, IncludedPlanCard } from "@/components/plans/AllAccessOffer";
+import StickyPlanCta from "@/components/plans/StickyPlanCta";
 import { checkAllAccess, createIncludedPlan } from "@/app/actions/tote-plan-access";
 import { PlanSampleLightbox, PlanSampleThumb } from "@/components/plans/PlanSample";
 import { BestsellersButton, BestsellersLightbox } from "@/components/plans/PlanBestsellers";
@@ -46,6 +47,8 @@ import {
   splitHeight,
   splitWidth,
   totePlanDesignHref,
+  TOTE_PLAN_ALL_ACCESS,
+  formatPlanPrice,
   totePlanName,
   totePlanSummary,
   type TotePlanDesign,
@@ -484,6 +487,18 @@ function PlansDesigner() {
           <EmbeddedCheckoutPanel clientSecret={checkout.clientSecret} onClose={closeCheckout} />
         )}
 
+        {/* Buy from anywhere on this long page; hides while the offer itself is on screen. */}
+        {!hasFree && (
+          <StickyPlanCta
+            watchId="plan-tiers"
+            price={member ? "Included" : `${formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price)} for life`}
+            note={member ? "with your All-Access plans" : "This plan + every one after"}
+            label={member ? "Generate free" : "Get my plans"}
+            onClick={member ? handleIncluded : handleBuy}
+            loading={buying}
+          />
+        )}
+
         {/* Back to an installer: the referring one, or a local pro by ZIP */}
         <BuildItForMe
           design={design}
@@ -496,6 +511,8 @@ function PlansDesigner() {
           Already own it? Open any of your plans and tap &ldquo;Build another plan&rdquo;.
         </p>
       </div>
+      {/* Room for the sticky bar so it never covers the last content. */}
+      <div className="h-24" aria-hidden />
     </main>
   );
 }
