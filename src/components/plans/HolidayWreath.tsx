@@ -97,21 +97,24 @@ export default function HolidayWreath({
   return (
     <span aria-hidden className={`sn-wreath pointer-events-none select-none ${className}`}>
       <style>{`
-        .sn-wreath { display: block; transform-origin: 50% 29%; animation: sn-wreath-sway 5s ease-in-out infinite; }
-        @keyframes sn-wreath-sway { 0%, 100% { transform: rotate(-22deg); } 50% { transform: rotate(-16deg); } }
-        @media (prefers-reduced-motion: reduce) { .sn-wreath { animation: none; transform: rotate(-19deg); } }
+        .sn-wreath { display: block; transform-origin: 50% 29.5%; animation: sn-wreath-sway 5s ease-in-out infinite; }
+        @keyframes sn-wreath-sway { 0%, 100% { transform: rotate(-20deg); } 50% { transform: rotate(-14deg); } }
+        @media (prefers-reduced-motion: reduce) { .sn-wreath { animation: none; transform: rotate(-17deg); } }
       `}</style>
       <svg
         viewBox="0 0 100 100"
         className="h-full w-full overflow-visible"
-        style={{ filter: "drop-shadow(2px 4px 3px rgba(0,0,0,0.55))" }}
       >
         <defs>
+          {/* Soft shadow the wreath casts on the 9 where it hangs */}
+          <filter id="snw-shadow" x="-30%" y="-30%" width="160%" height="170%">
+            <feDropShadow dx="1.5" dy="4" stdDeviation="2.6" floodColor="#000" floodOpacity="0.55" />
+          </filter>
           {/* Front layer: the ring below its top arc (the top runs behind the digit) */}
           <mask id="snw-front" maskUnits="userSpaceOnUse" x="-20" y="-20" width="140" height="160">
             <rect x="-20" y="-20" width="140" height="160" fill="url(#snw-front-grad)" />
           </mask>
-          <linearGradient id="snw-front-grad" gradientUnits="userSpaceOnUse" x1="0" y1={CY - 13} x2="0" y2={CY - 7}>
+          <linearGradient id="snw-front-grad" gradientUnits="userSpaceOnUse" x1="0" y1={CY - 15} x2="0" y2={CY - 10}>
             <stop offset="0" stopColor="#000" />
             <stop offset="1" stopColor="#fff" />
           </linearGradient>
@@ -141,6 +144,7 @@ export default function HolidayWreath({
           </radialGradient>
         </defs>
         <g mask={mask}>
+        <g filter="url(#snw-shadow)">
 
         {/* Base so no background shows through gaps */}
         <circle cx={CX} cy={CY} r={R} fill="none" stroke="#0c3119" strokeWidth="13" />
@@ -192,6 +196,7 @@ export default function HolidayWreath({
           <path d="M12 -3 C9 -6 5 -5 2 -1" fill="none" stroke="#7a0b1c" strokeOpacity="0.6" strokeWidth="0.8" />
           <ellipse rx="3.4" ry="3" fill="url(#snw-satin-dark)" />
           <ellipse cx="-0.8" cy="-0.9" rx="1.2" ry="0.8" fill="#ff9aac" fillOpacity="0.5" />
+        </g>
         </g>
         </g>
       </svg>

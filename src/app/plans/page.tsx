@@ -238,13 +238,14 @@ export default async function PlansPage() {
           <p className={eyebrow}>{TOTE_PLAN_ALL_ACCESS.name}</p>
           <div className="mt-2 flex items-baseline gap-3">
             <span className="relative inline-block text-6xl font-extrabold tracking-tight text-white">
-              {/* Holiday pricing: a wreath draped over the top of the 9 — its top
-                  runs behind the 9, its sides and bow hang in front */}
-              <HolidayWreath layer="back" className="absolute left-[calc(100%-25px)] top-[-1px] z-0 h-[42px] w-[42px]" />
+              {/* Holiday pricing: a wreath hooked on the 9's top-right shoulder. The
+                  top of its hole sits on the shoulder; the top of the ring
+                  tucks behind the 9 and the rest hangs in front, slanting right. */}
+              <HolidayWreath layer="back" className="absolute left-[calc(100%-23px)] top-[0px] h-[32px] w-[32px] z-0" />
               <span className="relative z-[1]">{PLANS_PRICES.allAccess}</span>
-              <HolidayWreath layer="front" className="absolute left-[calc(100%-25px)] top-[-1px] z-[2] h-[42px] w-[42px]" />
+              <HolidayWreath layer="front" className="absolute left-[calc(100%-23px)] top-[0px] h-[32px] w-[32px] z-[2]" />
             </span>
-            <span className="ml-6 text-base text-stone-400">once, for life</span>
+            <span className="ml-3 text-base text-stone-400">once, for life</span>
           </div>
           <ul className="mt-7 space-y-3.5">
             {INCLUDED.map((item) => (
