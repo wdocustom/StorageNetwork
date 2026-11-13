@@ -343,18 +343,48 @@ export function removePieces(scene: Scene, ids: Iterable<string>): Scene {
   return { ...scene, pieces, groups: scene.groups.filter((g) => used.has(g.id)) };
 }
 
-/** Copy pieces, set off diagonally so the copies are visible. Returns the copies' ids. */
-export function duplicatePieces(scene: Scene, ids: Iterable<string>, offset = NEW_PIECE_GAP): { scene: Scene; ids: string[] } {
+/**
+ * Add copies of `source` pieces to the scene, moved by `offset`. Copies of
+ * grouped pieces form new groups of their own (named after the original),
+ * so a copied assembly stays an assembly without being tied to the first.
+ * `sourceGroups` names the groups the source pieces point at.
+ */
+export function insertCopies(
+  scene: Scene,
+  source: ScenePiece[],
+  sourceGroups: SceneGroup[],
+  offset: Vec3,
+): { scene: Scene; ids: string[] } {
   const room = SCENE_LIMITS.maxPieces - scene.pieces.length;
-  const copies = selected(scene, ids)
-    .slice(0, Math.max(0, room))
-    .map((p) => ({
+  if (source.length === 0 || source.length > room) return { scene, ids: [] };
+  const groupCopies = new Map<string, SceneGroup>();
+  const copies = source.map((p) => {
+    let groupId: string | null = null;
+    if (p.groupId) {
+      let copy = groupCopies.get(p.groupId);
+      if (!copy && scene.groups.length + groupCopies.size < SCENE_LIMITS.maxGroups) {
+        const original = sourceGroups.find((g) => g.id === p.groupId);
+        copy = { id: newId("g"), name: original?.name ?? "Group" };
+        groupCopies.set(p.groupId, copy);
+      }
+      groupId = copy?.id ?? null;
+    }
+    return {
       ...p,
       id: newId("p"),
-      position: clampPosition([p.position[0] + offset, p.position[1], p.position[2] + offset]),
-    }));
-  if (copies.length === 0) return { scene, ids: [] };
-  return { scene: { ...scene, pieces: [...scene.pieces, ...copies] }, ids: copies.map((c) => c.id) };
+      groupId,
+      position: clampPosition([p.position[0] + offset[0], p.position[1] + offset[1], p.position[2] + offset[2]]),
+    };
+  });
+  return {
+    scene: { ...scene, pieces: [...scene.pieces, ...copies], groups: [...scene.groups, ...groupCopies.values()] },
+    ids: copies.map((c) => c.id),
+  };
+}
+
+/** Copy pieces, set off diagonally so the copies are visible. Returns the copies' ids. */
+export function duplicatePieces(scene: Scene, ids: Iterable<string>, offset = NEW_PIECE_GAP): { scene: Scene; ids: string[] } {
+  return insertCopies(scene, selected(scene, ids), scene.groups, [offset, 0, offset]);
 }
 
 export function translatePieces(scene: Scene, ids: Iterable<string>, delta: Vec3): Scene {
@@ -506,6 +536,300 @@ export function dropToFloor(scene: Scene, ids: Iterable<string>): Scene {
     targets.map((p) => p.id),
     [0, -b.min[1], 0],
   );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Groups — pieces that are picked, moved and turned as one assembly
+//
+// Groups are flat (a piece is in one group or none). Clicking a grouped
+// piece picks its whole group; a "deep" pick (Ctrl/⌘-click, or the member
+// list in the inspector) reaches one piece inside it.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** `ids` plus every other member of the groups those pieces are in. */
+export function expandToGroups(scene: Scene, ids: Iterable<string>): string[] {
+  const wanted = new Set(ids);
+  const groups = new Set<string>();
+  for (const p of scene.pieces) if (wanted.has(p.id) && p.groupId) groups.add(p.groupId);
+  return scene.pieces.filter((p) => wanted.has(p.id) || (p.groupId !== null && groups.has(p.groupId))).map((p) => p.id);
+}
+
+/**
+ * The selection after a click on piece `id`.
+ *   plain       that piece (with its group) becomes the selection
+ *   additive    it is added to the selection, or taken out if already in
+ *   deep        only the piece itself, ignoring its group
+ */
+export function pickSelection(
+  scene: Scene,
+  selection: string[],
+  id: string,
+  options: { additive?: boolean; deep?: boolean } = {},
+): string[] {
+  const picked = options.deep ? [id] : expandToGroups(scene, [id]);
+  if (!options.additive) return picked;
+  const current = new Set(selection);
+  if (picked.every((p) => current.has(p))) {
+    const drop = new Set(picked);
+    return selection.filter((s) => !drop.has(s));
+  }
+  return [...selection, ...picked.filter((p) => !current.has(p))];
+}
+
+/** Make the pieces one group (taking them out of any group they were in). */
+export function groupPieces(scene: Scene, ids: Iterable<string>, name?: string): { scene: Scene; groupId: string | null } {
+  const targets = selected(scene, ids);
+  if (targets.length < 2 || scene.groups.length >= SCENE_LIMITS.maxGroups) return { scene, groupId: null };
+  const taken = new Set(scene.groups.map((g) => g.name));
+  let n = scene.groups.length + 1;
+  while (taken.has(`Group ${n}`)) n++;
+  const group: SceneGroup = { id: newId("g"), name: cleanName(name) || `Group ${n}` };
+  const member = new Set(targets.map((p) => p.id));
+  const pieces = scene.pieces.map((p) => (member.has(p.id) ? { ...p, groupId: group.id } : p));
+  const used = new Set(pieces.map((p) => p.groupId));
+  return {
+    scene: { ...scene, pieces, groups: [...scene.groups.filter((g) => used.has(g.id)), group] },
+    groupId: group.id,
+  };
+}
+
+/** Dissolve every group the pieces belong to. */
+export function ungroupPieces(scene: Scene, ids: Iterable<string>): Scene {
+  const gone = new Set(selected(scene, ids).map((p) => p.groupId).filter((g): g is string => g !== null));
+  if (gone.size === 0) return scene;
+  return {
+    ...scene,
+    pieces: scene.pieces.map((p) => (p.groupId && gone.has(p.groupId) ? { ...p, groupId: null } : p)),
+    groups: scene.groups.filter((g) => !gone.has(g.id)),
+  };
+}
+
+export function renameGroup(scene: Scene, groupId: string, name: string): Scene {
+  const clean = cleanName(name);
+  if (!clean) return scene;
+  return { ...scene, groups: scene.groups.map((g) => (g.id === groupId ? { ...g, name: clean } : g)) };
+}
+
+/**
+ * The selection as things that move on their own: each group is one unit,
+ * each loose piece is one unit. Align and distribute work on units, so a
+ * grouped frame stays a frame.
+ */
+function selectionUnits(pieces: ScenePiece[]): ScenePiece[][] {
+  const units = new Map<string, ScenePiece[]>();
+  for (const p of pieces) {
+    const key = p.groupId ?? p.id;
+    const unit = units.get(key);
+    if (unit) unit.push(p);
+    else units.set(key, [p]);
+  }
+  return [...units.values()];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Arranging — align, distribute, mirror
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type AlignMode = "min" | "center" | "max";
+
+function shiftAlong(piece: ScenePiece, i: number, amount: number): ScenePiece {
+  const position: Vec3 = [...piece.position];
+  position[i] += amount;
+  return { ...piece, position: clampPosition(position) };
+}
+
+/**
+ * Line units up on one axis: their low sides (min), middles (center) or
+ * high sides (max) meet the selection's. On x that is left / center /
+ * right, on y bottom / middle / top, on z back / center / front.
+ */
+export function alignPieces(scene: Scene, ids: Iterable<string>, axis: Axis, mode: AlignMode): Scene {
+  const targets = selected(scene, ids);
+  const all = boundsOf(targets);
+  const units = selectionUnits(targets);
+  if (!all || units.length < 2) return scene;
+  const i = AXIS_INDEX[axis];
+  const at = (b: Bounds) => (mode === "min" ? b.min[i] : mode === "max" ? b.max[i] : (b.min[i] + b.max[i]) / 2);
+  const moved = new Map<string, ScenePiece>();
+  for (const unit of units) {
+    const shift = at(all) - at(boundsOf(unit) as Bounds);
+    for (const p of unit) moved.set(p.id, shiftAlong(p, i, shift));
+  }
+  return mapPieces(scene, moved.keys(), (p) => moved.get(p.id) as ScenePiece);
+}
+
+/**
+ * Space three or more units evenly along an axis: the two outer ones stay
+ * put and the gaps between neighbours become equal (shelf spacing, evenly
+ * spaced slats).
+ */
+export function distributePieces(scene: Scene, ids: Iterable<string>, axis: Axis): Scene {
+  const i = AXIS_INDEX[axis];
+  const units = selectionUnits(selected(scene, ids))
+    .map((pieces) => ({ pieces, bounds: boundsOf(pieces) as Bounds }))
+    .sort((a, b) => a.bounds.min[i] + a.bounds.max[i] - (b.bounds.min[i] + b.bounds.max[i]));
+  if (units.length < 3) return scene;
+  const span = units[units.length - 1].bounds.max[i] - units[0].bounds.min[i];
+  const filled = units.reduce((sum, u) => sum + (u.bounds.max[i] - u.bounds.min[i]), 0);
+  const gap = (span - filled) / (units.length - 1);
+  const moved = new Map<string, ScenePiece>();
+  let cursor = units[0].bounds.min[i];
+  for (const unit of units) {
+    const shift = cursor - unit.bounds.min[i];
+    for (const p of unit.pieces) moved.set(p.id, shiftAlong(p, i, shift));
+    cursor += unit.bounds.max[i] - unit.bounds.min[i] + gap;
+  }
+  return mapPieces(scene, moved.keys(), (p) => moved.get(p.id) as ScenePiece);
+}
+
+/**
+ * Flip the selection left-for-right (x), top-for-bottom (y) or
+ * front-for-back (z) about its own middle. Boards are symmetrical, so a
+ * mirrored piece is the same cut part in a mirrored place.
+ */
+export function mirrorPieces(scene: Scene, ids: Iterable<string>, axis: Axis): Scene {
+  const targets = selected(scene, ids);
+  const all = boundsOf(targets);
+  if (!all) return scene;
+  const i = AXIS_INDEX[axis];
+  const middle = (all.min[i] + all.max[i]) / 2;
+  const flip: Mat3 = [
+    [i === 0 ? -1 : 1, 0, 0],
+    [0, i === 1 ? -1 : 1, 0],
+    [0, 0, i === 2 ? -1 : 1],
+  ];
+  const wanted = new Set(targets.map((p) => p.id));
+  return mapPieces(scene, wanted, (p) => {
+    const position: Vec3 = [...p.position];
+    position[i] = 2 * middle - position[i];
+    // Reflect the piece's axes in the world, then un-reflect the same axis
+    // of the board itself so the result is a rotation again.
+    return { ...p, position, rotation: eulerFromMatrix(multiply(multiply(flip, rotationMatrix(p.rotation)), flip)) };
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Cutting a piece in two
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Material the saw blade removes, inches. */
+export const SAW_KERF = 0.125;
+
+/**
+ * Cut a piece in two, `at` inches from its low end: across its length
+ * (crosscut) or along it (a rip on a 2×4, a rip cut on a panel). Both parts
+ * stay where the original was and the blade's kerf comes out of the second
+ * one, exactly as it would on the saw. Returns the two new ids, or null ids
+ * if the cut would leave a part too small to be a piece.
+ */
+export function splitPiece(
+  scene: Scene,
+  id: string,
+  along: "length" | "width",
+  at: number,
+): { scene: Scene; ids: [string, string] | null } {
+  const piece = scene.pieces.find((p) => p.id === id);
+  const stock = piece && getStock(piece.stock);
+  if (!piece || !stock || scene.pieces.length >= SCENE_LIMITS.maxPieces) return { scene, ids: null };
+  const total = along === "length" ? piece.length : piece.width;
+  const smallest = along === "length" ? SIZE_LIMITS.minLength : stock.minWidth;
+  const first = at;
+  const second = total - at - SAW_KERF;
+  if (!(first >= smallest) || !(second >= smallest)) return { scene, ids: null };
+
+  const m = rotationMatrix(piece.rotation);
+  const part = (size: number, offset: number): ScenePiece => {
+    // Offset of the part's center from the original's, along the cut axis
+    const local: Vec3 = along === "length" ? [offset, 0, 0] : [0, 0, offset];
+    const shift = apply(m, local);
+    const { name, ...rest } = piece;
+    return {
+      ...rest,
+      ...(name ? { name } : {}),
+      id: newId("p"),
+      [along]: size,
+      position: [piece.position[0] + shift[0], piece.position[1] + shift[1], piece.position[2] + shift[2]],
+    };
+  };
+  const a = part(first, -total / 2 + first / 2);
+  const b = part(second, total / 2 - second / 2);
+  const index = scene.pieces.indexOf(piece);
+  const pieces = [...scene.pieces];
+  pieces.splice(index, 1, a, b);
+  return { scene: { ...scene, pieces }, ids: [a.id, b.id] };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Overlaps and gaps
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Pieces may touch, and sit this far into each other, before it counts as an overlap (inches). */
+export const OVERLAP_TOLERANCE = 1 / 16;
+
+/** Do two boxes (at any rotation) overlap by more than the tolerance? Separating-axis test. */
+function boxesOverlap(a: ScenePiece, b: ScenePiece): boolean {
+  const ra = rotationMatrix(a.rotation);
+  const rb = rotationMatrix(b.rotation);
+  const ha = halfSize(a);
+  const hb = halfSize(b);
+  const t: Vec3 = [b.position[0] - a.position[0], b.position[1] - a.position[1], b.position[2] - a.position[2]];
+  // Columns of a rotation matrix are the box's own axes in the world
+  const axisOf = (m: Mat3, k: number): Vec3 => [m[0][k], m[1][k], m[2][k]];
+  const axesA = [0, 1, 2].map((k) => axisOf(ra, k));
+  const axesB = [0, 1, 2].map((k) => axisOf(rb, k));
+  const dot = (u: Vec3, v: Vec3) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+  const candidates: Vec3[] = [...axesA, ...axesB];
+  for (const u of axesA) {
+    for (const v of axesB) {
+      const c: Vec3 = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+      const len = Math.hypot(c[0], c[1], c[2]);
+      // Parallel edges give no new direction
+      if (len > 1e-6) candidates.push([c[0] / len, c[1] / len, c[2] / len]);
+    }
+  }
+  for (const axis of candidates) {
+    const reachA = axesA.reduce((sum, u, k) => sum + Math.abs(dot(u, axis)) * ha[k], 0);
+    const reachB = axesB.reduce((sum, u, k) => sum + Math.abs(dot(u, axis)) * hb[k], 0);
+    if (reachA + reachB - Math.abs(dot(t, axis)) <= OVERLAP_TOLERANCE) return false;
+  }
+  return true;
+}
+
+/**
+ * Every pair of pieces that occupy the same space. Touching faces (a rail
+ * butted to a post, a top on a frame) are not overlaps. This is advice: the
+ * editor never refuses a position.
+ */
+export function findOverlaps(pieces: ScenePiece[]): [string, string][] {
+  const boxes = pieces.map(pieceBounds);
+  const pairs: [string, string][] = [];
+  for (let i = 0; i < pieces.length; i++) {
+    for (let j = i + 1; j < pieces.length; j++) {
+      const a = boxes[i];
+      const b = boxes[j];
+      // Cheap reject on world-aligned boxes before the exact test
+      if (
+        a.max[0] - b.min[0] <= OVERLAP_TOLERANCE || b.max[0] - a.min[0] <= OVERLAP_TOLERANCE ||
+        a.max[1] - b.min[1] <= OVERLAP_TOLERANCE || b.max[1] - a.min[1] <= OVERLAP_TOLERANCE ||
+        a.max[2] - b.min[2] <= OVERLAP_TOLERANCE || b.max[2] - a.min[2] <= OVERLAP_TOLERANCE
+      ) {
+        continue;
+      }
+      if (boxesOverlap(pieces[i], pieces[j])) pairs.push([pieces[i].id, pieces[j].id]);
+    }
+  }
+  return pairs;
+}
+
+/**
+ * Clear space between two sets of pieces on each axis, inches: positive is
+ * a gap, zero is touching, negative means they share that much of the axis.
+ */
+export function gapBetween(a: ScenePiece[], b: ScenePiece[]): Vec3 | null {
+  const ba = boundsOf(a);
+  const bb = boundsOf(b);
+  if (!ba || !bb) return null;
+  return [0, 1, 2].map((i) => Math.max(ba.min[i], bb.min[i]) - Math.min(ba.max[i], bb.max[i])) as Vec3;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
