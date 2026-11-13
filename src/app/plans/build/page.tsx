@@ -532,6 +532,7 @@ function BuildPlanInner() {
     let input: OpenTotePlanInput | null = null;
     if (token) input = { token, upgradeSessionId };
     else if (sessionId) input = { sessionId };
+    else if (searchParams.get("lead")) input = { leadId: searchParams.get("lead")! };
     else if (searchParams.get("access") === "pro") {
       input = { proDesign: designFromSearchParams(searchParams) };
     }
@@ -625,7 +626,7 @@ function BuildPlanInner() {
           {result.access !== "purchase" && (
             <span className="flex items-center gap-1 rounded-full bg-emerald-400/10 px-3 py-1 text-[10px] font-semibold text-emerald-400">
               <Crown className="h-3 w-3" />
-              {result.access === "admin" ? "Admin access" : "Included with Pro"}
+              {result.access === "admin" ? "Admin access" : result.access === "installer" ? "Your customer's plan" : "Included with Pro"}
             </span>
           )}
           {result.token && (

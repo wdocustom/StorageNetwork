@@ -12,6 +12,7 @@
 // never the formulas that produce them.
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { splitModuleWidths } from "@/lib/module-split";
 import type { MaterialConfig, MaterialBreakdown, MaterialPrices } from "@/utils/calculateMaterials";
 import { DEFAULT_MATERIAL_PRICES } from "@/utils/calculateMaterials";
 import { expandPresetUnits } from "@/lib/buildEngine.types";
@@ -218,13 +219,7 @@ export async function calculateMaterialCostServer(
 
     const effectiveHasTotes = hasTotes;
 
-    const widthModules: number[] = [];
-    let remainingCols = totalCols;
-    while (remainingCols > 4) {
-      widthModules.push(4);
-      remainingCols -= 4;
-    }
-    if (remainingCols > 0) widthModules.push(remainingCols);
+    const widthModules = splitModuleWidths(totalCols, unitType === "standard" ? orientation : "standard");
 
     const heightTiers = splitHeightTiers(totalRows, unitType, is2x4Rails);
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { splitModuleWidths } from "@/lib/module-split";
 import { useCallback, useMemo } from "react";
 import type { CutPlanModule } from "@/lib/buildEngine.types";
 import { RAIL_2X4_ABOVE_TOP, RAIL_2X4_MAX_ROWS, RAIL_2X4_TOPS, upright2x4Length } from "@/lib/rails2x4";
@@ -60,8 +61,9 @@ const PLATE_H = 1.5;       // top/bottom plate height
 const TOP_GAP = 2.5;       // gap above top rail row
 const OPENING_HDX = 19.75;
 const OPENING_GM = 20.75;
-const MAX_COLS_PER_MOD = 4;
 const MAX_ROWS_PER_TIER = 6;
+/** Sideways: the tote's long side spans the bay (same as buildEngine) */
+const SIDEWAYS_OPENING = 30.25;
 
 // 2x4 Rail Construction — rail heights and uprights from @/lib/rails2x4.
 const RAILS_2X4_OPENING = 21;
@@ -71,7 +73,7 @@ const RAILS_2X4_POSITIONS = RAIL_2X4_TOPS;
 const RAILS_2X4_MAX_ROWS = RAIL_2X4_MAX_ROWS;
 
 interface ModuleDiagramProps {
-  units: { cols: number; rows: number; toteType?: "HDX" | "GM" }[];
+  units: { cols: number; rows: number; toteType?: "HDX" | "GM"; orientation?: string }[];
   cutPlanModules: CutPlanModule[];
   scrollIdPrefix?: string;
   use2x4Rails?: boolean;
@@ -110,16 +112,16 @@ export default function ModuleDiagram({
 
     for (let ui = 0; ui < units.length; ui++) {
       const unit = units[ui];
-      const opening = use2x4Rails ? RAILS_2X4_OPENING : ((unit.toteType ?? "HDX") === "GM" ? OPENING_GM : OPENING_HDX);
+      const sideways = unit.orientation === "sideways";
+      const opening = sideways
+        ? SIDEWAYS_OPENING
+        : use2x4Rails ? RAILS_2X4_OPENING : ((unit.toteType ?? "HDX") === "GM" ? OPENING_GM : OPENING_HDX);
       const topGap = use2x4Rails ? RAILS_2X4_TOP_GAP : TOP_GAP;
       const maxRowsPerTier = use2x4Rails ? RAILS_2X4_MAX_ROWS : MAX_ROWS_PER_TIER;
       const effectiveRows = use2x4Rails ? Math.min(unit.rows, RAILS_2X4_MAX_ROWS) : unit.rows;
 
       // Width split
-      const widthMods: number[] = [];
-      let rem = unit.cols;
-      while (rem > MAX_COLS_PER_MOD) { widthMods.push(MAX_COLS_PER_MOD); rem -= MAX_COLS_PER_MOD; }
-      if (rem > 0) widthMods.push(rem);
+      const widthMods = splitModuleWidths(unit.cols, unit.orientation);
 
       // Height split
       const heightTiers: number[] = [];

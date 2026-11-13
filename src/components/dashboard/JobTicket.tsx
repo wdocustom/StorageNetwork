@@ -2069,7 +2069,7 @@ export default function JobTicket({
       {/* ── Module Diagram (visual overview) ──────────────────────────── */}
       {buildManifest && buildManifest.cut_plan_visuals.length > 1 && quoteData && (
         <ModuleDiagram
-          units={quoteData.map((u) => ({ cols: u.cols, rows: u.rows, toteType: u.toteType }))}
+          units={quoteData.map((u) => ({ cols: u.cols, rows: u.rows, toteType: u.toteType, orientation: u.orientation }))}
           cutPlanModules={buildManifest.cut_plan_visuals}
           scrollIdPrefix="jt-cut-module"
           use2x4Rails={use2x4Rails}

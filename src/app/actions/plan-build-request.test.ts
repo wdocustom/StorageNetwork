@@ -116,6 +116,14 @@ describe("requestPlanBuild — lead source decides the fee", () => {
     expect(state.submitted[0]).toMatchObject({ waitlisted: true });
   });
 
+  it("saves the customer's design on the lead so the installer can open their plan", async () => {
+    await request(LOCAL, { design: "H4x4wts" });
+    expect(state.submitted[0]).toMatchObject({ plan_design: "H4x4wts" });
+    expect(state.submitted[0]).not.toHaveProperty("plan_design_name");
+    await request(LOCAL, { design: { units: [{ cols: 2, rows: 4, toteType: "HDX", hasWheels: false, hasTop: true }], name: "Shop Wall" } });
+    expect(state.submitted[1]).toMatchObject({ plan_design: "H2x4t", plan_design_name: "Shop Wall" });
+  });
+
   it("prices on the server and rejects bad input", async () => {
     expect(await request(LOCAL, { zip: "12" })).toEqual({ ok: false, error: "Please enter a valid ZIP or postal code." });
     expect((await request("not-an-id")).ok).toBe(false);

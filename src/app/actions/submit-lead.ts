@@ -78,6 +78,9 @@ export interface SubmitQuoteInput {
   grand_total: number;
   installer_id?: string;
   referring_installer_id?: string; // Network Bounty: original installer who drove the traffic
+  /** DIY plans design code (e.g. "H4x4wts") when the lead came from the plans designer */
+  plan_design?: string;
+  plan_design_name?: string;
   source?: "platform" | "partner_link" | "facebook_referral";
   parent_lead_id?: string;
   scheduled_at?: string;
@@ -126,6 +129,8 @@ const submitLeadSchema = z.object({
   build_snapshot_url: z.string().url().max(2000).optional(),
   realtor_referral_code: z.string().min(4).max(32).optional(),
   marketing_token: z.string().max(64).optional(),
+  plan_design: z.string().max(200).regex(/^[A-Za-z0-9_.]+$/).optional(),
+  plan_design_name: z.string().max(60).optional(),
 });
 
 export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
@@ -398,6 +403,8 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
           ? "platform_campaign"
           : input.source || (input.installer_id ? "partner_link" : "platform"),
         marketing_send_id: campaign?.sendId ?? null,
+        plan_design: parsed.data.plan_design ?? null,
+        plan_design_name: parsed.data.plan_design_name ?? null,
         parent_lead_id: input.parent_lead_id || null,
         status: newStatus,
         scheduled_at: input.scheduled_at || null,

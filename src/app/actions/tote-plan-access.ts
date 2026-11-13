@@ -9,6 +9,9 @@
 //                  and emails the permanent access link.
 //   • token      — return visit from that email link.
 //   • proDesign  — paid Pro installer or admin; re-checked server-side.
+//   • leadId     — the installer assigned a lead that came from the plans
+//                  designer ("have a pro build it"): the customer's exact
+//                  design, read from the lead, for that installer only.
 //
 // Purchases also pass the device gate (@/lib/server/plan-device): a link
 // opened on a device the buyer hasn't used comes back with `verify` and the
@@ -28,6 +31,7 @@
 import Stripe from "stripe";
 import { stripeConfig } from "@/lib/stripe/http";
 import { getServiceClient } from "@/lib/supabase-server";
+import { getAuthenticatedUser } from "@/lib/auth";
 import { generateDIYPlan, type CompleteDIYPlan } from "@/app/actions/generate-plan";
 import { checkDIYPlanAccess } from "@/app/actions/diy-plan-checkout";
 import { sendTotePlanAccessEmail } from "@/lib/emails/plansTemplates";
@@ -60,7 +64,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export type OpenTotePlanInput =
   | { sessionId: string }
   | { token: string; upgradeSessionId?: string }
-  | { proDesign: unknown };
+  | { proDesign: unknown }
+  | { leadId: string };
 
 export type OpenTotePlanResult =
   | {
@@ -76,7 +81,7 @@ export type OpenTotePlanResult =
       firstName?: string;
       /** Buyer email + order ref, stamped on every PDF page (purchases only) */
       license?: { email: string; order: string };
-      access: "purchase" | "pro" | "admin";
+      access: "purchase" | "pro" | "admin" | "installer";
       /** Ladder jig link: their own jig plans if bought, else the $5 owner offer (purchases only) */
       jig?: { owned: boolean; href: string };
     }
@@ -160,6 +165,7 @@ async function findByToken(token: string): Promise<PurchaseRow | null> {
 export async function openTotePlan(input: OpenTotePlanInput): Promise<OpenTotePlanResult> {
   try {
     if ("proDesign" in input) return await openForPro(input.proDesign);
+    if ("leadId" in input) return await openForLeadInstaller(input.leadId);
     if ("sessionId" in input) return await openFromCheckout(input.sessionId);
     return await openFromToken(input.token, input.upgradeSessionId);
   } catch (err) {
@@ -182,6 +188,24 @@ async function openForPro(rawDesign: unknown): Promise<OpenTotePlanResult> {
   }
   const plan = await generateDIYPlan(design);
   return { ok: true, tier: "interactive", design, plan, access: access.reason };
+}
+
+/** The customer's design on a lead, for the installer the lead is assigned to (or an admin). */
+async function openForLeadInstaller(leadId: string): Promise<OpenTotePlanResult> {
+  const user = await getAuthenticatedUser();
+  if (!user) return { ok: false, error: "Sign in to your installer account to open this plan." };
+  if (!/^[0-9a-f-]{36}$/i.test(leadId)) return { ok: false, error: "Job not found." };
+  const db = getServiceClient();
+  const [{ data: lead }, { data: profile }] = await Promise.all([
+    db.from("leads").select("installer_id, plan_design, plan_design_name").eq("id", leadId).maybeSingle(),
+    db.from("profiles").select("is_admin").eq("id", user.id).maybeSingle(),
+  ]);
+  const isAdmin = profile?.is_admin === true;
+  if (!lead || (lead.installer_id !== user.id && !isAdmin)) return { ok: false, error: "Job not found." };
+  const design = decodeTotePlanDesign(lead.plan_design as string | null, lead.plan_design_name as string | null);
+  if (!design) return { ok: false, error: "This job didn't come from the plans designer, so it has no plan." };
+  const plan = await generateDIYPlan(design);
+  return { ok: true, tier: "interactive", design, plan, access: isAdmin && lead.installer_id !== user.id ? "admin" : "installer" };
 }
 
 /** Design recorded on a paid session: compact `design` (current) or `config` JSON (single-unit legacy). */

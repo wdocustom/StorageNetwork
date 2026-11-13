@@ -386,33 +386,30 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
   //    rails gets. The engine keeps 2×4-rail units to one tier, so each
   //    stacked tier goes in as its own band (casters on the bottom band,
   //    worktop on the top band) and its module keys are mapped back.
-  //    The engine splits width at 4; sideways modules are at most 2 wide
-  //    (30-1/4" bays), so a sideways unit goes in one band per module.
-  const bands: { unitIndex: number; tierIndex: number; widthOffset: number }[] = [];
+  //    The engine splits width the same way the plan does (4 wide, 2
+  //    sideways — lib/module-split).
+  const bands: { unitIndex: number; tierIndex: number }[] = [];
   const quoteUnits: QuoteUnit[] = [];
   design.units.forEach((u, unitIndex) => {
     const tiers = splitHeight(u.rows);
     const sideways = u.sideways === true;
-    const widthGroups = sideways ? splitWidth(u.cols, true).map((cols) => [cols]) : [[u.cols]];
     tiers.forEach((rows, tierIndex) => {
-      widthGroups.forEach(([cols], groupIndex) => {
-        bands.push({ unitIndex, tierIndex, widthOffset: sideways ? groupIndex : 0 });
-        quoteUnits.push({
-          cols,
-          rows,
-          toteType: u.toteType,
-          unitType: "standard",
-          orientation: sideways ? "sideways" : "standard",
-          hasTotes: true,
-          hasWheels: u.hasWheels && tierIndex === 0 && groupIndex === 0,
-          hasTop: u.hasTop && tierIndex === tiers.length - 1,
-          price: 0, // not relevant for DIY plans
-          totalW: sideways ? moduleWidthIn(cols, true) : unitOuterSize(u).widthIn,
-          totalH: moduleFrameHeightIn(rows),
-          depth: unitDepthIn(sideways),
-          desc: totePlanUnitLabel(u),
-          use2x4Rails: true,
-        });
+      bands.push({ unitIndex, tierIndex });
+      quoteUnits.push({
+        cols: u.cols,
+        rows,
+        toteType: u.toteType,
+        unitType: "standard",
+        orientation: sideways ? "sideways" : "standard",
+        hasTotes: true,
+        hasWheels: u.hasWheels && tierIndex === 0,
+        hasTop: u.hasTop && tierIndex === tiers.length - 1,
+        price: 0, // not relevant for DIY plans
+        totalW: unitOuterSize(u).widthIn,
+        totalH: moduleFrameHeightIn(rows),
+        depth: unitDepthIn(sideways),
+        desc: totePlanUnitLabel(u),
+        use2x4Rails: true,
       });
     });
   });
@@ -421,7 +418,7 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
   const planKey = (engineKey: string) => {
     const [band, width] = engineKey.split("-").map(Number);
     const b = bands[band];
-    return b ? `${b.unitIndex}-${b.widthOffset + width}-${b.tierIndex}` : engineKey;
+    return b ? `${b.unitIndex}-${width}-${b.tierIndex}` : engineKey;
   };
 
   // ── Cut boards — the engine's global packing, labeled by module type ─
