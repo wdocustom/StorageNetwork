@@ -75,8 +75,25 @@ const at = (deg: number, r = R) => ({
 const BERRY_SPOTS = [25, 70, 150, 205, 300].map((d, i) => ({ ...at(d, R + (i % 2 ? 3 : -2)), k: d }));
 const CONES = [{ ...at(115, R + 1), rot: 30 }, { ...at(340, R - 1), rot: -60 }];
 
-export default function HolidayWreath({ className = "" }: { className?: string }) {
+/**
+ * Render twice around the digit so the wreath drapes over it:
+ *   <HolidayWreath layer="back" />   — the whole wreath, behind the text
+ *   <span className="relative">9</span>
+ *   <HolidayWreath layer="front" />  — everything but the top of the ring
+ *                                      (faded out softly, so no hard seam)
+ * The top of the ring then shows only where the digit doesn't cover it, as
+ * if it runs behind the digit's top stroke, while the sides and bow hang in
+ * front. Both layers sway together from the same point.
+ */
+export default function HolidayWreath({
+  className = "",
+  layer = "front",
+}: {
+  className?: string;
+  layer?: "back" | "front";
+}) {
   if (!holidayWreathOn()) return null;
+  const mask = layer === "front" ? "url(#snw-front)" : undefined;
   return (
     <span aria-hidden className={`sn-wreath pointer-events-none select-none ${className}`}>
       <style>{`
@@ -90,6 +107,14 @@ export default function HolidayWreath({ className = "" }: { className?: string }
         style={{ filter: "drop-shadow(2px 4px 3px rgba(0,0,0,0.55))" }}
       >
         <defs>
+          {/* Front layer: the ring below its top arc (the top runs behind the digit) */}
+          <mask id="snw-front" maskUnits="userSpaceOnUse" x="-20" y="-20" width="140" height="160">
+            <rect x="-20" y="-20" width="140" height="160" fill="url(#snw-front-grad)" />
+          </mask>
+          <linearGradient id="snw-front-grad" gradientUnits="userSpaceOnUse" x1="0" y1={CY - 13} x2="0" y2={CY - 7}>
+            <stop offset="0" stopColor="#000" />
+            <stop offset="1" stopColor="#fff" />
+          </linearGradient>
           <radialGradient id="snw-berry" cx="35%" cy="30%" r="70%">
             <stop offset="0%" stopColor="#ff7b7b" />
             <stop offset="45%" stopColor="#d81e1e" />
@@ -115,6 +140,7 @@ export default function HolidayWreath({ className = "" }: { className?: string }
             <stop offset="72%" stopColor="#000" stopOpacity="0" />
           </radialGradient>
         </defs>
+        <g mask={mask}>
 
         {/* Base so no background shows through gaps */}
         <circle cx={CX} cy={CY} r={R} fill="none" stroke="#0c3119" strokeWidth="13" />
@@ -166,6 +192,7 @@ export default function HolidayWreath({ className = "" }: { className?: string }
           <path d="M12 -3 C9 -6 5 -5 2 -1" fill="none" stroke="#7a0b1c" strokeOpacity="0.6" strokeWidth="0.8" />
           <ellipse rx="3.4" ry="3" fill="url(#snw-satin-dark)" />
           <ellipse cx="-0.8" cy="-0.9" rx="1.2" ry="0.8" fill="#ff9aac" fillOpacity="0.5" />
+        </g>
         </g>
       </svg>
     </span>
