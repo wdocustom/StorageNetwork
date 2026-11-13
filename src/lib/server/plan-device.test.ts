@@ -149,6 +149,19 @@ describe("emailed code", () => {
     expect(res).toEqual({ ok: false, error: "Too many wrong tries. Send a new code." });
   });
 
+  it("accepts an earlier code after a resend — slow work email arrives late", async () => {
+    await secondDevice();
+    await sendPlanDeviceCode("judy@gmail.com");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + 61 * 1000);
+    await sendPlanDeviceCode("judy@gmail.com");
+    expect(sentCodes).toHaveLength(2);
+    expect(await verifyPlanDeviceCode("judy@gmail.com", sentCodes[0].code)).toEqual({ ok: true });
+    // Signing in spends both codes.
+    newDevice();
+    expect((await verifyPlanDeviceCode("judy@gmail.com", sentCodes[1].code)).ok).toBe(false);
+  });
+
   it("won't resend within a minute", async () => {
     await secondDevice();
     await sendPlanDeviceCode("judy@gmail.com");
