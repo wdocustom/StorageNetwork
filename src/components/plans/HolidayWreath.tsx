@@ -1,9 +1,9 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// A holiday wreath hooked over the top of a price's last digit, hanging down
-// its side at a slant. Drawn as SVG: a few hundred pine needles in layered
+// A holiday wreath hung on a price's last digit: the digit's top corner sits
+// inside the ring like a hook, and the wreath hangs down its side at a slant. Drawn as SVG: a few hundred pine needles in layered
 // greens (deterministic, so server and client agree), glossy berries, pine
-// cones and a satin ribbon that loops over the digit. Gentle sway from the
-// hook; still for reduced-motion users. No client JS. Shows only before
+// cones and a satin bow. Gentle sway from where it rests on the digit;
+// still for reduced-motion users. No client JS. Shows only before
 // HOLIDAY_WREATH_UNTIL, so it takes itself down after the season.
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -26,7 +26,7 @@ function rng(seed: number) {
 }
 
 const CX = 50;
-const CY = 58;
+const CY = 50;
 const R = 27;
 
 interface Needle {
@@ -80,9 +80,9 @@ export default function HolidayWreath({ className = "" }: { className?: string }
   return (
     <span aria-hidden className={`sn-wreath pointer-events-none select-none ${className}`}>
       <style>{`
-        .sn-wreath { display: block; transform-origin: 50% 6%; animation: sn-wreath-sway 5s ease-in-out infinite; }
-        @keyframes sn-wreath-sway { 0%, 100% { transform: rotate(-27deg); } 50% { transform: rotate(-21deg); } }
-        @media (prefers-reduced-motion: reduce) { .sn-wreath { animation: none; transform: rotate(-24deg); } }
+        .sn-wreath { display: block; transform-origin: 50% 29%; animation: sn-wreath-sway 5s ease-in-out infinite; }
+        @keyframes sn-wreath-sway { 0%, 100% { transform: rotate(-22deg); } 50% { transform: rotate(-16deg); } }
+        @media (prefers-reduced-motion: reduce) { .sn-wreath { animation: none; transform: rotate(-19deg); } }
       `}</style>
       <svg
         viewBox="0 0 100 100"
@@ -115,10 +115,6 @@ export default function HolidayWreath({ className = "" }: { className?: string }
             <stop offset="72%" stopColor="#000" stopOpacity="0" />
           </radialGradient>
         </defs>
-
-        {/* Ribbon hanger looped over the top of the digit */}
-        <path d="M44 33 C40 18 43 4 50 2 C57 4 60 18 56 33" fill="none" stroke="url(#snw-satin-dark)" strokeWidth="5" strokeLinecap="round" />
-        <path d="M45.5 31 C42.5 18 45 7 50 5" fill="none" stroke="#f0607a" strokeOpacity="0.45" strokeWidth="1.2" strokeLinecap="round" />
 
         {/* Base so no background shows through gaps */}
         <circle cx={CX} cy={CY} r={R} fill="none" stroke="#0c3119" strokeWidth="13" />
@@ -160,8 +156,8 @@ export default function HolidayWreath({ className = "" }: { className?: string }
           </g>
         ))}
 
-        {/* Satin bow at the top, where the hanger meets the wreath */}
-        <g transform="translate(50 33)">
+        {/* Satin bow at the bottom of the ring */}
+        <g transform="translate(50 76)">
           <path d="M-2 2 C-5 10 -9 17 -12 23 L-7 21 L-5 26 C-2 18 0 10 1 3 Z" fill="url(#snw-satin-dark)" />
           <path d="M2 2 C5 10 8 16 11 22 L6 20.5 L5 25 C2 17 0 10 -1 3 Z" fill="url(#snw-satin)" />
           <path d="M0 0 C-6 -9 -17 -8 -15 -1 C-13 5 -5 4 0 0 Z" fill="url(#snw-satin)" />

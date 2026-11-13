@@ -240,9 +240,9 @@ export default async function PlansPage() {
             <span className="relative inline-block text-6xl font-extrabold tracking-tight text-white">
               {PLANS_PRICES.allAccess}
               {/* Holiday pricing: a wreath hooked over the top of the 9, hanging down its side */}
-              <HolidayWreath className="absolute left-[calc(100%-33px)] top-[1px] h-[64px] w-[64px]" />
+              <HolidayWreath className="absolute left-[calc(100%-27px)] top-[-3px] h-[40px] w-[40px]" />
             </span>
-            <span className="ml-12 text-base text-stone-400">once, for life</span>
+            <span className="ml-6 text-base text-stone-400">once, for life</span>
           </div>
           <ul className="mt-7 space-y-3.5">
             {INCLUDED.map((item) => (
