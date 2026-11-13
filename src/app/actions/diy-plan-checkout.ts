@@ -2,7 +2,7 @@
 
 import Stripe from "stripe";
 import { stripeConfig } from "@/lib/stripe/http";
-import { createEmbeddedCheckoutSession } from "@/lib/stripe/embedded-checkout";
+import { FINAL_SALE_TEXT, createEmbeddedCheckoutSession } from "@/lib/stripe/embedded-checkout";
 import { cookies } from "next/headers";
 import { siteConfig } from "@/config/site";
 import { getAuthenticatedUser } from "@/lib/auth";
@@ -151,6 +151,7 @@ export async function createDIYPlanCheckout(
     // Stripe redirects the page to return_url.
     const session = await createEmbeddedCheckoutSession(stripe, {
       mode: "payment",
+      custom_text: FINAL_SALE_TEXT,
       line_items: [
         {
           price_data: {

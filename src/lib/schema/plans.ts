@@ -76,6 +76,10 @@ export const PLANS_FAQS: PlansFaq[] = [
     answer: "Right after checkout you land on your plan, and we email you a permanent link. Buy once and it's yours for good. If you lose the link, enter your purchase email on the plans page and we'll resend it.",
   },
   {
+    question: "Can I get a refund?",
+    answer: "No. Plans are digital and you get full access the moment payment is confirmed, so all sales are final. Before you buy, design your rack free in 3D and open the sample 3D guide and PDF to see exactly what you'll get.",
+  },
+  {
     question: "Are these tote rack plans free?",
     answer: `Sizing your build and previewing it in 3D is free. Plans are ${PLANS_PRICES.allAccess} once, for life, with no subscription: that covers the plan for the size you designed and every tote organizer you design after it, each with the 3D guide and the PDF.`,
   },

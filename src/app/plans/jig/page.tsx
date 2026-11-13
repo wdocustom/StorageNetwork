@@ -146,7 +146,7 @@ function Offer({ ownerToken }: { ownerToken: string | null }) {
               {loading ? "Opening checkout…" : `Get the Jig Plans — ${formatPlanPrice(offer.price)}`}
             </button>
             <p className="mt-2 text-center text-[11px] text-stone-600">
-              One-time purchase · permanent link by email
+              One-time purchase · instant access · all sales final
               {!offer.ownerDiscount && " · $5 when you own a tote organizer plan"}
             </p>
           </>

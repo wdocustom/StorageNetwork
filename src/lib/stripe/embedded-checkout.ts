@@ -20,6 +20,18 @@ export const CHECKOUT_BRANDING: Stripe.Checkout.SessionCreateParams.BrandingSett
   display_name: "Storage Network",
 };
 
+/**
+ * Shown above the Pay button on digital plan purchases. Access is granted
+ * the moment payment confirms, so the plans can't be "returned": all sales
+ * are final, and the buyer sees that before paying (dispute evidence too).
+ */
+export const FINAL_SALE_TEXT: Stripe.Checkout.SessionCreateParams.CustomText = {
+  submit: {
+    message:
+      "Digital plans: you get instant access as soon as payment is confirmed, so all sales are final and no refunds are given.",
+  },
+};
+
 export async function createEmbeddedCheckoutSession(
   stripe: Stripe,
   params: Stripe.Checkout.SessionCreateParams,

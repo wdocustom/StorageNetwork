@@ -67,7 +67,7 @@ export function AllAccessOffer({
         {loading ? "Opening checkout…" : `Get my plans — ${PRICE}`}
       </button>
       <p className="mt-2 text-center text-[11px] text-stone-500">
-        Instant access · permanent link by email · no account needed
+        Instant access · link by email · all sales final
       </p>
       <p className="mt-2 flex items-center justify-center gap-3 text-xs text-stone-400">
         See a sample:
