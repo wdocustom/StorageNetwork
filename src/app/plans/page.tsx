@@ -239,10 +239,10 @@ export default async function PlansPage() {
           <div className="mt-2 flex items-baseline gap-3">
             <span className="relative inline-block text-6xl font-extrabold tracking-tight text-white">
               {PLANS_PRICES.allAccess}
-              {/* Holiday pricing: a wreath hung off the corner of the 9 */}
-              <HolidayWreath className="absolute left-full top-0 -ml-3 h-[82px] w-[64px]" />
+              {/* Holiday pricing: a wreath hooked over the top of the 9, hanging down its side */}
+              <HolidayWreath className="absolute left-[calc(100%-33px)] top-[1px] h-[64px] w-[64px]" />
             </span>
-            <span className="ml-14 text-base text-stone-400">once, for life</span>
+            <span className="ml-12 text-base text-stone-400">once, for life</span>
           </div>
           <ul className="mt-7 space-y-3.5">
             {INCLUDED.map((item) => (
