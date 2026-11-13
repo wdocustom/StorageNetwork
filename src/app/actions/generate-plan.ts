@@ -26,6 +26,7 @@ import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine.types";
 import {
   RAILS_2X4,
   braceLayout2x4,
+  rails2x4Geometry,
   getStepsForConfig,
   computeMaterials,
   railTopMarks2x4,
@@ -38,7 +39,11 @@ import { toFraction } from "@/lib/utils";
 import { productLinkFor, type ProductStore } from "@/lib/plan-product-links";
 import {
   BAY_OPENING_IN,
+  BAY_OPENING_SIDEWAYS_IN,
+  MODULE_MAX_COLS,
+  MODULE_MAX_COLS_SIDEWAYS,
   UNIT_DEPTH_IN,
+  UNIT_DEPTH_SIDEWAYS_IN,
   casterPositions,
   designModules,
   designOuterSize,
@@ -51,6 +56,7 @@ import {
   totePlanSummary,
   totePlanUnitLabel,
   unitLetter,
+  unitDepthIn,
   unitOuterSize,
   type PlanModule,
   type PlanModuleType,
@@ -109,6 +115,8 @@ export interface PlanUnit {
   cols: number;
   rows: number;
   toteType: "HDX" | "GM";
+  /** Totes turned 90°: 30-1/4" bays, 20" deep */
+  sideways: boolean;
   hasWheels: boolean;
   hasTop: boolean;
   widthIn: number;
@@ -137,8 +145,14 @@ export interface CompleteDIYPlan {
   totals: BuildManifest["totals"];
   /** Every 2×4×8' board for uprights + plates, packed exactly as the build engine packs them */
   cutBoards: PlanCutBoard[];
-  /** 2×4×8' boards ripped into rails and back braces (6 pieces per board) */
-  railBoards: { boards: number; rails: number; braces: number };
+  /** 2×4×8' boards ripped into rails and back braces (6 pieces per board; 8 for sideways 20" rails) */
+  railBoards: {
+    boards: number;
+    rails: number;
+    braces: number;
+    /** One entry per rail length in the design (30" standard, 20" sideways) */
+    groups?: { boards: number; pieceLength: number; perHalf: number; rails: number; braces: number }[];
+  };
   /** Ripping and plywood notes for the cut plan */
   plywoodNotes: string[];
   allTools: string[];
@@ -167,9 +181,10 @@ const inches = (n: number) => `${toFraction(n)}"`;
 // ═══════════════════════════════════════════════════════════════════════════
 
 function moduleParts(t: PlanModuleType): PlanCutPart[] {
-  const width = moduleWidthIn(t.cols);
+  const width = moduleWidthIn(t.cols, t.sideways);
+  const depth = unitDepthIn(t.sideways);
   const upright = upright2x4(t.rows);
-  const braces = braceLayout2x4(t.cols, t.rows);
+  const braces = braceLayout2x4(t.cols, t.rows, t.sideways);
   const parts: PlanCutPart[] = [
     {
       name: "Upright",
@@ -178,20 +193,26 @@ function moduleParts(t: PlanModuleType): PlanCutPart[] {
       material: "2×4",
     },
     { name: "Plate", qty: 4, length: inches(width), material: "2×4" },
-    { name: "Rail", qty: t.cols * t.rows * 2, length: `${UNIT_DEPTH_IN}"`, material: "2×4 ripped in half" },
+    { name: "Rail", qty: t.cols * t.rows * 2, length: inches(depth), material: "2×4 ripped in half" },
     {
       name: "Back Brace",
       qty: braces.segments.length,
-      length: braces.length >= UNIT_DEPTH_IN ? `${UNIT_DEPTH_IN}"` : inches(braces.length),
+      length: braces.length >= depth ? inches(depth) : inches(braces.length),
       material: "2×4 ripped in half",
     },
   ];
-  if (t.hasTop) parts.push({ name: "Worktop", qty: 1, length: `${inches(width)} × ${UNIT_DEPTH_IN}"`, material: '3/4" plywood' });
+  if (t.hasTop) parts.push({ name: "Worktop", qty: 1, length: `${inches(width)} × ${inches(depth)}`, material: '3/4" plywood' });
   return parts;
 }
 
 function moduleSteps(t: PlanModuleType): PlanAssemblyStep[] {
-  const config: BuildConfig = { ...BUILD_CONFIG_BASE, hasWheels: t.hasWheels, hasTop: t.hasTop, toteType: t.toteType };
+  const config: BuildConfig = {
+    ...BUILD_CONFIG_BASE,
+    hasWheels: t.hasWheels,
+    hasTop: t.hasTop,
+    toteType: t.toteType,
+    sideways: t.sideways,
+  };
   return getStepsForConfig(config).map((step, idx) => ({
     id: step.id,
     stepNumber: idx + 1,
@@ -218,9 +239,10 @@ function topSheetsFor(widthIn: number): number {
 }
 
 function unitSteps(unit: PlanUnit): PlanAssemblyStep[] {
-  const widths = splitWidth(unit.cols);
+  const widths = splitWidth(unit.cols, unit.sideways);
   const tiers = splitHeight(unit.rows);
   const singleModule = widths.length === 1 && tiers.length === 1;
+  const depth = inches(unitDepthIn(unit.sideways));
 
   const steps: Omit<PlanAssemblyStep, "stepNumber">[] = [];
   const seams = widths.length - 1;
@@ -279,7 +301,7 @@ function unitSteps(unit: PlanUnit): PlanAssemblyStep[] {
   }
 
   for (let tier = 1; tier < tiers.length; tier++) {
-    const perModulePlate = widths.map((c) => moduleWidthIn(c));
+    const perModulePlate = widths.map((c) => moduleWidthIn(c, unit.sideways));
     const screws = perModulePlate.reduce((s, w) => s + Math.max(2, Math.ceil(w / 12)) * 2, 0);
     steps.push({
       id: `stack-tier-${tier + 1}`,
@@ -313,12 +335,12 @@ function unitSteps(unit: PlanUnit): PlanAssemblyStep[] {
       title: "Attach the Plywood Top",
       instruction:
         sheets === 1
-          ? `Cut one piece of 3/4" plywood to ${inches(unit.widthIn)} × ${UNIT_DEPTH_IN}" and set it on the top plates, flush with the front and both ends. ` +
+          ? `Cut one piece of 3/4" plywood to ${inches(unit.widthIn)} × ${depth} and set it on the top plates, flush with the front and both ends. ` +
             "Drive #9 × 1-5/8\" screws down through the plywood into the top plates at every upright location, front and back."
-          : `The top spans ${inches(unit.widthIn)}, wider than one sheet. Cut ${sheets} pieces of 3/4" plywood, each about ${inches(pieceW)} × ${UNIT_DEPTH_IN}", ` +
+          : `The top spans ${inches(unit.widthIn)}, wider than one sheet. Cut ${sheets} pieces of 3/4" plywood, each about ${inches(pieceW)} × ${depth}, ` +
             "adjusting the cut so every seam lands over a pair of joined uprights. Set them flush with the front and ends, then drive #9 × 1-5/8\" screws through the plywood into the top plates at every upright location, front and back — plus one extra screw on each side of every seam.",
       materials: [
-        { name: '3/4" Plywood', qty: String(sheets), detail: `cut to ${UNIT_DEPTH_IN}" deep` },
+        { name: '3/4" Plywood', qty: String(sheets), detail: `cut to ${depth} deep` },
         { name: '#9 × 1-5/8" Screws', qty: String(postCount * 2 + (sheets - 1) * 4), detail: "every upright, front and back" },
       ],
       tools: [
@@ -364,27 +386,33 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
   //    rails gets. The engine keeps 2×4-rail units to one tier, so each
   //    stacked tier goes in as its own band (casters on the bottom band,
   //    worktop on the top band) and its module keys are mapped back.
-  const bands: { unitIndex: number; tierIndex: number }[] = [];
+  //    The engine splits width at 4; sideways modules are at most 2 wide
+  //    (30-1/4" bays), so a sideways unit goes in one band per module.
+  const bands: { unitIndex: number; tierIndex: number; widthOffset: number }[] = [];
   const quoteUnits: QuoteUnit[] = [];
   design.units.forEach((u, unitIndex) => {
     const tiers = splitHeight(u.rows);
+    const sideways = u.sideways === true;
+    const widthGroups = sideways ? splitWidth(u.cols, true).map((cols) => [cols]) : [[u.cols]];
     tiers.forEach((rows, tierIndex) => {
-      bands.push({ unitIndex, tierIndex });
-      quoteUnits.push({
-        cols: u.cols,
-        rows,
-        toteType: u.toteType,
-        unitType: "standard",
-        orientation: "standard",
-        hasTotes: true,
-        hasWheels: u.hasWheels && tierIndex === 0,
-        hasTop: u.hasTop && tierIndex === tiers.length - 1,
-        price: 0, // not relevant for DIY plans
-        totalW: unitOuterSize(u).widthIn,
-        totalH: moduleFrameHeightIn(rows),
-        depth: UNIT_DEPTH_IN,
-        desc: totePlanUnitLabel(u),
-        use2x4Rails: true,
+      widthGroups.forEach(([cols], groupIndex) => {
+        bands.push({ unitIndex, tierIndex, widthOffset: sideways ? groupIndex : 0 });
+        quoteUnits.push({
+          cols,
+          rows,
+          toteType: u.toteType,
+          unitType: "standard",
+          orientation: sideways ? "sideways" : "standard",
+          hasTotes: true,
+          hasWheels: u.hasWheels && tierIndex === 0 && groupIndex === 0,
+          hasTop: u.hasTop && tierIndex === tiers.length - 1,
+          price: 0, // not relevant for DIY plans
+          totalW: sideways ? moduleWidthIn(cols, true) : unitOuterSize(u).widthIn,
+          totalH: moduleFrameHeightIn(rows),
+          depth: unitDepthIn(sideways),
+          desc: totePlanUnitLabel(u),
+          use2x4Rails: true,
+        });
       });
     });
   });
@@ -393,7 +421,7 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
   const planKey = (engineKey: string) => {
     const [band, width] = engineKey.split("-").map(Number);
     const b = bands[band];
-    return b ? `${b.unitIndex}-${width}-${b.tierIndex}` : engineKey;
+    return b ? `${b.unitIndex}-${b.widthOffset + width}-${b.tierIndex}` : engineKey;
   };
 
   // ── Cut boards — the engine's global packing, labeled by module type ─
@@ -405,18 +433,34 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
     })),
     remainder: Math.round(b.rem * 100) / 100,
   }));
-  const railCount = modules.reduce((s, m) => s + m.cols * m.rows * 2, 0);
-  const braceCount = modules.reduce((s, m) => s + braceLayout2x4(m.cols, m.rows).segments.length, 0);
+  // Rails and braces are crosscut to the rack depth: 30" pieces (6 per
+  // board) for standard racks, 20" pieces (8 per board) for sideways ones.
+  const railGroups = [false, true]
+    .map((sideways) => {
+      const ms = modules.filter((m) => m.sideways === sideways);
+      const geo = rails2x4Geometry(sideways);
+      const rails = ms.reduce((s, m) => s + m.cols * m.rows * 2, 0);
+      const braces = ms.reduce((s, m) => s + braceLayout2x4(m.cols, m.rows, sideways).segments.length, 0);
+      return { sideways, geo, rails, braces, boards: Math.ceil((rails + braces) / geo.railsPerBoard) };
+    })
+    .filter((g) => g.rails > 0);
   const railBoards = {
-    boards: Math.ceil((railCount + braceCount) / RAILS_2X4.railsPerBoard),
-    rails: railCount,
-    braces: braceCount,
+    boards: railGroups.reduce((s, g) => s + g.boards, 0),
+    rails: railGroups.reduce((s, g) => s + g.rails, 0),
+    braces: railGroups.reduce((s, g) => s + g.braces, 0),
+    groups: railGroups.map((g) => ({
+      boards: g.boards,
+      pieceLength: g.geo.depth,
+      perHalf: g.geo.railsPerStrip,
+      rails: g.rails,
+      braces: g.braces,
+    })),
   };
 
   // ── Module types ─────────────────────────────────────────────────────
   const moduleTypes: PlanModuleTypeBuild[] = types.map((t) => ({
     ...t,
-    widthIn: moduleWidthIn(t.cols),
+    widthIn: moduleWidthIn(t.cols, t.sideways),
     frameHeightIn: moduleFrameHeightIn(t.rows),
     parts: moduleParts(t),
     steps: moduleSteps(t),
@@ -432,6 +476,7 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
       cols: u.cols,
       rows: u.rows,
       toteType: u.toteType,
+      sideways: u.sideways === true,
       hasWheels: u.hasWheels,
       hasTop: u.hasTop,
       widthIn: size.widthIn,
@@ -461,16 +506,27 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
       units.reduce((s, u) => s + fromSteps(u.assemblySteps, 1), 0)
     );
   };
+  // Plywood: the engine buys a sheet per worktop piece. A sideways top is
+  // only 20" deep, so one 4×8 sheet rips into two 20" strips — two pieces.
+  const standardTopPieces = units.reduce((s, u) => s + (u.hasTop && !u.sideways ? topSheetsFor(u.widthIn) : 0), 0);
+  const sidewaysTopPieces = units.reduce((s, u) => s + (u.hasTop && u.sideways ? topSheetsFor(u.widthIn) : 0), 0);
+  const plywoodSheets = Math.min(manifest.totals.sheets, standardTopPieces + Math.ceil(sidewaysTopPieces / 2));
   const screws3 = Math.ceil(screwCount('#9 × 3" Screws') * SCREW_SPARE);
   const screws158 = Math.ceil(screwCount('#9 × 1-5/8" Screws') * SCREW_SPARE);
   const shoppingList: PlanShoppingItem[] = [];
   for (const item of manifest.shopping_list) {
     if (item.name === "2x4 Lumber" && /ripped/i.test(item.detail)) {
-      shoppingList.push({ ...item, qty: railBoards.boards, detail: `8 ft — rip into ${railBoards.rails} rails + ${railBoards.braces} back braces (6 per board)` });
+      shoppingList.push({ ...item, qty: railBoards.boards, detail: `8 ft — rip into ${railBoards.rails} rails + ${railBoards.braces} back braces (${railGroups.map((g) => `${g.geo.railsPerBoard} per board at ${inches(g.geo.depth)}`).join(", ")})` });
     } else if (item.name === "2x4 Lumber") {
       shoppingList.push({ ...item, detail: "8 ft studs — uprights and plates" });
     } else if (item.name === "Plywood") {
-      if (Number(item.qty) > 0) shoppingList.push({ ...item, detail: '3/4" sheets — worktops' });
+      if (plywoodSheets > 0) {
+        shoppingList.push({
+          ...item,
+          qty: plywoodSheets,
+          detail: sidewaysTopPieces > 0 ? '3/4" sheets — worktops (each sheet rips into two 20" strips)' : '3/4" sheets — worktops',
+        });
+      }
     } else if (item.name === "Caster Kits") {
       const kits = Math.ceil(casterCount / CASTERS_PER_KIT);
       shoppingList.push({
@@ -506,26 +562,30 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
     const link = productLinkFor(item.name);
     if (link) Object.assign(item, link);
   }
-  const totals = { ...manifest.totals, wheelKits: Math.ceil(casterCount / CASTERS_PER_KIT) };
+  const totals = { ...manifest.totals, sheets: plywoodSheets, wheelKits: Math.ceil(casterCount / CASTERS_PER_KIT) };
 
   // ── Rail + plywood notes ─────────────────────────────────────────────
   const topSheets = units.reduce((s, u) => s + (u.hasTop ? topSheetsFor(u.widthIn) : 0), 0);
   // One entry per module type: "A1, A2: 4 at 30\" (no cut)" / "B1: 4 cut to 21-1/2\""
   const braceNotes = moduleTypes.map((t) => {
-    const b = braceLayout2x4(t.cols, t.rows);
+    const b = braceLayout2x4(t.cols, t.rows, t.sideways);
+    const depth = unitDepthIn(t.sideways);
     const n = b.segments.length * t.count;
-    const how = b.length >= UNIT_DEPTH_IN ? `at ${UNIT_DEPTH_IN}" (no cut)` : `cut to ${inches(b.length)}`;
+    const how = b.length >= depth ? `at ${inches(depth)} (no cut)` : `cut to ${inches(b.length)}`;
     const where = b.style === "diagonal" ? ", plate to plate in the end bays" : "";
     return `${moduleTypeTitle(t)}: ${n} ${how}${where}`;
   });
   const plywoodNotes = [
-    `Rails: rip ${railBoards.boards} straight 2×4×8' board${railBoards.boards === 1 ? "" : "s"} down the middle (fence at 1-9/16"), then crosscut each half into 3 rails at ${UNIT_DEPTH_IN}". That makes ${railBoards.boards * RAILS_2X4.railsPerBoard} pieces — you need ${railBoards.rails} rails plus ${railBoards.braces} back braces.`,
-    `Back braces: ${braceNotes.join("; ")}. Short modules take shorter braces so the top and bottom ones never meet — cut those from the same 30" pieces, square ends.`,
+    ...railGroups.map(
+      (g) =>
+        `${railGroups.length > 1 ? (g.sideways ? "Sideways rails: " : "Standard rails: ") : "Rails: "}rip ${g.boards} straight 2×4×8' board${g.boards === 1 ? "" : "s"} down the middle (fence at 1-9/16"), then crosscut each half into ${g.geo.railsPerStrip} rails at ${inches(g.geo.depth)}. That makes ${g.boards * g.geo.railsPerBoard} pieces — you need ${g.rails} rails plus ${g.braces} back braces.`,
+    ),
+    `Back braces: ${braceNotes.join("; ")}. Short modules take shorter braces so the top and bottom ones never meet — cut those from the same ripped pieces, square ends.`,
     `Rail heights (top edge, measured up from the bottom of each upright): ${railTopMarks2x4(6).map((m) => inches(m)).join(", ")} — 16" apart; use as many as the module is tall. From the floor, add 1-1/2" for the bottom plate${modules.some((m) => m.hasWheels) ? " (plus the casters)" : ""}.`,
   ];
   if (topSheets > 0) {
     plywoodNotes.push(
-      `Worktop${topSheets > 1 ? "s" : ""}: ${topSheets} piece${topSheets > 1 ? "s" : ""} of 3/4" plywood, ${UNIT_DEPTH_IN}" deep — see the top step for exact widths. Plywood to buy: ${manifest.totals.sheets} sheet${manifest.totals.sheets === 1 ? "" : "s"}.`,
+      `Worktop${topSheets > 1 ? "s" : ""}: ${topSheets} piece${topSheets > 1 ? "s" : ""} of 3/4" plywood, ${[...new Set(units.filter((u) => u.hasTop).map((u) => inches(unitDepthIn(u.sideways))))].join(" or ")} deep — see the top step for exact widths. Plywood to buy: ${plywoodSheets} sheet${plywoodSheets === 1 ? "" : "s"}${sidewaysTopPieces > 1 ? " (rip each sheet lengthwise into two 20\" strips)" : ""}.`,
     );
   } else {
     plywoodNotes.push("No plywood needed — the whole frame is 2×4.");
@@ -553,15 +613,22 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
   }
 
   const generalNotes = [
-    `Every bay is a universal ${inches(BAY_OPENING_IN)} opening between uprights, so it fits ${brands.size > 1 || brands.has("HDX") ? "HDX (Home Depot / Walmart / Menards)" : ""}${brands.size > 1 ? " and " : ""}${brands.size > 1 || brands.has("GM") ? "Greenmade (Costco)" : ""} 27-gallon totes. Each tote hangs by its rim on two 2×4 rails.`,
+    `Every ${design.units.some((u) => u.sideways) ? "standard " : ""}bay is a universal ${inches(BAY_OPENING_IN)} opening between uprights, so it fits ${brands.size > 1 || brands.has("HDX") ? "HDX (Home Depot / Walmart / Menards)" : ""}${brands.size > 1 ? " and " : ""}${brands.size > 1 || brands.has("GM") ? "Greenmade (Costco)" : ""} 27-gallon totes. Each tote hangs by its rim on two 2×4 rails.`,
     'Built from standard 2×4s (actual 1-1/2" × 3-1/2"). Rails are 2×4s ripped in half; plywood is only used for worktops.',
     "Screws are #9 star-drive construction screws. No pilot holes needed in 2×4 or plywood.",
-    `Finished size: ${inches(size.widthIn)} W × ${inches(size.heightIn)} H × ${UNIT_DEPTH_IN}" D${design.units.length > 1 ? " (all units side by side, tallest unit)" : ""}.`,
+    `Finished size: ${inches(size.widthIn)} W × ${inches(size.heightIn)} H × ${inches(size.depthIn)} D${design.units.length > 1 ? " (all units side by side, tallest unit)" : ""}.`,
     "Use the cut plan to cut parts for every module at once — it's packed to waste the fewest boards. Step quantities are for ONE module.",
   ];
+  if (design.units.some((u) => u.sideways)) {
+    generalNotes.splice(
+      1,
+      0,
+      `${design.units.length > 1 ? "Sideways units turn" : "Sideways turns"} each tote 90° so its long side faces out: bays are ${inches(BAY_OPENING_SIDEWAYS_IN)} wide and the rack is only ${inches(UNIT_DEPTH_SIDEWAYS_IN)} deep (${inches(UNIT_DEPTH_IN - UNIT_DEPTH_SIDEWAYS_IN)} shallower than standard), for narrow garages and walkways. Sideways modules are at most ${MODULE_MAX_COLS_SIDEWAYS} totes wide so every plate still comes out of an 8' 2×4.`,
+    );
+  }
   if (modules.length > 1) {
     generalNotes.push(
-      "Big walls are built from self-contained modules: no more than 4 totes wide (so plates fit an 8' board) and 6 tall (so uprights do). Units are lettered A, B, C…; a unit made of several modules numbers them A1, A2… Identical modules are grouped so you build one, then repeat it.",
+      `Big walls are built from self-contained modules: no more than ${MODULE_MAX_COLS} totes wide (${MODULE_MAX_COLS_SIDEWAYS} sideways) so plates fit an 8' board, and 6 tall so uprights do. Units are lettered A, B, C…; a unit made of several modules numbers them A1, A2… Identical modules are grouped so you build one, then repeat it.`,
     );
   }
   if (casterCount > 0) {
@@ -579,7 +646,7 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
     dimensions: {
       totalWidth: inches(size.widthIn),
       totalHeight: inches(size.heightIn),
-      depth: `${UNIT_DEPTH_IN}"`,
+      depth: inches(size.depthIn),
     },
     units,
     moduleTypes,

@@ -29,7 +29,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { BESTSELLER_PRESETS } from "@/lib/presets";
-import { RAILS_2X4, upright2x4 } from "@/components/visualizer/assemblySteps";
+import { RAILS_2X4, RAILS_2X4_DEPTH, rails2x4Geometry, upright2x4 } from "@/components/visualizer/assemblySteps";
 
 export const TOTE_PLAN_ID = "tote-organizer";
 
@@ -159,6 +159,12 @@ export interface TotePlanUnit {
   toteType: TotePlanToteType;
   hasWheels: boolean;
   hasTop: boolean;
+  /**
+   * Totes turned 90°, long side facing out: 30-1/4" bays, 20" deep. For
+   * shallow walls. Omitted (not false) on standard units, so old designs
+   * and their encodings are unchanged.
+   */
+  sideways?: boolean;
   /** Bestseller preset id when this unit is part of one (see normalizeBestsellers) */
   bestseller?: string;
 }
@@ -180,6 +186,9 @@ export const TOTE_PLAN_LIMITS = {
 /** Build-engine split points (must match buildEngine.ts): plates fit an
  *  8' board up to 4 wide; a 2×4-rail upright is a full 8' stud at 6 high. */
 export const MODULE_MAX_COLS = 4;
+/** Sideways bays are 30-1/4": 2 wide is a 65" plate, 3 wide (96-3/4")
+ *  would no longer come out of an 8' board. */
+export const MODULE_MAX_COLS_SIDEWAYS = 2;
 export const MODULE_MAX_ROWS = RAILS_2X4.maxRows;
 
 const MAX_NAME_LENGTH = 40;
@@ -190,13 +199,13 @@ function cleanName(raw: unknown): string | undefined {
   return name || undefined;
 }
 
-/** Validate one untrusted unit. Mini, sideways and 2×4-rail units aren't modeled. */
+/** Validate one untrusted unit. Mini and 2×4-rail installer units aren't modeled. */
 export function parseTotePlanUnit(raw: unknown): TotePlanUnit | null {
   if (!raw || typeof raw !== "object") return null;
   const c = raw as Record<string, unknown>;
 
   if (c.unitType !== undefined && c.unitType !== "standard") return null;
-  if (c.orientation !== undefined && c.orientation !== "standard") return null;
+  if (c.orientation !== undefined && c.orientation !== "standard" && c.orientation !== "sideways") return null;
   if (c.use2x4Rails === true) return null;
 
   const cols = Number(c.cols);
@@ -213,6 +222,7 @@ export function parseTotePlanUnit(raw: unknown): TotePlanUnit | null {
     hasWheels: c.hasWheels === true,
     hasTop: c.hasTop === true,
   };
+  if (c.sideways === true || c.orientation === "sideways") unit.sideways = true;
   if (typeof c.bestseller === "string" && c.bestseller in BESTSELLER_CODES) unit.bestseller = c.bestseller;
   return unit;
 }
@@ -255,7 +265,7 @@ export function bestsellerInstances(units: TotePlanUnit[]): BestsellerInstance[]
       i + n <= units.length &&
       preset.units.every((pu, k) => {
         const u = units[i + k];
-        return u.bestseller === id && u.cols === pu.cols && u.rows === pu.rows;
+        return u.bestseller === id && u.cols === pu.cols && u.rows === pu.rows && !u.sideways;
       });
     if (matches) {
       out.push({ presetId: id!, start: i, count: n });
@@ -310,17 +320,17 @@ export function parseTotePlanDesign(raw: unknown): TotePlanDesign | null {
 }
 
 // ── Compact string form (URLs, Stripe metadata) ──────────────────────────
-// Unit token: <H|G><cols>x<rows>[w][t][_<bestseller code>]
-//             e.g. "H4x4wt", "G2x6", "H2x4t_ij"
+// Unit token: <H|G><cols>x<rows>[w][t][s][_<bestseller code>]
+//             e.g. "H4x4wt", "G2x6", "H2x4t_ij", "H3x4wts" (s = sideways)
 // Design:     tokens joined by "."      e.g. "H2x4t_ij.H2x2t_ij.H2x4t_ij"
 
-const UNIT_TOKEN = /^([HG])(\d{1,2})x(\d{1,2})(w?)(t?)(?:_([a-z]{2,3}))?$/;
+const UNIT_TOKEN = /^([HG])(\d{1,2})x(\d{1,2})(w?)(t?)(s?)(?:_([a-z]{2,3}))?$/;
 
 export function encodeTotePlanDesign(design: TotePlanDesign): string {
   return design.units
     .map(
       (u) =>
-        `${u.toteType === "HDX" ? "H" : "G"}${u.cols}x${u.rows}${u.hasWheels ? "w" : ""}${u.hasTop ? "t" : ""}` +
+        `${u.toteType === "HDX" ? "H" : "G"}${u.cols}x${u.rows}${u.hasWheels ? "w" : ""}${u.hasTop ? "t" : ""}${u.sideways ? "s" : ""}` +
         (u.bestseller && BESTSELLER_CODES[u.bestseller] ? `_${BESTSELLER_CODES[u.bestseller]}` : ""),
     )
     .join(".");
@@ -340,7 +350,8 @@ export function decodeTotePlanDesign(value: string | null | undefined, name?: st
       rows: Number(m[3]),
       hasWheels: m[4] === "w",
       hasTop: m[5] === "t",
-      ...(m[6] && BESTSELLER_BY_CODE[m[6]] ? { bestseller: BESTSELLER_BY_CODE[m[6]] } : {}),
+      ...(m[6] === "s" ? { sideways: true } : {}),
+      ...(m[7] && BESTSELLER_BY_CODE[m[7]] ? { bestseller: BESTSELLER_BY_CODE[m[7]] } : {}),
     });
   }
   return parseTotePlanDesign({ units, name: name ?? undefined });
@@ -391,19 +402,34 @@ function safeDecode(value: string): string | null {
 
 /** Universal 21" bay between uprights — fits HDX and Greenmade 27-gal totes */
 export const BAY_OPENING_IN = RAILS_2X4.opening;
+/** Sideways bay: the tote's 30-1/4" length spans it */
+export const BAY_OPENING_SIDEWAYS_IN = rails2x4Geometry(true).opening;
 export const POST_IN = 1.5;
 /** Bottom plate + top plate, 1-1/2" each */
 export const PLATES_H_IN = 3;
 export const CASTER_IN = 2.75;
-export const UNIT_DEPTH_IN = 30;
+export const UNIT_DEPTH_IN = RAILS_2X4_DEPTH;
+/** Sideways racks are shallower: 20" rails */
+export const UNIT_DEPTH_SIDEWAYS_IN = rails2x4Geometry(true).depth;
 
-/** Width split: greedy 4s, remainder last — identical to buildEngine. */
-export function splitWidth(cols: number): number[] {
+/** Bay opening for a unit, standard or sideways. */
+export function bayOpeningIn(sideways?: boolean): number {
+  return sideways ? BAY_OPENING_SIDEWAYS_IN : BAY_OPENING_IN;
+}
+
+/** Rack depth (= rail length) for a unit, standard or sideways. */
+export function unitDepthIn(sideways?: boolean): number {
+  return sideways ? UNIT_DEPTH_SIDEWAYS_IN : UNIT_DEPTH_IN;
+}
+
+/** Width split: greedy 4s (2s sideways), remainder last — identical to buildEngine for standard. */
+export function splitWidth(cols: number, sideways = false): number[] {
+  const max = sideways ? MODULE_MAX_COLS_SIDEWAYS : MODULE_MAX_COLS;
   const mods: number[] = [];
   let remaining = cols;
-  while (remaining > MODULE_MAX_COLS) {
-    mods.push(MODULE_MAX_COLS);
-    remaining -= MODULE_MAX_COLS;
+  while (remaining > max) {
+    mods.push(max);
+    remaining -= max;
   }
   if (remaining > 0) mods.push(remaining);
   return mods;
@@ -422,8 +448,8 @@ export function splitHeight(rows: number): number[] {
 }
 
 /** Outside width of one module. Tote brand doesn't matter: the 21" bay fits both. */
-export function moduleWidthIn(cols: number): number {
-  return cols * BAY_OPENING_IN + (cols + 1) * POST_IN;
+export function moduleWidthIn(cols: number, sideways = false): number {
+  return cols * bayOpeningIn(sideways) + (cols + 1) * POST_IN;
 }
 
 /** Frame height of one module (plates + upright), without casters. */
@@ -433,10 +459,10 @@ export function moduleFrameHeightIn(rows: number): number {
 
 export function unitOuterSize(unit: TotePlanUnit): { widthIn: number; heightIn: number; depthIn: number } {
   return {
-    widthIn: splitWidth(unit.cols).reduce((s, c) => s + moduleWidthIn(c), 0),
+    widthIn: splitWidth(unit.cols, unit.sideways).reduce((s, c) => s + moduleWidthIn(c, unit.sideways), 0),
     heightIn:
       splitHeight(unit.rows).reduce((s, r) => s + moduleFrameHeightIn(r), 0) + (unit.hasWheels ? CASTER_IN : 0),
-    depthIn: UNIT_DEPTH_IN,
+    depthIn: unitDepthIn(unit.sideways),
   };
 }
 
@@ -450,19 +476,19 @@ const CASTER_BASE_LENGTH_IN = 96;
 const CASTER_EXTRA_PAIR_EVERY_IN = 48;
 
 /** Upright centerlines across a unit, inches from its left end (seams have two). */
-export function unitUprightXs(unit: Pick<TotePlanUnit, "cols">): number[] {
+export function unitUprightXs(unit: Pick<TotePlanUnit, "cols" | "sideways">): number[] {
   const xs: number[] = [];
   let offset = 0;
-  for (const cols of splitWidth(unit.cols)) {
-    for (let i = 0; i <= cols; i++) xs.push(offset + POST_IN / 2 + i * (BAY_OPENING_IN + POST_IN));
-    offset += moduleWidthIn(cols);
+  for (const cols of splitWidth(unit.cols, unit.sideways)) {
+    for (let i = 0; i <= cols; i++) xs.push(offset + POST_IN / 2 + i * (bayOpeningIn(unit.sideways) + POST_IN));
+    offset += moduleWidthIn(cols, unit.sideways);
   }
   return xs;
 }
 
 /** Number of caster PAIRS (front + back) a rolling unit gets. */
-export function casterPairCount(unit: Pick<TotePlanUnit, "cols">): number {
-  const width = unitOuterSize({ cols: unit.cols, rows: 1, toteType: "HDX", hasWheels: false, hasTop: false }).widthIn;
+export function casterPairCount(unit: Pick<TotePlanUnit, "cols" | "sideways">): number {
+  const width = unitOuterSize({ cols: unit.cols, rows: 1, toteType: "HDX", hasWheels: false, hasTop: false, sideways: unit.sideways }).widthIn;
   if (width <= CASTER_BASE_LENGTH_IN) return 2;
   return 2 + Math.ceil((width - CASTER_BASE_LENGTH_IN) / CASTER_EXTRA_PAIR_EVERY_IN);
 }
@@ -494,7 +520,7 @@ export function designOuterSize(design: TotePlanDesign): { widthIn: number; heig
   return {
     widthIn: sizes.reduce((s, u) => s + u.widthIn, 0),
     heightIn: Math.max(...sizes.map((u) => u.heightIn)),
-    depthIn: UNIT_DEPTH_IN,
+    depthIn: Math.max(...sizes.map((u) => u.depthIn)),
   };
 }
 
@@ -506,7 +532,7 @@ export function designOuterSize(design: TotePlanDesign): { widthIn: number; heig
 export function fitTotePlanToWall(
   wallWidthIn: number,
   wallHeightIn: number,
-  options: Pick<TotePlanUnit, "toteType" | "hasWheels">,
+  options: Pick<TotePlanUnit, "toteType" | "hasWheels" | "sideways">,
 ): { cols: number; rows: number } | null {
   if (!(wallWidthIn > 0) || !(wallHeightIn > 0)) return null;
   const base = { ...options, hasTop: false };
@@ -575,6 +601,8 @@ export interface PlanModule {
   cols: number;
   rows: number;
   toteType: TotePlanToteType;
+  /** Totes turned 90° (see TotePlanUnit.sideways) */
+  sideways: boolean;
   /** True when this module gets its casters in its own steps (one-module-wide rolling units) */
   hasWheels: boolean;
   /** Worktop is part of the module build only when the module IS the unit */
@@ -588,6 +616,7 @@ export interface PlanModuleType {
   cols: number;
   rows: number;
   toteType: TotePlanToteType;
+  sideways: boolean;
   hasWheels: boolean;
   hasTop: boolean;
   /** How many of this module the design needs */
@@ -608,8 +637,8 @@ export interface DesignModules {
   types: PlanModuleType[];
 }
 
-const typeKey = (m: Pick<PlanModule, "cols" | "rows" | "toteType" | "hasWheels" | "hasTop">) =>
-  `${m.toteType}:${m.cols}x${m.rows}:${m.hasWheels ? "w" : ""}${m.hasTop ? "t" : ""}`;
+const typeKey = (m: Pick<PlanModule, "cols" | "rows" | "toteType" | "sideways" | "hasWheels" | "hasTop">) =>
+  `${m.toteType}:${m.cols}x${m.rows}:${m.hasWheels ? "w" : ""}${m.hasTop ? "t" : ""}${m.sideways ? "s" : ""}`;
 
 /** Break a design into modules (build order) and group identical ones. */
 export function designModules(design: TotePlanDesign): DesignModules {
@@ -618,7 +647,7 @@ export function designModules(design: TotePlanDesign): DesignModules {
   const letterByKey = new Map<string, string>();
 
   design.units.forEach((unit, unitIndex) => {
-    const widths = splitWidth(unit.cols);
+    const widths = splitWidth(unit.cols, unit.sideways);
     const tiers = splitHeight(unit.rows);
     const single = widths.length === 1 && tiers.length === 1;
     const letter = unitLetter(unitIndex);
@@ -630,6 +659,7 @@ export function designModules(design: TotePlanDesign): DesignModules {
           cols,
           rows,
           toteType: unit.toteType,
+          sideways: unit.sideways === true,
           // A one-module-wide unit gets its 4 casters while its bottom module
           // is laid down; wider units get theirs after the modules are joined.
           hasWheels: unit.hasWheels && tierIndex === 0 && widths.length === 1,
@@ -670,12 +700,15 @@ export function designModules(design: TotePlanDesign): DesignModules {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function totePlanUnitLabel(unit: TotePlanUnit): string {
-  return `${unit.cols}×${unit.rows}`;
+  return `${unit.cols}×${unit.rows}${unit.sideways ? " sideways" : ""}`;
 }
 
 export function totePlanName(design: TotePlanDesign): string {
   if (design.name) return design.name;
-  if (design.units.length === 1) return `${totePlanUnitLabel(design.units[0])} Tote Organizer`;
+  if (design.units.length === 1) {
+    const u = design.units[0];
+    return `${u.cols}×${u.rows}${u.sideways ? " Sideways" : ""} Tote Organizer`;
+  }
   return `${design.units.length}-Unit Tote Organizer System`;
 }
 
@@ -692,6 +725,7 @@ export function totePlanSummary(design: TotePlanDesign): string {
         ? "HDX / Home Depot totes"
         : "Greenmade / Costco totes",
   ];
+  if (design.units.length === 1 && design.units[0].sideways) parts.push("sideways (20\" deep)");
   if (design.units.some((u) => u.hasWheels)) parts.push("casters");
   if (design.units.some((u) => u.hasTop)) parts.push("plywood worktop");
   return parts.join(" · ");
@@ -840,6 +874,7 @@ export interface LayoutModule {
   type: string;
   cols: number;
   rows: number;
+  sideways: boolean;
   /** Left edge, inches from the left end of the design */
   x: number;
   /** Bottom edge, inches above the floor (casters lift rolling units) */
@@ -855,6 +890,8 @@ export interface LayoutUnit {
   h: number;
   hasWheels: boolean;
   hasTop: boolean;
+  /** Front to back: 30" standard, 20" sideways */
+  depthIn: number;
   /** Caster pair centerlines, inches from the left end of the design */
   casters: number[];
 }
@@ -874,13 +911,13 @@ export function designLayout(design: TotePlanDesign, unitGapIn = 8): DesignLayou
   let unitX = 0;
 
   design.units.forEach((unit, unitIndex) => {
-    const widths = splitWidth(unit.cols);
+    const widths = splitWidth(unit.cols, unit.sideways);
     const tiers = splitHeight(unit.rows);
     const base = unit.hasWheels ? CASTER_IN : 0;
     const colX: number[] = [];
     widths.reduce((x, c, i) => {
       colX[i] = x;
-      return x + moduleWidthIn(c);
+      return x + moduleWidthIn(c, unit.sideways);
     }, unitX);
     const tierY: number[] = [];
     tiers.reduce((y, r, i) => {
@@ -896,9 +933,10 @@ export function designLayout(design: TotePlanDesign, unitGapIn = 8): DesignLayou
         type: m.type,
         cols: m.cols,
         rows: m.rows,
+        sideways: m.sideways,
         x: colX[m.widthIndex],
         y: tierY[m.tierIndex],
-        w: moduleWidthIn(m.cols),
+        w: moduleWidthIn(m.cols, m.sideways),
         h: moduleFrameHeightIn(m.rows),
       });
     }
@@ -910,6 +948,7 @@ export function designLayout(design: TotePlanDesign, unitGapIn = 8): DesignLayou
       h: size.heightIn,
       hasWheels: unit.hasWheels,
       hasTop: unit.hasTop,
+      depthIn: size.depthIn,
       casters: casterPositions(unit).map((c) => unitX + c),
     });
     unitX += size.widthIn + unitGapIn;

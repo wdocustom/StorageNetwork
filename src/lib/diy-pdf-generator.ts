@@ -534,12 +534,13 @@ function drawSideView(
   const column = layout.modules
     .filter((m) => m.unitIndex === tallest.unitIndex && Math.abs(m.x - tallest.x) < 0.01)
     .sort((a, b) => a.y - b.y);
+  const depthIn = tallest.depthIn ?? DEPTH_IN;
   const scale = Math.min((box.w - 22) / DEPTH_IN, (box.h - 12) / tallest.h);
   const ox = box.x + 6;
   const floorY = box.y + box.h - 6;
   const toY = (inches: number) => floorY - inches * scale;
   const post = 3.5 * scale;
-  const d = DEPTH_IN * scale;
+  const d = depthIn * scale;
 
   doc.setDrawColor(...COLORS.faint);
   doc.setLineWidth(0.4);
@@ -588,7 +589,7 @@ function drawSideView(
     doc.circle(ox + post / 2, floorY - r, r, "F");
     doc.circle(ox + d - post / 2, floorY - r, r, "F");
   }
-  dimLine(doc, ox, floorY + 3, ox + d, floorY + 3, `${DEPTH_IN}" deep`);
+  dimLine(doc, ox, floorY + 3, ox + d, floorY + 3, `${formatInches(depthIn)} deep`);
   return { railTops, clearance };
 }
 
@@ -600,9 +601,10 @@ function drawSideView(
 function drawAngledView(doc: jsPDF, layout: DesignLayout, box: { x: number; y: number; w: number; h: number }, dark = false) {
   const kx = 0.42; // depth → x per inch
   const ky = 0.26; // depth → y per inch
-  const scale = Math.min(box.w / (layout.widthIn + DEPTH_IN * kx), box.h / (layout.heightIn + DEPTH_IN * ky));
-  const ox = box.x + (box.w - (layout.widthIn + DEPTH_IN * kx) * scale) / 2;
-  const floorY = box.y + box.h - (box.h - (layout.heightIn + DEPTH_IN * ky) * scale) / 2;
+  const maxDepth = Math.max(...layout.units.map((u) => u.depthIn ?? DEPTH_IN));
+  const scale = Math.min(box.w / (layout.widthIn + maxDepth * kx), box.h / (layout.heightIn + maxDepth * ky));
+  const ox = box.x + (box.w - (layout.widthIn + maxDepth * kx) * scale) / 2;
+  const floorY = box.y + box.h - (box.h - (layout.heightIn + maxDepth * ky) * scale) / 2;
   const X = (inches: number, depth = 0) => ox + (inches + depth * kx) * scale;
   const Y = (inches: number, depth = 0) => floorY - (inches + depth * ky) * scale;
 
@@ -611,8 +613,8 @@ function drawAngledView(doc: jsPDF, layout: DesignLayout, box: { x: number; y: n
   poly(doc, [
     [X(-4, 0), Y(0, 0)],
     [X(layout.widthIn + 4, 0), Y(0, 0)],
-    [X(layout.widthIn + 4, DEPTH_IN), Y(0, DEPTH_IN)],
-    [X(-4, DEPTH_IN), Y(0, DEPTH_IN)],
+    [X(layout.widthIn + 4, maxDepth), Y(0, maxDepth)],
+    [X(-4, maxDepth), Y(0, maxDepth)],
   ]);
 
   // Left to right: each unit's front covers the side of the one before it.
@@ -621,19 +623,20 @@ function drawAngledView(doc: jsPDF, layout: DesignLayout, box: { x: number; y: n
     const left = unit.x;
     const right = unit.x + unit.w;
     const top = unit.h;
+    const DEPTH = unit.depthIn ?? DEPTH_IN;
 
     // Right side and top
     doc.setFillColor(...COLORS.lumberDark);
-    poly(doc, [[X(right), Y(base)], [X(right, DEPTH_IN), Y(base, DEPTH_IN)], [X(right, DEPTH_IN), Y(top, DEPTH_IN)], [X(right), Y(top)]]);
+    poly(doc, [[X(right), Y(base)], [X(right, DEPTH), Y(base, DEPTH)], [X(right, DEPTH), Y(top, DEPTH)], [X(right), Y(top)]]);
     doc.setFillColor(...(unit.hasTop ? COLORS.lumberLight : COLORS.lumber));
-    poly(doc, [[X(left), Y(top)], [X(right), Y(top)], [X(right, DEPTH_IN), Y(top, DEPTH_IN)], [X(left, DEPTH_IN), Y(top, DEPTH_IN)]]);
+    poly(doc, [[X(left), Y(top)], [X(right), Y(top)], [X(right, DEPTH), Y(top, DEPTH)], [X(left, DEPTH), Y(top, DEPTH)]]);
 
     // Rails on the right side
     for (const m of layout.modules.filter((mm) => mm.unitIndex === unit.unitIndex && Math.abs(mm.x + mm.w - right) < 0.01)) {
       doc.setDrawColor(...COLORS.lumberInk);
       doc.setLineWidth(0.2);
       for (const t of railTopMarks2x4(m.rows)) {
-        doc.line(X(right, 3.5), Y(m.y + RAIL_2X4_PLATE_H + t, 3.5), X(right, DEPTH_IN - 3.5), Y(m.y + RAIL_2X4_PLATE_H + t, DEPTH_IN - 3.5));
+        doc.line(X(right, 3.5), Y(m.y + RAIL_2X4_PLATE_H + t, 3.5), X(right, DEPTH - 3.5), Y(m.y + RAIL_2X4_PLATE_H + t, DEPTH - 3.5));
       }
     }
 
@@ -864,7 +867,14 @@ function renderDesign(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan, layout: De
     ["Overall width", plan.dimensions.totalWidth],
     ["Overall height", plan.dimensions.totalHeight],
     ["Overall depth", plan.dimensions.depth],
-    ["Tote bay (between uprights)", '21"'],
+    [
+      "Tote bay (between uprights)",
+      plan.design.units.every((u) => u.sideways)
+        ? '30-1/4" (sideways)'
+        : plan.design.units.some((u) => u.sideways)
+          ? '21" (30-1/4" sideways)'
+          : '21"',
+    ],
     ["First rail top (from floor)", formatInches(Math.min(...railTops))],
     ["Rail spacing", '16" top to top'],
     ["Top rail to top plate", formatInches(clearance)],
@@ -1167,23 +1177,36 @@ function renderCutList(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
     cur.y += barH + 6;
   }
 
-  // Rail boards — one 2×4 ripped in half, three 30" pieces per half
-  cur.ensure(30);
-  setText(doc, 8.5, COLORS.ink, "bold");
-  doc.text(
-    `Rip ${plan.railBoards.boards} board${plan.railBoards.boards === 1 ? "" : "s"} like this — 6 pieces each: ${plan.railBoards.rails} rails + ${plan.railBoards.braces} back braces`,
-    MARGIN,
-    cur.y,
-  );
-  cur.y += 2.5;
-  const halfH = 5.5;
-  const railCuts = Array.from({ length: 3 }, () => ({ length: 30, label: "Rail / brace" }));
-  boardBar(doc, cur.y, halfH, railCuts, 6, 6.5);
-  boardBar(doc, cur.y + halfH + 0.8, halfH, railCuts, 6, 6.5);
-  cur.y += halfH * 2 + 0.8 + 4;
-  setText(doc, 7.5, COLORS.muted);
-  doc.text('Rip down the middle (fence at 1-9/16"), then crosscut each half into 3 pieces at 30" — about 5-5/8" scrap per half.', MARGIN, cur.y);
-  cur.y += 8;
+  // Rail boards — one 2×4 ripped in half, crosscut to the rack depth:
+  // three 30" pieces per half (standard), four 20" pieces (sideways)
+  const railGroups = plan.railBoards.groups ?? [
+    { boards: plan.railBoards.boards, pieceLength: 30, perHalf: 3, rails: plan.railBoards.rails, braces: plan.railBoards.braces },
+  ];
+  for (const g of railGroups) {
+    cur.ensure(30);
+    setText(doc, 8.5, COLORS.ink, "bold");
+    doc.text(
+      `Rip ${g.boards} board${g.boards === 1 ? "" : "s"} like this — ${g.perHalf * 2} pieces each: ${g.rails} rails + ${g.braces} back braces`,
+      MARGIN,
+      cur.y,
+    );
+    cur.y += 2.5;
+    const halfH = 5.5;
+    const scrap = 96 - g.perHalf * (g.pieceLength + 0.125);
+    const railCuts = Array.from({ length: g.perHalf }, () => ({ length: g.pieceLength, label: "Rail / brace" }));
+    boardBar(doc, cur.y, halfH, railCuts, scrap, 6.5);
+    boardBar(doc, cur.y + halfH + 0.8, halfH, railCuts, scrap, 6.5);
+    cur.y += halfH * 2 + 0.8 + 4;
+    setText(doc, 7.5, COLORS.muted);
+    doc.text(
+      pdfText(
+        `Rip down the middle (fence at 1-9/16"), then crosscut each half into ${g.perHalf} pieces at ${formatInches(g.pieceLength)} — about ${formatInches(Math.floor(scrap * 8) / 8)} scrap per half.`,
+      ),
+      MARGIN,
+      cur.y,
+    );
+    cur.y += 8;
+  }
 
   cur.ensure(20);
   kicker(doc, "Rails & plywood", MARGIN, cur.y);
@@ -1218,8 +1241,8 @@ function renderModuleIntro(
   setText(doc, 10, COLORS.body);
   doc.text(
     pdfText(
-      `Build ${t.count === 1 ? "1" : `${t.count} identical`} · ${formatInches(t.widthIn)} W × ${formatInches(t.frameHeightIn)} H × 30" D` +
-        `${t.hasWheels ? " · on casters" : ""}${t.hasTop ? " · with worktop" : ""}`,
+      `Build ${t.count === 1 ? "1" : `${t.count} identical`} · ${formatInches(t.widthIn)} W × ${formatInches(t.frameHeightIn)} H × ${t.sideways ? '20"' : '30"'} D` +
+        `${t.sideways ? " · sideways" : ""}${t.hasWheels ? " · on casters" : ""}${t.hasTop ? " · with worktop" : ""}`,
     ),
     MARGIN,
     cur.y + 16,
@@ -1396,7 +1419,7 @@ function renderUnitAssembly(doc: jsPDF, cur: Cursor, unit: PlanUnit, layout: Des
   doc.text(pdfText(`Assemble Unit ${unit.letter} (${unit.label})`), MARGIN, cur.y + 9);
   setText(doc, 10, COLORS.body);
   doc.text(
-    pdfText(`Modules ${unit.modules.map((m) => m.name).join(" + ")} · ${formatInches(unit.widthIn)} W × ${formatInches(unit.heightIn)} H × 30" D`),
+    pdfText(`Modules ${unit.modules.map((m) => m.name).join(" + ")} · ${formatInches(unit.widthIn)} W × ${formatInches(unit.heightIn)} H × ${unit.sideways ? '20"' : '30"'} D`),
     MARGIN,
     cur.y + 16,
   );

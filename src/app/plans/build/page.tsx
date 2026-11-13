@@ -117,6 +117,7 @@ function PlanSnapshots({
       hasWheels={type.hasWheels}
       hasTop={type.hasTop}
       rails="2x4"
+      sideways={type.sideways}
       onProgress={handleProgress}
       onComplete={handleComplete}
     />

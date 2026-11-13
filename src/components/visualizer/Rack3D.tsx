@@ -111,6 +111,13 @@ export interface StackedModule3D {
   rolling: boolean;
   hasWheels: boolean;
   hasTop: boolean;
+  /** Totes turned 90°: 30-1/4" bays, 20" deep */
+  sideways?: boolean;
+}
+
+/** Outside width of a stacked 2×4-rail module (inches). */
+function stackedModuleW(m: StackedModule3D): number {
+  return m.cols * (m.sideways ? SIDEWAYS_SLOT_W : RAILS_2X4_OPENING) + (m.cols + 1) * POST_W;
 }
 
 /** Floor to the bottom of a stacked module (or its casters). */
@@ -1152,7 +1159,7 @@ function stackedBounds(modules: StackedModule3D[]) {
   let w = 0;
   let h = 0;
   for (const m of modules) {
-    w = Math.max(w, m.x + m.cols * RAILS_2X4_OPENING + (m.cols + 1) * POST_W);
+    w = Math.max(w, m.x + stackedModuleW(m));
     h = Math.max(h, stackedBaseY(m) + frameHeight2x4(m.rows) + (m.hasWheels ? CASTER_HEIGHT : 0));
   }
   return { w, h };
@@ -1168,7 +1175,7 @@ function StackedModulesAssembly({ modules, toteType, toteColor, hasTotes }: {
   return (
     <group scale={[S, S, S]}>
       {modules.map((m, i) => {
-        const mw = m.cols * RAILS_2X4_OPENING + (m.cols + 1) * POST_W;
+        const mw = stackedModuleW(m);
         const mh = frameHeight2x4(m.rows) + (m.hasWheels ? CASTER_HEIGHT : 0);
         // RackAssembly is centered on its own origin; x runs left → right
         // when facing the front, so mirror it like the assembly does.
@@ -1183,7 +1190,7 @@ function StackedModulesAssembly({ modules, toteType, toteColor, hasTotes }: {
                 toteType={toteType}
                 toteColor={toteColor}
                 unitType="standard"
-                orientation="standard"
+                orientation={m.sideways ? "sideways" : "standard"}
                 hasTotes={hasTotes}
                 hasWheels={m.hasWheels}
                 hasTop={m.hasTop}

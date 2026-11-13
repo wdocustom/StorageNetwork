@@ -10,6 +10,7 @@ import ConstructionScrew from "./ConstructionScrew";
 import {
   RAILS_2X4,
   braceLayout2x4,
+  rails2x4Geometry,
   getStepsForConfig,
   computeMaterials,
   resolveTokens,
@@ -80,12 +81,15 @@ interface FrameGeometry {
   /** Rail thickness off the upright face × rail height */
   railW: number;
   railH: number;
+  /** Front to back = rail length */
+  depth: number;
 }
 
-function frameGeometry(cols: number, rows: number, toteType: ToteType, rails: RailStyle): FrameGeometry {
+function frameGeometry(cols: number, rows: number, toteType: ToteType, rails: RailStyle, sideways = false): FrameGeometry {
   if (rails === "2x4") {
-    // Ripped 2×4 rails, universal 21" bays — mirrors buildEngine / Rack3D
-    const bayW = RAILS_2X4.opening;
+    // Ripped 2×4 rails, universal 21" bays (30-1/4" × 20" deep sideways) — mirrors buildEngine / Rack3D
+    const geo = rails2x4Geometry(sideways);
+    const bayW = geo.opening;
     const totalW = cols * bayW + (cols + 1) * POST_W;
     const postH = upright2x4(rows);
     return {
@@ -97,6 +101,7 @@ function frameGeometry(cols: number, rows: number, toteType: ToteType, rails: Ra
       frameH: PLATE_H + postH + PLATE_H,
       railW: RAILS_2X4.railW,
       railH: RAILS_2X4.railH,
+      depth: geo.depth,
     };
   }
   const bayW = getBayWidth(toteType);
@@ -114,6 +119,7 @@ function frameGeometry(cols: number, rows: number, toteType: ToteType, rails: Ra
     frameH,
     railW: RAIL_THICKNESS,
     railH: RAIL_HEIGHT,
+    depth: RACK_DEPTH,
   };
 }
 
@@ -375,6 +381,7 @@ interface ExplodedAssemblyProps {
   hasWheels: boolean;
   hasTop: boolean;
   rails: RailStyle;
+  sideways?: boolean;
 }
 
 function ExplodedAssembly({
@@ -387,12 +394,15 @@ function ExplodedAssembly({
   hasWheels,
   hasTop,
   rails,
+  sideways = false,
 }: ExplodedAssemblyProps) {
   const is2x4 = rails === "2x4";
-  const { bayW, totalW, plateLen, railCenters, postH, frameH, railW, railH } = useMemo(
-    () => frameGeometry(cols, rows, toteType, rails),
-    [cols, rows, toteType, rails],
+  const { bayW, totalW, plateLen, railCenters, postH, frameH, railW, railH, depth } = useMemo(
+    () => frameGeometry(cols, rows, toteType, rails, sideways),
+    [cols, rows, toteType, rails, sideways],
   );
+  // Rack depth for this frame (20" sideways) — shadows the 30" default below
+  const RACK_DEPTH = depth;
   const lift = hasWheels ? CASTER_HEIGHT : 0;
   const overallH = frameH + lift;
 
@@ -982,7 +992,7 @@ function ExplodedAssembly({
           ];
           // 2×4 frames: braces sized to the frame (short frames can't fit
           // 30" corner braces) — same layout the step text and counts use
-          const layout2x4 = is2x4 ? braceLayout2x4(cols, rows) : null;
+          const layout2x4 = is2x4 ? braceLayout2x4(cols, rows, sideways) : null;
           if (layout2x4) {
             const ox = firstPostX;
             const oy = lift + PLATE_H / 2; // bottom plate centerline
@@ -1087,6 +1097,7 @@ function GuideCameraRig({
   hasWheels,
   distanceScale = 1,
   rails,
+  sideways = false,
 }: {
   cols: number;
   rows: number;
@@ -1096,6 +1107,7 @@ function GuideCameraRig({
   /** < 1 frames the unit tighter (print renders have no zoom control) */
   distanceScale?: number;
   rails: RailStyle;
+  sideways?: boolean;
 }) {
   const { camera } = useThree();
   const controlsRef = useRef<any>(null);
@@ -1103,7 +1115,7 @@ function GuideCameraRig({
   const isFirstRender = useRef(true);
   const isAnimating = useRef(false);
 
-  const { totalW, frameH } = frameGeometry(cols, rows, toteType, rails);
+  const { totalW, frameH } = frameGeometry(cols, rows, toteType, rails, sideways);
   const overallH = frameH + (hasWheels ? CASTER_HEIGHT : 0);
 
   const sw = totalW * S;
@@ -1444,6 +1456,8 @@ interface AssemblyGuideProps {
   hud?: React.ReactNode;
   /** Rail construction — installers default to plywood; DIY plans use 2×4 */
   rails?: RailStyle;
+  /** 2×4 rails only: totes turned 90° (30-1/4" bays, 20" deep) */
+  sideways?: boolean;
 }
 
 export default function AssemblyGuide({
@@ -1456,9 +1470,10 @@ export default function AssemblyGuide({
   label,
   hud,
   rails = "plywood",
+  sideways = false,
 }: AssemblyGuideProps) {
-  const config: BuildConfig = { hasWheels, hasTop, toteType, rails };
-  const steps = useMemo(() => getStepsForConfig(config), [hasWheels, hasTop, toteType, rails]); // eslint-disable-line react-hooks/exhaustive-deps
+  const config: BuildConfig = { hasWheels, hasTop, toteType, rails, sideways };
+  const steps = useMemo(() => getStepsForConfig(config), [hasWheels, hasTop, toteType, rails, sideways]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [mode, setMode] = useState<"exploded" | "step">("exploded");
   // Phones start with the compact step bar so the 3D view stays usable;
@@ -1533,6 +1548,7 @@ export default function AssemblyGuide({
           }
           hasWheels={hasWheels}
           rails={rails}
+          sideways={sideways}
         />
 
         <ExplodedAssembly
@@ -1545,6 +1561,7 @@ export default function AssemblyGuide({
           hasWheels={hasWheels}
           hasTop={hasTop}
           rails={rails}
+          sideways={sideways}
         />
       </Canvas>
 
@@ -1692,6 +1709,7 @@ export function AssemblyStepSnapshots({
   width = 1400,
   height = 1050,
   rails = "plywood",
+  sideways = false,
   onProgress,
   onComplete,
 }: {
@@ -1703,6 +1721,7 @@ export function AssemblyStepSnapshots({
   width?: number;
   height?: number;
   rails?: RailStyle;
+  sideways?: boolean;
   onProgress?: (done: number, total: number) => void;
   onComplete: (snapshots: AssemblyStepSnapshot[]) => void;
 }) {
@@ -1776,6 +1795,7 @@ export function AssemblyStepSnapshots({
             hasWheels={hasWheels}
             distanceScale={0.62}
             rails={rails}
+            sideways={sideways}
           />
           <ExplodedAssembly
             cols={cols}
@@ -1787,6 +1807,7 @@ export function AssemblyStepSnapshots({
             hasWheels={hasWheels}
             hasTop={hasTop}
             rails={rails}
+            sideways={sideways}
           />
           <FrameCapture onCapture={handleCapture} />
         </Canvas>

@@ -9,9 +9,53 @@ import { generateDIYPDF, groupBoards, pdfText } from "./diy-pdf-generator";
 
 const plan = (code: string) => generateDIYPlan(decodeTotePlanDesign(code)!);
 
+describe("generateDIYPlan — sideways", () => {
+  it("builds 2-wide modules with 20\" rails, and every cut fits an 8' board", async () => {
+    const p = await plan("H4x4wts");
+    expect(p.name).toBe("4×4 Sideways Tote Organizer");
+    expect(p.dimensions).toMatchObject({ totalWidth: '130"', depth: '20"' });
+    expect(p.moduleTypes).toHaveLength(1);
+    expect(p.moduleTypes[0]).toMatchObject({ cols: 2, count: 2, sideways: true, widthIn: 65 });
+    expect(p.moduleTypes[0].parts.find((x) => x.name === "Rail")).toMatchObject({ qty: 16, length: '20"' });
+    expect(Math.max(...p.cutBoards.flatMap((b) => b.cuts.map((c) => c.length)))).toBeLessThanOrEqual(96);
+    expect(p.cutBoards.every((b) => b.remainder >= 0)).toBe(true);
+    // 20" rails: 4 per ripped half, 8 per board
+    expect(p.railBoards).toMatchObject({ boards: 5, rails: 32, braces: 8 });
+    expect(p.railBoards.groups).toEqual([{ boards: 5, pieceLength: 20, perHalf: 4, rails: 32, braces: 8 }]);
+    // two 65" × 20" worktop pieces come out of one 4×8 sheet
+    expect(p.shoppingList.find((i) => i.name === "Plywood")?.qty).toBe(1);
+  });
+
+  it("writes the guide's steps for the sideways frame", async () => {
+    const p = await plan("H2x3ts");
+    const steps = p.moduleTypes[0].steps;
+    const rip = steps.find((s) => s.id === "rip-rails")!.instruction;
+    expect(rip).toContain('crosscut each strip into (4) rails at 20"');
+    expect(rip).toContain("Every 2×4 gives you 8 rails");
+    expect(steps.find((s) => s.id === "cut-plates")!.instruction).toContain('65"');
+    expect(steps.find((s) => s.id === "attach-top")!.instruction).toContain('65" × 20"');
+    expect(steps.find((s) => s.id === "attach-top-plates")!.instruction).toContain('30-1/4"');
+  });
+
+  it("keeps standard and sideways rails apart in a mixed design", async () => {
+    const p = await plan("H4x4t.H2x4ts");
+    expect(p.railBoards.groups).toEqual([
+      { boards: 6, pieceLength: 30, perHalf: 3, rails: 32, braces: 4 },
+      { boards: 3, pieceLength: 20, perHalf: 4, rails: 16, braces: 4 },
+    ]);
+    expect(p.dimensions.depth).toBe('30"');
+  });
+
+  it("renders the PDF", async () => {
+    const p = await plan("H4x4wts");
+    const pdf = generateDIYPDF({ plan: p, snapshots: {} }).output();
+    expect(pdf.length).toBeGreaterThan(1000);
+  });
+});
+
 describe("generateDIYPlan", () => {
   it("cuts exactly the boards the build engine counts, for every module", async () => {
-    for (const code of ["H4x4wt", "H6x6t", "H2x4t.H2x2t.H2x4t", "H9x10t", "G4x8w"]) {
+    for (const code of ["H4x4wt", "H6x6t", "H2x4t.H2x2t.H2x4t", "H9x10t", "G4x8w", "H4x4wts", "G5x8s"]) {
       const p = await plan(code);
       // uprights + plates (packed) and rail boards add up to the engine's 2×4 total
       expect(p.cutBoards.length + p.railBoards.boards).toBe(p.totals.boards);
@@ -142,7 +186,7 @@ describe("generateDIYPlan", () => {
 
   it("counts rail boards at 6 pieces per board (rails + back braces) and only buys plywood for worktops", async () => {
     const p = await plan("H4x4");
-    expect(p.railBoards).toEqual({ boards: 6, rails: 32, braces: 4 }); // 36 pieces
+    expect(p.railBoards).toMatchObject({ boards: 6, rails: 32, braces: 4 }); // 36 pieces
     expect(p.shoppingList.some((i) => i.name === "Plywood")).toBe(false);
     expect(p.shoppingList.some((i) => i.name.includes('1-5/8"'))).toBe(false);
     const withTop = await plan("H4x4t");
