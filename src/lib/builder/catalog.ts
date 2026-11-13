@@ -11,13 +11,17 @@
 //   LIBRARY_ITEMS  what the library panel offers: a stock plus starting
 //                  sizes ("2×4 × 8 ft", "Ripped rail", "24 × 48 panel").
 //
+// HARDWARE (casters, totes) is a third kind of stock: bought, not cut. A
+// hardware piece always has its stock's size, and the plan engine puts it
+// on the shopping list instead of the cut list.
+//
 // A ripped 2×4 is not its own stock: it is a 2×4 piece narrower than 3-1/2",
 // so the cut list knows which board it comes out of.
 //
 // Client-safe: no imports.
 // ═══════════════════════════════════════════════════════════════════════════
 
-export type StockKind = "lumber" | "sheet";
+export type StockKind = "lumber" | "sheet" | "hardware";
 
 export interface StockDef {
   id: string;
@@ -35,8 +39,22 @@ export interface StockDef {
   /** Narrowest piece worth cutting, inches */
   minWidth: number;
   /** How the 3D and 2D views draw it */
-  look: "lumber" | "plywood";
+  look: StockLook;
+  /** Hardware only: how it's sold and fastened */
+  hardware?: {
+    /** Shopping-list name (matches plan-product-links where a link exists) */
+    buyAs: string;
+    /** How many come in one pack */
+    perPack: number;
+    packNote: string;
+    /** Screws needed to mount one, if any */
+    screws?: { name: string; each: number };
+    /** A stand-in for something the build holds, not part of the build itself */
+    placeholder?: boolean;
+  };
 }
+
+export type StockLook = "lumber" | "plywood" | "caster" | "tote";
 
 export const STOCKS: Record<string, StockDef> = {
   "2x4": {
@@ -83,6 +101,37 @@ export const STOCKS: Record<string, StockDef> = {
     minWidth: 1,
     look: "plywood",
   },
+  // Bounding size of the 5" swivel caster the tote-rack plans use
+  // (IndustrialCaster): 5-7/8" from the floor to the top of its plate.
+  caster: {
+    id: "caster",
+    kind: "hardware",
+    label: '5" Swivel Caster',
+    description: "Locking swivel caster. Mount its plate under a 2×4 with four structural screws.",
+    thickness: 5.875,
+    width: 2.5,
+    stockLengths: [5.2],
+    minWidth: 2.5,
+    look: "caster",
+    hardware: {
+      buyAs: "Caster Kits",
+      perPack: 4,
+      packNote: '5" swivel casters, 4pk',
+      screws: { name: '1/4" × 1" Structural Screws', each: 4 },
+    },
+  },
+  "tote-27": {
+    id: "tote-27",
+    kind: "hardware",
+    label: "27-Gallon Tote",
+    description: "Stand-in for an HDX / Greenmade 27-gallon tote, to size openings and shelves around.",
+    thickness: 14.5,
+    width: 20.5,
+    stockLengths: [30.5],
+    minWidth: 20.5,
+    look: "tote",
+    hardware: { buyAs: "27-Gallon Totes", perPack: 1, packNote: "HDX or Greenmade, with lid", placeholder: true },
+  },
 };
 
 export function getStock(id: string): StockDef | undefined {
@@ -111,7 +160,7 @@ export const SIZE_LIMITS = {
 
 // ── Library ─────────────────────────────────────────────────────────────
 
-export type LibrarySection = "Lumber" | "Ripped 2×4" | "Plywood";
+export type LibrarySection = "Lumber" | "Ripped 2×4" | "Plywood" | "Hardware";
 
 export interface LibraryItem {
   id: string;
@@ -142,6 +191,9 @@ export const LIBRARY_ITEMS: LibraryItem[] = [
   { id: "ply12-sheet", section: "Plywood", stock: "ply-1/2", label: '1/2" sheet, 4 × 8', detail: 'Shelving · 48" × 96"', length: 96, width: 48 },
   { id: "ply12-shelf", section: "Plywood", stock: "ply-1/2", label: '1/2" shelf', detail: 'Shelving · 16" × 48"', length: 48, width: 16 },
   { id: "ply14-sheet", section: "Plywood", stock: "ply-1/4", label: '1/4" sheet, 4 × 8', detail: 'Backer · 48" × 96"', length: 96, width: 48 },
+
+  { id: "caster", section: "Hardware", stock: "caster", label: '5" swivel caster', detail: 'Locking · 5-7/8" tall', length: 5.2, width: 2.5 },
+  { id: "tote-27", section: "Hardware", stock: "tote-27", label: "27-gal tote", detail: 'Stand-in · 30-1/2" × 20-1/2" × 14-1/2"', length: 30.5, width: 20.5 },
 ];
 
-export const LIBRARY_SECTIONS: LibrarySection[] = ["Lumber", "Ripped 2×4", "Plywood"];
+export const LIBRARY_SECTIONS: LibrarySection[] = ["Lumber", "Ripped 2×4", "Plywood", "Hardware"];

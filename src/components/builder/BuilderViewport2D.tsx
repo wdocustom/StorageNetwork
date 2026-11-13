@@ -12,6 +12,8 @@
 //     or removes; Ctrl/⌘-click reaches one piece inside a group.
 //   • Drag a piece to move it. It snaps to other pieces' edges and middles
 //     (pink guide lines), then to the grid.
+//   • Drag the round handle above a selection to turn it on the floor, in
+//     15° steps (hold Shift for any angle).
 //   • Drag empty space to pan; Shift-drag empty space to box-select; wheel
 //     or pinch to zoom.
 //
@@ -27,6 +29,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObjec
 import {
   COLORS,
   DRAG_THRESHOLD_PX,
+  PIECE_FLAT_COLORS,
   SNAP_REACH_PX,
   dimensionBox,
   newGesture,
@@ -35,7 +38,7 @@ import {
 } from "@/components/builder/viewport";
 import { getStock } from "@/lib/builder/catalog";
 import { beginDrag, dragPositions, snapTargets, type DragStart, type SnapGuide } from "@/lib/builder/drag";
-import { boundsOf, expandToGroups, pieceBounds, pieceFootprint, type Bounds } from "@/lib/builder/scene";
+import { boundsOf, expandToGroups, pieceBounds, pieceFootprint, rotatePieces, type Bounds, type ScenePiece } from "@/lib/builder/scene";
 import { formatFeetInches, formatFraction, formatInches } from "@/lib/builder/units";
 
 /** Center of the view (inches) and zoom (pixels per inch). */
@@ -51,7 +54,6 @@ interface Props extends ViewportProps {
 
 const MIN_PPI = 0.6;
 const MAX_PPI = 40;
-const FILL = { lumber: "#e9d9b0", plywood: "#dcc394" } as const;
 const STROKE = "#7c6a45";
 /** A piece shows its length once it is this long on screen, px */
 const LABEL_MIN_PX = 64;
@@ -67,7 +69,26 @@ type Gesture =
   | { kind: "pan"; pointerId: number; x: number; y: number; moved: boolean }
   | { kind: "marquee"; pointerId: number; x: number; y: number; moved: boolean }
   | { kind: "piece"; pointerId: number; x: number; y: number; moved: boolean; gesture: string; start: DragStart; targets: Bounds[] }
+  | {
+      kind: "rotate";
+      pointerId: number;
+      x: number;
+      y: number;
+      moved: boolean;
+      gesture: string;
+      /** The pieces as they were when the turn began */
+      start: ScenePiece[];
+      /** Middle of the selection on screen, px */
+      pivot: Point;
+      /** Pointer's angle around the pivot when the turn began, radians */
+      from: number;
+    }
   | { kind: "pinch"; distance: number };
+
+/** Turn-handle snap, degrees (Shift turns freely) */
+const TURN_STEP = 15;
+/** The turn handle sits this far above the selection, px */
+const TURN_HANDLE_OFFSET_PX = 30;
 
 const clampPpi = (ppi: number) => Math.min(MAX_PPI, Math.max(MIN_PPI, ppi));
 
@@ -88,6 +109,7 @@ export default function BuilderViewport2D({
   overlapping,
   onSelect,
   onMove,
+  onReplace,
   frameRequest,
   cameraMemory,
   focus,
@@ -105,6 +127,8 @@ export default function BuilderViewport2D({
   const pointers = useRef(new Map<number, Point>());
   const [guides, setGuides] = useState<SnapGuide[]>([]);
   const [marquee, setMarquee] = useState<{ from: Point; to: Point } | null>(null);
+  /** Degrees turned so far, shown beside the handle while turning */
+  const [turned, setTurned] = useState<number | null>(null);
   const selected = useMemo(() => new Set(selection), [selection]);
   const sceneRef = useRef(scene);
   sceneRef.current = scene;
@@ -211,6 +235,30 @@ export default function BuilderViewport2D({
     }
     if (pointers.current.size > 2) return;
 
+    if ((e.target as Element).closest("[data-turn-handle]") && cameraRef.current && size) {
+      const cam = cameraRef.current;
+      const start = scene.pieces.filter((piece) => selected.has(piece.id));
+      const b = boundsOf(start);
+      if (b) {
+        const pivot = {
+          x: size.w / 2 + ((b.min[0] + b.max[0]) / 2 - cam.cx) * cam.ppi,
+          y: size.h / 2 + ((b.min[2] + b.max[2]) / 2 - cam.cz) * cam.ppi,
+        };
+        gesture.current = {
+          kind: "rotate",
+          pointerId: e.pointerId,
+          x: p.x,
+          y: p.y,
+          moved: false,
+          gesture: newGesture(),
+          start,
+          pivot,
+          from: Math.atan2(p.y - pivot.y, p.x - pivot.x),
+        };
+      }
+      return;
+    }
+
     const pieceId = (e.target as Element).closest<SVGElement>("[data-piece]")?.dataset.piece;
     if (!pieceId) {
       // Shift-drag on empty space draws a selection box; a plain drag pans.
@@ -261,6 +309,15 @@ export default function BuilderViewport2D({
       setCamera({ ...cam, cx: cam.cx - (p.x - previous.x) / cam.ppi, cz: cam.cz - (p.y - previous.y) / cam.ppi });
     } else if (g.kind === "marquee") {
       setMarquee({ from: { x: g.x, y: g.y }, to: p });
+    } else if (g.kind === "rotate") {
+      // Clockwise on screen is a negative turn about the upright axis.
+      const swept = ((Math.atan2(p.y - g.pivot.y, p.x - g.pivot.x) - g.from) * 180) / Math.PI;
+      const raw = -(((swept + 540) % 360) - 180);
+      const degrees = e.shiftKey ? Math.round(raw) : Math.round(raw / TURN_STEP) * TURN_STEP;
+      setTurned(degrees);
+      const ids = g.start.map((piece) => piece.id);
+      const result = rotatePieces({ ...scene, pieces: g.start }, ids, "y", degrees);
+      onReplace(degrees === 0 ? g.start : result.pieces, g.gesture);
     } else {
       const result = dragPositions(g.start, [(p.x - g.x) / cam.ppi, 0, (p.y - g.y) / cam.ppi], {
         gridStep,
@@ -285,7 +342,9 @@ export default function BuilderViewport2D({
     gesture.current = null;
     setGuides([]);
     setMarquee(null);
+    setTurned(null);
     const cancelled = e.type === "pointercancel";
+    if (g.kind === "rotate") return;
 
     if (g.kind === "marquee" && g.moved && !cancelled && cam && size) {
       // Everything the box touches joins the selection (whole groups).
@@ -334,6 +393,7 @@ export default function BuilderViewport2D({
   // Scale bar: a round length about 90 px long
   const barInches = ready ? ([1, 3, 6, 12, 24, 48, 96, 192].find((l) => l * camera.ppi >= 70) ?? 192) : 0;
   const box = ready && showDimensions ? dimensionBox(scene, selection) : null;
+  const selectionBox = ready && selection.length > 0 ? dimensionBox(scene, selection) : null;
   /** Screen px → inches, for sizes that must not change with zoom */
   const px = ready ? 1 / camera.ppi : 1;
   const labelStyle = {
@@ -427,7 +487,7 @@ export default function BuilderViewport2D({
                   key={piece.id}
                   data-piece={piece.id}
                   points={outline.map(([x, z]) => `${x},${z}`).join(" ")}
-                  fill={FILL[look]}
+                  fill={PIECE_FLAT_COLORS[look]}
                   // Panels are see-through so the frame under a top stays readable
                   fillOpacity={look === "plywood" ? 0.55 : 0.95}
                   stroke={isSelected ? COLORS.select : isOverlapping ? COLORS.overlap : STROKE}
@@ -481,6 +541,43 @@ export default function BuilderViewport2D({
 
             {/* Width and depth of the selection, or of the whole build */}
             {box && dimensionLines(box)}
+
+            {/* Turn handle: above the selection, joined to it by a stem */}
+            {selectionBox && (
+              <g data-turn-handle className="cursor-grab">
+                <line
+                  x1={(selectionBox.min[0] + selectionBox.max[0]) / 2}
+                  y1={selectionBox.min[2]}
+                  x2={(selectionBox.min[0] + selectionBox.max[0]) / 2}
+                  y2={selectionBox.min[2] - TURN_HANDLE_OFFSET_PX * px}
+                  stroke={COLORS.select}
+                  strokeWidth={1.5}
+                  vectorEffect="non-scaling-stroke"
+                />
+                {/* Generous touch target around a small dot */}
+                <circle cx={(selectionBox.min[0] + selectionBox.max[0]) / 2} cy={selectionBox.min[2] - TURN_HANDLE_OFFSET_PX * px} r={16 * px} fill="transparent" />
+                <circle
+                  cx={(selectionBox.min[0] + selectionBox.max[0]) / 2}
+                  cy={selectionBox.min[2] - TURN_HANDLE_OFFSET_PX * px}
+                  r={7 * px}
+                  fill="#0f172a"
+                  stroke={COLORS.select}
+                  strokeWidth={2}
+                  vectorEffect="non-scaling-stroke"
+                />
+                {turned !== null && (
+                  <text
+                    x={(selectionBox.min[0] + selectionBox.max[0]) / 2 + 14 * px}
+                    y={selectionBox.min[2] - TURN_HANDLE_OFFSET_PX * px}
+                    dominantBaseline="central"
+                    fill={COLORS.dimension}
+                    style={labelStyle}
+                  >
+                    {turned}°
+                  </text>
+                )}
+              </g>
+            )}
 
             {/* What a drag just lined up with */}
             {guides

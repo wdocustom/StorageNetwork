@@ -392,50 +392,59 @@ function PieceInspector({
         </ul>
       )}
 
-      <section>
-        <Heading>Cut size</Heading>
-        <div className="grid grid-cols-2 gap-2">
-          <LengthField
-            label="Length"
-            hint={piece.length >= 48 ? formatFeetInches(piece.length) : undefined}
-            value={piece.length}
-            onCommit={(length) => actions.resize(piece.id, { length })}
-          />
-          <LengthField
-            label={stock.kind === "lumber" ? "Width (rip)" : "Width"}
-            value={piece.width}
-            onCommit={(width) => actions.resize(piece.id, { width })}
-          />
-        </div>
-        {stock.kind === "lumber" ? (
-          <div className="mt-2 grid grid-cols-3 gap-1.5">
-            {rips.map((r) => (
-              <ToolButton
-                key={r.label}
-                title={r.title}
-                onClick={() => actions.resize(piece.id, { width: r.width })}
-                active={Math.abs(piece.width - r.width) < 1e-6}
-              >
-                {r.label}
-              </ToolButton>
-            ))}
+      {stock.kind === "hardware" ? (
+        <p className="rounded-lg bg-slate-800/60 p-2.5 font-mono text-[11px] text-stone-300">
+          {formatInches(piece.length)} × {formatInches(piece.width)} × {formatInches(piece.thickness)} tall
+          <span className="mt-1 block font-sans text-stone-500">
+            {stock.hardware?.placeholder ? "A stand-in for sizing. It isn't cut or fastened." : "Bought as is. It goes on the shopping list."}
+          </span>
+        </p>
+      ) : (
+        <section>
+          <Heading>Cut size</Heading>
+          <div className="grid grid-cols-2 gap-2">
+            <LengthField
+              label="Length"
+              hint={piece.length >= 48 ? formatFeetInches(piece.length) : undefined}
+              value={piece.length}
+              onCommit={(length) => actions.resize(piece.id, { length })}
+            />
+            <LengthField
+              label={stock.kind === "lumber" ? "Width (rip)" : "Width"}
+              value={piece.width}
+              onCommit={(width) => actions.resize(piece.id, { width })}
+            />
           </div>
-        ) : (
-          <label className="mt-2 block">
-            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-stone-500">Thickness</span>
-            <select value={piece.stock} onChange={(e) => actions.setStock(piece.id, e.target.value)} className={FIELD}>
-              {thicknesses.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
+          {stock.kind === "lumber" ? (
+            <div className="mt-2 grid grid-cols-3 gap-1.5">
+              {rips.map((r) => (
+                <ToolButton
+                  key={r.label}
+                  title={r.title}
+                  onClick={() => actions.resize(piece.id, { width: r.width })}
+                  active={Math.abs(piece.width - r.width) < 1e-6}
+                >
+                  {r.label}
+                </ToolButton>
               ))}
-            </select>
-          </label>
-        )}
-        {stock.kind === "lumber" && (
-          <p className="mt-1.5 text-[10px] text-stone-600">Thickness is always {formatInches(stock.thickness)}.</p>
-        )}
-      </section>
+            </div>
+          ) : (
+            <label className="mt-2 block">
+              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-stone-500">Thickness</span>
+              <select value={piece.stock} onChange={(e) => actions.setStock(piece.id, e.target.value)} className={FIELD}>
+                {thicknesses.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {stock.kind === "lumber" && (
+            <p className="mt-1.5 text-[10px] text-stone-600">Thickness is always {formatInches(stock.thickness)}.</p>
+          )}
+        </section>
+      )}
 
       <section>
         <Heading>Position</Heading>
@@ -473,9 +482,11 @@ function PieceInspector({
 
       <SelectionActions actions={actions} />
 
-      <Disclosure title="Cut in two" icon={<Scissors className="h-3.5 w-3.5" />}>
-        <CutInTwo piece={piece} actions={actions} />
-      </Disclosure>
+      {stock.kind !== "hardware" && (
+        <Disclosure title="Cut in two" icon={<Scissors className="h-3.5 w-3.5" />}>
+          <CutInTwo piece={piece} actions={actions} />
+        </Disclosure>
+      )}
       <Disclosure title="Mirror" icon={<FlipHorizontal2 className="h-3.5 w-3.5" />}>
         <MirrorButtons actions={actions} />
       </Disclosure>

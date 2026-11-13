@@ -37,6 +37,7 @@ import {
   renameGroup,
   renamePiece,
   renameScene,
+  replacePieces,
   resizePiece,
   rotatePieces,
   setOrientation,
@@ -110,6 +111,7 @@ export type BuilderAction =
   | { type: "setOrientation"; id: string; orientation: Orientation }
   | { type: "setRotation"; id: string; rotation: Vec3 }
   | { type: "setPositions"; positions: Record<string, Vec3>; coalesce?: string }
+  | { type: "replacePieces"; pieces: ScenePiece[]; coalesce?: string }
   | { type: "nudge"; delta: Vec3 }
   | { type: "rotate"; axis: Axis; degrees: number }
   | { type: "align"; axis: Axis; mode: AlignMode }
@@ -233,6 +235,8 @@ export function builderReducer(state: BuilderState, action: BuilderAction): Buil
       return commit(state, setRotation(scene, action.id, action.rotation));
     case "setPositions":
       return commit(state, setPositions(scene, action.positions), {}, action.coalesce ?? null);
+    case "replacePieces":
+      return commit(state, replacePieces(scene, action.pieces), {}, action.coalesce ?? null);
     case "nudge":
       return commit(state, translatePieces(scene, selection, action.delta));
     case "rotate":

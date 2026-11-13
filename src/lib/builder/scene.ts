@@ -260,6 +260,10 @@ function clamp(value: number, min: number, max: number): number {
 
 /** Keep sizes inside what the stock can be cut to. Thickness always follows the stock. */
 function clampSizes(stock: StockDef, length: number, width: number): { length: number; width: number; thickness: number } {
+  // Hardware is bought, not cut: it is always its stock's size.
+  if (stock.kind === "hardware") {
+    return { length: stock.stockLengths[0], width: stock.width, thickness: stock.thickness };
+  }
   if (stock.kind === "lumber") {
     return {
       length: clamp(length, SIZE_LIMITS.minLength, SIZE_LIMITS.maxLumberLength),
@@ -277,6 +281,11 @@ function clampSizes(stock: StockDef, length: number, width: number): { length: n
 function clampPosition(position: Vec3): Vec3 {
   const m = SCENE_LIMITS.maxCoordinate;
   return [clamp(position[0], -m, m), clamp(position[1], -m, m), clamp(position[2], -m, m)];
+}
+
+/** True when the piece is square to the room: every turn is a multiple of 90°. */
+export function isSquareOn(piece: ScenePiece): boolean {
+  return rotationMatrix(piece.rotation).every((row) => row.every((v) => Math.abs(v) < 1e-6 || Math.abs(Math.abs(v) - 1) < 1e-6));
 }
 
 /** True when a lumber piece is narrower than its stock (ripped on the table saw). */
@@ -397,6 +406,19 @@ export function translatePieces(scene: Scene, ids: Iterable<string>, delta: Vec3
 /** Put pieces at exact centers (used while dragging, from the positions the drag started at). */
 export function setPositions(scene: Scene, positions: Record<string, Vec3>): Scene {
   return mapPieces(scene, Object.keys(positions), (p) => ({ ...p, position: clampPosition(positions[p.id]) }));
+}
+
+/**
+ * Swap in new versions of pieces by id (position and rotation only). Used
+ * by gestures that work from where the pieces started, like turning a
+ * selection with the rotate handle.
+ */
+export function replacePieces(scene: Scene, pieces: ScenePiece[]): Scene {
+  const byId = new Map(pieces.map((p) => [p.id, p]));
+  return mapPieces(scene, byId.keys(), (p) => {
+    const next = byId.get(p.id) as ScenePiece;
+    return { ...p, position: clampPosition(next.position), rotation: next.rotation };
+  });
 }
 
 /**
@@ -730,7 +752,9 @@ export function splitPiece(
 ): { scene: Scene; ids: [string, string] | null } {
   const piece = scene.pieces.find((p) => p.id === id);
   const stock = piece && getStock(piece.stock);
-  if (!piece || !stock || scene.pieces.length >= SCENE_LIMITS.maxPieces) return { scene, ids: null };
+  if (!piece || !stock || stock.kind === "hardware" || scene.pieces.length >= SCENE_LIMITS.maxPieces) {
+    return { scene, ids: null };
+  }
   const total = along === "length" ? piece.length : piece.width;
   const smallest = along === "length" ? SIZE_LIMITS.minLength : stock.minWidth;
   const first = at;
@@ -766,8 +790,13 @@ export function splitPiece(
 /** Pieces may touch, and sit this far into each other, before it counts as an overlap (inches). */
 export const OVERLAP_TOLERANCE = 1 / 16;
 
-/** Do two boxes (at any rotation) overlap by more than the tolerance? Separating-axis test. */
-function boxesOverlap(a: ScenePiece, b: ScenePiece): boolean {
+/**
+ * Do two boxes (at any rotation) overlap by more than `tolerance` inches?
+ * Separating-axis test. A negative tolerance asks the looser question "do
+ * they come within that distance of each other", which is how the plan
+ * engine finds pieces that touch.
+ */
+export function boxesOverlap(a: ScenePiece, b: ScenePiece, tolerance: number = OVERLAP_TOLERANCE): boolean {
   const ra = rotationMatrix(a.rotation);
   const rb = rotationMatrix(b.rotation);
   const ha = halfSize(a);
@@ -790,7 +819,7 @@ function boxesOverlap(a: ScenePiece, b: ScenePiece): boolean {
   for (const axis of candidates) {
     const reachA = axesA.reduce((sum, u, k) => sum + Math.abs(dot(u, axis)) * ha[k], 0);
     const reachB = axesB.reduce((sum, u, k) => sum + Math.abs(dot(u, axis)) * hb[k], 0);
-    if (reachA + reachB - Math.abs(dot(t, axis)) <= OVERLAP_TOLERANCE) return false;
+    if (reachA + reachB - Math.abs(dot(t, axis)) <= tolerance) return false;
   }
   return true;
 }
@@ -863,7 +892,7 @@ export function pieceWarnings(piece: ScenePiece): PieceWarning[] {
         text: `Longer than 8 ft, so it needs a ${formatFeetInches(needs)} board. Splitting it would let you buy 8 ft studs.`,
       });
     }
-  } else {
+  } else if (stock.kind === "sheet") {
     const long = Math.max(piece.length, piece.width);
     const short = Math.min(piece.length, piece.width);
     if (long > longestStock(stock) || short > stock.width) {

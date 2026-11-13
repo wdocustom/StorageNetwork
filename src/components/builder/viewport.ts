@@ -6,6 +6,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import type { MutableRefObject } from "react";
+import type { StockLook } from "@/lib/builder/catalog";
 import { boundsOf, pickSelection, type Bounds, type Scene, type ScenePiece, type Vec3 } from "@/lib/builder/scene";
 
 export interface ViewportProps {
@@ -22,6 +23,8 @@ export interface ViewportProps {
   onSelect: (ids: string[]) => void;
   /** Updates sharing a `gesture` key are one undo step */
   onMove: (positions: Record<string, Vec3>, gesture: string) => void;
+  /** New positions and rotations for pieces (turning with the rotate handle) */
+  onReplace: (pieces: ScenePiece[], gesture: string) => void;
   /** Change this number to re-frame the view on the whole build */
   frameRequest: number;
   /** Floor point (inches) both views look at, so switching views keeps your place */
@@ -34,6 +37,14 @@ export const COLORS = {
   guide: "#ec4899",
   dimension: "#0f172a",
 } as const;
+
+/** Flat colors for views that don't use the 3D materials (the plan view, cut diagrams). */
+export const PIECE_FLAT_COLORS: Record<StockLook, string> = {
+  lumber: "#e9d9b0",
+  plywood: "#dcc394",
+  caster: "#94a3b8",
+  tote: "#3f3f46",
+};
 
 /** Pointer travel (px) before a press becomes a drag */
 export const DRAG_THRESHOLD_PX = 4;

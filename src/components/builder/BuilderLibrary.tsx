@@ -26,6 +26,24 @@ function Swatch({ item }: { item: LibraryItem }) {
       </span>
     );
   }
+  if (stock.kind === "hardware") {
+    // A caster is a wheel under a plate; a tote is a dark bin with a yellow lid
+    return (
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-950">
+        {stock.look === "caster" ? (
+          <span className="flex flex-col items-center">
+            <span className="block h-[3px] w-4 rounded-sm bg-slate-400" />
+            <span className="mt-px block h-3.5 w-3.5 rounded-full border-2 border-red-500 bg-slate-600" />
+          </span>
+        ) : (
+          <span className="flex flex-col items-center">
+            <span className="block h-[4px] w-6 rounded-sm bg-yellow-500" />
+            <span className="block h-3 w-5 rounded-b-sm bg-zinc-700" />
+          </span>
+        )}
+      </span>
+    );
+  }
   // Face: width × length scaled so a 4 × 8 sheet fills the swatch
   return (
     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-950">
@@ -65,7 +83,7 @@ export default function BuilderLibrary({ onAdd, disabled }: { onAdd: (item: Libr
         </section>
       ))}
       <p className="text-[10px] leading-snug text-stone-600">
-        Any piece can be cut to length after you add it. Narrow a 2×4&apos;s width to rip it.
+        Any board or panel can be cut to size after you add it. Narrow a 2×4&apos;s width to rip it.
       </p>
     </div>
   );

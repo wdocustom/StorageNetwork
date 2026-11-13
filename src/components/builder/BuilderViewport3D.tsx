@@ -25,14 +25,10 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
-import { Edges, Grid, Line, OrbitControls } from "@react-three/drei";
-import { MathUtils, Plane, Vector3, type MeshStandardMaterial, type PerspectiveCamera } from "three";
+import { Grid, Line, OrbitControls } from "@react-three/drei";
+import { MathUtils, Plane, Vector3, type PerspectiveCamera } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-import {
-  createConstructionLumberMaterial,
-  createPlywoodTopMaterial,
-  restoreAllTextures,
-} from "@/components/visualizer/woodTextures";
+import PieceBody, { PIECE_EDGE_COLOR, TextureGuard } from "@/components/builder/PieceBody";
 import {
   COLORS,
   DRAG_THRESHOLD_PX,
@@ -42,7 +38,6 @@ import {
   pressPiece,
   type ViewportProps,
 } from "@/components/builder/viewport";
-import { getStock } from "@/lib/builder/catalog";
 import { beginDrag, dragPositions, snapTargets, type DragStart, type SnapGuide } from "@/lib/builder/drag";
 import { boundsOf, type Bounds, type ScenePiece, type Vec3 } from "@/lib/builder/scene";
 import { formatInches } from "@/lib/builder/units";
@@ -50,7 +45,6 @@ import { formatInches } from "@/lib/builder/units";
 /** Inches → scene units */
 const S = 1 / 48;
 const FOV = 40;
-const EDGE_COLOR = "#8a744a";
 /** Dimension lines stand this far off the box, inches */
 const DIMENSION_OFFSET = 4;
 
@@ -62,34 +56,6 @@ export interface CameraMemory {
 
 interface Props extends ViewportProps {
   cameraMemory: MutableRefObject<CameraMemory | null>;
-}
-
-// ── Materials (made once, in the browser) ────────────────────────────────
-
-let materials: Record<"lumber" | "plywood", MeshStandardMaterial> | null = null;
-
-function getMaterials() {
-  materials ??= {
-    lumber: createConstructionLumberMaterial(42),
-    plywood: createPlywoodTopMaterial(250),
-  };
-  return materials;
-}
-
-/** Re-uploads the procedural textures when the tab comes back (browsers may drop them). */
-function TextureGuard() {
-  const invalidate = useThree((s) => s.invalidate);
-  useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState === "visible") {
-        restoreAllTextures();
-        invalidate();
-      }
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [invalidate]);
-  return null;
 }
 
 // ── Camera ───────────────────────────────────────────────────────────────
@@ -282,27 +248,25 @@ function PieceMesh({
   onPointerMove: (e: ThreeEvent<PointerEvent>) => void;
   onPointerUp: (e: ThreeEvent<PointerEvent>) => void;
 }) {
-  const look = getStock(piece.stock)?.look ?? "lumber";
   const rotation = useMemo(
     () => piece.rotation.map((d) => MathUtils.degToRad(d)) as [number, number, number],
     [piece.rotation],
   );
-  const edge = selected ? COLORS.select : overlapping ? COLORS.overlap : EDGE_COLOR;
   return (
-    <mesh
+    <group
       position={piece.position}
       rotation={rotation}
-      material={getMaterials()[look]}
-      castShadow
-      receiveShadow
       onPointerDown={(e) => onPointerDown(e, piece)}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
     >
-      <boxGeometry args={[piece.length, piece.thickness, piece.width]} />
-      <Edges threshold={15} color={edge} lineWidth={selected ? 2.5 : overlapping ? 2 : 1} />
-    </mesh>
+      <PieceBody
+        piece={piece}
+        edgeColor={selected ? COLORS.select : overlapping ? COLORS.overlap : PIECE_EDGE_COLOR}
+        edgeWidth={selected ? 2.5 : overlapping ? 2 : 1}
+      />
+    </group>
   );
 }
 

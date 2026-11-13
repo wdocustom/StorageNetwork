@@ -33,6 +33,7 @@ import Link from "next/link";
 import {
   Box,
   BoxSelect,
+  ClipboardList,
   Copy,
   Eraser,
   Loader2,
@@ -67,6 +68,8 @@ const BuilderViewport3D = dynamic(() => import("@/components/builder/BuilderView
   ssr: false,
   loading: ViewLoading,
 });
+
+const BuilderPlan = dynamic(() => import("@/components/builder/BuilderPlan"), { ssr: false });
 
 type Sheet = "library" | "inspector" | null;
 
@@ -143,6 +146,7 @@ export default function BuilderWorkspace() {
   const [sheet, setSheet] = useState<Sheet>(null);
   const [frameRequest, setFrameRequest] = useState(0);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [planOpen, setPlanOpen] = useState(false);
   const [name, setName] = useState(scene.name);
   useEffect(() => setName(scene.name), [scene.name]);
 
@@ -172,7 +176,8 @@ export default function BuilderWorkspace() {
   // Keyboard shortcuts (see the header comment)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isTyping(e.target)) return;
+      // The plan screen has its own keys
+      if (planOpen || isTyping(e.target)) return;
       const mod = e.ctrlKey || e.metaKey;
       const step = (gridStep || 1) * (e.shiftKey ? 10 : 1);
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
@@ -225,7 +230,7 @@ export default function BuilderWorkspace() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [actions, gridStep, scene.pieces, selection.length]);
+  }, [actions, gridStep, planOpen, scene.pieces, selection.length]);
 
   const viewProps: ViewportProps = {
     scene,
@@ -237,6 +242,7 @@ export default function BuilderWorkspace() {
     overlapping,
     onSelect: actions.select,
     onMove: actions.setPositions,
+    onReplace: actions.replacePieces,
     frameRequest,
     focus,
   };
@@ -275,6 +281,18 @@ export default function BuilderWorkspace() {
         </div>
 
         <ViewToggle view={view} onChange={actions.setView} />
+
+        <button
+          type="button"
+          onClick={() => setPlanOpen(true)}
+          disabled={scene.pieces.length === 0}
+          title="Cut list, shopping list, 3D build guide and PDF for this design"
+          className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-yellow-400 px-3 text-xs font-black uppercase tracking-wider text-gray-950 transition hover:bg-yellow-300 disabled:opacity-40 lg:order-last"
+        >
+          <ClipboardList className="h-4 w-4" />
+          <span className="hidden sm:inline">Build plan</span>
+          <span className="sm:hidden">Plan</span>
+        </button>
 
         {/* Tools: their own row on small screens, scrolling sideways if they don't fit */}
         <div className="order-last flex w-full items-center gap-1.5 overflow-x-auto lg:order-none lg:w-auto lg:overflow-visible">
@@ -435,6 +453,8 @@ export default function BuilderWorkspace() {
           {selectedPieces.length > 0 ? "Edit" : "Design"}
         </button>
       </nav>
+
+      {planOpen && <BuilderPlan scene={scene} onClose={() => setPlanOpen(false)} />}
 
       {sheet && (
         <div className="fixed inset-0 z-40 lg:hidden">

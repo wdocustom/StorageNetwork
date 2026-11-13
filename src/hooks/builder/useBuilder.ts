@@ -69,6 +69,8 @@ export interface BuilderActions {
   setRotation(id: string, rotation: Vec3): void;
   /** Exact centers. Updates sharing a `gesture` key are one undo step (a drag). */
   setPositions(positions: Record<string, Vec3>, gesture?: string): void;
+  /** New positions and rotations for pieces, by id. Same `gesture` = one undo step. */
+  replacePieces(pieces: ScenePiece[], gesture?: string): void;
   nudge(delta: Vec3): void;
   rotate(axis: Axis, degrees: number): void;
   align(axis: Axis, mode: AlignMode): void;
@@ -155,6 +157,7 @@ export function useBuilder(): Builder {
       setOrientation: (id, orientation) => dispatch({ type: "setOrientation", id, orientation }),
       setRotation: (id, rotation) => dispatch({ type: "setRotation", id, rotation }),
       setPositions: (positions, gesture) => dispatch({ type: "setPositions", positions, coalesce: gesture }),
+      replacePieces: (pieces, gesture) => dispatch({ type: "replacePieces", pieces, coalesce: gesture }),
       nudge: (delta) => dispatch({ type: "nudge", delta }),
       rotate: (axis, degrees) => dispatch({ type: "rotate", axis, degrees }),
       align: (axis, mode) => dispatch({ type: "align", axis, mode }),
