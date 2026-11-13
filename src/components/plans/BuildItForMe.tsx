@@ -21,6 +21,7 @@ import {
   type PlanBuildQuoteView,
 } from "@/app/actions/plan-build-request";
 import SystemMap from "@/components/plans/SystemMap";
+import { trackPlanEvent } from "@/lib/plan-events";
 import { encodeTotePlanDesign, type TotePlanDesign } from "@/lib/tote-plans";
 import { POSTAL_INPUT_MAX_LENGTH, isValidPostalCode, sanitizePostalInput } from "@/lib/geo/postal";
 import { CurrencyProvider, useCurrency } from "@/components/currency/CurrencyContext";
@@ -63,7 +64,10 @@ export default function BuildItForMe({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          trackPlanEvent("build_for_me");
+          setOpen(true);
+        }}
         className="group flex w-full items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-4 text-left transition hover:border-yellow-400/40"
       >
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10">

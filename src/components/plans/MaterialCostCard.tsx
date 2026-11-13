@@ -7,6 +7,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useState } from "react";
+import { trackPlanEvent } from "@/lib/plan-events";
 import { ChevronDown, Loader2, ShoppingCart } from "lucide-react";
 import { estimatePlanMaterials } from "@/app/actions/plan-materials";
 import { RETAIL_PRICES_CHECKED, type MaterialEstimate } from "@/lib/plan-retail-prices";
@@ -60,7 +61,10 @@ export default function MaterialCostCard({ design }: { design: TotePlanDesign })
         </div>
         <button
           type="button"
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => {
+            if (!open) trackPlanEvent("materials");
+            setOpen((o) => !o);
+          }}
           aria-expanded={open}
           className="flex shrink-0 items-center gap-1 rounded-lg border border-slate-700 px-2.5 py-1.5 text-[11px] font-bold text-stone-300 transition hover:border-emerald-400/60 hover:text-white"
         >
