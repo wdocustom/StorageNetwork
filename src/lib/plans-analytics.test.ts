@@ -6,6 +6,8 @@ import {
   summarizePlansAnalytics,
   type PlansCheckoutStartRow,
   type PlansViewRow,
+  excludeStaffTraffic,
+  summarizeDesignerEvents,
 } from "./plans-analytics";
 
 const view = (page_path: string, visitor_id: string, created_at: string, referrer: string | null = null): PlansViewRow => ({
@@ -149,5 +151,36 @@ describe("summarizeDeviceSharing", () => {
 
   it("is empty for normal buyers", () => {
     expect(summarizeDeviceSharing([dev("a@x.com"), dev("a@x.com")], ["a@x.com"], 3)).toEqual([]);
+  });
+});
+
+describe("excludeStaffTraffic", () => {
+  it("drops dashboard users and everyone on their networks, keeps customers", () => {
+    const views = [
+      { visitor_id: "owner-pwa", ip: "1.1.1.1" },
+      { visitor_id: "owner-android", ip: "1.1.1.1" },
+      { visitor_id: "owner-android", ip: "9.9.9.9" },
+      { visitor_id: "customer", ip: "2.2.2.2" },
+      { visitor_id: null, ip: "1.1.1.1" },
+    ];
+    const r = excludeStaffTraffic(views, new Set(["owner-pwa"]), new Set(["1.1.1.1"]));
+    expect([...r.excluded].sort()).toEqual(["owner-android", "owner-pwa"]);
+    expect(r.views.map((v) => v.visitor_id)).toEqual(["customer", null]);
+  });
+});
+
+describe("summarizeDesignerEvents", () => {
+  it("counts each visitor once per event, in funnel order, ignoring unknown events", () => {
+    const rows = [
+      { event: "edit_size", visitor_id: "a", session_id: null },
+      { event: "edit_size", visitor_id: "a", session_id: null },
+      { event: "edit_size", visitor_id: "b", session_id: null },
+      { event: "buy_click", visitor_id: "b", session_id: null },
+      { event: "nope", visitor_id: "c", session_id: null },
+    ];
+    const out = summarizeDesignerEvents(rows);
+    expect(out[0]).toMatchObject({ event: "edit_size", visitors: 2 });
+    expect(out.find((d) => d.event === "buy_click")?.visitors).toBe(1);
+    expect(out.some((d) => d.event === ("nope" as never))).toBe(false);
   });
 });

@@ -46,6 +46,13 @@ export default function PlatformTracker() {
     lastTracked.current = pathname;
 
     try {
+      // A buyer who left Facebook's in-app browser for Safari / Chrome (to pay
+      // with Apple / Google Pay) brings their id along as ?vid=, so the plans
+      // funnel still sees one person.
+      const carried = searchParams?.get("vid");
+      if (carried && /^[0-9a-f-]{36}$/i.test(carried) && !localStorage.getItem("sn_vid")) {
+        localStorage.setItem("sn_vid", carried);
+      }
       const visitorId = getOrCreateId(localStorage, "sn_vid");
       const sessionId = getOrCreateId(sessionStorage, "sn_sid");
       const utm = extractUTM(searchParams ?? new URLSearchParams());
@@ -57,6 +64,7 @@ export default function PlatformTracker() {
         referrer: document.referrer || undefined,
         userAgent: navigator.userAgent || undefined,
         screenWidth: window.innerWidth || undefined,
+        automated: navigator.webdriver === true || undefined,
         ...utm,
       });
 

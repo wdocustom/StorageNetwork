@@ -21,6 +21,7 @@ import {
 } from "@/lib/tote-plans";
 import { getPlanById } from "@/lib/plans-config";
 import { LADDER_JIG_OWNER_PRICE, LADDER_JIG_PLAN_ID, LADDER_JIG_PRICE } from "@/lib/ladder-jig";
+import { PLAN_EVENTS, type PlanEvent } from "@/lib/plan-events";
 
 export interface PlansViewRow {
   page_path: string;
@@ -94,6 +95,52 @@ export interface PlansAnalytics {
   splits: { recipient: string; reason: string; amount: number; status: string; createdAt: string }[];
   /** Buyers whose plan links look shared (see summarizeDeviceSharing) */
   sharing?: SharingFlag[];
+  /** Visitors left out as staff / testing (see excludeStaffTraffic) */
+  excludedVisitors?: number;
+  /** What designer visitors did (plan_events), unique visitors per event */
+  designer?: { event: PlanEvent; label: string; visitors: number }[];
+  /** Designer visitors inside Facebook / Instagram's in-app browser */
+  designerInApp?: number;
+}
+
+export interface PlansEventRow {
+  event: string;
+  visitor_id: string | null;
+  session_id: string | null;
+}
+
+/**
+ * Leave staff and testing out of the funnel: every visitor who has used the
+ * dashboard, and every visitor seen on an IP address one of them used (the
+ * owner's other browsers and phones on the same network).
+ */
+export function excludeStaffTraffic<T extends { visitor_id: string | null; ip?: string | null }>(
+  views: T[],
+  staffVisitors: ReadonlySet<string>,
+  staffIps: ReadonlySet<string>,
+): { views: T[]; excluded: Set<string> } {
+  const excluded = new Set<string>();
+  for (const v of views) {
+    if (!v.visitor_id) continue;
+    if (staffVisitors.has(v.visitor_id) || (v.ip && staffIps.has(v.ip))) excluded.add(v.visitor_id);
+  }
+  return { views: views.filter((v) => !v.visitor_id || !excluded.has(v.visitor_id)), excluded };
+}
+
+/** Unique visitors per designer event, in the order a buyer meets them. */
+export function summarizeDesignerEvents(events: PlansEventRow[]): { event: PlanEvent; label: string; visitors: number }[] {
+  const by = new Map<string, Set<string>>();
+  for (const e of events) {
+    const who = e.visitor_id ?? e.session_id;
+    if (!who || !(e.event in PLAN_EVENTS)) continue;
+    if (!by.has(e.event)) by.set(e.event, new Set());
+    by.get(e.event)!.add(who);
+  }
+  return (Object.keys(PLAN_EVENTS) as PlanEvent[]).map((event) => ({
+    event,
+    label: PLAN_EVENTS[event],
+    visitors: by.get(event)?.size ?? 0,
+  }));
 }
 
 export interface PlanDeviceRow {

@@ -133,8 +133,44 @@ export function PlansAnalyticsView({ data }: { data: PlansAnalytics }) {
         )}
         <p className="mt-2 text-[10px] text-stone-600">
           Buy clicks are tracked from {CHECKOUT_TRACKING_SINCE}; earlier periods show 0 for that step.
+          {data.excludedVisitors ? ` Leaves out ${data.excludedVisitors} staff / test visitor${data.excludedVisitors === 1 ? "" : "s"} (anyone who used the dashboard, and their networks).` : ""}
         </p>
       </Card>
+
+      {/* What designer visitors do */}
+      {data.designer && kpis.designerVisitors > 0 && (
+        <Card title="In the designer (unique visitors)">
+          {typeof data.designerInApp === "number" && (
+            <p className="mb-3 text-xs text-stone-400">
+              <span className="font-bold text-white">{data.designerInApp}</span> of {kpis.designerVisitors} designer
+              visitors ({Math.round((data.designerInApp / kpis.designerVisitors) * 100)}%) were inside Facebook / Instagram&apos;s
+              browser, where Apple Pay and Google Pay are hidden.
+            </p>
+          )}
+          <div className="space-y-2">
+            {data.designer.map((d) => (
+              <div key={d.event}>
+                <div className="flex justify-between text-xs">
+                  <span className="text-stone-300">{d.label}</span>
+                  <span className="font-bold text-white">
+                    {d.visitors.toLocaleString()}
+                    <span className="ml-1 font-normal text-stone-500">
+                      {Math.round((d.visitors / kpis.designerVisitors) * 100)}%
+                    </span>
+                  </span>
+                </div>
+                <div className="mt-1 h-1.5 rounded bg-slate-800">
+                  <div
+                    className="h-1.5 rounded bg-sky-400"
+                    style={{ width: `${Math.min(100, (d.visitors / kpis.designerVisitors) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-[10px] text-stone-600">Tracked from Nov 13, 2026. Percent of designer visitors.</p>
+        </Card>
+      )}
 
       {/* Daily */}
       <Card title="Visitors per day">

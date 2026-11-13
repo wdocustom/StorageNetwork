@@ -53,6 +53,8 @@ interface TrackBody {
   utmSource?: string;
   utmMedium?: string;
   utmCampaign?: string;
+  /** navigator.webdriver — automated browsers (tests) count as bots */
+  automated?: boolean;
 }
 
 export async function POST(req: NextRequest) {
@@ -70,7 +72,7 @@ export async function POST(req: NextRequest) {
 
     // UA + bot detection
     const ua = body.userAgent || req.headers.get("user-agent") || null;
-    const botDetected = isBot(ua);
+    const botDetected = isBot(ua) || body.automated === true;
 
     const ipHash = await hashIP(ip);
 

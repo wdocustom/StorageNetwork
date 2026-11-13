@@ -25,9 +25,12 @@ import { getStripePromise } from "@/lib/stripe/client";
 export default function EmbeddedCheckoutPanel({
   clientSecret,
   onClose,
+  notice,
 }: {
   clientSecret: string;
   onClose: () => void;
+  /** Optional strip under the header (e.g. "Pay in Safari for Apple Pay") */
+  notice?: React.ReactNode;
 }) {
   // Lock the page behind the panel and close on Escape.
   useEffect(() => {
@@ -65,6 +68,7 @@ export default function EmbeddedCheckoutPanel({
           </button>
         </div>
 
+        {notice}
         <div className="relative min-h-0 flex-1 overflow-y-auto sm:min-h-[560px]">
           {/* Shows until Stripe paints the form over it. */}
           <div className="pointer-events-none absolute inset-x-0 top-24 flex flex-col items-center gap-3 text-sm text-stone-400">

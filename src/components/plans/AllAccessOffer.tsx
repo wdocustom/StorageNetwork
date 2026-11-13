@@ -20,10 +20,13 @@ export function AllAccessOffer({
   loading,
   onBuy,
   onSample,
+  wallet,
 }: {
   loading: boolean;
   onBuy: () => void;
   onSample: (tier: TotePlanTier) => void;
+  /** Inside Facebook / Instagram: the "Buy with Apple / Google Pay" escape, shown first */
+  wallet?: React.ReactNode;
 }) {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-yellow-400/40 bg-slate-900 p-5">
@@ -58,10 +61,18 @@ export function AllAccessOffer({
         )}
       </ul>
 
+      {wallet && (
+        <div className="mt-4">
+          {wallet}
+          <p className="my-3 flex items-center gap-3 text-[11px] uppercase tracking-widest text-stone-600">
+            <span className="h-px flex-1 bg-slate-700" /> or pay here <span className="h-px flex-1 bg-slate-700" />
+          </p>
+        </div>
+      )}
       <button
         onClick={onBuy}
         disabled={loading}
-        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 py-4 text-base font-black uppercase tracking-wide text-gray-950 shadow-lg shadow-yellow-500/20 transition hover:from-amber-300 hover:to-yellow-400 disabled:opacity-60"
+        className={`${wallet ? "" : "mt-4 "}flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 py-4 text-base font-black uppercase tracking-wide text-gray-950 shadow-lg shadow-yellow-500/20 transition hover:from-amber-300 hover:to-yellow-400 disabled:opacity-60`}
       >
         {loading && <Loader2 className="h-4 w-4 animate-spin" />}
         {loading ? "Opening checkout…" : `Get my plans — ${PRICE}`}

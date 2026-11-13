@@ -16,7 +16,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useSearchParams } from "next/navigation";
-import { useState, useMemo, useEffect, useCallback, Suspense } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Crown, Layers, Loader2, Plus, Ruler, Trash2 } from "lucide-react";
@@ -34,6 +34,9 @@ import { checkAllAccess, createIncludedPlan } from "@/app/actions/tote-plan-acce
 import { PlanSampleLightbox, PlanSampleThumb } from "@/components/plans/PlanSample";
 import { BestsellersButton, BestsellersLightbox } from "@/components/plans/PlanBestsellers";
 import { PLAN_REF_COOKIE, cleanReferralId } from "@/lib/plan-splits";
+import WalletEscape from "@/components/plans/WalletEscape";
+import { detectInAppBrowser, type InAppBrowser } from "@/lib/in-app-browser";
+import { trackPlanEvent } from "@/lib/plan-events";
 import {
   DEFAULT_TOTE_PLAN_DESIGN,
   DEFAULT_TOTE_PLAN_UNIT,
@@ -80,6 +83,7 @@ function WallFit({
       return;
     }
     onFit(result);
+    trackPlanEvent("wall_fit");
     setMsg(`Fits ${result.cols} wide × ${result.rows} tall.`);
   };
 
@@ -167,6 +171,12 @@ function PlansDesigner() {
   // Installer whose link brought the customer here — remembered (no expiry)
   // so they're credited even if the customer buys on a later visit.
   const [ref] = useState(() => cleanReferralId(searchParams.get("ref")));
+  // Arrived from Facebook / Instagram's "Buy with Apple / Google Pay": open
+  // the payment form straight away (read once; the URL is rewritten below).
+  const [autoPay] = useState(() => searchParams.get("pay") === "1");
+  // Facebook / Instagram's in-app browser hides Apple Pay and Google Pay.
+  const [inApp, setInApp] = useState<InAppBrowser | null>(null);
+  useEffect(() => setInApp(detectInAppBrowser(navigator.userAgent)), []);
 
   useEffect(() => {
     checkDIYPlanAccess().then(setFreeAccess);
@@ -223,9 +233,15 @@ function PlansDesigner() {
   // Any edit makes it the customer's own design, so a bestseller name no
   // longer applies. Bestseller tags survive brand / caster / worktop edits;
   // a size change or a removed unit drops that bestseller (normalizeBestsellers).
-  const updateUnit = (patch: Partial<TotePlanUnit>) =>
+  const updateUnit = (patch: Partial<TotePlanUnit>) => {
+    for (const key of Object.keys(patch)) {
+      if (key === "cols" || key === "rows") trackPlanEvent("edit_size", key);
+      else trackPlanEvent("edit_option", key);
+    }
     setDesign((d) => ({ units: normalizeBestsellers(d.units.map((u, i) => (i === unitIndex ? { ...u, ...patch } : u))) }));
+  };
   const addUnit = () => {
+    trackPlanEvent("add_unit");
     setDesign((d) => {
       const { bestseller: _copied, ...last } = d.units[d.units.length - 1] ?? DEFAULT_TOTE_PLAN_UNIT;
       return { units: [...d.units, last] };
@@ -254,9 +270,24 @@ function PlansDesigner() {
   const hasFree = freeAccess?.hasFreeAccess === true;
   const note = moduleNote(unit);
 
-  const closeCheckout = useCallback(() => setCheckout(null), []);
+  const closeCheckout = useCallback(() => {
+    trackPlanEvent("checkout_closed");
+    setCheckout(null);
+  }, []);
 
-  const handleBuy = async () => {
+  /** This designer, this design, reopened in Safari / Chrome to pay with a wallet. */
+  const escapeUrl = () => {
+    let vid = "";
+    try {
+      vid = localStorage.getItem("sn_vid") ?? "";
+    } catch {
+      /* storage blocked */
+    }
+    return `${window.location.origin}${totePlanDesignHref(design, source, ref)}&pay=1${vid ? `&vid=${vid}` : ""}`;
+  };
+
+  const handleBuy = async (from: "offer" | "sticky" | "auto" = "offer") => {
+    trackPlanEvent("buy_click", from);
     setBuying(true);
     setError("");
     let visitorId: string | null = null;
@@ -265,7 +296,12 @@ function PlansDesigner() {
     } catch {
       /* storage blocked — the click still counts, just not per person */
     }
-    const result = await createDIYPlanCheckout(design, source, ref, visitorId);
+    // A dropped connection must not leave the button spinning forever.
+    const result = await createDIYPlanCheckout(design, source, ref, visitorId).catch(() => ({
+      success: false as const,
+      clientSecret: undefined,
+      error: "We couldn't open checkout. Check your connection and try again.",
+    }));
     setBuying(false);
     if (result.success && result.clientSecret) {
       setCheckout({ clientSecret: result.clientSecret });
@@ -273,6 +309,27 @@ function PlansDesigner() {
       setError(result.error || "Something went wrong. Please try again.");
     }
   };
+
+  // Arrived in Safari / Chrome from the in-app escape: open payment once we
+  // know this isn't a Pro / admin (whose plans are free).
+  const autoPayRan = useRef(false);
+  useEffect(() => {
+    if (!autoPay || autoPayRan.current || freeAccess === null || inApp) return;
+    if (freeAccess.hasFreeAccess || member) return;
+    autoPayRan.current = true;
+    trackPlanEvent("autopay");
+    handleBuy("auto");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPay, freeAccess, inApp, member]);
+
+  // Reached the $19 offer (scrolled to it, or the sticky bar disappeared).
+  useEffect(() => {
+    const el = document.getElementById("plan-tiers");
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => e.isIntersecting && trackPlanEvent("offer_seen"), { threshold: 0.4 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   // All-Access owners: generate this design's plan at no charge and open it.
   const handleIncluded = async () => {
@@ -327,7 +384,12 @@ function PlansDesigner() {
               </p>
             </div>
             <div className="absolute right-3 top-3">
-              <BestsellersButton onClick={() => setPickerOpen(true)} />
+              <BestsellersButton
+                onClick={() => {
+                  trackPlanEvent("bestsellers");
+                  setPickerOpen(true);
+                }}
+              />
             </div>
           </div>
 
@@ -486,14 +548,26 @@ function PlansDesigner() {
                 )}
               </p>
             )}
-            <AllAccessOffer loading={buying} onBuy={handleBuy} onSample={setSampleTier} />
+            <AllAccessOffer
+              loading={buying}
+              onBuy={() => handleBuy("offer")}
+              onSample={(tier) => {
+                trackPlanEvent("sample", tier);
+                setSampleTier(tier);
+              }}
+              wallet={inApp && inApp.os !== "other" ? <WalletEscape inApp={inApp} buildUrl={escapeUrl} /> : undefined}
+            />
           </>
         )}
         </div>
 
         {sampleTier && <PlanSampleLightbox tier={sampleTier} onClose={() => setSampleTier(null)} />}
         {checkout && (
-          <EmbeddedCheckoutPanel clientSecret={checkout.clientSecret} onClose={closeCheckout} />
+          <EmbeddedCheckoutPanel
+            clientSecret={checkout.clientSecret}
+            onClose={closeCheckout}
+            notice={inApp && inApp.os !== "other" ? <WalletEscape inApp={inApp} buildUrl={escapeUrl} variant="bar" /> : undefined}
+          />
         )}
 
         {/* Buy from anywhere on this long page; hides while the offer itself is on screen. */}
@@ -503,7 +577,7 @@ function PlansDesigner() {
             price={member ? "Included" : `${formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price)} for life`}
             note={member ? "with your All-Access plans" : "This plan + every one after"}
             label={member ? "Generate free" : "Get my plans"}
-            onClick={member ? handleIncluded : handleBuy}
+            onClick={member ? handleIncluded : () => handleBuy("sticky")}
             loading={buying}
           />
         )}
