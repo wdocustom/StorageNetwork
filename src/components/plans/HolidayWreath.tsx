@@ -1,10 +1,17 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// A holiday wreath hung on a price's last digit: the digit's top corner sits
-// inside the ring like a hook, and the wreath hangs down its side at a slant. Drawn as SVG: a few hundred pine needles in layered
-// greens (deterministic, so server and client agree), glossy berries, pine
-// cones and a satin bow. Gentle sway from where it rests on the digit;
-// still for reduced-motion users. No client JS. Shows only before
-// HOLIDAY_WREATH_UNTIL, so it takes itself down after the season.
+// A holiday wreath draped over the top of a price's last digit.
+//
+// The wreath sits IN FRONT of the digit and hangs down across its upper
+// right, slanting outward. Its top is faded out along the digit's own top
+// edge (DRAPE_MASK, traced from the "9" of the $19 price), so the ring looks
+// like it rolls over the top of the number and disappears behind it at the
+// top-right shoulder. Nothing goes through the ring's hole.
+//
+// Drawn as SVG: a few hundred pine needles in layered greens (seeded, so
+// server and client agree), glossy berries, pine cones and a satin bow,
+// with a soft shadow on the digit. It sways gently under a fixed mask, so
+// the "over the top" line stays on the digit's edge; still for reduced-
+// motion users. No client JS. Shows only before HOLIDAY_WREATH_UNTIL.
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** First day the wreath no longer shows, ISO date. */
@@ -76,48 +83,43 @@ const BERRY_SPOTS = [25, 70, 150, 205, 300].map((d, i) => ({ ...at(d, R + (i % 2
 const CONES = [{ ...at(115, R + 1), rot: 30 }, { ...at(340, R - 1), rot: -60 }];
 
 /**
- * Render twice around the digit so the wreath drapes over it:
- *   <HolidayWreath layer="back" />   — the whole wreath, behind the text
- *   <span className="relative">9</span>
- *   <HolidayWreath layer="front" />  — everything but the top of the ring
- *                                      (faded out softly, so no hard seam)
- * The top of the ring then shows only where the digit doesn't cover it, as
- * if it runs behind the digit's top stroke, while the sides and bow hang in
- * front. Both layers sway together from the same point.
+ * Where the wreath stays visible, in the 56×56 px drape box (see the page):
+ * everything below the 9's outer top contour (an ellipse fitted to the
+ * glyph — Inter 800 at text-6xl), and, right of the 9, everything below a
+ * line sloping down from its top-right shoulder, so the ring's top rolls
+ * back behind the number at the shoulder. Blurred so the wreath fades over the edge instead of
+ * being cut.
  */
-export default function HolidayWreath({
-  className = "",
-  layer = "front",
-}: {
-  className?: string;
-  layer?: "back" | "front";
-}) {
+const DRAPE_MASK = `url("data:image/svg+xml;utf8,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 56 56">' +
+    '<filter id="b" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.1"/></filter>' +
+    '<path filter="url(#b)" fill="#fff" d="M-4 60 L-4 31 L4.4 31 A17.3 15.3 0 0 1 35.7 22 L60 33 L60 60 Z"/>' +
+    "</svg>",
+)}")`;
+
+export default function HolidayWreath({ className = "" }: { className?: string }) {
   if (!holidayWreathOn()) return null;
-  const mask = layer === "front" ? "url(#snw-front)" : undefined;
   return (
-    <span aria-hidden className={`sn-wreath pointer-events-none select-none ${className}`}>
+    <span
+      aria-hidden
+      className={`pointer-events-none block select-none ${className}`}
+      style={{ maskImage: DRAPE_MASK, WebkitMaskImage: DRAPE_MASK, maskSize: "56px 56px", WebkitMaskSize: "56px 56px" }}
+    >
       <style>{`
-        .sn-wreath { display: block; transform-origin: 50% 29.5%; animation: sn-wreath-sway 5s ease-in-out infinite; }
-        @keyframes sn-wreath-sway { 0%, 100% { transform: rotate(-20deg); } 50% { transform: rotate(-14deg); } }
-        @media (prefers-reduced-motion: reduce) { .sn-wreath { animation: none; transform: rotate(-17deg); } }
+        .sn-wreath { position: absolute; left: 15px; top: 10px; width: 34px; height: 34px; transform-origin: 50% 17%; animation: sn-wreath-sway 5s ease-in-out infinite; }
+        @keyframes sn-wreath-sway { 0%, 100% { transform: rotate(-17deg); } 50% { transform: rotate(-11deg); } }
+        @media (prefers-reduced-motion: reduce) { .sn-wreath { animation: none; transform: rotate(-14deg); } }
       `}</style>
+      <span className="sn-wreath">
       <svg
         viewBox="0 0 100 100"
         className="h-full w-full overflow-visible"
       >
         <defs>
-          {/* Soft shadow the wreath casts on the 9 where it hangs */}
+          {/* Soft contact shadow the wreath casts on the 9 */}
           <filter id="snw-shadow" x="-30%" y="-30%" width="160%" height="170%">
             <feDropShadow dx="1.5" dy="4" stdDeviation="2.6" floodColor="#000" floodOpacity="0.55" />
           </filter>
-          {/* Front layer: the ring below its top arc (the top runs behind the digit) */}
-          <mask id="snw-front" maskUnits="userSpaceOnUse" x="-20" y="-20" width="140" height="160">
-            <rect x="-20" y="-20" width="140" height="160" fill="url(#snw-front-grad)" />
-          </mask>
-          <linearGradient id="snw-front-grad" gradientUnits="userSpaceOnUse" x1="0" y1={CY - 15} x2="0" y2={CY - 10}>
-            <stop offset="0" stopColor="#000" />
-            <stop offset="1" stopColor="#fff" />
-          </linearGradient>
           <radialGradient id="snw-berry" cx="35%" cy="30%" r="70%">
             <stop offset="0%" stopColor="#ff7b7b" />
             <stop offset="45%" stopColor="#d81e1e" />
@@ -143,7 +145,6 @@ export default function HolidayWreath({
             <stop offset="72%" stopColor="#000" stopOpacity="0" />
           </radialGradient>
         </defs>
-        <g mask={mask}>
         <g filter="url(#snw-shadow)">
 
         {/* Base so no background shows through gaps */}
@@ -198,8 +199,8 @@ export default function HolidayWreath({
           <ellipse cx="-0.8" cy="-0.9" rx="1.2" ry="0.8" fill="#ff9aac" fillOpacity="0.5" />
         </g>
         </g>
-        </g>
       </svg>
+      </span>
     </span>
   );
 }
