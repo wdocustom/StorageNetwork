@@ -16,12 +16,21 @@ interface Slide {
   width: number;
   height: number;
   caption: string;
+  /** A short muted loop; `src` is then its poster frame. */
+  video?: string;
 }
 
 const SAMPLES: Record<TotePlanTier, { title: string; slides: Slide[] }> = {
   interactive: {
     title: "Interactive 3D Build Guide",
     slides: [
+      {
+        src: "/plan-samples/guide-demo-poster.jpg",
+        video: "/plan-samples/guide-demo.mp4",
+        width: 540,
+        height: 1028,
+        caption: "A real build guide on a phone: tap Next and each step builds itself in 3D.",
+      },
       {
         src: "/plan-samples/guide-exploded.jpg",
         width: 720,
@@ -66,7 +75,7 @@ export function PlanSampleThumb({ tier, onOpen }: { tier: TotePlanTier; onOpen: 
       className="group relative mb-4 block w-full overflow-hidden rounded-xl border border-slate-700 bg-slate-950 text-left transition hover:border-yellow-400/50"
     >
       <div className="grid h-32 grid-cols-2 gap-px bg-slate-800">
-        {slides.map((s) => (
+        {slides.slice(0, 2).map((s) => (
           <Image
             key={s.src}
             src={s.src}
@@ -148,7 +157,21 @@ export function PlanSampleLightbox({ tier, onClose }: { tier: TotePlanTier; onCl
         {slides.map((s) => (
           <figure key={s.src} className="flex w-full shrink-0 snap-center flex-col items-center justify-center gap-3 px-4">
             <div className="relative min-h-0 w-full max-w-md flex-1">
-              <Image src={s.src} alt={s.caption} fill sizes="(max-width: 640px) 100vw, 448px" className="object-contain" />
+              {s.video ? (
+                <video
+                  src={s.video}
+                  poster={s.src}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="auto"
+                  aria-label={s.caption}
+                  className="absolute inset-0 m-auto h-full max-h-full w-auto max-w-full rounded-2xl object-contain shadow-2xl shadow-black/50 ring-1 ring-white/10"
+                />
+              ) : (
+                <Image src={s.src} alt={s.caption} fill sizes="(max-width: 640px) 100vw, 448px" className="object-contain" />
+              )}
             </div>
             <figcaption className="max-w-md text-center text-sm text-stone-300">{s.caption}</figcaption>
           </figure>

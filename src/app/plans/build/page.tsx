@@ -25,7 +25,7 @@ import Image from "next/image";
 import {
   AlertCircle,
   Box,
-  CheckCircle,
+  Check,
   Crown,
   ChevronRight,
   Download,
@@ -324,53 +324,182 @@ function BuildAnotherCard({ token }: { token: string }) {
 }
 
 // ── Checklists ───────────────────────────────────────────────────────────
+//
+// Shopping list and tools are tick-off lists: tap a row to cross it out.
+// Ticks are kept on this device (per plan), so a builder can shop on their
+// phone and come back to the same list in the garage.
+
+function useChecked(key: string) {
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) setChecked(new Set(JSON.parse(raw) as string[]));
+    } catch {
+      /* storage unavailable: lists still work, just aren't remembered */
+    }
+  }, [key]);
+  const update = (next: Set<string>) => {
+    setChecked(next);
+    try {
+      if (next.size) localStorage.setItem(key, JSON.stringify([...next]));
+      else localStorage.removeItem(key);
+    } catch {
+      /* ignore */
+    }
+  };
+  const toggle = (id: string) => {
+    const next = new Set(checked);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    update(next);
+  };
+  return { checked, toggle, reset: () => update(new Set()) };
+}
+
+function CheckBox({ on }: { on: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={`mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition ${
+        on ? "border-yellow-400 bg-yellow-400 text-gray-950" : "border-slate-600 bg-slate-950"
+      }`}
+    >
+      {on && <Check className="h-3.5 w-3.5" strokeWidth={3.5} />}
+    </span>
+  );
+}
+
+function ListHeader({
+  icon,
+  title,
+  done,
+  total,
+  onReset,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  done: number;
+  total: number;
+  onReset: () => void;
+}) {
+  const complete = total > 0 && done === total;
+  return (
+    <div className="mb-4">
+      <div className="flex items-center gap-2">
+        {icon}
+        <h3 className="flex-1 text-sm font-bold text-white">{title}</h3>
+        {done > 0 && (
+          <button type="button" onClick={onReset} className="text-[11px] font-semibold text-stone-500 hover:text-stone-300">
+            Reset
+          </button>
+        )}
+        <span className={`text-xs font-bold tabular-nums ${complete ? "text-emerald-400" : "text-stone-400"}`}>
+          {complete ? "All set" : `${done} of ${total}`}
+        </span>
+      </div>
+      <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-slate-800">
+        <div
+          className={`h-full rounded-full transition-all duration-300 ${complete ? "bg-emerald-400" : "bg-yellow-400"}`}
+          style={{ width: `${total ? (done / total) * 100 : 0}%` }}
+        />
+      </div>
+    </div>
+  );
+}
 
 function Checklists({ data }: { data: Ready }) {
+  const items = data.plan.shoppingList;
+  const tools = data.plan.allTools;
+  const planKey = data.token ?? items.map((i) => `${i.qty}${i.name}`).join("|");
+  const shop = useChecked(`sn_plan_shop:${planKey}`);
+  const kit = useChecked(`sn_plan_tools:${planKey}`);
+  const itemId = (item: (typeof items)[number]) => `${item.name}|${item.detail}`;
+  const shopDone = items.filter((i) => shop.checked.has(itemId(i))).length;
+  const toolsDone = tools.filter((t) => kit.checked.has(t)).length;
+
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-        <div className="mb-3 flex items-center gap-2">
-          <ShoppingCart className="h-4 w-4 text-stone-500" />
-          <h3 className="text-sm font-bold text-white">Shopping List</h3>
-        </div>
-        <ul className="space-y-2">
-          {data.plan.shoppingList.map((item) => (
-            <li key={`${item.name}-${item.detail}`} className="flex gap-3 text-xs">
-              <span className="w-12 shrink-0 font-mono font-bold text-yellow-400">{item.qty}</span>
-              <span className="min-w-0 flex-1">
-                <span className="font-semibold text-stone-200">{item.name}</span>
-                <span className="block text-stone-500">{item.detail}</span>
-              </span>
-              {item.url && (
-                <a
-                  href={item.url}
-                  target="_blank"
-                  rel="noopener noreferrer sponsored"
-                  className="flex h-fit shrink-0 items-center gap-1 rounded-lg border border-yellow-400/30 px-2 py-1 text-[10px] font-bold text-yellow-400 transition hover:bg-yellow-400/10"
+        <ListHeader
+          icon={<ShoppingCart className="h-4 w-4 text-stone-500" />}
+          title="Shopping List"
+          done={shopDone}
+          total={items.length}
+          onReset={shop.reset}
+        />
+        <ul className="-mx-2 space-y-0.5">
+          {items.map((item) => {
+            const on = shop.checked.has(itemId(item));
+            return (
+              <li key={itemId(item)} className="flex items-start gap-2">
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={on}
+                  onClick={() => shop.toggle(itemId(item))}
+                  className="flex min-w-0 flex-1 items-start gap-3 rounded-lg px-2 py-2 text-left text-xs transition hover:bg-white/[0.03] active:bg-white/[0.06]"
                 >
-                  Buy
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              )}
-            </li>
-          ))}
+                  <CheckBox on={on} />
+                  <span className={`w-12 shrink-0 pt-0.5 font-mono font-bold transition ${on ? "text-stone-600 line-through" : "text-yellow-400"}`}>
+                    {item.qty}
+                  </span>
+                  <span className={`min-w-0 flex-1 pt-0.5 transition ${on ? "line-through decoration-stone-500" : ""}`}>
+                    <span className={`font-semibold ${on ? "text-stone-500" : "text-stone-200"}`}>{item.name}</span>
+                    <span className={`block ${on ? "text-stone-600" : "text-stone-500"}`}>{item.detail}</span>
+                  </span>
+                </button>
+                {item.url && (
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer sponsored"
+                    className={`mr-2 mt-2 flex h-fit shrink-0 items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-bold transition ${
+                      on
+                        ? "border-slate-700 text-stone-600"
+                        : "border-yellow-400/30 text-yellow-400 hover:bg-yellow-400/10"
+                    }`}
+                  >
+                    Buy
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+              </li>
+            );
+          })}
         </ul>
-        {data.plan.shoppingList.some((i) => i.url) && (
+        {items.some((i) => i.url) && (
           <p className="mt-3 text-[10px] leading-snug text-stone-600">{AFFILIATE_DISCLOSURE}</p>
         )}
       </div>
-      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-        <div className="mb-3 flex items-center gap-2">
-          <Wrench className="h-4 w-4 text-stone-500" />
-          <h3 className="text-sm font-bold text-white">Tools</h3>
-        </div>
-        <ul className="grid grid-cols-1 gap-1.5">
-          {data.plan.allTools.map((tool) => (
-            <li key={tool} className="flex items-center gap-2 text-xs text-stone-300">
-              <CheckCircle className="h-3 w-3 shrink-0 text-stone-600" />
-              {tool}
-            </li>
-          ))}
+      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:self-start">
+        <ListHeader
+          icon={<Wrench className="h-4 w-4 text-stone-500" />}
+          title="Tools"
+          done={toolsDone}
+          total={tools.length}
+          onReset={kit.reset}
+        />
+        <ul className="-mx-2 space-y-0.5">
+          {tools.map((tool) => {
+            const on = kit.checked.has(tool);
+            return (
+              <li key={tool}>
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={on}
+                  onClick={() => kit.toggle(tool)}
+                  className="flex w-full items-start gap-3 rounded-lg px-2 py-2 text-left text-xs transition hover:bg-white/[0.03] active:bg-white/[0.06]"
+                >
+                  <CheckBox on={on} />
+                  <span className={`pt-0.5 transition ${on ? "text-stone-600 line-through decoration-stone-500" : "text-stone-200"}`}>
+                    {tool}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </div>
