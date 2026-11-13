@@ -127,7 +127,7 @@ export default async function PlanPage({ params }: { params: Promise<{ slug: str
             </ul>
             <div className="mt-5 flex items-center gap-2">
               <span className="text-3xl font-black text-yellow-400">{priceDisplay}</span>
-              <span className="text-xs text-stone-500">one-time · instant access · permanent link by email</span>
+              <span className="text-xs text-stone-500">one-time · instant access · all sales final</span>
             </div>
             <BuyPlanButton planId={plan.id} priceDisplay={priceDisplay} />
           </div>

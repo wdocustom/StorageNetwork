@@ -17,7 +17,7 @@
 
 import Stripe from "stripe";
 import { stripeConfig } from "@/lib/stripe/http";
-import { createEmbeddedCheckoutSession } from "@/lib/stripe/embedded-checkout";
+import { FINAL_SALE_TEXT, createEmbeddedCheckoutSession } from "@/lib/stripe/embedded-checkout";
 import { siteConfig } from "@/config/site";
 import { getServiceClient } from "@/lib/supabase-server";
 import { enforceActionRateLimit, RateLimitError } from "@/lib/server/action-rate-limit";
@@ -118,6 +118,7 @@ export async function createLadderJigCheckout(
     const back = isOwner ? `${baseUrl}/plans/jig?owner=${owner!.access_token}` : `${baseUrl}/plans/jig`;
     const session = await createEmbeddedCheckoutSession(getStripe(), {
       mode: "payment",
+      custom_text: FINAL_SALE_TEXT,
       ...(isOwner ? { customer_email: owner!.email } : {}),
       line_items: [
         {

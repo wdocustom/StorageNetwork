@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripeConfig } from "@/lib/stripe/http";
-import { createEmbeddedCheckoutSession } from "@/lib/stripe/embedded-checkout";
+import { FINAL_SALE_TEXT, createEmbeddedCheckoutSession } from "@/lib/stripe/embedded-checkout";
 import { siteConfig } from "@/config/site";
 import { getPlanById } from "@/lib/plans-config";
 import { resolvePromoterReferralCode } from "@/app/actions/promoter-program";
@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
     const attribution = await resolvePromoterAttribution(request);
     const session = await createEmbeddedCheckoutSession(getStripe(), {
       mode: "payment",
+      custom_text: FINAL_SALE_TEXT,
       customer_email: undefined, // Stripe will collect email in checkout
       line_items: [
         {
