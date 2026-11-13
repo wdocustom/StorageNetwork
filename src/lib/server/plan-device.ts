@@ -209,30 +209,44 @@ export async function verifyPlanDeviceCode(rawEmail: string, rawCode: string): P
   const code = rawCode.replace(/\D/g, "");
   if (code.length !== 6) return { ok: false, error: "Enter the 6-digit code from the email." };
 
+  // Any unexpired code works, not only the newest. Work email can deliver a
+  // code minutes late; a buyer who taps "Resend" meanwhile must still be able
+  // to use whichever email arrives first.
   const db = getServiceClient();
-  const { data: row } = await db
+  const now = Date.now();
+  const { data } = await db
     .from("plan_access_codes")
     .select("id, code_hash, attempts, expires_at")
     .eq("email", email)
     .is("used_at", null)
+    .gte("created_at", new Date(now - CODE_TTL_MS).toISOString())
     .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (!row || new Date(row.expires_at as string).getTime() < Date.now()) {
+    .limit(MAX_CODES_PER_HOUR);
+  const live = (data ?? []).filter((r) => new Date(r.expires_at as string).getTime() >= now);
+  if (!live.length) {
     return { ok: false, error: "That code has expired. Send a new one." };
   }
-  if ((row.attempts as number) >= CODE_MAX_ATTEMPTS) {
+  // Wrong tries count against the newest code; a fresh code resets them.
+  const newest = live[0];
+  if ((newest.attempts as number) >= CODE_MAX_ATTEMPTS) {
     return { ok: false, error: "Too many wrong tries. Send a new code." };
   }
 
-  const expected = Buffer.from(row.code_hash as string);
   const given = Buffer.from(codeHash(email, code));
-  if (expected.length !== given.length || !timingSafeEqual(expected, given)) {
-    await db.from("plan_access_codes").update({ attempts: (row.attempts as number) + 1 }).eq("id", row.id);
+  const match = live.find((r) => {
+    const expected = Buffer.from(r.code_hash as string);
+    return expected.length === given.length && timingSafeEqual(expected, given);
+  });
+  if (!match) {
+    await db.from("plan_access_codes").update({ attempts: (newest.attempts as number) + 1 }).eq("id", newest.id);
     return { ok: false, error: "That code isn't right. Check the email and try again." };
   }
 
-  await db.from("plan_access_codes").update({ used_at: new Date().toISOString() }).eq("id", row.id);
+  // One success spends every outstanding code.
+  await db
+    .from("plan_access_codes")
+    .update({ used_at: new Date().toISOString() })
+    .in("id", live.map((r) => r.id as string));
   await registerDevice(email, await ensureDeviceId(), "code");
   return { ok: true };
 }

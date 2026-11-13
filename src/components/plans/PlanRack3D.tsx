@@ -31,6 +31,7 @@ export function planModules3D(design: TotePlanDesign): StackedModule3D[] {
       rolling: unit.hasWheels,
       hasWheels: unit.hasWheels && y === 0,
       hasTop: unit.hasTop && m.y === topY,
+      sideways: m.sideways,
     };
   });
 }
@@ -52,7 +53,7 @@ export default function PlanRack3D({ design }: { design: TotePlanDesign }) {
         toteType={first.toteType}
         toteColor="black"
         unitType="standard"
-        orientation="standard"
+        orientation={first.sideways ? "sideways" : "standard"}
         hasTotes={false}
         hasWheels={first.hasWheels}
         hasTop={first.hasTop}

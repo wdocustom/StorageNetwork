@@ -131,7 +131,7 @@ function WallFit({
 }
 
 function moduleNote(unit: TotePlanUnit): string | null {
-  const widths = splitWidth(unit.cols);
+  const widths = splitWidth(unit.cols, unit.sideways);
   const tiers = splitHeight(unit.rows);
   if (widths.length === 1 && tiers.length === 1) return null;
   const parts: string[] = [];
@@ -323,7 +323,7 @@ function PlansDesigner() {
             <PlanRack3D design={design} />
             <div className="pointer-events-none absolute left-3 top-3 rounded-lg bg-slate-900/85 px-3 py-1.5 backdrop-blur">
               <p className="font-mono text-[11px] text-stone-300">
-                {toFraction(size.widthIn)}&quot; W × {toFraction(size.heightIn)}&quot; H × 30&quot; D
+                {toFraction(size.widthIn)}&quot; W × {toFraction(size.heightIn)}&quot; H × {toFraction(size.depthIn)}&quot; D
               </p>
             </div>
             <div className="absolute right-3 top-3">
@@ -406,6 +406,15 @@ function PlansDesigner() {
               options={[
                 { value: "HDX", label: "HDX", hint: "Home Depot, Walmart, Menards" },
                 { value: "GM", label: "Greenmade", hint: "Costco" },
+              ]}
+            />
+            <Segmented
+              label="Tote direction"
+              value={unit.sideways === true}
+              onChange={(sideways) => updateUnit({ sideways: sideways || undefined })}
+              options={[
+                { value: false, label: "Standard", hint: 'Short end out · 30" deep' },
+                { value: true, label: "Sideways", hint: 'Long side out · 20" deep' },
               ]}
             />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

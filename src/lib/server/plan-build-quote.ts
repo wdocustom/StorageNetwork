@@ -81,7 +81,7 @@ export async function priceDesignForInstaller(
       rows: u.rows,
       toteModel: u.toteType,
       unitType: "standard",
-      orientation: "standard",
+      orientation: u.sideways ? "sideways" : "standard",
       addOns: { totes, wheels: u.hasWheels, top: u.hasTop },
       mode: "manual",
       installerPricing: pricing,
@@ -93,7 +93,7 @@ export async function priceDesignForInstaller(
       toteType: u.toteType,
       toteColor: "black",
       unitType: "standard",
-      orientation: "standard",
+      orientation: u.sideways ? "sideways" : "standard",
       hasTotes: res.config.hasTotes,
       hasWheels: res.config.hasWheels,
       hasTop: res.config.hasTop,
@@ -101,7 +101,7 @@ export async function priceDesignForInstaller(
       totalW: res.dimensions.totalW,
       totalH: res.dimensions.totalH,
       depth: res.dimensions.depth,
-      desc: `Standard: ${res.cols}W × ${res.rows}H`,
+      desc: `${u.sideways ? "Standard (Sideways)" : "Standard"}: ${res.cols}W × ${res.rows}H`,
       addons: [],
     });
     i += 1;

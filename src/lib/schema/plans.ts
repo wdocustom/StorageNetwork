@@ -60,6 +60,10 @@ export const PLANS_FAQS: PlansFaq[] = [
     answer: "Yes. Each plan is generated for your build, with a shopping list of exact quantities, board-by-board cut diagrams for every 2×4 (including how to rip the rails), fastener callouts, and a tools checklist.",
   },
   {
+    question: "Can I build a tote rack for a shallow wall?",
+    answer: `Yes. Choose Sideways in the designer: each tote turns 90° so its long side faces out, and the rack is only 20" deep instead of 30". Bays widen to 30-1/4", so a sideways rack is wider for the same number of totes, and it's built in modules up to 2 totes wide so every plate still comes out of an 8' 2×4. The 3D guide, cut list and PDF all follow the sideways build.`,
+  },
+  {
     question: "Can I put my tote rack on casters?",
     answer: `Yes, rolling tote racks are a design option. A unit up to 8' long rolls on 4 swivel casters, one at each corner. Longer units get 6, plus another pair for every extra 48" of length, each placed under an upright. The plan shows where each caster goes.`,
   },

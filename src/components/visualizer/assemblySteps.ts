@@ -81,6 +81,8 @@ export interface BuildConfig {
   toteType?: "HDX" | "GM";
   /** Defaults to "plywood" (the installer standard); DIY plans use "2x4" */
   rails?: RailStyle;
+  /** 2×4 rails only: totes turned 90° — wider bays, shallower rack */
+  sideways?: boolean;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -103,6 +105,34 @@ export const RAILS_2X4 = {
   /** Rails per 2×4×8': 2 strips × 3 rails at 30" */
   railsPerBoard: 6,
 } as const;
+
+/**
+ * Sideways 2×4-rail racks: the tote turns 90°, so its long side faces out.
+ * The bay widens to 30-1/4" and the rack is only 20" deep (rails are 20").
+ * Same numbers as buildEngine / calculate-materials / Rack3D.
+ */
+export const RAILS_2X4_SIDEWAYS = { opening: 30.25, depth: 20 } as const;
+/** Standard 2×4-rail rack depth = rail length */
+export const RAILS_2X4_DEPTH = 30;
+
+export interface Rails2x4Geometry {
+  /** Clear bay between uprights */
+  opening: number;
+  /** Rack depth front to back = rail length */
+  depth: number;
+  /** Rails crosscut from one ripped half of a 2×4×8' */
+  railsPerStrip: number;
+  /** Rails per 2×4×8' (2 ripped halves) */
+  railsPerBoard: number;
+}
+
+/** Bay, depth and rail yield for a 2×4-rail module, standard or sideways. */
+export function rails2x4Geometry(sideways = false): Rails2x4Geometry {
+  const opening = sideways ? RAILS_2X4_SIDEWAYS.opening : RAILS_2X4.opening;
+  const depth = sideways ? RAILS_2X4_SIDEWAYS.depth : RAILS_2X4_DEPTH;
+  const railsPerStrip = Math.floor(96 / (depth + 0.125));
+  return { opening, depth, railsPerStrip, railsPerBoard: railsPerStrip * 2 };
+}
 
 /** Upright length for a 2×4-rail module of `rows` tiers (rows <= 6). */
 export function upright2x4(rows: number): number {
@@ -139,13 +169,14 @@ const floorQuarter = (n: number) => Math.floor(n * 4 + 1e-9) / 4;
  * 2-high frames take shorter corner braces; 1-high frames take one diagonal
  * per end bay running from the bottom plate to the top plate.
  */
-export function braceLayout2x4(cols: number, rows: number): BraceLayout2x4 {
-  const pitch = RAILS_2X4.opening + 1.5;
+export function braceLayout2x4(cols: number, rows: number, sideways = false): BraceLayout2x4 {
+  const geo = rails2x4Geometry(sideways);
+  const pitch = geo.opening + 1.5;
   const w = cols * pitch; // first to last upright, center to center
   const d = upright2x4(Math.min(rows, RAILS_2X4.maxRows)) + 1.5; // plate center to plate center
   const mid = Math.floor(cols / 2) * pitch;
   const wide = cols > 4;
-  const maxLen = 30; // one ripped rail piece
+  const maxLen = geo.depth; // one ripped rail piece
 
   if (rows <= 1) {
     const length = Math.min(maxLen, floorQuarter(d * Math.SQRT2));
@@ -452,7 +483,7 @@ const ALL_STEPS: AssemblyStep[] = [
     id: "attach-top",
     title: "Attach Plywood Top",
     instruction:
-      'Cut a 3/4" plywood sheet to the unit footprint (PLATE_LENGTH × 30"). Set it flush on the top plates and secure with #9 × 1-5/8" screws — one at each post location driven down through the plywood into the top plate. That\'s TOP_SCREWS_QTY screws total.',
+      'Cut a 3/4" plywood sheet to the unit footprint (PLATE_LENGTH × UNIT_DEPTH). Set it flush on the top plates and secure with #9 × 1-5/8" screws — one at each post location driven down through the plywood into the top plate. That\'s TOP_SCREWS_QTY screws total.',
     partStates: {
       ...ALL_HIDDEN,
       posts: "visible",
@@ -474,7 +505,7 @@ const ALL_STEPS: AssemblyStep[] = [
       { name: 'T-25 Star Bit' },
     ],
     materials: [
-      { name: '3/4" Plywood Sheet', qty: "TOP_SHEETS_QTY", detail: 'Cut to PLATE_LENGTH × 30"' },
+      { name: '3/4" Plywood Sheet', qty: "TOP_SHEETS_QTY", detail: "Cut to PLATE_LENGTH × UNIT_DEPTH" },
       { name: '#9 × 1-5/8" Screws', qty: "TOP_SCREWS_QTY", detail: "1 per post location × 2 plates" },
     ],
     proTip: "Sand the edges and corners of the plywood top to prevent splinters, especially if this is a work surface.",
@@ -525,7 +556,7 @@ const RAILS_2X4_STEPS: Partial<Record<string, Partial<AssemblyStep>>> = {
   "rip-rails": {
     title: "Rip the 2×4 Rails",
     instruction:
-      "Each tote hangs by its rim on two rails, one on each side. Make them from straight 2×4×8' boards: set the table saw fence to 1-9/16\" and rip each board down the middle into two strips. Then crosscut each strip into (3) rails at RAIL_LENGTH. Every 2×4 gives you 6 rails — you need RAILS_QTY rails plus BACK_SUPPORTS_QTY back braces from RAIL_BOARDS_QTY boards. Set the brace pieces aside — they go on in the back-brace step (BRACE_LENGTH).",
+      "Each tote hangs by its rim on two rails, one on each side. Make them from straight 2×4×8' boards: set the table saw fence to 1-9/16\" and rip each board down the middle into two strips. Then crosscut each strip into (RAILS_PER_STRIP) rails at RAIL_LENGTH. Every 2×4 gives you RAILS_PER_BOARD rails — you need RAILS_QTY rails plus BACK_SUPPORTS_QTY back braces from RAIL_BOARDS_QTY boards. Set the brace pieces aside — they go on in the back-brace step (BRACE_LENGTH).",
     tools: [
       { name: "Table Saw", detail: 'fence at 1-9/16"' },
       { name: "Miter Saw", detail: "crosscut rails to RAIL_LENGTH" },
@@ -533,7 +564,7 @@ const RAILS_2X4_STEPS: Partial<Record<string, Partial<AssemblyStep>>> = {
       { name: "Push Stick" },
     ],
     materials: [
-      { name: "2×4 × 8' Boards", qty: "RAIL_BOARDS_QTY", detail: "Rip in half, then 3 rails per half" },
+      { name: "2×4 × 8' Boards", qty: "RAIL_BOARDS_QTY", detail: "Rip in half, then RAILS_PER_STRIP rails per half" },
       { name: "2×4 Rails", qty: "RAILS_QTY", detail: '1-1/2" × 1-9/16" × RAIL_LENGTH' },
       { name: "2×4 Back Braces", qty: "BACK_SUPPORTS_QTY", detail: "Same ripped piece as a rail — BRACE_LENGTH" },
     ],
@@ -677,7 +708,9 @@ function joinMarks(marks: number[]): string {
 
 function tokenValues(cols: number, rows: number, config: BuildConfig): Record<string, string> {
   const is2x4 = config.rails === "2x4";
-  const opening = is2x4 ? RAILS_2X4.opening : config.toteType === "GM" ? 20.75 : 19.75;
+  const geo = rails2x4Geometry(is2x4 && config.sideways === true);
+  const opening = is2x4 ? geo.opening : config.toteType === "GM" ? 20.75 : 19.75;
+  const depthStr = `${toFraction(is2x4 ? geo.depth : 30)}"`;
   const openingStr = `${toFraction(opening)}"`;
   const uprightH = is2x4 ? upright2x4(rows) : rows * 16; // rows × TIER_SPACING
   const plateLen = cols * opening + (cols + 1) * 1.5;
@@ -688,10 +721,13 @@ function tokenValues(cols: number, rows: number, config: BuildConfig): Record<st
   const railScrews = numRails * 4; // 2 screws per rail end × 2 ends
   // 2 screws per connection × 2 plates (front+back) × (cols+1) posts
   const perPlateScrews = (cols + 1) * 2 * 2;
-  const braces = braceLayout2x4(cols, rows);
+  const braces = braceLayout2x4(cols, rows, is2x4 && config.sideways === true);
   const backSupports = is2x4 ? braces.segments.length : backSupportsFor(cols);
-  const braceLen = braces.length >= 30 ? '30" (no cut)' : `cut to ${toFraction(braces.length)}"`;
-  const braceCut = braces.length >= 30 ? "Use the 30\" ripped pieces as-is." : `Cut ${backSupports} of your 30" ripped pieces to ${toFraction(braces.length)}" (square ends).`;
+  const braceLen = braces.length >= geo.depth ? `${depthStr} (no cut)` : `cut to ${toFraction(braces.length)}"`;
+  const braceCut =
+    braces.length >= geo.depth
+      ? `Use the ${depthStr} ripped pieces as-is.`
+      : `Cut ${backSupports} of your ${depthStr} ripped pieces to ${toFraction(braces.length)}" (square ends).`;
   const braceLayout =
     braces.style === "diagonal"
       ? `${braceCut} ${
@@ -721,12 +757,15 @@ function tokenValues(cols: number, rows: number, config: BuildConfig): Record<st
     TOP_PLATE_SCREWS_QTY: String(perPlateScrews),
     TOTES_QTY: String(cols * rows),
     BOARDS_QTY: String(packBoards([...Array(numPosts).fill(uprightH), ...Array(4).fill(plateLen)])),
-    RAIL_BOARDS_QTY: String(Math.ceil((numRails + backSupports) / RAILS_2X4.railsPerBoard)),
+    RAIL_BOARDS_QTY: String(Math.ceil((numRails + backSupports) / geo.railsPerBoard)),
+    RAILS_PER_STRIP: String(geo.railsPerStrip),
+    RAILS_PER_BOARD: String(geo.railsPerBoard),
+    UNIT_DEPTH: depthStr,
     UPRIGHT_HEIGHT: `${toFraction(uprightH)}"`,
     UPRIGHT_DETAIL: is2x4 && uprightH >= STOCK ? 'Full 96" — no cut' : `Cut to ${toFraction(uprightH)}"`,
     UPRIGHT_CUT: uprightCut,
     PLATE_LENGTH: plateLenStr,
-    RAIL_LENGTH: '30"',
+    RAIL_LENGTH: depthStr,
     RAIL_MARKS: joinMarks(railTopMarks2x4(rows)),
     UNIT_WIDTH: plateLenStr,
     TOP_SHEETS_QTY: String(topSheets),
@@ -740,7 +779,7 @@ function tokenValues(cols: number, rows: number, config: BuildConfig): Record<st
 }
 
 // Longest names first so e.g. UPRIGHT_HEIGHT isn't clipped by a shorter token
-const TOKEN_RE = /UPRIGHT_DETAIL|UPRIGHT_HEIGHT|UPRIGHT_CUT|BOTTOM_PLATE_SCREWS_QTY|TOP_PLATE_SCREWS_QTY|PLATE_SCREWS_QTY|BACK_SUPPORT_SCREWS_QTY|BACK_SUPPORTS_QTY|BACK_BRACE_LAYOUT|BRACE_LENGTH|RAIL_BOARDS_QTY|RAIL_SCREWS_QTY|RAILS_QTY|POSTS_QTY|TOTES_QTY|BOARDS_QTY|TOP_SHEETS_QTY|TOP_SCREWS_QTY|PLATE_LENGTH|RAIL_LENGTH|RAIL_MARKS|UNIT_WIDTH|OPENING_SPAN/g;
+const TOKEN_RE = /UPRIGHT_DETAIL|UPRIGHT_HEIGHT|UPRIGHT_CUT|BOTTOM_PLATE_SCREWS_QTY|TOP_PLATE_SCREWS_QTY|PLATE_SCREWS_QTY|BACK_SUPPORT_SCREWS_QTY|BACK_SUPPORTS_QTY|BACK_BRACE_LAYOUT|BRACE_LENGTH|RAIL_BOARDS_QTY|RAIL_SCREWS_QTY|RAILS_QTY|POSTS_QTY|TOTES_QTY|BOARDS_QTY|TOP_SHEETS_QTY|TOP_SCREWS_QTY|RAILS_PER_STRIP|RAILS_PER_BOARD|PLATE_LENGTH|RAIL_LENGTH|RAIL_MARKS|UNIT_WIDTH|UNIT_DEPTH|OPENING_SPAN/g;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Runtime quantity calculator

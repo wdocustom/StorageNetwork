@@ -168,7 +168,7 @@ function UnitAssembly({
             </h2>
             <p className="text-xs text-stone-400">
               Modules {unit.modules.map((m) => m.name).join(" + ")} · {toFraction(unit.widthIn)}&quot; W ×{" "}
-              {toFraction(unit.heightIn)}&quot; H × 30&quot; D
+              {toFraction(unit.heightIn)}&quot; H × {unit.sideways ? 20 : 30}&quot; D
             </p>
           </div>
           {onClose && (
@@ -277,6 +277,7 @@ export default function ModularBuildGuide({
       hasWheels={t.hasWheels}
       hasTop={t.hasTop}
       rails="2x4"
+      sideways={t.sideways}
       onClose={onClose}
       label={multi ? moduleTypeTitle(t) : undefined}
       hud={

@@ -23,6 +23,51 @@ import {
 
 const unit = { cols: 4, rows: 4, toteType: "HDX", hasWheels: true, hasTop: true } as const;
 
+describe("sideways units", () => {
+  const side = { ...unit, sideways: true } as const;
+
+  it("accepts sideways from the designer or an installer quote's orientation", () => {
+    expect(parseTotePlanDesign({ units: [{ ...unit, orientation: "sideways" }] })).toEqual({ units: [side] });
+    expect(parseTotePlanDesign({ units: [side] })).toEqual({ units: [side] });
+    // standard units carry no flag, so old designs encode exactly as before
+    expect(parseTotePlanDesign({ units: [{ ...unit, sideways: false }] })).toEqual({ units: [unit] });
+  });
+
+  it("round-trips through the compact form with an s suffix", () => {
+    const design = { units: [unit, side] };
+    expect(encodeTotePlanDesign(design)).toBe("H4x4wt.H4x4wts");
+    expect(decodeTotePlanDesign("H4x4wt.H4x4wts")).toEqual(design);
+    expect(decodeTotePlanDesign("H4x4wt")).toEqual({ units: [unit] });
+  });
+
+  it("splits into modules at most 2 wide so plates still fit an 8' board", () => {
+    expect(splitWidth(5, true)).toEqual([2, 2, 1]);
+    expect(splitWidth(5)).toEqual([4, 1]);
+    const { modules, types } = designModules({ units: [side] });
+    expect(modules.map((m) => m.name)).toEqual(["A1", "A2"]);
+    expect(types).toHaveLength(1);
+    expect(types[0]).toMatchObject({ cols: 2, rows: 4, sideways: true });
+  });
+
+  it("is 30-1/4\" per bay and 20\" deep", () => {
+    expect(unitOuterSize({ ...side, cols: 2, hasWheels: false })).toMatchObject({ widthIn: 2 * 30.25 + 3 * 1.5, depthIn: 20 });
+    expect(unitOuterSize({ ...unit, cols: 2, hasWheels: false })).toMatchObject({ widthIn: 2 * 21 + 3 * 1.5, depthIn: 30 });
+    expect(totePlanName({ units: [side] })).toBe("4×4 Sideways Tote Organizer");
+  });
+
+  it("fits fewer, wider bays to a wall", () => {
+    expect(fitTotePlanToWall(100, 80, { toteType: "HDX", hasWheels: false, sideways: true })?.cols).toBe(3);
+    expect(fitTotePlanToWall(100, 80, { toteType: "HDX", hasWheels: false })?.cols).toBe(4);
+  });
+
+  it("doesn't keep a bestseller tag once turned sideways", () => {
+    const ij = decodeTotePlanDesign("H2x4t_ij.H2x2t_ij.H2x4t_ij")!;
+    expect(ij.units.every((u) => u.bestseller === "indiana-joe")).toBe(true);
+    const turned = parseTotePlanDesign({ units: ij.units.map((u) => ({ ...u, sideways: true })) })!;
+    expect(turned.units.some((u) => u.bestseller)).toBe(false);
+  });
+});
+
 describe("parseTotePlanDesign", () => {
   it("accepts a design and keeps only the fields plans need", () => {
     expect(
@@ -36,7 +81,6 @@ describe("parseTotePlanDesign", () => {
 
   it("rejects the whole design if any unit can't be modeled", () => {
     expect(parseTotePlanDesign({ units: [unit, { ...unit, unitType: "mini" }] })).toBeNull();
-    expect(parseTotePlanDesign({ units: [{ ...unit, orientation: "sideways" }] })).toBeNull();
     expect(parseTotePlanDesign({ units: [{ ...unit, cols: 25 }] })).toBeNull();
     expect(parseTotePlanDesign({ units: [{ ...unit, rows: 11 }] })).toBeNull();
     expect(parseTotePlanDesign({ units: [{ ...unit, cols: 2.5 }] })).toBeNull();

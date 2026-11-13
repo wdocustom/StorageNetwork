@@ -45,10 +45,13 @@ export default function DeviceVerify({
       if (/just sent/.test(res.error)) setStage("code");
       return;
     }
+    if (stage === "code") setNote("Sent another. Any code from the last 15 minutes works, so use whichever arrives first. Check spam too.");
     setStage("code");
     setCooldown(60);
     setTimeout(() => inputRef.current?.focus(), 50);
   };
+
+  const [note, setNote] = useState("");
 
   const verify = async (value = code) => {
     if (value.length !== 6) return;
@@ -97,7 +100,8 @@ export default function DeviceVerify({
             <>
               <h1 className="mb-1.5 text-lg font-black text-white">Check your email</h1>
               <p className="mb-5 text-sm leading-relaxed text-stone-400">
-                Enter the code we sent to <span className="font-semibold text-white">{emailHint}</span>.
+                Enter the code we sent to <span className="font-semibold text-white">{emailHint}</span>. It can take a
+                few minutes to arrive, and it works for 15 minutes.
               </p>
               <input
                 ref={inputRef}
@@ -126,11 +130,12 @@ export default function DeviceVerify({
                 disabled={busy || cooldown > 0}
                 className="mt-3 w-full text-center text-xs font-semibold text-stone-400 transition hover:text-yellow-400 disabled:text-stone-600"
               >
-                {cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}
+                {cooldown > 0 ? `Didn't get it? You can send another in ${cooldown}s` : "Didn't get it? Send another code"}
               </button>
             </>
           )}
 
+          {note && !error && <p className="mt-3 text-center text-xs text-stone-400">{note}</p>}
           {error && <p className="mt-3 text-center text-xs font-medium text-amber-400">{error}</p>}
         </div>
 
