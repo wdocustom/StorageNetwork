@@ -29,6 +29,7 @@ import {
   totePlansProductJsonLd,
 } from "@/lib/schema/plans";
 import { ResendLinkPanel } from "@/components/plans/PlansStorefront";
+import HolidayWreath from "@/components/plans/HolidayWreath";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DIY PLANS STOREFRONT — /plans
@@ -236,8 +237,12 @@ export default async function PlansPage() {
         <section className="border-t border-white/5 py-14">
           <p className={eyebrow}>{TOTE_PLAN_ALL_ACCESS.name}</p>
           <div className="mt-2 flex items-baseline gap-3">
-            <span className="text-6xl font-extrabold tracking-tight text-white">{PLANS_PRICES.allAccess}</span>
-            <span className="text-base text-stone-400">once, for life</span>
+            <span className="relative inline-block text-6xl font-extrabold tracking-tight text-white">
+              {PLANS_PRICES.allAccess}
+              {/* Holiday pricing: a wreath hung off the corner of the 9 */}
+              <HolidayWreath className="absolute left-full top-0 -ml-3 h-[82px] w-[64px]" />
+            </span>
+            <span className="ml-14 text-base text-stone-400">once, for life</span>
           </div>
           <ul className="mt-7 space-y-3.5">
             {INCLUDED.map((item) => (
