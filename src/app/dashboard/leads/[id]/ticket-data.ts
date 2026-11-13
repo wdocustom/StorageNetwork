@@ -6,7 +6,7 @@ import type { MaterialPrices } from "@/utils/calculateMaterials";
 import type { MaterialInventory } from "@/utils/inventoryManager";
 
 export const LEAD_COLUMNS =
-  "id, customer_name, customer_email, customer_phone, address, status, estimated_price, deposit_paid, deposit_amount, balance_due, payout_status, fee_status, photo_url, quote_data, created_at, scheduled_at, time_preference, installer_id, address_line1, address_city, address_state, address_zip, delivery_address_line1, delivery_address_line2, delivery_address_city, delivery_address_state, delivery_address_zip, source, en_route_notified, sales_tax_amount, review_token, review_submitted, discount_code, discount_amount, stripe_payment_method_id, stripe_payment_method_brand, stripe_payment_method_last4, customer_id";
+  "id, customer_name, customer_email, customer_phone, address, status, estimated_price, deposit_paid, deposit_amount, balance_due, payout_status, fee_status, photo_url, quote_data, created_at, scheduled_at, time_preference, installer_id, address_line1, address_city, address_state, address_zip, delivery_address_line1, delivery_address_line2, delivery_address_city, delivery_address_state, delivery_address_zip, source, en_route_notified, sales_tax_amount, review_token, review_submitted, discount_code, discount_amount, stripe_payment_method_id, stripe_payment_method_brand, stripe_payment_method_last4, customer_id, plan_design, plan_design_name";
 
 export const INSTALLER_COLUMNS = "stripe_account_id, material_inventory, material_pricing_config";
 

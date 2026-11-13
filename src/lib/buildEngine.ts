@@ -4,6 +4,7 @@
 // This file should ONLY be imported by server actions / server components.
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { splitModuleWidths } from "@/lib/module-split";
 import "server-only";
 
 // ── Types (re-exported from shared types file) ──────────────────────────
@@ -355,14 +356,8 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
     const effectiveRows = is2x4 ? Math.min(totalRows, RAILS_2X4_MAX_ROWS) : totalRows;
     const effectiveHasTotes = hasTotes;
 
-    // ── Auto-Split Logic: WIDTH (max 4 cols per module) ─────────────
-    const widthModules: number[] = [];
-    let remainingCols = totalCols;
-    while (remainingCols > 4) {
-      widthModules.push(4);
-      remainingCols -= 4;
-    }
-    if (remainingCols > 0) widthModules.push(remainingCols);
+    // ── Auto-Split Logic: WIDTH (4 cols per module, 2 sideways — see module-split) ─
+    const widthModules = splitModuleWidths(totalCols, unitType === "standard" ? orientation : "standard");
 
     // ── Auto-Split Logic: HEIGHT (max rows per tier to fit 8ft stock) ─
     // 2x4 rail mode: max 6 rows, always single tier (posts fit within 8ft —

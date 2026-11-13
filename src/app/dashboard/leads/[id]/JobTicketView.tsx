@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getDepositAmount } from "@/app/actions/fee-engine";
 import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import type { QuoteUnit } from "@/lib/buildEngine.types";
-import { CheckCircle2, Loader2, Mail, MapPin, Navigation, AlertCircle, Pencil, Phone, X } from "lucide-react";
+import { Box, CheckCircle2, ExternalLink, Loader2, Mail, MapPin, Navigation, AlertCircle, Pencil, Phone, X } from "lucide-react";
 import JobTicket from "@/components/dashboard/JobTicket";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { startTripNotify } from "@/app/actions/sms";
@@ -58,6 +58,9 @@ export interface LeadDetail {
   stripe_payment_method_brand: string | null;
   stripe_payment_method_last4: string | null;
   customer_id: string | null;
+  /** Set when the customer designed this build in the DIY plans designer */
+  plan_design: string | null;
+  plan_design_name: string | null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -486,6 +489,28 @@ export default function JobTicketView({
           </section>
         )}
         ── End disabled SMS section ── */}
+
+        {/* ── Customer's own plan (lead came from the plans designer) ── */}
+        {lead.plan_design && (
+          <a
+            href={`/plans/build?lead=${lead.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 rounded-2xl border border-yellow-400/30 bg-yellow-400/5 p-4 transition hover:border-yellow-400/60"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10">
+              <Box className="h-5 w-5 text-yellow-400" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold text-white">Customer&apos;s plan</span>
+              <span className="block text-xs text-stone-400">
+                The exact design {lead.status === "waitlisted" ? "they" : lead.customer_name.split(" ")[0] || "they"} built
+                {lead.plan_design_name ? ` (${lead.plan_design_name})` : ""}: 3D build guide, cut list and PDF.
+              </span>
+            </span>
+            <ExternalLink className="h-4 w-4 shrink-0 text-stone-500" />
+          </a>
+        )}
 
         {/* ── Financial Breakdown (Materials / Collect / Profit) ──────── */}
         <JobTicket

@@ -30,6 +30,7 @@
 
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import { RAILS_2X4, RAILS_2X4_DEPTH, rails2x4Geometry, upright2x4 } from "@/components/visualizer/assemblySteps";
+import { MAX_MODULE_COLS, MAX_MODULE_COLS_SIDEWAYS } from "@/lib/module-split";
 
 export const TOTE_PLAN_ID = "tote-organizer";
 
@@ -185,10 +186,10 @@ export const TOTE_PLAN_LIMITS = {
 
 /** Build-engine split points (must match buildEngine.ts): plates fit an
  *  8' board up to 4 wide; a 2×4-rail upright is a full 8' stud at 6 high. */
-export const MODULE_MAX_COLS = 4;
+export const MODULE_MAX_COLS = MAX_MODULE_COLS;
 /** Sideways bays are 30-1/4": 2 wide is a 65" plate, 3 wide (96-3/4")
  *  would no longer come out of an 8' board. */
-export const MODULE_MAX_COLS_SIDEWAYS = 2;
+export const MODULE_MAX_COLS_SIDEWAYS = MAX_MODULE_COLS_SIDEWAYS;
 export const MODULE_MAX_ROWS = RAILS_2X4.maxRows;
 
 const MAX_NAME_LENGTH = 40;

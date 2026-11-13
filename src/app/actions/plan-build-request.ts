@@ -29,7 +29,7 @@ import { submitNetworkLead } from "@/app/actions/submit-lead";
 import { enforceActionRateLimit, RateLimitError } from "@/lib/server/action-rate-limit";
 import { priceDesignForInstaller } from "@/lib/server/plan-build-quote";
 import { PLAN_REF_COOKIE, cleanReferralId } from "@/lib/plan-splits";
-import { parseTotePlanDesign } from "@/lib/tote-plans";
+import { encodeTotePlanDesign, parseTotePlanDesign } from "@/lib/tote-plans";
 import { parsePostalCode, INVALID_POSTAL_MESSAGE } from "@/lib/geo/postal";
 
 export interface PlanBuilder {
@@ -166,6 +166,9 @@ export async function requestPlanBuild(input: {
     source: referred ? "partner_link" : "platform",
     ...(ref && !referred ? { referring_installer_id: ref } : {}),
     ...(capacity.atCapacity ? { waitlisted: true } : {}),
+    // The installer opens this exact design's 3D guide + PDF from the job
+    plan_design: encodeTotePlanDesign(design),
+    ...(design.name ? { plan_design_name: design.name } : {}),
   });
   if (!result.success || !result.id) return { ok: false, error: result.error || "Something went wrong. Please try again." };
   return { ok: true, leadId: result.id, waitlisted: capacity.atCapacity };
