@@ -43,6 +43,8 @@ import {
 import Link from "next/link";
 import { BuildForALiving } from "@/components/plans/AllAccessOffer";
 import SaveToHomeScreen from "@/components/plans/SaveToHomeScreen";
+import { metaTrack } from "@/lib/meta-pixel";
+import { readOffer } from "@/lib/plan-offer";
 import { LADDER_JIG_OWNER_PRICE } from "@/lib/ladder-jig";
 import {
   openTotePlan,
@@ -51,6 +53,7 @@ import {
 } from "@/app/actions/tote-plan-access";
 import {
   TOTE_PLAN_ALL_ACCESS,
+  TOTE_PLAN_EXIT_OFFER,
   designFromSearchParams,
   formatPlanPrice,
   planSnapshotKey,
@@ -549,6 +552,11 @@ function BuildPlanInner() {
       // New device: the verify screen re-opens with the token itself.
       if (!res.ok && res.verify && sessionId) router.replace(`/plans/build?token=${res.verify.token}`);
       if (!res.ok) return;
+      // First open straight from checkout (the access email just went out): a sale.
+      if (sessionId && res.emailSentTo && res.access === "purchase") {
+        const offer = readOffer();
+        metaTrack("Purchase", { currency: "USD", value: offer ? TOTE_PLAN_EXIT_OFFER.price / 100 : TOTE_PLAN_ALL_ACCESS.price / 100 });
+      }
       if (wantsGuide && res.tier === "interactive") setGuideOpen(true);
       // Swap one-time params for the permanent link.
       if (res.token && (sessionId || upgradeSessionId || wantsUpgrade || wantsGuide)) {

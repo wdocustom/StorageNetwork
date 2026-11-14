@@ -35,8 +35,12 @@ import { PlanSampleLightbox, PlanSampleThumb } from "@/components/plans/PlanSamp
 import { BestsellersButton, BestsellersLightbox } from "@/components/plans/PlanBestsellers";
 import { PLAN_REF_COOKIE, cleanReferralId } from "@/lib/plan-splits";
 import WalletEscape from "@/components/plans/WalletEscape";
+import ExitOffer from "@/components/plans/ExitOffer";
+import { emailMyDesign } from "@/app/actions/plan-design-lead";
+import { activateOffer, offerAlreadySeen, readOffer, type ActiveOffer } from "@/lib/plan-offer";
 import { detectInAppBrowser, type InAppBrowser } from "@/lib/in-app-browser";
 import { trackPlanEvent } from "@/lib/plan-events";
+import { metaTrack } from "@/lib/meta-pixel";
 import {
   DEFAULT_TOTE_PLAN_DESIGN,
   DEFAULT_TOTE_PLAN_UNIT,
@@ -51,6 +55,7 @@ import {
   splitWidth,
   totePlanDesignHref,
   TOTE_PLAN_ALL_ACCESS,
+  TOTE_PLAN_EXIT_OFFER,
   formatPlanPrice,
   totePlanName,
   totePlanSummary,
@@ -176,7 +181,21 @@ function PlansDesigner() {
   const [autoPay] = useState(() => searchParams.get("pay") === "1");
   // Facebook / Instagram's in-app browser hides Apple Pay and Google Pay.
   const [inApp, setInApp] = useState<InAppBrowser | null>(null);
-  useEffect(() => setInApp(detectInAppBrowser(navigator.userAgent)), []);
+  useEffect(() => {
+    setInApp(detectInAppBrowser(navigator.userAgent));
+    metaTrack("ViewContent", { content_name: "Tote rack designer", currency: "USD", value: 19 });
+  }, []);
+
+  // The $5-off exit offer: active in this browser for 24h once shown, or
+  // when opened from an "email me my design" link (?offer=save5).
+  const [offer, setOffer] = useState<ActiveOffer | null>(null);
+  const [exitOpen, setExitOpen] = useState(false);
+  useEffect(() => {
+    if (searchParams.get("offer") === TOTE_PLAN_EXIT_OFFER.code) setOffer(activateOffer());
+    else setOffer(readOffer());
+    // Read once on load; the URL is rewritten as the design changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     checkDIYPlanAccess().then(setFreeAccess);
@@ -273,6 +292,7 @@ function PlansDesigner() {
   const closeCheckout = useCallback(() => {
     trackPlanEvent("checkout_closed");
     setCheckout(null);
+    showExitOfferRef.current("closed");
   }, []);
 
   /** This designer, this design, reopened in Safari / Chrome to pay with a wallet. */
@@ -283,11 +303,13 @@ function PlansDesigner() {
     } catch {
       /* storage blocked */
     }
-    return `${window.location.origin}${totePlanDesignHref(design, source, ref)}&pay=1${vid ? `&vid=${vid}` : ""}`;
+    const offerParam = readOffer() ? `&offer=${TOTE_PLAN_EXIT_OFFER.code}` : "";
+    return `${window.location.origin}${totePlanDesignHref(design, source, ref)}&pay=1${offerParam}${vid ? `&vid=${vid}` : ""}`;
   };
 
   const handleBuy = async (from: "offer" | "sticky" | "auto" = "offer") => {
     trackPlanEvent("buy_click", from);
+    boughtTapped.current = true;
     setBuying(true);
     setError("");
     let visitorId: string | null = null;
@@ -297,7 +319,7 @@ function PlansDesigner() {
       /* storage blocked — the click still counts, just not per person */
     }
     // A dropped connection must not leave the button spinning forever.
-    const result = await createDIYPlanCheckout(design, source, ref, visitorId).catch(() => ({
+    const result = await createDIYPlanCheckout(design, source, ref, visitorId, readOffer()?.code).catch(() => ({
       success: false as const,
       clientSecret: undefined,
       error: "We couldn't open checkout. Check your connection and try again.",
@@ -309,6 +331,49 @@ function PlansDesigner() {
       setError(result.error || "Something went wrong. Please try again.");
     }
   };
+
+  // ── The $5-off exit offer ─────────────────────────────────────────────
+  // Shown once per browser, only to visitors who'd pay (not Pro / admin /
+  // All-Access owners), when they look like they're leaving:
+  //   "closed"    closed the payment form without paying
+  //   "hesitate"  saw the price, then scrolled back up above it, 15s+ later
+  //   "return"    came back to the tab after 5s+ away, having designed 30s+
+  const canOffer = !hasFree && !member;
+  const showExitOffer = (trigger: "closed" | "hesitate" | "return") => {
+    // ("closed" fires while the panel is still closing, so it skips that check)
+    if (!canOffer || exitOpen || (checkout && trigger !== "closed") || offerAlreadySeen()) return;
+    setOffer(activateOffer());
+    setExitOpen(true);
+    trackPlanEvent("exit_offer_shown", trigger);
+  };
+  const showExitOfferRef = useRef(showExitOffer);
+  showExitOfferRef.current = showExitOffer;
+
+  const designerSince = useRef(Date.now());
+  const offerSeenAt = useRef<number | null>(null);
+  const boughtTapped = useRef(false);
+  useEffect(() => {
+    const onScroll = () => {
+      const seen = offerSeenAt.current;
+      if (!seen || boughtTapped.current || Date.now() - seen < 15_000) return;
+      const el = document.getElementById("plan-tiers");
+      // Offer now entirely below the screen: they scrolled back up past it.
+      if (el && el.getBoundingClientRect().top > window.innerHeight + 40) showExitOfferRef.current("hesitate");
+    };
+    let hiddenAt = 0;
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") hiddenAt = Date.now();
+      else if (hiddenAt && Date.now() - hiddenAt > 5_000 && Date.now() - designerSince.current > 30_000 && !boughtTapped.current) {
+        showExitOfferRef.current("return");
+      }
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
 
   // Arrived in Safari / Chrome from the in-app escape: open payment once we
   // know this isn't a Pro / admin (whose plans are free).
@@ -326,7 +391,14 @@ function PlansDesigner() {
   useEffect(() => {
     const el = document.getElementById("plan-tiers");
     if (!el) return;
-    const io = new IntersectionObserver(([e]) => e.isIntersecting && trackPlanEvent("offer_seen"), { threshold: 0.4 });
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (!e.isIntersecting) return;
+        trackPlanEvent("offer_seen");
+        offerSeenAt.current ??= Date.now();
+      },
+      { threshold: 0.4 },
+    );
     io.observe(el);
     return () => io.disconnect();
   }, []);
@@ -556,12 +628,42 @@ function PlansDesigner() {
                 setSampleTier(tier);
               }}
               wallet={inApp && inApp.os !== "other" ? <WalletEscape inApp={inApp} buildUrl={escapeUrl} /> : undefined}
+              offerPrice={offer ? formatPlanPrice(TOTE_PLAN_EXIT_OFFER.price) : undefined}
             />
           </>
         )}
         </div>
 
         {sampleTier && <PlanSampleLightbox tier={sampleTier} onClose={() => setSampleTier(null)} />}
+        {exitOpen && (
+          <ExitOffer
+            designName={totePlanName(design)}
+            price={formatPlanPrice(TOTE_PLAN_EXIT_OFFER.price)}
+            wasPrice={formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price)}
+            wallet={inApp && inApp.os !== "other" ? <WalletEscape inApp={inApp} buildUrl={escapeUrl} /> : undefined}
+            buying={buying}
+            onBuy={async () => {
+              trackPlanEvent("exit_offer_buy");
+              await handleBuy("offer");
+              setExitOpen(false);
+            }}
+            onEmail={async (email) => {
+              let visitorId: string | null = null;
+              try {
+                visitorId = localStorage.getItem("sn_vid");
+              } catch {
+                /* storage blocked */
+              }
+              const r = await emailMyDesign({ email, design, offer: TOTE_PLAN_EXIT_OFFER.code, visitorId });
+              if (r.ok) trackPlanEvent("exit_offer_email");
+              return r;
+            }}
+            onClose={() => {
+              trackPlanEvent("exit_offer_dismiss");
+              setExitOpen(false);
+            }}
+          />
+        )}
         {checkout && (
           <EmbeddedCheckoutPanel
             clientSecret={checkout.clientSecret}
@@ -574,10 +676,17 @@ function PlansDesigner() {
         {!hasFree && (
           <StickyPlanCta
             watchId="plan-tiers"
-            price={member ? "Included" : `${formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price)} for life`}
+            price={member ? "Included" : `${formatPlanPrice(offer ? TOTE_PLAN_EXIT_OFFER.price : TOTE_PLAN_ALL_ACCESS.price)} for life`}
             note={member ? "with your All-Access plans" : "This plan + every one after"}
             label={member ? "Generate free" : "Get my plans"}
-            onClick={member ? handleIncluded : () => handleBuy("sticky")}
+            onClick={
+              member
+                ? handleIncluded
+                : inApp && inApp.os !== "other"
+                  ? // In Facebook / Instagram: go to the offer, where Apple / Google Pay leads
+                    () => document.getElementById("plan-tiers")?.scrollIntoView({ behavior: "smooth", block: "center" })
+                  : () => handleBuy("sticky")
+            }
             loading={buying}
           />
         )}

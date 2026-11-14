@@ -62,6 +62,25 @@ export const TOTE_PLAN_ALL_ACCESS = {
   ],
 } as const;
 
+/**
+ * "Wait — $5 off": shown once to designer visitors who are leaving (closed
+ * the payment form, hesitated at the price, came back from another app),
+ * and carried in "email me my design" links as ?offer=save5. The server
+ * prices the checkout from the code, never from the client.
+ */
+export const TOTE_PLAN_EXIT_OFFER = {
+  code: "save5",
+  /** In cents */
+  price: 1400,
+  /** How long the browser keeps the offer once shown */
+  hours: 24,
+} as const;
+
+/** Price in cents for an offer code (unknown codes pay the regular price). */
+export function totePlanOfferPrice(code: unknown): number {
+  return code === TOTE_PLAN_EXIT_OFFER.code ? TOTE_PLAN_EXIT_OFFER.price : TOTE_PLAN_ALL_ACCESS.price;
+}
+
 /** Tier recorded on All-Access purchases and included plans: full access. */
 export const TOTE_PLAN_ALL_ACCESS_TIER: TotePlanTier = "interactive";
 

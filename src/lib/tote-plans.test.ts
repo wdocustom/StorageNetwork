@@ -358,3 +358,14 @@ describe("casters", () => {
   });
 });
 
+
+describe("exit offer pricing", () => {
+  it("prices only the real offer code at $14; anything else pays $19", async () => {
+    const { totePlanOfferPrice, TOTE_PLAN_EXIT_OFFER, TOTE_PLAN_ALL_ACCESS } = await import("./tote-plans");
+    expect(totePlanOfferPrice(TOTE_PLAN_EXIT_OFFER.code)).toBe(1400);
+    expect(totePlanOfferPrice("SAVE5")).toBe(TOTE_PLAN_ALL_ACCESS.price);
+    expect(totePlanOfferPrice("free")).toBe(TOTE_PLAN_ALL_ACCESS.price);
+    expect(totePlanOfferPrice(undefined)).toBe(TOTE_PLAN_ALL_ACCESS.price);
+    expect(totePlanOfferPrice(1400)).toBe(TOTE_PLAN_ALL_ACCESS.price);
+  });
+});

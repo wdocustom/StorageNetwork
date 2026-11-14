@@ -172,9 +172,34 @@ export async function getAdminPlansAnalytics(
       MAX_DEVICES,
     );
 
+    // "Email me my design" leads, and whether that email has bought since
+    const { data: leadRows } = await supabase
+      .from("plan_design_leads")
+      .select("email, design, design_name, created_at")
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    const leadEmails = [...new Set((leadRows ?? []).map((l) => (l.email as string).toLowerCase()))];
+    const buyers = new Set<string>();
+    if (leadEmails.length) {
+      const { data: bought } = await supabase
+        .from("public_plan_purchases")
+        .select("email")
+        .eq("plan_id", "tote-organizer")
+        .in("email", leadEmails);
+      for (const b of bought ?? []) buyers.add((b.email as string).toLowerCase());
+    }
+    const designLeads = (leadRows ?? []).map((l) => ({
+      email: l.email as string,
+      design: (l.design_name as string | null) ?? (l.design as string),
+      createdAt: l.created_at as string,
+      bought: buyers.has((l.email as string).toLowerCase()),
+    }));
+
     return {
       success: true,
       data: {
+        designLeads,
         ...summarizePlansAnalytics(views, purchases, upgrades, splits, toteOwners, starts),
         sharing,
         excludedVisitors: excluded.size,

@@ -137,6 +137,31 @@ export function PlansAnalyticsView({ data }: { data: PlansAnalytics }) {
         </p>
       </Card>
 
+      {/* "Email me my design" leads from the $5-off offer */}
+      {data.designLeads && data.designLeads.length > 0 && (
+        <Card title={`Emailed designs · ${data.designLeads.length}`}>
+          <p className="mb-3 text-xs text-stone-400">
+            Visitors who weren&apos;t ready and emailed themselves their design with the $5-off link.{" "}
+            <span className="text-white">{data.designLeads.filter((l) => l.bought).length}</span> have bought since.
+          </p>
+          <div className="divide-y divide-slate-800 text-xs">
+            {data.designLeads.slice(0, 25).map((l, i) => (
+              <div key={`${l.email}-${i}`} className="flex items-center justify-between gap-3 py-2">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-white">{l.email}</p>
+                  <p className="text-stone-500">
+                    {l.design} · {new Date(l.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                  </p>
+                </div>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${l.bought ? "bg-emerald-400/15 text-emerald-300" : "bg-slate-800 text-stone-400"}`}>
+                  {l.bought ? "Bought" : "Not yet"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {/* What designer visitors do */}
       {data.designer && kpis.designerVisitors > 0 && (
         <Card title="In the designer (unique visitors)">

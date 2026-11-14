@@ -21,6 +21,8 @@ import {
   parseTotePlanDesign,
   totePlanName,
   totePlanSummary,
+  TOTE_PLAN_EXIT_OFFER,
+  totePlanOfferPrice,
 } from "@/lib/tote-plans";
 import { PLAN_REF_COOKIE, cleanReferralId } from "@/lib/plan-splits";
 
@@ -106,6 +108,8 @@ export async function createDIYPlanCheckout(
   rawRef?: unknown,
   /** Anonymous analytics id (localStorage sn_vid) — counts buy clicks per person. */
   rawVisitorId?: unknown,
+  /** Offer code (TOTE_PLAN_EXIT_OFFER) — the price comes from the code, server-side */
+  rawOffer?: unknown,
 ): Promise<{ success: boolean; clientSecret?: string; error?: string }> {
   // SECURITY (H-3): each call provisions a Stripe Checkout Session. Cap
   // per identity to prevent scripted abuse of Stripe's session API.
@@ -131,6 +135,8 @@ export async function createDIYPlanCheckout(
     };
   }
   const product = TOTE_PLAN_ALL_ACCESS;
+  const offer = rawOffer === TOTE_PLAN_EXIT_OFFER.code ? TOTE_PLAN_EXIT_OFFER.code : null;
+  const price = totePlanOfferPrice(offer);
   const sourceTag = typeof source === "string" ? source.replace(/[^a-z0-9_-]/gi, "").slice(0, 40) : "";
 
   try {
@@ -160,7 +166,7 @@ export async function createDIYPlanCheckout(
               name: `${product.name} — starting with your ${name}`,
               description: `Lifetime access: this plan (${totePlanSummary(design)}) and a free plan for every tote organizer you design after it. Interactive 3D guide + printable PDF for each.`,
             },
-            unit_amount: product.price,
+            unit_amount: price,
           },
           quantity: 1,
         },
@@ -171,6 +177,7 @@ export async function createDIYPlanCheckout(
         plan_id: TOTE_PLAN_ID,
         tier: TOTE_PLAN_ALL_ACCESS_TIER,
         product: "all_access",
+        ...(offer ? { offer } : {}),
         design: encodeTotePlanDesign(design),
         ...(design.name ? { design_name: design.name } : {}),
         ...(sourceTag ? { source: sourceTag } : {}),
@@ -192,7 +199,7 @@ export async function createDIYPlanCheckout(
       stripeSessionId: session.id,
       planId: TOTE_PLAN_ID,
       tier: TOTE_PLAN_ALL_ACCESS_TIER,
-      amountCents: product.price,
+      amountCents: price,
       visitorId: rawVisitorId,
     });
 
