@@ -13,11 +13,12 @@
 //   • shopping list and tools as tick-off lists
 //   • notes and leftovers worth keeping
 //
-// The plan is generated from the scene by @/lib/builder/plan each time the
-// screen opens, so it always matches the design.
+// The plan itself is made on the server (it is the paid product) and handed
+// in as `plan`; this screen only shows it. `scene` is the design the plan
+// was made from, used to draw the 3D guide and the PDF's pictures.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   AlertTriangle,
@@ -34,7 +35,7 @@ import {
 } from "lucide-react";
 import { PIECE_FLAT_COLORS } from "@/components/builder/viewport";
 import { getStock } from "@/lib/builder/catalog";
-import { generateCustomPlan, type CustomPlan, type PlanBoard, type PlanSheet } from "@/lib/builder/plan";
+import type { CustomPlan, PlanBoard, PlanSheet } from "@/lib/builder/plan";
 import type { Scene } from "@/lib/builder/scene";
 import { formatInches } from "@/lib/builder/units";
 
@@ -220,7 +221,7 @@ function loadCoverLogo(): Promise<string | undefined> {
 
 type PdfState = { phase: "idle" } | { phase: "rendering"; done: number } | { phase: "writing" } | { phase: "done" } | { phase: "error" };
 
-function PdfCard({ scene, plan }: { scene: Scene; plan: CustomPlan }) {
+function PdfCard({ scene, plan, licensedTo }: { scene: Scene; plan: CustomPlan; licensedTo?: string }) {
   const [state, setState] = useState<PdfState>({ phase: "idle" });
   const shots = useRef<Record<string, string> | null>(null);
   const total = 1 + plan.steps.filter((s) => s.pieceIds.length > 0).length;
@@ -230,14 +231,14 @@ function PdfCard({ scene, plan }: { scene: Scene; plan: CustomPlan }) {
       setState({ phase: "writing" });
       try {
         const [{ downloadCustomPlanPDF }, logoDataUrl] = await Promise.all([import("@/lib/builder/plan-pdf"), loadCoverLogo()]);
-        downloadCustomPlanPDF({ plan, snapshots, logoDataUrl });
+        downloadCustomPlanPDF({ plan, snapshots, logoDataUrl, licensedTo });
         setState({ phase: "done" });
       } catch (err) {
         console.error("[BuilderPlan] PDF generation failed:", err);
         setState({ phase: "error" });
       }
     },
-    [plan],
+    [plan, licensedTo],
   );
 
   const onShots = useCallback(
@@ -290,8 +291,26 @@ function PdfCard({ scene, plan }: { scene: Scene; plan: CustomPlan }) {
 
 // ── Screen ───────────────────────────────────────────────────────────────
 
-export default function BuilderPlan({ scene, onClose }: { scene: Scene; onClose: () => void }) {
-  const plan = useMemo(() => generateCustomPlan(scene), [scene]);
+export default function BuilderPlan({
+  scene,
+  plan,
+  onClose,
+  backLabel = "Design",
+  subtitle = "Build plan · made from your design",
+  licensedTo,
+  banner,
+}: {
+  scene: Scene;
+  plan: CustomPlan;
+  /** Leave the plan (back to the builder); omit on a page that is only the plan */
+  onClose?: () => void;
+  backLabel?: string;
+  subtitle?: string;
+  /** Stamped on every PDF page (purchased plans) */
+  licensedTo?: string;
+  /** A line shown under the header, e.g. "we emailed your link" */
+  banner?: string;
+}) {
   const [guideOpen, setGuideOpen] = useState(false);
   const shop = useTicks();
   const kit = useTicks();
@@ -310,19 +329,27 @@ export default function BuilderPlan({ scene, onClose }: { scene: Scene; onClose:
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950 text-white">
       <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-slate-700 px-3 text-[11px] font-bold text-stone-200 transition hover:border-yellow-400/50 hover:text-yellow-300"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" /> Design
-          </button>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-slate-700 px-3 text-[11px] font-bold text-stone-200 transition hover:border-yellow-400/50 hover:text-yellow-300"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" /> {backLabel}
+            </button>
+          )}
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-sm font-bold text-white">{plan.name}</h1>
-            <p className="text-[10px] text-stone-500">Build plan · made from your design</p>
+            <p className="text-[10px] text-stone-500">{subtitle}</p>
           </div>
         </div>
       </header>
+
+      {banner && (
+        <div className="border-b border-emerald-500/20 bg-emerald-500/5 px-4 py-2.5">
+          <p className="mx-auto max-w-3xl text-xs text-emerald-300">{banner}</p>
+        </div>
+      )}
 
       {/* Hatching for waste, shared by every cut diagram */}
       <svg width="0" height="0" className="absolute" aria-hidden>
@@ -385,7 +412,7 @@ export default function BuilderPlan({ scene, onClose }: { scene: Scene; onClose:
               <Play className="h-4 w-4" /> Launch Build Guide
             </button>
           </div>
-          <PdfCard scene={scene} plan={plan} />
+          <PdfCard scene={scene} plan={plan} licensedTo={licensedTo} />
         </div>
 
         {cutParts.length > 0 && (

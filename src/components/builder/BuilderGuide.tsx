@@ -144,7 +144,8 @@ function StepScene({
   onPick,
 }: {
   scene: Scene;
-  plan: CustomPlan;
+  /** Only the steps are needed; none means "show the whole build" */
+  plan: Pick<CustomPlan, "steps">;
   stepIndex: number;
   exploded: boolean;
   animate: boolean;
@@ -428,7 +429,7 @@ function SnapshotCamera({ scene }: { scene: Scene }) {
   return null;
 }
 
-function FrameCapture({ onCapture }: { onCapture: (dataUrl: string) => void }) {
+function FrameCapture({ onCapture, quality = 0.9 }: { onCapture: (dataUrl: string) => void; quality?: number }) {
   const { gl, scene, camera } = useThree();
   const frames = useRef(0);
   const done = useRef(false);
@@ -438,7 +439,7 @@ function FrameCapture({ onCapture }: { onCapture: (dataUrl: string) => void }) {
     if (frames.current < SETTLE_FRAMES) return;
     done.current = true;
     gl.render(scene, camera);
-    onCapture(gl.domElement.toDataURL("image/jpeg", 0.9));
+    onCapture(gl.domElement.toDataURL("image/jpeg", quality));
   });
   return null;
 }
@@ -505,4 +506,65 @@ export function PlanSnapshots({
 /** How many pictures PlanSnapshots will take (for a progress bar). */
 export function snapshotCount(plan: CustomPlan): number {
   return 1 + plan.steps.filter((s) => s.pieceIds.length > 0).length;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Whole-build views that need no plan
+//
+//   SceneViewer    a design to look at: rotate, zoom, nothing to edit. Used
+//                  by view-only share links.
+//   SceneSnapshot  one picture of the finished build, for the thumbnail a
+//                  saved design shows in "My designs" and on a listing.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const NO_STEPS: Pick<CustomPlan, "steps"> = { steps: [] };
+
+export function SceneViewer({ scene }: { scene: Scene }) {
+  return (
+    <Canvas
+      shadows
+      camera={{ fov: FOV, near: 0.05, far: 400 }}
+      gl={{ antialias: true, alpha: false }}
+      style={{ touchAction: "none", position: "absolute", inset: 0 }}
+    >
+      <color attach="background" args={["#ffffff"]} />
+      <Lights />
+      <Floor />
+      <TextureGuard />
+      <GuideCamera scene={scene} />
+      <StepScene scene={scene} plan={NO_STEPS} stepIndex={-1} exploded={false} animate={false} />
+    </Canvas>
+  );
+}
+
+export function SceneSnapshot({
+  scene,
+  width = 640,
+  height = 438,
+  onCapture,
+}: {
+  scene: Scene;
+  width?: number;
+  height?: number;
+  /** A JPEG data URL of the build */
+  onCapture: (dataUrl: string) => void;
+}) {
+  return (
+    <div aria-hidden style={{ position: "fixed", left: -10000, top: 0, width, height, pointerEvents: "none" }}>
+      <Canvas
+        shadows
+        dpr={1}
+        camera={{ fov: FOV, near: 0.05, far: 400 }}
+        gl={{ antialias: true, alpha: false, preserveDrawingBuffer: true }}
+        style={{ width, height }}
+      >
+        <color attach="background" args={["#ffffff"]} />
+        <Lights />
+        <Floor />
+        <SnapshotCamera scene={scene} />
+        <StepScene scene={scene} plan={NO_STEPS} stepIndex={-1} exploded={false} animate={false} />
+        <FrameCapture onCapture={onCapture} quality={0.8} />
+      </Canvas>
+    </div>
+  );
 }

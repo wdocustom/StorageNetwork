@@ -12,14 +12,20 @@
 // as bottom sheets from a two-button bar, and a selected piece gets a quick
 // turn / copy / delete strip above it.
 //
-// All state lives in useBuilder; both views get the same scene and
+// All design state lives in useBuilder; both views get the same scene and
 // selection, so picking or moving a piece in one shows in the other.
+//
+// Anyone can design here, and the design is kept on their device. Saving to
+// "My designs", the build plan, sharing and selling are for members (see
+// useMember): asking for one of those as a guest opens the subscribe
+// dialog, and nothing they have drawn is lost by subscribing.
 //
 // Keyboard (when not typing in a field):
 //   Ctrl/⌘ Z            undo            Ctrl/⌘ Shift Z, Ctrl/⌘ Y   redo
 //   Ctrl/⌘ C / X / V    copy / cut / paste        Ctrl/⌘ D   duplicate
 //   Ctrl/⌘ G            group           Ctrl/⌘ Shift G   ungroup
 //   Ctrl/⌘ A            select all      Esc              clear selection
+//   Ctrl/⌘ S            save
 //   Del / Backspace     delete          R / Shift+R      quarter turn
 //   Arrows              nudge one snap step (Shift = 10×)
 //   PgUp / PgDn         raise / lower
@@ -36,6 +42,7 @@ import {
   ClipboardList,
   Copy,
   Eraser,
+  FolderOpen,
   Loader2,
   Magnet,
   Maximize,
@@ -44,19 +51,25 @@ import {
   Redo2,
   RotateCw,
   Ruler,
+  Save,
   SlidersHorizontal,
   Trash2,
   Undo2,
   X,
 } from "lucide-react";
+import { loadDesign, openBuilderPlan, saveDesign } from "@/app/actions/builder";
+import { SubscribeDialog, VerifyDialog } from "@/components/builder/BuilderDialogs";
 import BuilderInspector from "@/components/builder/BuilderInspector";
 import BuilderLibrary from "@/components/builder/BuilderLibrary";
 import BuilderViewport2D, { type PlanCamera } from "@/components/builder/BuilderViewport2D";
 import type { CameraMemory } from "@/components/builder/BuilderViewport3D";
 import type { ViewportProps } from "@/components/builder/viewport";
 import { GRID_STEPS, useBuilder, type BuilderView } from "@/hooks/builder/useBuilder";
+import { useMember } from "@/hooks/builder/useMember";
 import type { LibraryItem } from "@/lib/builder/catalog";
-import { SCENE_LIMITS, pieceLabel } from "@/lib/builder/scene";
+import type { CustomPlan } from "@/lib/builder/plan";
+import { SCENE_LIMITS, emptyScene, pieceLabel, type Scene } from "@/lib/builder/scene";
+import { DESIGN_ID_KEY, FORK_KEY } from "@/lib/builder/store";
 
 const ViewLoading = () => (
   <div className="absolute inset-0 flex items-center justify-center bg-slate-50">
@@ -70,6 +83,31 @@ const BuilderViewport3D = dynamic(() => import("@/components/builder/BuilderView
 });
 
 const BuilderPlan = dynamic(() => import("@/components/builder/BuilderPlan"), { ssr: false });
+const BuilderDesigns = dynamic(() => import("@/components/builder/BuilderDesigns"), { ssr: false });
+const SceneSnapshot = dynamic(() => import("@/components/builder/BuilderGuide").then((m) => m.SceneSnapshot), { ssr: false });
+
+/** A saved design saves itself this long after the last change */
+const AUTOSAVE_DELAY_MS = 4000;
+
+type Dialog = { kind: "subscribe"; reason: string } | { kind: "verify" } | { kind: "designs" } | null;
+type SaveState = "idle" | "saving" | "saved" | "error";
+
+function stored(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function store(key: string, value: string | null) {
+  try {
+    if (value) localStorage.setItem(key, value);
+    else localStorage.removeItem(key);
+  } catch {
+    /* storage unavailable */
+  }
+}
 
 type Sheet = "library" | "inspector" | null;
 
@@ -146,9 +184,116 @@ export default function BuilderWorkspace() {
   const [sheet, setSheet] = useState<Sheet>(null);
   const [frameRequest, setFrameRequest] = useState(0);
   const [confirmClear, setConfirmClear] = useState(false);
-  const [planOpen, setPlanOpen] = useState(false);
   const [name, setName] = useState(scene.name);
   useEffect(() => setName(scene.name), [scene.name]);
+
+  // ── Membership, saving and the plan ─────────────────────────────────
+  const { membership, token, recheck } = useMember();
+  const isMember = membership.status === "member";
+  const [dialog, setDialog] = useState<Dialog>(null);
+  const [designId, setDesignId] = useState<string | null>(null);
+  /** The scene as it was last saved; a different scene means unsaved changes */
+  const [savedScene, setSavedScene] = useState<Scene | null>(null);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [notice, setNotice] = useState("");
+  /** A save waiting for its thumbnail to be drawn */
+  const [snapshotOf, setSnapshotOf] = useState<Scene | null>(null);
+  const [plan, setPlan] = useState<{ plan: CustomPlan; scene: Scene } | null>(null);
+  const [planLoading, setPlanLoading] = useState(false);
+  const saving = useRef(false);
+
+  useEffect(() => setDesignId(stored(DESIGN_ID_KEY)), []);
+  const rememberDesign = useCallback((id: string | null) => {
+    setDesignId(id);
+    store(DESIGN_ID_KEY, id);
+  }, []);
+
+  /** Members carry on; everyone else is asked to confirm their device or subscribe. Returns true for members. */
+  const memberOnly = useCallback(
+    (reason: string): boolean => {
+      if (membership.status === "member") return true;
+      if (membership.status === "loading") return false;
+      setDialog(membership.status === "verify" ? { kind: "verify" } : { kind: "subscribe", reason });
+      return false;
+    },
+    [membership.status],
+  );
+
+  const writeSave = useCallback(
+    async (toSave: Scene, thumbnail?: string) => {
+      if (saving.current) return;
+      saving.current = true;
+      setSaveState("saving");
+      const res = await saveDesign(token, { id: designId, scene: toSave, thumbnail, forkedFrom: designId ? null : stored(FORK_KEY) }).catch(() => null);
+      saving.current = false;
+      if (res?.ok) {
+        rememberDesign(res.id);
+        setSavedScene(toSave);
+        setSaveState("saved");
+        setNotice("");
+        store(FORK_KEY, null);
+      } else {
+        setSaveState("error");
+        setNotice(res?.error ?? "Couldn't reach the server. Your design is still on this device.");
+        if (res && (res.reason === "verify" || res.reason === "inactive" || res.reason === "none")) recheck();
+      }
+    },
+    [designId, recheck, rememberDesign, token],
+  );
+
+  /** The Save button: draw a thumbnail first, then save with it. */
+  const save = useCallback(() => {
+    if (!memberOnly("Subscribe to save this design to your account and open it on any device. What you've drawn stays right here.")) return;
+    if (saving.current || scene.pieces.length === 0) return;
+    setSaveState("saving");
+    setSnapshotOf(scene);
+  }, [memberOnly, scene]);
+
+  // A design that has been saved once keeps itself saved.
+  const dirty = designId !== null && savedScene !== scene;
+  useEffect(() => {
+    if (!isMember || !designId || savedScene === null || savedScene === scene || snapshotOf) return;
+    const timer = setTimeout(() => writeSave(scene), AUTOSAVE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [designId, isMember, savedScene, scene, snapshotOf, writeSave]);
+
+  const openPlan = useCallback(async () => {
+    if (!memberOnly("Subscribe to get the build plan for this design: cut list, shopping list, interactive 3D guide and printable PDF.")) return;
+    setPlanLoading(true);
+    const res = await openBuilderPlan(token, scene).catch(() => null);
+    setPlanLoading(false);
+    if (res?.ok) {
+      setPlan({ plan: res.plan, scene });
+      setNotice("");
+    } else {
+      setNotice(res?.error ?? "Couldn't reach the server. Please try again.");
+      if (res && res.reason) recheck();
+    }
+  }, [memberOnly, recheck, scene, token]);
+
+  const openSaved = useCallback(
+    async (id: string) => {
+      const res = await loadDesign(token, id).catch(() => null);
+      if (!res?.ok) return setNotice(res?.error ?? "Couldn't reach the server. Please try again.");
+      actions.load(res.scene);
+      rememberDesign(res.id);
+      setSavedScene(res.scene);
+      setSaveState("saved");
+      setFrameRequest((n) => n + 1);
+      setDialog(null);
+    },
+    [actions, rememberDesign, token],
+  );
+
+  const startNew = useCallback(() => {
+    actions.load(emptyScene());
+    rememberDesign(null);
+    setSavedScene(null);
+    setSaveState("idle");
+    setDialog(null);
+  }, [actions, rememberDesign]);
+
+  const planOpen = plan !== null;
 
   // Each view's camera, remembered while the other one is showing, and the
   // floor point they share so switching views keeps your place.
@@ -177,7 +322,7 @@ export default function BuilderWorkspace() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // The plan screen has its own keys
-      if (planOpen || isTyping(e.target)) return;
+      if (planOpen || dialog || isTyping(e.target)) return;
       const mod = e.ctrlKey || e.metaKey;
       const step = (gridStep || 1) * (e.shiftKey ? 10 : 1);
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
@@ -192,6 +337,7 @@ export default function BuilderWorkspace() {
           d: actions.duplicate,
           g: e.shiftKey ? actions.ungroup : actions.group,
           a: () => actions.select(scene.pieces.map((p) => p.id)),
+          s: save,
         };
         const action = run[key];
         if (!action) return;
@@ -230,7 +376,7 @@ export default function BuilderWorkspace() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [actions, gridStep, planOpen, scene.pieces, selection.length]);
+  }, [actions, dialog, gridStep, planOpen, save, scene.pieces, selection.length]);
 
   const viewProps: ViewportProps = {
     scene,
@@ -275,8 +421,19 @@ export default function BuilderWorkspace() {
             onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
             className="w-full max-w-xs truncate rounded-md border border-transparent bg-transparent px-1.5 py-1 text-sm font-bold text-white outline-none transition hover:border-slate-700 focus:border-yellow-400"
           />
-          <p className="px-1.5 text-[10px] text-stone-500">
+          <p className="truncate px-1.5 text-[10px] text-stone-500">
             Custom Builder <span className="ml-1 rounded bg-yellow-400/15 px-1 py-px font-bold text-yellow-300">Preview</span>
+            <span className="ml-1.5">
+              {saveState === "saving"
+                ? "Saving…"
+                : saveState === "error"
+                  ? "Not saved"
+                  : designId
+                    ? dirty
+                      ? "Unsaved changes"
+                      : "Saved"
+                    : "On this device only"}
+            </span>
           </p>
         </div>
 
@@ -284,18 +441,29 @@ export default function BuilderWorkspace() {
 
         <button
           type="button"
-          onClick={() => setPlanOpen(true)}
-          disabled={scene.pieces.length === 0}
+          onClick={openPlan}
+          disabled={scene.pieces.length === 0 || planLoading}
           title="Cut list, shopping list, 3D build guide and PDF for this design"
           className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-yellow-400 px-3 text-xs font-black uppercase tracking-wider text-gray-950 transition hover:bg-yellow-300 disabled:opacity-40 lg:order-last"
         >
-          <ClipboardList className="h-4 w-4" />
+          {planLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
           <span className="hidden sm:inline">Build plan</span>
           <span className="sm:hidden">Plan</span>
         </button>
 
         {/* Tools: their own row on small screens, scrolling sideways if they don't fit */}
         <div className="order-last flex w-full items-center gap-1.5 overflow-x-auto lg:order-none lg:w-auto lg:overflow-visible">
+          <IconButton label="Save" title="Save to My designs (Ctrl/⌘ S)" onClick={save} disabled={scene.pieces.length === 0 || saveState === "saving"}>
+            {saveState === "saving" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          </IconButton>
+          <IconButton
+            label="My designs"
+            title="My designs: open, share or sell a saved design"
+            onClick={() => memberOnly("Subscribe to keep a library of designs, share them and sell their plans.") && setDialog({ kind: "designs" })}
+          >
+            <FolderOpen className="h-4 w-4" />
+          </IconButton>
+          <span className="mx-1 h-5 w-px shrink-0 bg-slate-700" />
           <IconButton label="Undo" title="Undo (Ctrl/⌘ Z)" onClick={actions.undo} disabled={!canUndo}>
             <Undo2 className="h-4 w-4" />
           </IconButton>
@@ -369,6 +537,33 @@ export default function BuilderWorkspace() {
           )}
         </div>
       </header>
+
+      {/* ── Membership and save messages ────────────────────────────── */}
+      {(notice || membership.status === "inactive" || membership.status === "verify" || ("welcome" in membership && membership.welcome) || ("notice" in membership && membership.notice)) && (
+        <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-800 bg-slate-900/70 px-3 py-2 text-xs">
+          {notice ? (
+            <p className="min-w-0 flex-1 text-amber-200">{notice}</p>
+          ) : membership.status === "verify" ? (
+            <>
+              <p className="min-w-0 flex-1 text-stone-300">Confirm it&apos;s you to use your subscription on this device.</p>
+              <button type="button" onClick={() => setDialog({ kind: "verify" })} className="font-bold text-yellow-300 underline">
+                Confirm
+              </button>
+            </>
+          ) : membership.status === "inactive" ? (
+            <>
+              <p className="min-w-0 flex-1 text-stone-300">{membership.notice}</p>
+              <button type="button" onClick={() => setDialog({ kind: "subscribe", reason: membership.notice })} className="font-bold text-yellow-300 underline">
+                Subscribe again
+              </button>
+            </>
+          ) : membership.status === "member" && membership.welcome ? (
+            <p className="min-w-0 flex-1 text-emerald-300">{membership.welcome}</p>
+          ) : membership.status === "guest" && membership.notice ? (
+            <p className="min-w-0 flex-1 text-amber-200">{membership.notice}</p>
+          ) : null}
+        </div>
+      )}
 
       {/* ── Body ────────────────────────────────────────────────────── */}
       <div className="flex min-h-0 flex-1">
@@ -454,7 +649,48 @@ export default function BuilderWorkspace() {
         </button>
       </nav>
 
-      {planOpen && <BuilderPlan scene={scene} onClose={() => setPlanOpen(false)} />}
+      {plan && <BuilderPlan scene={plan.scene} plan={plan.plan} onClose={() => setPlan(null)} />}
+
+      {/* Draws the picture a saved design shows in My designs, then saves */}
+      {snapshotOf && (
+        <SceneSnapshot
+          scene={snapshotOf}
+          onCapture={(thumbnail) => {
+            const toSave = snapshotOf;
+            setSnapshotOf(null);
+            writeSave(toSave, thumbnail);
+          }}
+        />
+      )}
+
+      {dialog?.kind === "subscribe" && <SubscribeDialog reason={dialog.reason} onClose={() => setDialog(null)} />}
+      {dialog?.kind === "verify" && membership.status === "verify" && (
+        <VerifyDialog
+          token={membership.token}
+          emailHint={membership.emailHint}
+          onClose={() => setDialog(null)}
+          onVerified={() => {
+            setDialog(null);
+            recheck();
+          }}
+        />
+      )}
+      {dialog?.kind === "designs" && membership.status === "member" && (
+        <BuilderDesigns
+          token={token}
+          member={membership.member}
+          currentId={designId}
+          onOpen={openSaved}
+          onNew={startNew}
+          onDeleted={(id) => {
+            if (id !== designId) return;
+            rememberDesign(null);
+            setSavedScene(null);
+            setSaveState("idle");
+          }}
+          onClose={() => setDialog(null)}
+        />
+      )}
 
       {sheet && (
         <div className="fixed inset-0 z-40 lg:hidden">

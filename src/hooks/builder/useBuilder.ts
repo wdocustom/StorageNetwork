@@ -22,6 +22,7 @@ import {
   type BuilderView,
   type SelectionInfo,
 } from "@/lib/builder/editor";
+import { DRAFT_KEY } from "@/lib/builder/store";
 import {
   findOverlaps,
   parseScene,
@@ -29,6 +30,7 @@ import {
   type AlignMode,
   type Axis,
   type Orientation,
+  type Scene,
   type ScenePiece,
   type Vec3,
 } from "@/lib/builder/scene";
@@ -44,11 +46,11 @@ export const GRID_STEPS = [
   { value: 0, label: "Off" },
 ] as const;
 
-/** Where the work in progress is kept on this device. */
-const DRAFT_KEY = "sn_builder_draft_v1";
 const DRAFT_SAVE_DELAY_MS = 400;
 
 export interface BuilderActions {
+  /** Replace the whole design (opening a saved one, starting a new one). Clears undo history. */
+  load(scene: Scene): void;
   undo(): void;
   redo(): void;
   add(item: LibraryItem): void;
@@ -139,6 +141,7 @@ export function useBuilder(): Builder {
 
   const actions = useMemo<BuilderActions>(
     () => ({
+      load: (scene) => dispatch({ type: "load", scene }),
       undo: () => dispatch({ type: "undo" }),
       redo: () => dispatch({ type: "redo" }),
       add: (item) => dispatch({ type: "add", item }),
