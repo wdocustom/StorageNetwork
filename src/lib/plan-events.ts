@@ -5,6 +5,15 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { detectInAppBrowser } from "@/lib/in-app-browser";
+import { metaTrack } from "@/lib/meta-pixel";
+
+/** Plan events Meta should optimize ads for (no-ops without a pixel). */
+const META_EVENTS: Partial<Record<string, string>> = {
+  buy_click: "InitiateCheckout",
+  wallet_escape: "InitiateCheckout",
+  exit_offer_email: "Lead",
+  offer_seen: "AddToCart",
+};
 
 /** Every event the designer may send; the API drops anything else. */
 export const PLAN_EVENTS = {
@@ -22,6 +31,10 @@ export const PLAN_EVENTS = {
   wallet_fallback: "Needed the manual open-in-browser steps",
   autopay: "Arrived in Safari / Chrome to pay",
   build_for_me: "Opened “have a pro build it”",
+  exit_offer_shown: "Saw the $5-off offer",
+  exit_offer_buy: "Tapped buy on the $5-off offer",
+  exit_offer_email: "Emailed themselves their design",
+  exit_offer_dismiss: "Said no thanks to the offer",
   save_home: "Buyer tapped save to home screen / bookmark",
   save_home_added: "Buyer added plans to home screen",
 } as const;
@@ -39,6 +52,11 @@ export function trackPlanEvent(event: PlanEvent, detail?: string): void {
   const key = `${event}:${detail ?? ""}`;
   if (sent.has(key)) return;
   sent.add(key);
+  const metaEvent = META_EVENTS[event];
+  if (metaEvent && !sent.has(`meta:${metaEvent}`)) {
+    sent.add(`meta:${metaEvent}`);
+    metaTrack(metaEvent, { content_name: "Tote rack plans", currency: "USD", value: 19 });
+  }
   try {
     let visitorId: string | null = null;
     let sessionId: string | null = null;

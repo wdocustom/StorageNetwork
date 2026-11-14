@@ -21,13 +21,17 @@ export function AllAccessOffer({
   onBuy,
   onSample,
   wallet,
+  offerPrice,
 }: {
   loading: boolean;
   onBuy: () => void;
   onSample: (tier: TotePlanTier) => void;
   /** Inside Facebook / Instagram: the "Buy with Apple / Google Pay" escape, shown first */
   wallet?: React.ReactNode;
+  /** The $5-off price when the visitor has the exit offer (e.g. "$14") */
+  offerPrice?: string;
 }) {
+  const shown = offerPrice ?? PRICE;
   return (
     <div className="relative overflow-hidden rounded-2xl border border-yellow-400/40 bg-slate-900 p-5">
       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-400 to-yellow-500" />
@@ -40,8 +44,11 @@ export function AllAccessOffer({
           <h3 className="mt-1 text-lg font-black leading-tight text-white">Get the plan for this design</h3>
         </div>
         <div className="shrink-0 text-right">
-          <p className="text-4xl font-black leading-none text-white">{PRICE}</p>
-          <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-yellow-400">Once, for life</p>
+          {offerPrice && <p className="text-sm font-bold text-stone-500 line-through">{PRICE}</p>}
+          <p className="text-4xl font-black leading-none text-white">{shown}</p>
+          <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-yellow-400">
+            {offerPrice ? "$5 off · 24 hours" : "Once, for life"}
+          </p>
         </div>
       </div>
 
@@ -75,7 +82,7 @@ export function AllAccessOffer({
         className={`${wallet ? "" : "mt-4 "}flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 py-4 text-base font-black uppercase tracking-wide text-gray-950 shadow-lg shadow-yellow-500/20 transition hover:from-amber-300 hover:to-yellow-400 disabled:opacity-60`}
       >
         {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-        {loading ? "Opening checkout…" : `Get my plans — ${PRICE}`}
+        {loading ? "Opening checkout…" : `Get my plans — ${shown}`}
       </button>
       <p className="mt-2 text-center text-[11px] text-stone-500">
         Instant access · link by email · all sales final

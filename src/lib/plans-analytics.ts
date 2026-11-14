@@ -101,6 +101,8 @@ export interface PlansAnalytics {
   designer?: { event: PlanEvent; label: string; visitors: number }[];
   /** Designer visitors inside Facebook / Instagram's in-app browser */
   designerInApp?: number;
+  /** "Email me my design" requests (the $5-off offer), newest first */
+  designLeads?: { email: string; design: string; createdAt: string; bought: boolean }[];
 }
 
 export interface PlansEventRow {
@@ -212,7 +214,10 @@ export function planLabel(
 }
 
 /** Price in cents of the original purchase (upgrades counted separately). */
-function purchasePrice(row: PlansPurchaseRow, toteOwners: ReadonlySet<string>): number {
+function purchasePrice(row: PlansPurchaseRow, toteOwners: ReadonlySet<string>, paid?: ReadonlyMap<string, number>): number {
+  // What the checkout actually charged, when we logged it (e.g. the $14 exit offer)
+  const charged = row.stripe_session_id ? paid?.get(row.stripe_session_id) : undefined;
+  if (charged !== undefined) return charged;
   if (row.plan_id === "tote-organizer") {
     // An upgraded row now reads 'interactive' but was bought as the PDF
     // Sale-aware: bought before TOTE_PLAN_SALE_SINCE → list price.
@@ -300,11 +305,12 @@ export function summarizePlansAnalytics(
   const dayPurchases = new Map<string, number>();
   const planMap = new Map<string, { purchases: number; revenue: number }>();
   let revenue = 0;
+  const paid = new Map(checkoutStarts.map((c) => [c.stripe_session_id, c.amount_cents]));
   for (const p of purchases) {
     const day = p.purchased_at.slice(0, 10);
     dayPurchases.set(day, (dayPurchases.get(day) ?? 0) + 1);
     const label = planLabel({ ...p, upgraded_at: null, tier: p.upgraded_at ? "pdf" : p.tier });
-    const price = purchasePrice(p, toteOwners);
+    const price = purchasePrice(p, toteOwners, paid);
     const entry = planMap.get(label) ?? { purchases: 0, revenue: 0 };
     entry.purchases++;
     entry.revenue += price;

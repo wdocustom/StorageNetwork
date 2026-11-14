@@ -229,3 +229,39 @@ export async function sendPlanDeviceCodeEmail(email: string, code: string): Prom
     html: masterEmailLayout("Confirm It's You", body),
   });
 }
+
+/**
+ * "Here's your design" — sent when a designer visitor who isn't ready to buy
+ * asks us to email it (the $5-off offer). The link reopens their exact
+ * design with the offer applied.
+ */
+export async function sendPlanDesignSavedEmail(
+  email: string,
+  design: TotePlanDesign,
+  link: string,
+  priceLabel: string,
+): Promise<SendEmailResult> {
+  const name = totePlanName(design);
+  const body = `
+    <p style="margin:0 0 18px;color:#a3a3a3;font-size:15px;line-height:1.7;text-align:center;">
+      Here&rsquo;s the tote rack you designed. Open it any time to tweak it or get the plans.
+    </p>
+    <div style="background:#111;border:1px solid #222;border-radius:12px;padding:22px 18px;margin:0 0 20px;text-align:center;">
+      <p style="margin:0 0 4px;color:#fff;font-size:18px;font-weight:800;">${name}</p>
+      <p style="margin:0 0 16px;color:#888;font-size:13px;">${totePlanSummary(design)}</p>
+      <p style="margin:0 0 4px;color:#facc15;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">Your price</p>
+      <p style="margin:0 0 18px;color:#fff;font-size:30px;font-weight:900;">
+        ${usdMoney(priceLabel)} <span style="color:#666;font-size:16px;font-weight:600;text-decoration:line-through;">${usdMoney(formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price))}</span>
+      </p>
+      <a href="${link}" style="display:inline-block;background:#facc15;color:#000;font-size:15px;font-weight:800;padding:14px 28px;border-radius:10px;text-decoration:none;">
+        Open my design &rarr;
+      </a>
+      <p style="margin:14px 0 0;color:#666;font-size:12px;">Lifetime plans for this size and every one you design after it: 3D build guide, cut list, shopping list and printable PDF.</p>
+    </div>
+  `;
+  return sendTransactionalEmail({
+    to: email,
+    subject: `Your ${name} design (${priceLabel} plans inside)`,
+    html: masterEmailLayout("Your Tote Rack Design", body),
+  });
+}
