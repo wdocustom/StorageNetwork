@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { BuildForALiving } from "@/components/plans/AllAccessOffer";
+import SaveToHomeScreen from "@/components/plans/SaveToHomeScreen";
 import { LADDER_JIG_OWNER_PRICE } from "@/lib/ladder-jig";
 import {
   openTotePlan,
@@ -651,6 +652,9 @@ function BuildPlanInner() {
       )}
 
       <main className="mx-auto max-w-3xl space-y-5 px-4 py-8">
+        {/* Right after purchase: put My Plans on the home screen (or bookmark it) */}
+        {result.access === "purchase" && result.token && <SaveToHomeScreen token={result.token} />}
+
         <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
           <p className="text-xs text-stone-400">{plan.summary}</p>
           {plan.moduleCount > 1 && (

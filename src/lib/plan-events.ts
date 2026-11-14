@@ -22,6 +22,8 @@ export const PLAN_EVENTS = {
   wallet_fallback: "Needed the manual open-in-browser steps",
   autopay: "Arrived in Safari / Chrome to pay",
   build_for_me: "Opened “have a pro build it”",
+  save_home: "Buyer tapped save to home screen / bookmark",
+  save_home_added: "Buyer added plans to home screen",
 } as const;
 
 export type PlanEvent = keyof typeof PLAN_EVENTS;
