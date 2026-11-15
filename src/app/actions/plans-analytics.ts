@@ -26,7 +26,26 @@ import { detectInAppBrowser } from "@/lib/in-app-browser";
 
 const PAGE_SIZE = 1000;
 
-type ViewWithMeta = PlansViewRow & { ip: string | null; user_agent: string | null };
+type ViewWithMeta = PlansViewRow & {
+  ip: string | null;
+  user_agent: string | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+};
+
+/** Where a visitor came from, by their first plans page view. */
+function sourceGroup(v: ViewWithMeta): string {
+  if (v.utm_medium === "paid") return "Paid ad";
+  if (v.utm_source === "video") return `Video link: ${v.utm_campaign ?? "?"}`;
+  if (v.utm_source === "design_email") return "“Email my design” link";
+  const ref = v.referrer ?? "";
+  if (/facebook\.com|fb\.com/.test(ref) || /FBAN|FB_IAB/.test(v.user_agent ?? "")) return "Facebook (organic: videos, shares)";
+  if (/instagram/i.test(ref) || /Instagram/.test(v.user_agent ?? "")) return "Instagram (organic)";
+  if (/tiktok/i.test(ref) || /musical_ly|TikTok|Bytedance/.test(v.user_agent ?? "")) return "TikTok";
+  if (!ref) return "Direct / unknown";
+  return "Other sites";
+}
 
 async function fetchPlansViews(since: string): Promise<ViewWithMeta[]> {
   const supabase = getServiceClient();
@@ -34,7 +53,7 @@ async function fetchPlansViews(since: string): Promise<ViewWithMeta[]> {
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const { data, error } = await supabase
       .from("platform_page_views")
-      .select("page_path, visitor_id, session_id, referrer, created_at, ip, user_agent")
+      .select("page_path, visitor_id, session_id, referrer, created_at, ip, user_agent, utm_source, utm_medium, utm_campaign")
       .like("page_path", "/plans%")
       .eq("is_bot", false)
       .gte("created_at", since)
@@ -125,7 +144,9 @@ export async function getAdminPlansAnalytics(
 
     // Leave the owner, installers and test browsers out of every number.
     const { views: customerViews, excluded } = excludeStaffTraffic(allViews, staff.visitors, staff.ips);
-    const views: PlansViewRow[] = customerViews.map(({ ip: _ip, user_agent: _ua, ...v }) => v);
+    const views: PlansViewRow[] = customerViews.map(
+      ({ ip: _ip, user_agent: _ua, utm_source: _s, utm_medium: _m, utm_campaign: _c, ...v }) => v,
+    );
     // A buy click counts only from someone with a real (non-bot, non-staff)
     // page view: automated test browsers click buy without being people.
     const humans = new Set(customerViews.map((v) => v.visitor_id).filter(Boolean) as string[]);
@@ -196,9 +217,34 @@ export async function getAdminPlansAnalytics(
       bought: buyers.has((l.email as string).toLowerCase()),
     }));
 
+    // Funnel by first-touch source; a buyer is a visitor whose checkout paid.
+    const paidSessions = new Set(purchases.map((p) => p.stripe_session_id).filter(Boolean) as string[]);
+    const buyerVisitors = new Set(starts.filter((s) => paidSessions.has(s.stripe_session_id)).map((s) => s.visitor_id));
+    const firstView = new Map<string, ViewWithMeta>();
+    const designers = new Set<string>();
+    for (const v of customerViews) {
+      const who = v.visitor_id ?? v.session_id;
+      if (!who) continue;
+      if (!firstView.has(who)) firstView.set(who, v);
+      if (v.page_path === "/plans/checkout") designers.add(who);
+    }
+    const sourceRows = new Map<string, { visitors: number; designers: number; buyers: number }>();
+    for (const [who, v] of firstView) {
+      const key = sourceGroup(v);
+      const row = sourceRows.get(key) ?? { visitors: 0, designers: 0, buyers: 0 };
+      row.visitors++;
+      if (designers.has(who)) row.designers++;
+      if (buyerVisitors.has(who)) row.buyers++;
+      sourceRows.set(key, row);
+    }
+    const bySource = [...sourceRows.entries()]
+      .map(([source, r]) => ({ source, ...r }))
+      .sort((a, b) => b.buyers - a.buyers || b.visitors - a.visitors);
+
     return {
       success: true,
       data: {
+        bySource,
         designLeads,
         ...summarizePlansAnalytics(views, purchases, upgrades, splits, toteOwners, starts),
         sharing,

@@ -36,6 +36,7 @@ import { BestsellersButton, BestsellersLightbox } from "@/components/plans/PlanB
 import { PLAN_REF_COOKIE, cleanReferralId } from "@/lib/plan-splits";
 import WalletEscape from "@/components/plans/WalletEscape";
 import ExitOffer from "@/components/plans/ExitOffer";
+import EmailDesignLink from "@/components/plans/EmailDesignLink";
 import { emailMyDesign } from "@/app/actions/plan-design-lead";
 import { activateOffer, offerAlreadySeen, readOffer, type ActiveOffer } from "@/lib/plan-offer";
 import { detectInAppBrowser, type InAppBrowser } from "@/lib/in-app-browser";
@@ -173,12 +174,24 @@ function PlansDesigner() {
   // Read once: the URL is rewritten as the design changes
   const [cancelled] = useState(() => searchParams.get("cancelled") === "1");
   const [source] = useState(() => searchParams.get("utm_source") ?? undefined);
+  // Keep the rest of the visit's tags (e.g. which video: utm_campaign) in the
+  // URL as it's rewritten, so page-view analytics still sees them.
+  const [keptUtm] = useState(() =>
+    ["utm_medium", "utm_campaign"]
+      .map((k) => [k, searchParams.get(k)] as const)
+      .filter(([, v]) => v)
+      .map(([k, v]) => `&${k}=${encodeURIComponent(v!.slice(0, 60))}`)
+      .join(""),
+  );
   // Installer whose link brought the customer here — remembered (no expiry)
   // so they're credited even if the customer buys on a later visit.
   const [ref] = useState(() => cleanReferralId(searchParams.get("ref")));
   // Arrived from Facebook / Instagram's "Buy with Apple / Google Pay": open
   // the payment form straight away (read once; the URL is rewritten below).
   const [autoPay] = useState(() => searchParams.get("pay") === "1");
+  // When the visitor last changed their design: the exit offer never
+  // interrupts someone who is still designing.
+  const lastEditAt = useRef(0);
   // Facebook / Instagram's in-app browser hides Apple Pay and Google Pay.
   const [inApp, setInApp] = useState<InAppBrowser | null>(null);
   useEffect(() => {
@@ -243,8 +256,8 @@ function PlansDesigner() {
 
   // Keep the URL in step with the design so a refresh or shared link keeps it.
   useEffect(() => {
-    window.history.replaceState(null, "", totePlanDesignHref(design, source, ref));
-  }, [design, source, ref]);
+    window.history.replaceState(null, "", `${totePlanDesignHref(design, source, ref)}${keptUtm}`);
+  }, [design, source, ref, keptUtm]);
 
   const unitIndex = Math.min(selected, design.units.length - 1);
   const unit = design.units[unitIndex];
@@ -253,6 +266,7 @@ function PlansDesigner() {
   // longer applies. Bestseller tags survive brand / caster / worktop edits;
   // a size change or a removed unit drops that bestseller (normalizeBestsellers).
   const updateUnit = (patch: Partial<TotePlanUnit>) => {
+    lastEditAt.current = Date.now();
     for (const key of Object.keys(patch)) {
       if (key === "cols" || key === "rows") trackPlanEvent("edit_size", key);
       else trackPlanEvent("edit_option", key);
@@ -260,6 +274,7 @@ function PlansDesigner() {
     setDesign((d) => ({ units: normalizeBestsellers(d.units.map((u, i) => (i === unitIndex ? { ...u, ...patch } : u))) }));
   };
   const addUnit = () => {
+    lastEditAt.current = Date.now();
     trackPlanEvent("add_unit");
     setDesign((d) => {
       const { bestseller: _copied, ...last } = d.units[d.units.length - 1] ?? DEFAULT_TOTE_PLAN_UNIT;
@@ -336,7 +351,8 @@ function PlansDesigner() {
   // Shown once per browser, only to visitors who'd pay (not Pro / admin /
   // All-Access owners), when they look like they're leaving:
   //   "closed"    closed the payment form without paying
-  //   "hesitate"  saw the price, then scrolled back up above it, 15s+ later
+  //   "hesitate"  saw the price 20s+ ago, no design edits for 45s, then
+  //               scrolled back up above it
   //   "return"    came back to the tab after 5s+ away, having designed 30s+
   const canOffer = !hasFree && !member;
   const showExitOffer = (trigger: "closed" | "hesitate" | "return") => {
@@ -355,7 +371,9 @@ function PlansDesigner() {
   useEffect(() => {
     const onScroll = () => {
       const seen = offerSeenAt.current;
-      if (!seen || boughtTapped.current || Date.now() - seen < 15_000) return;
+      // Scrolling back up is usually to keep designing: only count it once
+      // they've sat on the price a while AND stopped editing for 45s.
+      if (!seen || boughtTapped.current || Date.now() - seen < 20_000 || Date.now() - lastEditAt.current < 45_000) return;
       const el = document.getElementById("plan-tiers");
       // Offer now entirely below the screen: they scrolled back up past it.
       if (el && el.getBoundingClientRect().top > window.innerHeight + 40) showExitOfferRef.current("hesitate");
@@ -363,7 +381,13 @@ function PlansDesigner() {
     let hiddenAt = 0;
     const onVisibility = () => {
       if (document.visibilityState === "hidden") hiddenAt = Date.now();
-      else if (hiddenAt && Date.now() - hiddenAt > 5_000 && Date.now() - designerSince.current > 30_000 && !boughtTapped.current) {
+      else if (
+        hiddenAt &&
+        Date.now() - hiddenAt > 5_000 &&
+        Date.now() - designerSince.current > 30_000 &&
+        Date.now() - lastEditAt.current > 20_000 &&
+        !boughtTapped.current
+      ) {
         showExitOfferRef.current("return");
       }
     };
@@ -629,6 +653,19 @@ function PlansDesigner() {
               }}
               wallet={inApp && inApp.os !== "other" ? <WalletEscape inApp={inApp} buildUrl={escapeUrl} /> : undefined}
               offerPrice={offer ? formatPlanPrice(TOTE_PLAN_EXIT_OFFER.price) : undefined}
+            />
+            <EmailDesignLink
+              onSend={async (email) => {
+                let visitorId: string | null = null;
+                try {
+                  visitorId = localStorage.getItem("sn_vid");
+                } catch {
+                  /* storage blocked */
+                }
+                const r = await emailMyDesign({ email, design, offer: readOffer()?.code ?? null, visitorId });
+                if (r.ok) trackPlanEvent("email_design");
+                return r;
+              }}
             />
           </>
         )}

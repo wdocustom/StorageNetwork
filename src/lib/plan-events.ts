@@ -12,6 +12,7 @@ const META_EVENTS: Partial<Record<string, string>> = {
   buy_click: "InitiateCheckout",
   wallet_escape: "InitiateCheckout",
   exit_offer_email: "Lead",
+  email_design: "Lead",
   offer_seen: "AddToCart",
 };
 
@@ -35,6 +36,7 @@ export const PLAN_EVENTS = {
   exit_offer_buy: "Tapped buy on the $5-off offer",
   exit_offer_email: "Emailed themselves their design",
   exit_offer_dismiss: "Said no thanks to the offer",
+  email_design: "Emailed their design to themselves (under the price)",
   save_home: "Buyer tapped save to home screen / bookmark",
   save_home_added: "Buyer added plans to home screen",
 } as const;
