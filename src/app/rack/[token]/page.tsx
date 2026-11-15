@@ -1062,7 +1062,7 @@ export default function RackPage() {
                 href={diyHubUrl}
                 className="ml-auto flex items-center gap-1 rounded-full border border-slate-700 px-2.5 py-1 text-[11px] font-semibold text-slate-300 hover:border-yellow-400 hover:text-yellow-400"
               >
-                <Plus className="w-3 h-3" /> My racks · Add a rack
+                <ArrowLeft className="w-3 h-3" /> My Inventory
               </a>
             )}
           </div>

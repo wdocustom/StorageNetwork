@@ -49,6 +49,7 @@ vi.mock("@/lib/supabase-server", () => ({
         eq: (k: string, v: unknown) => (filters.push([k, v]), q),
         in: () => q,
         order: () => q,
+        limit: () => q,
         maybeSingle: async () => ({ data: rows()[0] ?? null }),
         insert: (row: Record<string, unknown>) => {
           state.inserted.push(row);
@@ -116,6 +117,9 @@ describe("Smart Inventory for DIY buyers", () => {
       { access_token: "b".repeat(32), customer_email: EMAIL, source: null },
     ];
     expect((await getDiyInventory({ rack: "a".repeat(32) })).ok).toBe(true);
+    // A rack link leads back to the buyer's plans, not in a loop to the rack
+    const viaRack = await getDiyInventory({ rack: "a".repeat(32) });
+    expect(viaRack.ok && viaRack.home).toEqual({ href: `/plans/library?token=${PLAN_TOKEN}`, label: "My Plans" });
     expect((await getDiyInventory({ rack: "b".repeat(32) })).ok).toBe(false);
   });
 
@@ -124,6 +128,7 @@ describe("Smart Inventory for DIY buyers", () => {
     state.free = true;
     const r = await getDiyInventory({ account: true });
     expect(r.ok && r.hasAccess && r.included).toBe(true);
+    expect(r.ok && r.home).toEqual({ href: "/dashboard", label: "Dashboard" });
     const added = await addDiyRack({ account: true }, { label: "Test rack", cols: 2, rows: 2 });
     expect(added.ok).toBe(true);
     expect(state.inserted[0]).toMatchObject({ customer_email: "owner@example.com", source: "diy" });

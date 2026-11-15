@@ -77,6 +77,27 @@ async function resolveBuyer(key: DiyInventoryKey): Promise<Buyer> {
   return { ok: true, email: (data.customer_email as string).toLowerCase(), planToken: null };
 }
 
+/**
+ * The buyer's "main area" for the hub's back link. A rack link doesn't carry a
+ * plan link, so look up their newest plan (the library is device-gated, so
+ * linking it from a shared rack exposes nothing). Admins / Pro go to the
+ * dashboard.
+ */
+async function homeFor(key: DiyInventoryKey, buyer: Extract<Buyer, { ok: true }>): Promise<{ href: string; label: string }> {
+  if (buyer.included) return { href: "/dashboard", label: "Dashboard" };
+  if (buyer.planToken) return { href: `/plans/library?token=${encodeURIComponent(buyer.planToken)}`, label: "My Plans" };
+  const { data } = await getServiceClient()
+    .from("public_plan_purchases")
+    .select("access_token")
+    .eq("email", buyer.email)
+    .order("purchased_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (data?.access_token) return { href: `/plans/library?token=${encodeURIComponent(data.access_token as string)}`, label: "My Plans" };
+  if ("rack" in key && (await checkDIYPlanAccess().catch(() => null))?.hasFreeAccess) return { href: "/dashboard", label: "Dashboard" };
+  return { href: "/plans/checkout", label: "Rack designer" };
+}
+
 export interface DiyRackSummary {
   token: string;
   label: string;
@@ -107,6 +128,8 @@ export type DiyInventoryResult =
       racks: DiyRackSummary[];
       /** Units from the buyer's plans that aren't in the inventory yet */
       suggestions: DiyRackSuggestion[];
+      /** Where "back" goes: the buyer's plans, or the dashboard for admins / Pro */
+      home: { href: string; label: string };
     }
   | { ok: false; error: string; verify?: { token: string; emailHint: string } };
 
@@ -176,6 +199,7 @@ export async function getDiyInventory(key: DiyInventoryKey): Promise<DiyInventor
 
     return {
       ok: true,
+      home: await homeFor(key, buyer),
       emailHint: maskEmail(buyer.email),
       hasAccess: access,
       included: buyer.included === true,
