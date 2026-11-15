@@ -722,7 +722,13 @@ function BuildPlanInner() {
         {result.access === "purchase" && result.token && <BuildAnotherCard token={result.token} />}
 
         {/* Built it? Smart Inventory, the $5 lifetime add-on (owners see their racks) */}
-        {result.access === "purchase" && result.token && <SmartInventoryCta planToken={result.token} placement="plan" />}
+        {result.access === "purchase" && result.token && (
+          <SmartInventoryCta inventoryKey={{ token: result.token }} placement="plan" />
+        )}
+        {/* Admins and paid Pro installers: included, through their account */}
+        {(result.access === "admin" || result.access === "pro") && (
+          <SmartInventoryCta inventoryKey={{ account: true }} placement="plan" />
+        )}
 
         <Checklists data={result} />
 
