@@ -37,6 +37,10 @@ export const PLAN_EVENTS = {
   exit_offer_email: "Emailed themselves their design",
   exit_offer_dismiss: "Said no thanks to the offer",
   email_design: "Emailed their design to themselves (under the price)",
+  inventory_info: "Buyer opened the Smart Inventory explainer",
+  inventory_buy_tap: "Buyer tapped buy on Smart Inventory",
+  inventory_bought: "Buyer bought Smart Inventory",
+  inventory_rack_added: "Buyer added a rack to Smart Inventory",
   save_home: "Buyer tapped save to home screen / bookmark",
   save_home_added: "Buyer added plans to home screen",
 } as const;

@@ -91,6 +91,8 @@ export interface InventoryRack {
   customer_email: string | null;
   lead_id: string | null;
   installer_id: string | null;
+  /** 'diy' = a plan buyer added it (Smart Inventory); null = an installer's job */
+  source?: string | null;
   created_at: string;
 }
 
