@@ -15,6 +15,7 @@ import {
   type TotePlanTier,
 } from "@/lib/tote-plans";
 import { usdMoney } from "@/lib/geo/currency";
+import { DIY_INVENTORY, diyInventoryHref } from "@/lib/diy-inventory";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DIY plans footer for build / quote emails
@@ -47,6 +48,22 @@ export function diyPlansEmailBlock(url: string | null | undefined): string {
         Get DIY build plans for this design &mdash; ${usdMoney(formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price))} lifetime &rarr;
       </a>
       <p style="margin:6px 0 0;color:#555;font-size:11px;">Interactive 3D guide + printable PDF, and unlimited plans for every size you design.</p>
+    </div>`;
+}
+
+/**
+ * "Now that you've built it, let's get organized": the Smart Inventory
+ * add-on ($5, every rack for life), linking the buyer's own inventory page.
+ */
+export function smartInventoryEmailBlock(appUrl: string, accessToken: string): string {
+  const url = `${appUrl}${diyInventoryHref(accessToken)}`;
+  const price = usdMoney(formatPlanPrice(DIY_INVENTORY.price));
+  return `
+    <div style="background:#0a0a0a;border:1px solid #3f3a1c;border-radius:8px;padding:16px 20px;margin-bottom:20px;">
+      <p style="margin:0 0 4px;color:#facc15;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">Optional add-on &middot; ${DIY_INVENTORY.name}</p>
+      <p style="margin:0 0 6px;color:#fff;font-size:14px;font-weight:800;">Built your rack? Let&rsquo;s get organized.</p>
+      <p style="margin:0 0 10px;color:#999;font-size:12px;line-height:1.5;">Your rack on your phone: tap a tote, snap a photo and it lists what&rsquo;s inside. Search &ldquo;camping stove&rdquo; and the right tote lights up. QR labels for each rack, and your household can look things up too. Add every rack you build. All your plans for a single price of ${price}, for life.</p>
+      <a href="${url}" style="color:#facc15;font-size:13px;font-weight:800;text-decoration:none;">See Smart Inventory &rarr;</a>
     </div>`;
 }
 
@@ -140,6 +157,8 @@ export async function sendTotePlanAccessEmail(
       <p style="margin:0 0 10px;color:#a7f3d0;font-size:12px;line-height:1.5;">All-Access covers every tote organizer you design, for life. New size, new plan, free.</p>
       <a href="${buildAnotherUrl}" style="color:#6ee7b7;font-size:13px;font-weight:800;text-decoration:none;">Build another plan &rarr;</a>
     </div>
+
+    ${smartInventoryEmailBlock(appUrl, accessToken)}
 
     <div style="background:#0a0a0a;border:1px solid #1e1e1e;border-radius:8px;padding:16px 20px;margin-bottom:20px;">
       <p style="margin:0 0 4px;color:#facc15;font-size:13px;font-weight:800;">Interested in building these for a living?</p>
@@ -263,5 +282,56 @@ export async function sendPlanDesignSavedEmail(
     to: email,
     subject: `Your ${name} design (${priceLabel} plans inside)`,
     html: masterEmailLayout("Your Tote Rack Design", body),
+  });
+}
+
+/**
+ * One-time note to buyers from before Smart Inventory existed: what it is,
+ * and a link to their own inventory page (opens the explainer + $5 offer).
+ */
+export async function sendSmartInventoryAnnouncementEmail(
+  email: string,
+  data: { accessToken: string; designName: string; customerName?: string | null },
+): Promise<SendEmailResult> {
+  const appUrl = getAppUrl();
+  const url = `${appUrl}${diyInventoryHref(data.accessToken)}`;
+  const price = usdMoney(formatPlanPrice(DIY_INVENTORY.price));
+  const first = (data.customerName ?? "").trim().split(/\s+/)[0];
+  const row = (title: string, text: string) => `
+    <div style="margin-bottom:12px;">
+      <p style="margin:0 0 2px;color:#fff;font-size:14px;font-weight:700;">${title}</p>
+      <p style="margin:0;color:#999;font-size:13px;line-height:1.5;">${text}</p>
+    </div>`;
+
+  const body = `
+    <p style="margin:0 0 8px;color:#fff;font-size:16px;">Hi ${first || "there"},</p>
+    <p style="margin:0 0 20px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      Thanks again for building with our ${data.designName} plans. Now that your rack is up, here&rsquo;s something new to keep it organized.
+    </p>
+
+    <div style="background:#111;border-radius:12px;padding:24px;margin-bottom:20px;border:1px solid #222;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">New &middot; ${DIY_INVENTORY.name}</p>
+      <h2 style="margin:0 0 16px;color:#fff;font-size:20px;font-weight:800;">Know what&rsquo;s in every tote without opening one.</h2>
+      <div style="text-align:center;margin:0 0 18px;">
+        <img src="${appUrl}/plan-samples/inventory-rack.jpg" width="240" alt="Smart Inventory on a phone: a rack with every tote" style="width:240px;max-width:70%;height:auto;border-radius:14px;border:1px solid #333;" />
+      </div>
+      ${row("Every tote, on your phone", "Tap a tote on your rack to list what&rsquo;s in it. Snap a photo and it lists the contents for you.")}
+      ${row("Search, then walk straight to it", "Type &ldquo;camping stove&rdquo; and the right tote lights up, on whichever rack it&rsquo;s on.")}
+      ${row("QR labels for your racks", "Print a label, stick it on the rack, and anyone in the house can scan it to look things up.")}
+      ${row("Grows with every rack you build", "A 4&times;4 today, a 4&times;2 next spring: add each rack as you build it.")}
+    </div>
+
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${url}" style="display:inline-block;background:#facc15;color:#000;font-weight:800;font-size:15px;text-decoration:none;padding:14px 32px;border-radius:10px;">
+        Get organized &mdash; ${price}
+      </a>
+      <p style="margin:12px 0 0;color:#888;font-size:12px;">All your plans for a single price of ${price}. One payment, for life. No subscription.</p>
+    </div>
+  `;
+
+  return sendTransactionalEmail({
+    to: email,
+    subject: `Your rack is built. Now know what's in every tote.`,
+    html: masterEmailLayout(`${DIY_INVENTORY.name}`, body),
   });
 }

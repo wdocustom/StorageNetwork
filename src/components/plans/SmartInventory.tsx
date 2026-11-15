@@ -20,6 +20,7 @@ import { getDiyInventory, type DiyInventoryKey } from "@/app/actions/diy-invento
 import { DIY_INVENTORY, diyInventoryUrl, rememberInventoryReturn } from "@/lib/diy-inventory";
 import { formatPlanPrice } from "@/lib/tote-plans";
 import { trackPlanEvent } from "@/lib/plan-events";
+import { PlanSampleLightbox, PlanSampleThumb } from "@/components/plans/PlanSample";
 
 const PRICE = formatPlanPrice(DIY_INVENTORY.price);
 
@@ -90,6 +91,7 @@ export function SmartInventoryShowcase({
   buying?: boolean;
   onLater?: () => void;
 }) {
+  const [sample, setSample] = useState(false);
   return (
     <div>
       <p className="text-xs font-black uppercase tracking-widest text-yellow-400">{DIY_INVENTORY.name}</p>
@@ -114,9 +116,21 @@ export function SmartInventoryShowcase({
         ))}
       </ul>
 
-      <div className="mt-6 rounded-2xl border border-yellow-400/30 bg-yellow-400/5 p-4">
+      <div className="mt-6">
+        <p className="mb-1.5 text-xs font-semibold text-stone-300">The real thing, on a phone</p>
+        <PlanSampleThumb
+          tier="inventory"
+          onOpen={() => {
+            trackPlanEvent("inventory_info", "sample");
+            setSample(true);
+          }}
+        />
+      </div>
+      {sample && createPortal(<PlanSampleLightbox tier="inventory" onClose={() => setSample(false)} />, document.body)}
+
+      <div className="rounded-2xl border border-yellow-400/30 bg-yellow-400/5 p-4">
         <div className="flex items-baseline justify-between gap-3">
-          <p className="text-sm font-semibold text-stone-200">One payment. Every rack you build, for life.</p>
+          <p className="text-sm font-semibold text-stone-200">All your plans, for a single price of {PRICE}. For life.</p>
           <p className="shrink-0 text-3xl font-black text-white">{PRICE}</p>
         </div>
         <button

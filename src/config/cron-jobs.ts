@@ -22,6 +22,7 @@ export const CRON_JOBS: CronJob[] = [
   { path: "/api/cron/feature-announcement", schedule: "0 11 * * *" },
   { path: "/api/cron/bounty-announcement", schedule: "0 14 * * *" },
   { path: "/api/cron/overhead-announcement", schedule: "0 15 * * *" },
+  { path: "/api/cron/smart-inventory-announcement", schedule: "0 15 * * *" },
   { path: "/api/cron/jig-announcement", schedule: "0 7 * * *" },
   { path: "/api/cron/feedback-call-invite", schedule: "0 16 * * *" },
   { path: "/api/cron/inventory-announcement", schedule: "0 13 * * *" },
