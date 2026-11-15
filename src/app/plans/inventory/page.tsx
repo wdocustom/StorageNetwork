@@ -42,7 +42,7 @@ function InventoryHub() {
   const [key] = useState<DiyInventoryKey | null>(() => {
     const token = params.get("token");
     const rack = params.get("rack");
-    return token ? { token } : rack ? { rack } : null;
+    return token ? { token } : rack ? { rack } : params.get("account") === "1" ? { account: true } : null;
   });
   const [result, setResult] = useState<DiyInventoryResult | null>(null);
   const [checkout, setCheckout] = useState<string | null>(null);
@@ -84,7 +84,8 @@ function InventoryHub() {
       const r = await getDiyInventory(key);
       setResult(r);
       // Clean one-time params out of the URL
-      const clean = "token" in key ? `?token=${encodeURIComponent(key.token)}` : `?rack=${encodeURIComponent(key.rack)}`;
+      const clean =
+        "token" in key ? `?token=${encodeURIComponent(key.token)}` : "rack" in key ? `?rack=${encodeURIComponent(key.rack)}` : "?account=1";
       if (sessionId || params.get("buy")) router.replace(`/plans/inventory${clean}`);
       if (r.ok && !r.hasAccess && params.get("buy") === "1") buy();
     })();
@@ -122,7 +123,7 @@ function InventoryHub() {
     );
   }
 
-  const backHref = "token" in key ? libraryHref(key.token) : `/rack/${key.rack}`;
+  const backHref = "token" in key ? libraryHref(key.token) : "rack" in key ? `/rack/${key.rack}` : "/plans/checkout";
   const data: Ready = result;
 
   if (!data.hasAccess) {

@@ -132,7 +132,7 @@ function LibraryInner() {
             )}
 
             {/* Smart Inventory: the $5 lifetime add-on, or their racks if they own it */}
-            {token && result.items.some((i) => i.kind === "tote") && <SmartInventoryCta planToken={token} placement="library" />}
+            {token && result.items.some((i) => i.kind === "tote") && <SmartInventoryCta inventoryKey={{ token }} placement="library" />}
 
             {result.jigOffer && (
               <Link

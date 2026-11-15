@@ -16,8 +16,8 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { ArrowRight, Camera, ChevronRight, Layers, Loader2, Package, QrCode, Search, X } from "lucide-react";
 
-import { getDiyInventory } from "@/app/actions/diy-inventory";
-import { DIY_INVENTORY, diyInventoryHref } from "@/lib/diy-inventory";
+import { getDiyInventory, type DiyInventoryKey } from "@/app/actions/diy-inventory";
+import { DIY_INVENTORY, diyInventoryUrl } from "@/lib/diy-inventory";
 import { formatPlanPrice } from "@/lib/tote-plans";
 import { trackPlanEvent } from "@/lib/plan-events";
 
@@ -140,7 +140,7 @@ export function SmartInventoryShowcase({
 }
 
 /** Bottom sheet with the explainer; "buy" goes to the inventory hub, which opens checkout. */
-function ShowcaseSheet({ planToken, onClose }: { planToken: string; onClose: () => void }) {
+function ShowcaseSheet({ hubUrl, onClose }: { hubUrl: string; onClose: () => void }) {
   useEffect(() => {
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -172,7 +172,7 @@ function ShowcaseSheet({ planToken, onClose }: { planToken: string; onClose: () 
         <SmartInventoryShowcase
           onBuy={() => {
             trackPlanEvent("inventory_buy_tap", "sheet");
-            window.location.href = `${diyInventoryHref(planToken)}&buy=1`;
+            window.location.href = `${hubUrl}&buy=1`;
           }}
           onLater={onClose}
         />
@@ -186,24 +186,40 @@ function ShowcaseSheet({ planToken, onClose }: { planToken: string; onClose: () 
  * The plan page / My Builds card. Buyers without the add-on see a calm
  * teaser that opens the explainer; owners see their inventory at a glance.
  */
-export function SmartInventoryCta({ planToken, placement }: { planToken: string; placement: "plan" | "library" }) {
-  const [state, setState] = useState<{ hasAccess: boolean; racks: number; items: number } | null>(null);
+export function SmartInventoryCta({
+  inventoryKey,
+  placement,
+}: {
+  /** A plan link, or { account: true } for a signed-in admin / Pro */
+  inventoryKey: DiyInventoryKey;
+  placement: "plan" | "library";
+}) {
+  const hubUrl = diyInventoryUrl(inventoryKey);
+  const keyId = JSON.stringify(inventoryKey);
+  const [state, setState] = useState<{ hasAccess: boolean; included: boolean; racks: number; items: number } | null>(null);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    getDiyInventory({ token: planToken })
+    getDiyInventory(JSON.parse(keyId) as DiyInventoryKey)
       .then((r) => {
-        if (r.ok) setState({ hasAccess: r.hasAccess, racks: r.racks.length, items: r.racks.reduce((s, x) => s + x.items, 0) });
+        if (r.ok) {
+          setState({
+            hasAccess: r.hasAccess,
+            included: r.included === true,
+            racks: r.racks.length,
+            items: r.racks.reduce((s, x) => s + x.items, 0),
+          });
+        }
       })
       .catch(() => {});
-  }, [planToken]);
+  }, [keyId]);
 
   if (!state) return null;
 
   if (state.hasAccess) {
-    return (
+    const owner = (
       <Link
-        href={diyInventoryHref(planToken)}
+        href={hubUrl}
         className="flex items-center gap-4 rounded-2xl border border-slate-800 bg-slate-900 p-4 transition hover:border-yellow-400/50"
       >
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10">
@@ -220,6 +236,21 @@ export function SmartInventoryCta({ planToken, placement }: { planToken: string;
         <ChevronRight className="h-5 w-5 shrink-0 text-stone-500" />
       </Link>
     );
+    if (!state.included) return owner;
+    // Admin / Pro: it's included for you — but you can still see the buyer pitch.
+    return (
+      <div>
+        {owner}
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="mt-2 w-full text-center text-[11px] font-semibold text-stone-500 hover:text-yellow-300"
+        >
+          Included with your account · Preview what buyers see ($5 offer)
+        </button>
+        {open && <ShowcaseSheet hubUrl={hubUrl} onClose={() => setOpen(false)} />}
+      </div>
+    );
   }
 
   return (
@@ -230,7 +261,7 @@ export function SmartInventoryCta({ planToken, placement }: { planToken: string;
           setOpen(true);
         }}
       />
-      {open && <ShowcaseSheet planToken={planToken} onClose={() => setOpen(false)} />}
+      {open && <ShowcaseSheet hubUrl={hubUrl} onClose={() => setOpen(false)} />}
     </>
   );
 }

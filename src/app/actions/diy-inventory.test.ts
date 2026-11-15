@@ -11,7 +11,12 @@ const state: {
   access: boolean;
   inserted: Record<string, unknown>[];
   deviceOk: boolean;
-} = { purchases: [], racks: [], access: false, inserted: [], deviceOk: true };
+  user: { id: string; email?: string } | null;
+  free: boolean;
+} = { purchases: [], racks: [], access: false, inserted: [], deviceOk: true, user: null, free: false };
+
+vi.mock("@/lib/auth", () => ({ getAuthenticatedUser: async () => state.user }));
+vi.mock("@/app/actions/diy-plan-checkout", () => ({ checkDIYPlanAccess: async () => ({ hasFreeAccess: state.free, reason: state.free ? "admin" : undefined }) }));
 
 vi.mock("@/lib/server/plan-device", () => ({
   checkPlanDevice: async () => (state.deviceOk ? { ok: true } : { ok: false, emailHint: "pa•••@example.com" }),
@@ -29,7 +34,14 @@ vi.mock("@/lib/supabase-server", () => ({
       const filters: [string, unknown][] = [];
       let head = false;
       const rows = () => {
-        const src = table === "public_plan_purchases" ? state.purchases : table === "inventory_racks" ? state.racks : [];
+        const src =
+          table === "public_plan_purchases"
+            ? state.purchases
+            : table === "inventory_racks"
+              ? state.racks
+              : table === "profiles"
+                ? [{ id: "admin-1", email: "Owner@Example.com" }]
+                : [];
         return src.filter((r) => filters.every(([k, v]) => r[k] === v));
       };
       const q: Record<string, unknown> = {
@@ -60,6 +72,8 @@ beforeEach(() => {
   state.access = false;
   state.inserted = [];
   state.deviceOk = true;
+  state.user = null;
+  state.free = false;
 });
 
 describe("Smart Inventory for DIY buyers", () => {
@@ -103,5 +117,20 @@ describe("Smart Inventory for DIY buyers", () => {
     ];
     expect((await getDiyInventory({ rack: "a".repeat(32) })).ok).toBe(true);
     expect((await getDiyInventory({ rack: "b".repeat(32) })).ok).toBe(false);
+  });
+
+  it("is included for a signed-in admin / Pro, and refused for anyone else signed in", async () => {
+    state.user = { id: "admin-1" };
+    state.free = true;
+    const r = await getDiyInventory({ account: true });
+    expect(r.ok && r.hasAccess && r.included).toBe(true);
+    const added = await addDiyRack({ account: true }, { label: "Test rack", cols: 2, rows: 2 });
+    expect(added.ok).toBe(true);
+    expect(state.inserted[0]).toMatchObject({ customer_email: "owner@example.com", source: "diy" });
+
+    state.free = false;
+    expect((await getDiyInventory({ account: true })).ok).toBe(false);
+    state.user = null;
+    expect((await getDiyInventory({ account: true })).ok).toBe(false);
   });
 });

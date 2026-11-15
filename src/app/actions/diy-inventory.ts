@@ -4,8 +4,10 @@
 // Smart Inventory for DIY plan buyers (see src/lib/diy-inventory.ts)
 //
 // The hub (/plans/inventory) is reached with a plan link (?token=, device-
-// gated like every plan page) or, from a DIY rack's page, with that rack's
-// own link (?rack=, which already opens the buyer's racks). Buying the $5
+// gated like every plan page), from a DIY rack's page with that rack's own
+// link (?rack=, which already opens the buyer's racks), or signed in
+// (?account=1): admins and paid Pro installers, for whom it's included like
+// their plans are. Buying the $5
 // add-on and adding racks both need the buyer's email behind one of those.
 // Racks are ordinary inventory_racks (source 'diy') with the buyer's email,
 // so the existing rack pages link them, search across them and move totes.
@@ -21,6 +23,8 @@ import { grantDiyInventory, hasDiyInventory } from "@/lib/server/diy-inventory";
 import { enforceActionRateLimit, RateLimitError } from "@/lib/server/action-rate-limit";
 import { DIY_INVENTORY, DIY_RACK_LIMITS } from "@/lib/diy-inventory";
 import { TOTE_PLAN_ID, parseTotePlanDesign } from "@/lib/tote-plans";
+import { getAuthenticatedUser } from "@/lib/auth";
+import { checkDIYPlanAccess } from "@/app/actions/diy-plan-checkout";
 
 let _stripe: Stripe | null = null;
 function getStripe(): Stripe {
@@ -31,7 +35,7 @@ function getStripe(): Stripe {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const RACK_TOKEN_RE = /^[0-9a-f]{16,64}$/i;
 
-export type DiyInventoryKey = { token: string } | { rack: string };
+export type DiyInventoryKey = { token: string } | { rack: string } | { account: true };
 
 function maskEmail(email: string): string {
   const [user, domain] = email.split("@");
@@ -39,12 +43,22 @@ function maskEmail(email: string): string {
 }
 
 type Buyer =
-  | { ok: true; email: string; planToken: string | null }
+  | { ok: true; email: string; planToken: string | null; /** Admin / paid Pro: included, no purchase */ included?: boolean }
   | { ok: false; error: string; verify?: { token: string; emailHint: string } };
 
 /** Who's asking: the email behind a plan link (device-gated) or a DIY rack link. */
 async function resolveBuyer(key: DiyInventoryKey): Promise<Buyer> {
   const db = getServiceClient();
+  if ("account" in key) {
+    const user = await getAuthenticatedUser();
+    if (!user) return { ok: false, error: "Sign in to use Smart Inventory." };
+    const access = await checkDIYPlanAccess();
+    if (!access.hasFreeAccess) return { ok: false, error: "Smart Inventory is included for Pro installers. Plan buyers get it from their plan page." };
+    const { data: profile } = await db.from("profiles").select("email").eq("id", user.id).maybeSingle();
+    const email = ((profile?.email as string | null) ?? user.email ?? "").toLowerCase();
+    if (!email) return { ok: false, error: "Your account has no email address." };
+    return { ok: true, email, planToken: null, included: true };
+  }
   if ("token" in key) {
     if (!UUID_RE.test(key.token ?? "")) return { ok: false, error: "This link is invalid or has expired." };
     const { data } = await db.from("public_plan_purchases").select("email").eq("access_token", key.token).maybeSingle();
@@ -88,6 +102,8 @@ export type DiyInventoryResult =
       ok: true;
       emailHint: string;
       hasAccess: boolean;
+      /** Included with an admin / Pro account (nothing to buy) */
+      included?: boolean;
       racks: DiyRackSummary[];
       /** Units from the buyer's plans that aren't in the inventory yet */
       suggestions: DiyRackSuggestion[];
@@ -100,7 +116,7 @@ export async function getDiyInventory(key: DiyInventoryKey): Promise<DiyInventor
     if (!buyer.ok) return buyer;
     const db = getServiceClient();
     const [access, racksRes, plansRes] = await Promise.all([
-      hasDiyInventory(buyer.email),
+      buyer.included ? Promise.resolve(true) : hasDiyInventory(buyer.email),
       db
         .from("inventory_racks")
         .select("id, access_token, label, cols, rows, has_wheels, created_at")
@@ -158,7 +174,14 @@ export async function getDiyInventory(key: DiyInventoryKey): Promise<DiyInventor
       }
     }
 
-    return { ok: true, emailHint: maskEmail(buyer.email), hasAccess: access, racks, suggestions: suggestions.slice(0, 6) };
+    return {
+      ok: true,
+      emailHint: maskEmail(buyer.email),
+      hasAccess: access,
+      included: buyer.included === true,
+      racks,
+      suggestions: suggestions.slice(0, 6),
+    };
   } catch (err) {
     console.error("[DiyInventory] load failed:", err);
     return { ok: false, error: "We couldn't load your inventory. Please try again." };
@@ -177,9 +200,10 @@ export async function createDiyInventoryCheckout(
   }
   const buyer = await resolveBuyer(key);
   if (!buyer.ok) return { ok: false, error: buyer.error };
-  if (await hasDiyInventory(buyer.email)) return { ok: false, error: "You already have Smart Inventory." };
+  if (buyer.included || (await hasDiyInventory(buyer.email))) return { ok: false, error: "You already have Smart Inventory." };
 
-  const back = "token" in key ? `token=${encodeURIComponent(key.token)}` : `rack=${encodeURIComponent(key.rack)}`;
+  const back =
+    "token" in key ? `token=${encodeURIComponent(key.token)}` : "rack" in key ? `rack=${encodeURIComponent(key.rack)}` : "account=1";
   try {
     const session = await createEmbeddedCheckoutSession(getStripe(), {
       mode: "payment",
@@ -239,7 +263,7 @@ export async function addDiyRack(
   }
   const buyer = await resolveBuyer(key);
   if (!buyer.ok) return { ok: false, error: buyer.error };
-  if (!(await hasDiyInventory(buyer.email))) return { ok: false, error: "Add Smart Inventory first." };
+  if (!buyer.included && !(await hasDiyInventory(buyer.email))) return { ok: false, error: "Add Smart Inventory first." };
 
   const cols = Math.round(Number(input.cols));
   const rows = Math.round(Number(input.rows));
