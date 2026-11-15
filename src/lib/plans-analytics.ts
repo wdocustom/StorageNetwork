@@ -101,6 +101,8 @@ export interface PlansAnalytics {
   designer?: { event: PlanEvent; label: string; visitors: number }[];
   /** Designer visitors inside Facebook / Instagram's in-app browser */
   designerInApp?: number;
+  /** Funnel by where each visitor first came from (paid ad, organic, video links…) */
+  bySource?: { source: string; visitors: number; designers: number; buyers: number }[];
   /** "Email me my design" requests (the $5-off offer), newest first */
   designLeads?: { email: string; design: string; createdAt: string; bought: boolean }[];
 }

@@ -251,7 +251,7 @@ export async function sendPlanDesignSavedEmail(
       <p style="margin:0 0 16px;color:#888;font-size:13px;">${totePlanSummary(design)}</p>
       <p style="margin:0 0 4px;color:#facc15;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">Your price</p>
       <p style="margin:0 0 18px;color:#fff;font-size:30px;font-weight:900;">
-        ${usdMoney(priceLabel)} <span style="color:#666;font-size:16px;font-weight:600;text-decoration:line-through;">${usdMoney(formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price))}</span>
+        ${usdMoney(priceLabel)}${priceLabel !== formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price) ? ` <span style="color:#666;font-size:16px;font-weight:600;text-decoration:line-through;">${usdMoney(formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price))}</span>` : ""}
       </p>
       <a href="${link}" style="display:inline-block;background:#facc15;color:#000;font-size:15px;font-weight:800;padding:14px 28px;border-radius:10px;text-decoration:none;">
         Open my design &rarr;

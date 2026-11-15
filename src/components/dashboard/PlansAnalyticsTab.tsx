@@ -137,6 +137,41 @@ export function PlansAnalyticsView({ data }: { data: PlansAnalytics }) {
         </p>
       </Card>
 
+      {/* Which traffic sells */}
+      {data.bySource && data.bySource.length > 0 && (
+        <Card title="Where buyers come from">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="text-[10px] uppercase tracking-wider text-stone-500">
+                <tr>
+                  <th className="py-1.5 pr-2 font-semibold">Source (first visit)</th>
+                  <th className="py-1.5 pr-2 text-right font-semibold">Visitors</th>
+                  <th className="py-1.5 pr-2 text-right font-semibold">Designed</th>
+                  <th className="py-1.5 text-right font-semibold">Bought</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {data.bySource.map((r) => (
+                  <tr key={r.source}>
+                    <td className="py-2 pr-2 text-stone-200">{r.source}</td>
+                    <td className="py-2 pr-2 text-right text-white">{r.visitors}</td>
+                    <td className="py-2 pr-2 text-right text-stone-300">
+                      {r.designers} <span className="text-stone-500">{r.visitors ? Math.round((r.designers / r.visitors) * 100) : 0}%</span>
+                    </td>
+                    <td className={`py-2 text-right font-bold ${r.buyers ? "text-emerald-400" : "text-stone-500"}`}>
+                      {r.buyers} <span className="font-normal text-stone-500">{r.visitors ? ((r.buyers / r.visitors) * 100).toFixed(1) : "0.0"}%</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2 text-[10px] text-stone-600">
+            Tag each video with its own link, storage-network.app/go/&lt;name&gt;, to see which one sells.
+          </p>
+        </Card>
+      )}
+
       {/* "Email me my design" leads from the $5-off offer */}
       {data.designLeads && data.designLeads.length > 0 && (
         <Card title={`Emailed designs · ${data.designLeads.length}`}>
