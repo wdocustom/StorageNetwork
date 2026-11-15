@@ -31,7 +31,6 @@ import DeviceVerify from "@/components/plans/DeviceVerify";
 import EmbeddedCheckoutPanel from "@/components/payments/EmbeddedCheckoutPanel";
 import { SmartInventoryShowcase } from "@/components/plans/SmartInventory";
 import { AddRackSheet, MiniRack } from "@/components/plans/InventoryHubParts";
-import { libraryHref } from "@/lib/plan-library";
 import { trackPlanEvent } from "@/lib/plan-events";
 
 type Ready = Extract<DiyInventoryResult, { ok: true }>;
@@ -123,12 +122,12 @@ function InventoryHub() {
     );
   }
 
-  const backHref = "token" in key ? libraryHref(key.token) : "rack" in key ? `/rack/${key.rack}` : "/plans/checkout";
   const data: Ready = result;
+  const back = data.home;
 
   if (!data.hasAccess) {
     return (
-      <Shell backHref={backHref}>
+      <Shell back={back}>
         <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
           <SmartInventoryShowcase onBuy={buy} buying={buying} />
           {buyError && <p className="mt-3 text-center text-xs text-amber-400">{buyError}</p>}
@@ -143,7 +142,7 @@ function InventoryHub() {
   const totalItems = data.racks.reduce((s, r) => s + r.items, 0);
 
   return (
-    <Shell backHref={backHref}>
+    <Shell back={back}>
       {welcome && (
         <div className="flex items-start gap-3 rounded-2xl border border-emerald-500/40 bg-emerald-500/5 p-4">
           <Check className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
@@ -246,14 +245,17 @@ function InventoryHub() {
   );
 }
 
-function Shell({ children, backHref }: { children: React.ReactNode; backHref?: string }) {
+function Shell({ children, back }: { children: React.ReactNode; back?: { href: string; label: string } }) {
   return (
     <div className="min-h-screen bg-slate-950">
       <header className="border-b border-slate-800 bg-slate-900 px-4 py-4">
         <div className="mx-auto flex max-w-xl items-center gap-3">
-          {backHref ? (
-            <Link href={backHref} aria-label="Back" className="rounded-lg p-1.5 text-stone-400 hover:bg-slate-800 hover:text-white">
-              <ArrowLeft className="h-5 w-5" />
+          {back ? (
+            <Link
+              href={back.href}
+              className="flex items-center gap-1 rounded-lg py-1.5 pl-1 pr-2 text-xs font-semibold text-stone-300 hover:bg-slate-800 hover:text-white"
+            >
+              <ArrowLeft className="h-5 w-5" /> {back.label}
             </Link>
           ) : (
             <Image src="/landing_page_logo.png" alt="Storage Network" width={36} height={36} className="rounded" />
