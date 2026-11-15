@@ -1028,8 +1028,13 @@ export default function RackPage() {
     ? Math.round((allFilledSlots / allSlots) * 100)
     : 0;
   const scoreMsg = getScoreMessage(utilizationPct);
-  const designUrl =
-    requestQuoteUrl || (installer?.slug ? `/design?installer=${installer.slug}` : "/design");
+  // DIY racks (Smart Inventory for plan buyers) point back to the planner
+  // and their own inventory hub instead of an installer.
+  const isDiy = rack.source === "diy";
+  const diyHubUrl = `/plans/inventory?rack=${encodeURIComponent(rack.access_token)}`;
+  const designUrl = isDiy
+    ? "/plans/checkout?utm_source=rack"
+    : requestQuoteUrl || (installer?.slug ? `/design?installer=${installer.slug}` : "/design");
 
   // Collect unique categories from slot labels
   const usedCategories = new Set<string>();
@@ -1052,6 +1057,14 @@ export default function RackPage() {
             <span className="text-xs text-slate-400 uppercase tracking-wider font-bold">
               Storage Network Inventory
             </span>
+            {isDiy && (
+              <a
+                href={diyHubUrl}
+                className="ml-auto flex items-center gap-1 rounded-full border border-slate-700 px-2.5 py-1 text-[11px] font-semibold text-slate-300 hover:border-yellow-400 hover:text-yellow-400"
+              >
+                <Plus className="w-3 h-3" /> My racks · Add a rack
+              </a>
+            )}
           </div>
           <div className="flex items-center justify-between">
             {editingLabel ? (
@@ -1435,8 +1448,14 @@ export default function RackPage() {
                   </p>
                   <p className="text-xs text-slate-400 mt-0.5">
                     {customerUtilizationPct}% of your totes are cataloged.
-                    {installer ? ` ${installer.name} can` : " We can"} build
-                    you another rack &mdash; same quality, professionally installed.
+                    {isDiy ? (
+                      <> Design your next rack free; All-Access already covers its plan. Then add it here.</>
+                    ) : (
+                      <>
+                        {installer ? ` ${installer.name} can` : " We can"} build you another rack &mdash; same quality,
+                        professionally installed.
+                      </>
+                    )}
                   </p>
                   <span className="inline-block mt-2 text-xs font-bold text-yellow-400">
                     Design Another Rack &rarr;
@@ -1490,13 +1509,17 @@ export default function RackPage() {
               Know someone who needs garage storage?
             </p>
             <p className="text-[11px] text-slate-500 mb-3">
-              Share with a friend and they&apos;ll get the same professional installation you did.
+              {isDiy
+                ? "Share the plans with a friend so they can build one too."
+                : "Share with a friend and they\u2019ll get the same professional installation you did."}
             </p>
             <button
               onClick={() => {
-                const shareText = installer?.slug
-                  ? `Check out this garage storage system I got — they build and install custom tote racks. ${window.location.origin}/p/${installer.slug}`
-                  : `Check out this garage storage system — custom tote racks, professionally installed. ${window.location.origin}/design`;
+                const shareText = isDiy
+                  ? `I built this tote rack from Storage Network's plans — design yours free: ${window.location.origin}/plans`
+                  : installer?.slug
+                    ? `Check out this garage storage system I got — they build and install custom tote racks. ${window.location.origin}/p/${installer.slug}`
+                    : `Check out this garage storage system — custom tote racks, professionally installed. ${window.location.origin}/design`;
                 if (navigator.share) {
                   navigator.share({ text: shareText }).catch(() => {});
                 } else {
@@ -1518,7 +1541,7 @@ export default function RackPage() {
             <p className="text-[11px] text-slate-500 group-hover:text-slate-400">
               Need more storage?{" "}
               <span className="text-yellow-400/70 group-hover:text-yellow-400 font-medium">
-                {requestQuoteUrl ? "Request a quote" : "Design a new rack"} &rarr;
+                {isDiy ? "Design your next rack free" : requestQuoteUrl ? "Request a quote" : "Design a new rack"} &rarr;
               </span>
             </p>
           </a>

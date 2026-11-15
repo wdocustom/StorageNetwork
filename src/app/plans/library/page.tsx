@@ -13,6 +13,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import DeviceVerify from "@/components/plans/DeviceVerify";
+import { SmartInventoryCta } from "@/components/plans/SmartInventory";
 import Link from "next/link";
 import { BuildForALiving } from "@/components/plans/AllAccessOffer";
 import { AlertCircle, Armchair, Box, ChevronRight, Loader2, Mail, Plus, Wrench } from "lucide-react";
@@ -129,6 +130,9 @@ function LibraryInner() {
             ) : (
               result.items.map((item) => <ItemCard key={item.href} item={item} />)
             )}
+
+            {/* Smart Inventory: the $5 lifetime add-on, or their racks if they own it */}
+            {token && result.items.some((i) => i.kind === "tote") && <SmartInventoryCta planToken={token} placement="library" />}
 
             {result.jigOffer && (
               <Link

@@ -728,6 +728,17 @@ export async function POST(request: NextRequest) {
     // installer or the bestseller owners (src/lib/plan-splits.ts). Plan
     // sessions carry no leadId; a promoter commission may also apply below.
     // ═════════════════════════════════════════════════════════════════════
+    // Smart Inventory add-on for DIY plan buyers ($5 lifetime). The buyer's
+    // return to /plans/inventory records it too; this covers a closed tab.
+    if (metadata.type === "diy_inventory") {
+      const { grantDiyInventory } = await import("@/lib/server/diy-inventory");
+      const email = metadata.email || session.customer_details?.email || "";
+      if (session.payment_status === "paid" && email) {
+        await grantDiyInventory(email, session.id, session.amount_total ?? 0);
+      }
+      return NextResponse.json({ received: true });
+    }
+
     if (metadata.type === "diy_plan") {
       fireAndForget("plan splits", async () => {
         const { processPlanSplits } = await import("@/lib/server/plan-split-payouts");

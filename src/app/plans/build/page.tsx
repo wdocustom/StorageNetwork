@@ -43,6 +43,7 @@ import {
 import Link from "next/link";
 import { BuildForALiving } from "@/components/plans/AllAccessOffer";
 import SaveToHomeScreen from "@/components/plans/SaveToHomeScreen";
+import { SmartInventoryCta } from "@/components/plans/SmartInventory";
 import { metaTrack } from "@/lib/meta-pixel";
 import { readOffer } from "@/lib/plan-offer";
 import { LADDER_JIG_OWNER_PRICE } from "@/lib/ladder-jig";
@@ -719,6 +720,9 @@ function BuildPlanInner() {
         )}
 
         {result.access === "purchase" && result.token && <BuildAnotherCard token={result.token} />}
+
+        {/* Built it? Smart Inventory, the $5 lifetime add-on (owners see their racks) */}
+        {result.access === "purchase" && result.token && <SmartInventoryCta planToken={result.token} placement="plan" />}
 
         <Checklists data={result} />
 
