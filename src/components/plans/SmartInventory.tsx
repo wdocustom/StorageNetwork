@@ -17,7 +17,7 @@ import Link from "next/link";
 import { ArrowRight, Camera, ChevronRight, Layers, Loader2, Package, QrCode, Search, X } from "lucide-react";
 
 import { getDiyInventory, type DiyInventoryKey } from "@/app/actions/diy-inventory";
-import { DIY_INVENTORY, diyInventoryUrl } from "@/lib/diy-inventory";
+import { DIY_INVENTORY, diyInventoryUrl, rememberInventoryReturn } from "@/lib/diy-inventory";
 import { formatPlanPrice } from "@/lib/tote-plans";
 import { trackPlanEvent } from "@/lib/plan-events";
 
@@ -172,6 +172,7 @@ function ShowcaseSheet({ hubUrl, onClose }: { hubUrl: string; onClose: () => voi
         <SmartInventoryShowcase
           onBuy={() => {
             trackPlanEvent("inventory_buy_tap", "sheet");
+            rememberInventoryReturn(window.location.pathname.startsWith("/plans/library") ? "My Plans" : "Build plan");
             window.location.href = `${hubUrl}&buy=1`;
           }}
           onLater={onClose}
@@ -220,6 +221,7 @@ export function SmartInventoryCta({
     const owner = (
       <Link
         href={hubUrl}
+        onClick={() => rememberInventoryReturn(placement === "plan" ? "Build plan" : "My Plans")}
         className="flex items-center gap-4 rounded-2xl border border-slate-800 bg-slate-900 p-4 transition hover:border-yellow-400/50"
       >
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10">

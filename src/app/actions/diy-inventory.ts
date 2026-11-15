@@ -74,7 +74,19 @@ async function resolveBuyer(key: DiyInventoryKey): Promise<Buyer> {
     .eq("access_token", key.rack)
     .maybeSingle();
   if (!data?.customer_email || data.source !== "diy") return { ok: false, error: "This link is invalid or has expired." };
-  return { ok: true, email: (data.customer_email as string).toLowerCase(), planToken: null };
+  const email = (data.customer_email as string).toLowerCase();
+  // An admin / Pro's own rack: still included when they come in through it.
+  return { ok: true, email, planToken: null, included: await ownIncludedRack(email) };
+}
+
+/** True when the signed-in admin / paid Pro owns this rack email. */
+async function ownIncludedRack(email: string): Promise<boolean> {
+  const user = await getAuthenticatedUser().catch(() => null);
+  if (!user) return false;
+  const access = await checkDIYPlanAccess().catch(() => null);
+  if (!access?.hasFreeAccess) return false;
+  const { data: profile } = await getServiceClient().from("profiles").select("email").eq("id", user.id).maybeSingle();
+  return ((profile?.email as string | null) ?? user.email ?? "").toLowerCase() === email;
 }
 
 /**

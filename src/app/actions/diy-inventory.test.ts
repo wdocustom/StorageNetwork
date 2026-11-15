@@ -120,6 +120,12 @@ describe("Smart Inventory for DIY buyers", () => {
     // A rack link leads back to the buyer's plans, not in a loop to the rack
     const viaRack = await getDiyInventory({ rack: "a".repeat(32) });
     expect(viaRack.ok && viaRack.home).toEqual({ href: `/plans/library?token=${PLAN_TOKEN}`, label: "My Plans" });
+    // The admin's own rack, opened from the rack page: still included, no $5 offer
+    state.racks[0].customer_email = "owner@example.com";
+    state.user = { id: "admin-1" };
+    state.free = true;
+    const own = await getDiyInventory({ rack: "a".repeat(32) });
+    expect(own.ok && own.hasAccess && own.included).toBe(true);
     expect((await getDiyInventory({ rack: "b".repeat(32) })).ok).toBe(false);
   });
 
