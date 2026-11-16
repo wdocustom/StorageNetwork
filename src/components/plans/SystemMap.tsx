@@ -11,7 +11,7 @@
 
 import { useMemo } from "react";
 import { designLayout, unitLetter, type LayoutModule, type TotePlanDesign } from "@/lib/tote-plans";
-import { toFraction } from "@/lib/utils";
+import { formatLengthIn, useUnits } from "@/lib/measure-units";
 
 export default function SystemMap({
   design,
@@ -32,6 +32,7 @@ export default function SystemMap({
   onSelectUnit?: (unitIndex: number) => void;
 }) {
   const layout = useMemo(() => designLayout(design), [design]);
+  const units = useUnits();
   const pad = 4;
   const dimH = dimensions ? 14 : 0;
   const vbW = layout.widthIn + pad * 2;
@@ -143,7 +144,7 @@ export default function SystemMap({
             fill={c.dim}
             style={{ fontFamily: "system-ui, sans-serif" }}
           >
-            {toFraction(u.w)}&quot;
+            {formatLengthIn(u.w, units)}
           </text>
         ))}
     </svg>

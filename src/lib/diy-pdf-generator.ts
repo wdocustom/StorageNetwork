@@ -23,6 +23,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import jsPDF from "jspdf";
+import { metricText, type Units } from "@/lib/measure-units";
 import type {
   CompleteDIYPlan,
   PlanAssemblyStep,
@@ -109,6 +110,8 @@ export interface DIYPDFInput {
     jigUrl?: string;
     jigOwned?: boolean;
   };
+  /** Measurements in the PDF; inches unless "metric" */
+  units?: Units;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -121,6 +124,19 @@ const CHAR_MAP: Record<string, string> = {
   "⅛": "1/8", "¼": "1/4", "⅜": "3/8", "½": "1/2", "⅝": "5/8", "¾": "3/4", "⅞": "7/8",
   "→": "->", "−": "-", "≤": "<=", "≥": ">=", "′": "'", "″": '"',
 };
+
+/**
+ * Metric plans: every line the PDF writes (and wraps) goes through
+ * metricText, so measurements come out in mm / m wherever they're drawn.
+ * metricText leaves metric text alone, so wrapping then drawing is safe.
+ */
+function metricDoc(doc: jsPDF): void {
+  const conv = (t: unknown) => (typeof t === "string" ? metricText(t) : Array.isArray(t) ? t.map((s) => (typeof s === "string" ? metricText(s) : s)) : t);
+  const text = doc.text.bind(doc);
+  doc.text = ((t: string | string[], ...rest: unknown[]) => (text as (...a: unknown[]) => jsPDF)(conv(t), ...rest)) as typeof doc.text;
+  const split = doc.splitTextToSize.bind(doc);
+  doc.splitTextToSize = ((t: string, ...rest: unknown[]) => (split as (...a: unknown[]) => unknown)(conv(t), ...rest)) as typeof doc.splitTextToSize;
+}
 
 export function pdfText(text: string): string {
   return text
@@ -976,7 +992,7 @@ function renderModules(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
 // 02 Shopping list, 03 Tools & safety
 // ═══════════════════════════════════════════════════════════════════════════
 
-function renderShopping(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
+function renderShopping(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan, metric = false) {
   cur.y = heading(doc, "Shopping list", "Everything you need to buy", cur.y);
   const rowH = 17;
   const hasLinks = plan.shoppingList.some((i) => i.url);
@@ -988,7 +1004,7 @@ function renderShopping(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
     const tx = MARGIN + rowH + 2;
     const qtyW = 34;
     setText(doc, 10, COLORS.ink, "bold");
-    doc.text(pdfText(item.name), tx, cur.y + 7);
+    doc.text(metric ? metricText(pdfText(item.name), { keep: true }) : pdfText(item.name), tx, cur.y + 7);
     setText(doc, 8, COLORS.muted);
     const detail = (doc.splitTextToSize(pdfText(item.detail), CONTENT_W - rowH - qtyW - 8) as string[])[0];
     doc.text(detail, tx, cur.y + 12);
@@ -1576,6 +1592,7 @@ export function generateDIYPDF(input: DIYPDFInput): jsPDF {
   const layout = designLayout(plan.design);
   const multi = plan.moduleCount > 1;
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
+  if (input.units === "metric") metricDoc(doc);
   doc.setProperties({
     title: `${pdfText(plan.name)} — Build Plan`,
     author: "Storage Network",
@@ -1596,7 +1613,7 @@ export function generateDIYPDF(input: DIYPDFInput): jsPDF {
   };
 
   section("01", "Design", () => renderDesign(doc, cur, plan, layout));
-  section("02", "Shopping List", () => renderShopping(doc, cur, plan));
+  section("02", "Shopping List", () => renderShopping(doc, cur, plan, input.units === "metric"));
   section("03", "Tools & Safety", () => renderTools(doc, cur, plan));
   section("04", "Cut List", () => renderCutList(doc, cur, plan));
   sections.push({ num: "05", title: "Build Process", page: cur.page + 1 });

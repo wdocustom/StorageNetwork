@@ -22,6 +22,7 @@ import {
   type RailStyle,
 } from "./assemblySteps";
 import { toFraction } from "@/lib/utils";
+import { useMeasure } from "@/lib/measure-units";
 import {
   ChevronRight,
   ChevronLeft,
@@ -225,6 +226,7 @@ function HoverablePart({
   visible?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
+  const measure = useMeasure();
 
   if (!visible) return <>{children}</>;
 
@@ -261,7 +263,7 @@ function HoverablePart({
               lineHeight: 1.4,
             }}
           >
-            {label}
+            {measure(label)}
           </div>
         </Html>
       )}
@@ -1253,7 +1255,8 @@ function StepCard({
   const isLast = stepIndex === totalSteps - 1;
 
   // Resolve token placeholders in instruction text
-  const resolvedInstruction = resolveTokens(step.instruction, cols, rows, config);
+  const measure = useMeasure();
+  const resolvedInstruction = measure(resolveTokens(step.instruction, cols, rows, config));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -1276,7 +1279,7 @@ function StepCard({
             <ChevronRight className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-90" : "-rotate-90"}`} />
           </button>
         </div>
-        <h3 className={`${expanded ? "text-lg" : "text-base"} font-extrabold text-white`}>{step.title}</h3>
+        <h3 className={`${expanded ? "text-lg" : "text-base"} font-extrabold text-white`}>{measure(step.title)}</h3>
         {!expanded && (
           <button type="button" onClick={onToggleExpanded} className="mt-1 block text-left">
             <span className="line-clamp-2 text-xs leading-snug text-stone-400">{resolvedInstruction}</span>
@@ -1317,11 +1320,11 @@ function StepCard({
                 <span
                   key={i}
                   className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800/80 px-2 py-1 text-[11px] font-medium text-stone-300"
-                  title={tool.detail ? resolveTokens(tool.detail, cols, rows, config) : undefined}
+                  title={tool.detail ? measure(resolveTokens(tool.detail, cols, rows, config)) : undefined}
                 >
-                  {tool.name}
+                  {measure(tool.name)}
                   {tool.detail && (
-                    <span className="text-stone-600">({resolveTokens(tool.detail, cols, rows, config)})</span>
+                    <span className="text-stone-600">({measure(resolveTokens(tool.detail, cols, rows, config))})</span>
                   )}
                 </span>
               ))}
@@ -1337,10 +1340,10 @@ function StepCard({
                 Fastener
               </p>
               <p className="mt-0.5 text-sm font-semibold text-white">
-                {step.screwType.label}
+                {measure(step.screwType.label, { keep: true })}
               </p>
               <p className="text-[11px] text-stone-400">
-                {step.screwType.description}
+                {measure(step.screwType.description)}
               </p>
             </div>
           </div>
@@ -1362,8 +1365,8 @@ function StepCard({
               >
                 <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-white">{m.name}</p>
-                  <p className="text-[10px] text-stone-500">{m.detail}</p>
+                  <p className="text-sm font-medium text-white">{measure(m.name, { keep: true })}</p>
+                  <p className="text-[10px] text-stone-500">{measure(m.detail)}</p>
                 </div>
                 <span className="font-mono text-sm font-bold text-yellow-400">
                   ×{m.qty}
@@ -1384,7 +1387,7 @@ function StepCard({
                     Pro Tip
                   </p>
                   <p className="mt-0.5 text-[11px] leading-relaxed text-stone-400">
-                    {step.proTip}
+                    {measure(step.proTip)}
                   </p>
                 </div>
               </div>
