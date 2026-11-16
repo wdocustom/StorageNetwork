@@ -185,11 +185,12 @@ export async function planDay(input: PlanInput): Promise<PlanResult> {
         schema: SelectionSchema,
         prompt,
         temperature: 0.4,
-        // Gemini 2.5 "thinks" before answering by default. With ~80 places
-        // in the prompt that ran past 20 s on every request (Nov 11), so
-        // every plan fell back to the baseline. Choosing from a list
-        // doesn't need it.
-        providerOptions: { google: { thinkingConfig: { thinkingBudget: 0 } } },
+        // Gemini "thinks" before answering by default. With ~80 places in
+        // the prompt that ran past 20 s on every request (Nov 11), so every
+        // plan fell back to the baseline. Choosing from a list doesn't need
+        // it. Gemini 3.x controls this with thinkingLevel ("minimal" is the
+        // closest to off); the 2.5-era thinkingBudget: 0 doesn't apply.
+        providerOptions: { google: { thinkingConfig: { thinkingLevel: "minimal" } } },
         abortSignal: AbortSignal.timeout(20_000),
       });
       selection = object;

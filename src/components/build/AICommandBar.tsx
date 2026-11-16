@@ -169,10 +169,15 @@ export default function AICommandBar({
           }).then((r) => (r.ok ? r.json() : null)),
         ]);
 
+        // Surface the server's actual error (e.g. "Assistant error: 400 …")
+        // instead of a generic message, so a failure report from an
+        // installer's screenshot tells us what broke.
         const assistantText =
           assistantRes.status === "fulfilled" && assistantRes.value?.text
             ? assistantRes.value.text
-            : "Something went wrong. Try again.";
+            : assistantRes.status === "fulfilled" && assistantRes.value?.error
+              ? `Something went wrong — ${assistantRes.value.error}`
+              : "Something went wrong. Try again.";
 
         // Prefer build-ai structured units; fall back to build-assistant's
         const buildAiUnits: AiResultUnit[] | undefined =
