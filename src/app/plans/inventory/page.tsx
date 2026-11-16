@@ -32,6 +32,7 @@ import EmbeddedCheckoutPanel from "@/components/payments/EmbeddedCheckoutPanel";
 import { SmartInventoryShowcase } from "@/components/plans/SmartInventory";
 import { AddRackSheet, MiniRack } from "@/components/plans/InventoryHubParts";
 import { trackPlanEvent } from "@/lib/plan-events";
+import { readInventoryReturn } from "@/lib/diy-inventory";
 
 type Ready = Extract<DiyInventoryResult, { ok: true }>;
 
@@ -50,6 +51,9 @@ function InventoryHub() {
   const [adding, setAdding] = useState(false);
   const [justAdded, setJustAdded] = useState<string | null>(null);
   const [welcome, setWelcome] = useState(false);
+  // The plan page they came from beats the server's default (My Plans / Dashboard)
+  const [cameFrom, setCameFrom] = useState<{ href: string; label: string } | null>(null);
+  useEffect(() => setCameFrom(readInventoryReturn()), []);
   const started = useRef(false);
 
   const load = useCallback(async () => {
@@ -123,7 +127,7 @@ function InventoryHub() {
   }
 
   const data: Ready = result;
-  const back = data.home;
+  const back = cameFrom ?? data.home;
 
   if (!data.hasAccess) {
     return (

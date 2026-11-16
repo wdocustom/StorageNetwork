@@ -5,6 +5,9 @@ import Image from "next/image";
 import { ChevronLeft, ChevronRight, Info, X } from "lucide-react";
 import type { TotePlanTier } from "@/lib/tote-plans";
 
+/** A plan tier, or the Smart Inventory add-on */
+export type SampleKind = TotePlanTier | "inventory";
+
 // ═══════════════════════════════════════════════════════════════════════════
 // "See a sample" for each plan tier on /plans/checkout: a two-picture
 // snapshot on the card (with an ⓘ badge) that opens a swipeable preview of
@@ -20,7 +23,7 @@ interface Slide {
   video?: string;
 }
 
-const SAMPLES: Record<TotePlanTier, { title: string; slides: Slide[] }> = {
+const SAMPLES: Record<SampleKind, { title: string; slides: Slide[] }> = {
   interactive: {
     title: "Interactive 3D Build Guide",
     slides: [
@@ -45,6 +48,35 @@ const SAMPLES: Record<TotePlanTier, { title: string; slides: Slide[] }> = {
       },
     ],
   },
+  inventory: {
+    title: "Smart Inventory",
+    slides: [
+      {
+        src: "/plan-samples/inventory-rack.jpg",
+        width: 720,
+        height: 1457,
+        caption: "Your rack on your phone: every tote in its spot, and a search that finds any item.",
+      },
+      {
+        src: "/plan-samples/inventory-tote.jpg",
+        width: 720,
+        height: 1203,
+        caption: "Tap a tote: snap a photo and AI lists what's inside, or add items by hand.",
+      },
+      {
+        src: "/plan-samples/inventory-hub.jpg",
+        width: 720,
+        height: 1005,
+        caption: "All your racks in one place. Add the next one when you build it, and print a QR label for each.",
+      },
+      {
+        src: "/plan-samples/inventory-share.jpg",
+        width: 720,
+        height: 1036,
+        caption: "Share a rack's link so everyone in the house can look things up.",
+      },
+    ],
+  },
   pdf: {
     title: "PDF Build Plan",
     slides: [
@@ -65,7 +97,7 @@ const SAMPLES: Record<TotePlanTier, { title: string; slides: Slide[] }> = {
 };
 
 /** Clickable snapshot for a tier card. */
-export function PlanSampleThumb({ tier, onOpen }: { tier: TotePlanTier; onOpen: () => void }) {
+export function PlanSampleThumb({ tier, onOpen }: { tier: SampleKind; onOpen: () => void }) {
   const { title, slides } = SAMPLES[tier];
   return (
     <button
@@ -97,7 +129,7 @@ export function PlanSampleThumb({ tier, onOpen }: { tier: TotePlanTier; onOpen: 
 }
 
 /** Full-screen, swipeable preview of a tier's sample pictures. */
-export function PlanSampleLightbox({ tier, onClose }: { tier: TotePlanTier; onClose: () => void }) {
+export function PlanSampleLightbox({ tier, onClose }: { tier: SampleKind; onClose: () => void }) {
   const { title, slides } = SAMPLES[tier];
   const [index, setIndex] = useState(0);
   const track = useRef<HTMLDivElement>(null);
@@ -128,7 +160,7 @@ export function PlanSampleLightbox({ tier, onClose }: { tier: TotePlanTier; onCl
       role="dialog"
       aria-modal="true"
       aria-label={`${title} sample`}
-      className="fixed inset-0 z-50 flex flex-col bg-slate-950/95 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex flex-col bg-slate-950/95 backdrop-blur-sm"
       onClick={onClose}
     >
       <div className="flex items-center gap-3 px-4 pb-2 pt-4" onClick={(e) => e.stopPropagation()}>
