@@ -45,7 +45,7 @@ import { BuildForALiving } from "@/components/plans/AllAccessOffer";
 import SaveToHomeScreen from "@/components/plans/SaveToHomeScreen";
 import { SmartInventoryCta } from "@/components/plans/SmartInventory";
 import { metaTrack } from "@/lib/meta-pixel";
-import { readOffer } from "@/lib/plan-offer";
+import { forgetPromo, readOffer, readPromo } from "@/lib/plan-offer";
 import { LADDER_JIG_OWNER_PRICE } from "@/lib/ladder-jig";
 import {
   openTotePlan,
@@ -54,7 +54,8 @@ import {
 } from "@/app/actions/tote-plan-access";
 import {
   TOTE_PLAN_ALL_ACCESS,
-  TOTE_PLAN_EXIT_OFFER,
+  TOTE_PLAN_FRIDAY,
+  totePlanOfferPrice,
   designFromSearchParams,
   formatPlanPrice,
   planSnapshotKey,
@@ -595,8 +596,11 @@ function BuildPlanInner() {
       if (!res.ok) return;
       // First open straight from checkout (the access email just went out): a sale.
       if (sessionId && res.emailSentTo && res.access === "purchase") {
-        const offer = readOffer();
-        metaTrack("Purchase", { currency: "USD", value: offer ? TOTE_PLAN_EXIT_OFFER.price / 100 : TOTE_PLAN_ALL_ACCESS.price / 100 });
+        // What they paid: the promo code if one was applied, else the retention offer.
+        const promo = readPromo();
+        const cents = promo ? TOTE_PLAN_FRIDAY.price : totePlanOfferPrice(readOffer()?.code);
+        metaTrack("Purchase", { currency: "USD", value: cents / 100 });
+        forgetPromo();
       }
       if (wantsGuide && res.tier === "interactive") {
         guideVia.current = "link";

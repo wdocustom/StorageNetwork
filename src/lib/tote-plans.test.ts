@@ -359,13 +359,29 @@ describe("casters", () => {
 });
 
 
-describe("exit offer pricing", () => {
-  it("prices only the real offer code at $14; anything else pays $19", async () => {
+describe("offer pricing", () => {
+  it("prices the $3 retention offer at $16, old $5 links at $14; anything else pays $19", async () => {
     const { totePlanOfferPrice, TOTE_PLAN_EXIT_OFFER, TOTE_PLAN_ALL_ACCESS } = await import("./tote-plans");
-    expect(totePlanOfferPrice(TOTE_PLAN_EXIT_OFFER.code)).toBe(1400);
+    expect(TOTE_PLAN_EXIT_OFFER.code).toBe("save3");
+    expect(totePlanOfferPrice("save3")).toBe(1600);
+    expect(totePlanOfferPrice("save5")).toBe(1400); // links already sent keep their $5 off
     expect(totePlanOfferPrice("SAVE5")).toBe(TOTE_PLAN_ALL_ACCESS.price);
+    expect(totePlanOfferPrice("friday")).toBe(TOTE_PLAN_ALL_ACCESS.price); // promo codes are priced after the email check
+    expect(totePlanOfferPrice("toString")).toBe(TOTE_PLAN_ALL_ACCESS.price);
     expect(totePlanOfferPrice("free")).toBe(TOTE_PLAN_ALL_ACCESS.price);
     expect(totePlanOfferPrice(undefined)).toBe(TOTE_PLAN_ALL_ACCESS.price);
     expect(totePlanOfferPrice(1400)).toBe(TOTE_PLAN_ALL_ACCESS.price);
+  });
+
+  it("knows retention codes and normalizes promo codes", async () => {
+    const { isRetentionOffer, normalizePromoCode, offerOffLabel } = await import("./tote-plans");
+    expect(isRetentionOffer("save3")).toBe(true);
+    expect(isRetentionOffer("save5")).toBe(true);
+    expect(isRetentionOffer("friday")).toBe(false);
+    expect(isRetentionOffer("constructor")).toBe(false);
+    expect(normalizePromoCode("  Friday ")).toBe("friday");
+    expect(normalizePromoCode(5)).toBe("");
+    expect(offerOffLabel(1600)).toBe("$3 off");
+    expect(offerOffLabel(1400)).toBe("$5 off");
   });
 });

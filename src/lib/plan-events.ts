@@ -32,8 +32,8 @@ export const PLAN_EVENTS = {
   wallet_fallback: "Needed the manual open-in-browser steps",
   autopay: "Arrived in Safari / Chrome to pay",
   build_for_me: "Opened “have a pro build it”",
-  exit_offer_shown: "Saw the $5-off offer",
-  exit_offer_buy: "Tapped buy on the $5-off offer",
+  exit_offer_shown: "Saw the retention offer ($3 off)",
+  exit_offer_buy: "Tapped buy on the retention offer",
   exit_offer_email: "Emailed themselves their design",
   exit_offer_dismiss: "Said no thanks to the offer",
   email_design: "Emailed their design to themselves (under the price)",
@@ -44,6 +44,8 @@ export const PLAN_EVENTS = {
   save_home: "Buyer tapped save to home screen / bookmark",
   save_home_added: "Buyer added plans to home screen",
   units: "Switched inches / millimetres",
+  promo_applied: "Applied a promo code (FRIDAY)",
+  promo_rejected: "Entered a promo code that didn't apply",
 } as const;
 
 export type PlanEvent = keyof typeof PLAN_EVENTS;

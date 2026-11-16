@@ -1,7 +1,7 @@
 "use client";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// "Wait — take $5 off" — shown once to a designer visitor who is leaving
+// "Wait — take $3 off" — shown once to a designer visitor who is leaving
 // (closed the payment form, hesitated at the price, or came back from
 // another app). Buy at the offer price now, or have the design emailed with
 // the offer so we can follow up. The parent decides when to open it.
@@ -15,6 +15,7 @@ export default function ExitOffer({
   designName,
   price,
   wasPrice,
+  off,
   wallet,
   buying,
   onBuy,
@@ -24,6 +25,8 @@ export default function ExitOffer({
   designName: string;
   price: string;
   wasPrice: string;
+  /** "$3 off" */
+  off: string;
   /** In Facebook / Instagram: the Apple / Google Pay escape, shown first */
   wallet?: React.ReactNode;
   buying: boolean;
@@ -61,7 +64,7 @@ export default function ExitOffer({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="$5 off your plans"
+      aria-label={`${off} your plans`}
       className="fixed inset-0 z-[90] flex items-end justify-center bg-black/75 backdrop-blur-sm sm:items-center sm:p-6"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
@@ -77,7 +80,7 @@ export default function ExitOffer({
         </button>
 
         <p className="text-xs font-black uppercase tracking-widest text-yellow-400">Wait — before you go</p>
-        <h2 className="mt-1 text-2xl font-black leading-tight text-white">Take $5 off your plans</h2>
+        <h2 className="mt-1 text-2xl font-black leading-tight text-white">Take {off} your plans</h2>
         <p className="mt-1 text-sm text-stone-400">For your {designName}, and every rack you design after it.</p>
 
         <div className="mt-4 flex items-baseline gap-3">

@@ -102,6 +102,8 @@ export async function fulfilPlanSession(session: Stripe.Checkout.Session): Promi
             email_sent: false,
             referred_by_promoter_id: metadata.promoter_id || null,
             promoter_referral_code_snapshot: metadata.promoter_referral_code || null,
+            // Retention offer or promo code it was bought with (FRIDAY is once per email).
+            offer_code: metadata.offer ? metadata.offer.slice(0, 40) : null,
             purchased_at: purchasedAt,
           }
         : { email, plan_id: LADDER_JIG_PLAN_ID, stripe_session_id: session.id, email_sent: false, purchased_at: purchasedAt },
