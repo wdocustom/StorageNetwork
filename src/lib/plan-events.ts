@@ -43,6 +43,7 @@ export const PLAN_EVENTS = {
   inventory_rack_added: "Buyer added a rack to Smart Inventory",
   save_home: "Buyer tapped save to home screen / bookmark",
   save_home_added: "Buyer added plans to home screen",
+  units: "Switched inches / millimetres",
 } as const;
 
 export type PlanEvent = keyof typeof PLAN_EVENTS;

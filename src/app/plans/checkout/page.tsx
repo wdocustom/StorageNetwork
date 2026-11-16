@@ -21,8 +21,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { Crown, Layers, Loader2, Plus, Ruler, Trash2 } from "lucide-react";
 import { createDIYPlanCheckout, checkDIYPlanAccess } from "@/app/actions/diy-plan-checkout";
-import { toFraction } from "@/lib/utils";
 import SystemMap from "@/components/plans/SystemMap";
+import UnitsToggle from "@/components/plans/UnitsToggle";
+import { formatLengthIn, useUnits } from "@/lib/measure-units";
 import { Segmented, Stepper } from "@/components/designer/controls";
 import PlanRack3D from "@/components/plans/PlanRack3D";
 import MaterialCostCard from "@/components/plans/MaterialCostCard";
@@ -301,6 +302,7 @@ function PlansDesigner() {
 
   const size = useMemo(() => designOuterSize(design), [design]);
   const moduleCount = useMemo(() => designModules(design).modules.length, [design]);
+  const units = useUnits();
   const hasFree = freeAccess?.hasFreeAccess === true;
   const note = moduleNote(unit);
 
@@ -474,10 +476,13 @@ function PlansDesigner() {
           <div className="relative h-64 bg-white sm:h-80">
             {/* Every unit, built the way the plan builds it: 2×4 ripped rails, stacked tiers */}
             <PlanRack3D design={design} />
-            <div className="pointer-events-none absolute left-3 top-3 rounded-lg bg-slate-900/85 px-3 py-1.5 backdrop-blur">
-              <p className="font-mono text-[11px] text-stone-300">
-                {toFraction(size.widthIn)}&quot; W × {toFraction(size.heightIn)}&quot; H × {toFraction(size.depthIn)}&quot; D
-              </p>
+            <div className="absolute left-3 top-3 flex flex-col items-start gap-1.5">
+              <div className="pointer-events-none rounded-lg bg-slate-900/85 px-3 py-1.5 backdrop-blur">
+                <p className="font-mono text-[11px] text-stone-300">
+                  {formatLengthIn(size.widthIn, units)} W × {formatLengthIn(size.heightIn, units)} H × {formatLengthIn(size.depthIn, units)} D
+                </p>
+              </div>
+              <UnitsToggle />
             </div>
             <div className="absolute right-3 top-3">
               <BestsellersButton

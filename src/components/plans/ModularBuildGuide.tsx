@@ -20,7 +20,8 @@ import { ChevronLeft, ChevronRight, Home, Lightbulb, Wrench, X } from "lucide-re
 import AssemblyGuide from "@/components/visualizer/AssemblyGuide";
 import SystemMap from "@/components/plans/SystemMap";
 import type { CompleteDIYPlan, PlanModuleTypeBuild, PlanUnit } from "@/app/actions/generate-plan";
-import { toFraction } from "@/lib/utils";
+import UnitsToggle from "@/components/plans/UnitsToggle";
+import { formatLengthIn, useMeasure, useUnits } from "@/lib/measure-units";
 import { moduleTypeTitle } from "@/lib/tote-plans";
 
 type Section = { kind: "module"; type: PlanModuleTypeBuild } | { kind: "unit"; unit: PlanUnit };
@@ -35,7 +36,7 @@ export interface GuideLinks {
 /** Home + ladder jig, always reachable from inside the guide. */
 function GuideToolbar({ links }: { links: GuideLinks }) {
   return (
-    <div className="flex gap-1.5">
+    <div className="flex flex-wrap items-center gap-1.5">
       <Link
         href={links.homeHref}
         className="flex items-center gap-1.5 rounded-lg bg-slate-900/95 px-2.5 py-1.5 text-[11px] font-bold text-stone-200 shadow-lg backdrop-blur transition hover:text-yellow-300"
@@ -52,6 +53,7 @@ function GuideToolbar({ links }: { links: GuideLinks }) {
           {links.jig.owned ? "My ladder jig" : "Ladder jig · $5"}
         </Link>
       )}
+      <UnitsToggle className="shadow-lg" />
     </div>
   );
 }
@@ -151,6 +153,8 @@ function UnitAssembly({
   onClose?: () => void;
   links: GuideLinks;
 }) {
+  const units = useUnits();
+  const measure = useMeasure();
   return (
     <div className="h-full w-full overflow-y-auto bg-slate-950">
       <div className="mx-auto max-w-2xl px-4 pb-10 pt-5">
@@ -167,8 +171,8 @@ function UnitAssembly({
               Assemble Unit {unit.letter} <span className="text-stone-400">({unit.label})</span>
             </h2>
             <p className="text-xs text-stone-400">
-              Modules {unit.modules.map((m) => m.name).join(" + ")} · {toFraction(unit.widthIn)}&quot; W ×{" "}
-              {toFraction(unit.heightIn)}&quot; H × {unit.sideways ? 20 : 30}&quot; D
+              Modules {unit.modules.map((m) => m.name).join(" + ")} · {formatLengthIn(unit.widthIn, units)} W ×{" "}
+              {formatLengthIn(unit.heightIn, units)} H × {formatLengthIn(unit.sideways ? 20 : 30, units)} D
             </p>
           </div>
           {onClose && (
@@ -200,15 +204,15 @@ function UnitAssembly({
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-yellow-400 text-xs font-black text-gray-950">
                   {step.stepNumber}
                 </span>
-                <h3 className="text-sm font-bold text-white">{step.title}</h3>
+                <h3 className="text-sm font-bold text-white">{measure(step.title)}</h3>
               </div>
-              <p className="mb-3 text-sm leading-relaxed text-stone-300">{step.instruction}</p>
+              <p className="mb-3 text-sm leading-relaxed text-stone-300">{measure(step.instruction)}</p>
               {step.materials.length > 0 && (
                 <ul className="mb-3 space-y-1 rounded-xl bg-slate-800/60 p-3">
                   {step.materials.map((m) => (
                     <li key={m.name} className="text-xs text-stone-300">
-                      <span className="font-mono font-bold text-yellow-400">{m.qty}</span> × {m.name}
-                      {m.detail && <span className="text-stone-500"> — {m.detail}</span>}
+                      <span className="font-mono font-bold text-yellow-400">{m.qty}</span> × {measure(m.name, { keep: true })}
+                      {m.detail && <span className="text-stone-500"> — {measure(m.detail)}</span>}
                     </li>
                   ))}
                 </ul>
@@ -217,14 +221,14 @@ function UnitAssembly({
                 <Wrench className="h-3.5 w-3.5 text-stone-500" />
                 {step.tools.map((t) => (
                   <span key={t.name} className="rounded-full bg-slate-800 px-2.5 py-1 text-[10px] text-stone-300">
-                    {t.name}
+                    {measure(t.name)}
                   </span>
                 ))}
               </div>
               {step.proTip && (
                 <div className="mt-3 flex gap-2 rounded-xl bg-yellow-400/10 p-3">
                   <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-yellow-400" />
-                  <p className="text-xs italic text-yellow-100/90">{step.proTip}</p>
+                  <p className="text-xs italic text-yellow-100/90">{measure(step.proTip)}</p>
                 </div>
               )}
             </li>

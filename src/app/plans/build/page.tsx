@@ -65,6 +65,8 @@ import SystemMap from "@/components/plans/SystemMap";
 import { CONTACT_EMAIL, libraryHref } from "@/lib/plan-library";
 import { AFFILIATE_DISCLOSURE } from "@/lib/plan-product-links";
 import DeviceVerify from "@/components/plans/DeviceVerify";
+import UnitsToggle from "@/components/plans/UnitsToggle";
+import { currentUnits, useMeasure } from "@/lib/measure-units";
 
 const ModularBuildGuide = dynamic(() => import("@/components/plans/ModularBuildGuide"), {
   ssr: false,
@@ -187,6 +189,7 @@ function PdfCard({ data }: { data: Ready }) {
           designedFor: data.firstName,
           logoDataUrl,
           links,
+          units: currentUnits(),
         });
         setState({ phase: "done" });
       } catch (err) {
@@ -421,6 +424,7 @@ function Checklists({ data }: { data: Ready }) {
   const shop = useChecked(`sn_plan_shop:${planKey}`);
   const kit = useChecked(`sn_plan_tools:${planKey}`);
   const itemId = (item: (typeof items)[number]) => `${item.name}|${item.detail}`;
+  const m = useMeasure();
   const shopDone = items.filter((i) => shop.checked.has(itemId(i))).length;
   const toolsDone = tools.filter((t) => kit.checked.has(t)).length;
 
@@ -451,8 +455,8 @@ function Checklists({ data }: { data: Ready }) {
                     {item.qty}
                   </span>
                   <span className={`min-w-0 flex-1 pt-0.5 transition ${on ? "line-through decoration-stone-500" : ""}`}>
-                    <span className={`font-semibold ${on ? "text-stone-500" : "text-stone-200"}`}>{item.name}</span>
-                    <span className={`block ${on ? "text-stone-600" : "text-stone-500"}`}>{item.detail}</span>
+                    <span className={`font-semibold ${on ? "text-stone-500" : "text-stone-200"}`}>{m(item.name, { keep: true })}</span>
+                    <span className={`block ${on ? "text-stone-600" : "text-stone-500"}`}>{m(item.detail)}</span>
                   </span>
                 </button>
                 {item.url && (
@@ -500,7 +504,7 @@ function Checklists({ data }: { data: Ready }) {
                 >
                   <CheckBox on={on} />
                   <span className={`pt-0.5 transition ${on ? "text-stone-600 line-through decoration-stone-500" : "text-stone-200"}`}>
-                    {tool}
+                    {m(tool)}
                   </span>
                 </button>
               </li>
@@ -519,6 +523,7 @@ function BuildPlanInner() {
   const router = useRouter();
   const [result, setResult] = useState<OpenTotePlanResult | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
+  const measure = useMeasure();
   const started = useRef(false);
   /** What to re-open with after the device is verified (keeps an upgrade session). */
   const reopenRef = useRef<OpenTotePlanInput | null>(null);
@@ -665,7 +670,10 @@ function BuildPlanInner() {
         {result.access === "purchase" && result.token && <SaveToHomeScreen token={result.token} />}
 
         <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <p className="text-xs text-stone-400">{plan.summary}</p>
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-xs text-stone-400">{measure(plan.summary)}</p>
+            <UnitsToggle className="shrink-0" />
+          </div>
           {plan.moduleCount > 1 && (
             <div className="mt-4 rounded-xl bg-slate-950/60 p-3">
               <SystemMap design={plan.design} dimensions className="h-36 w-full sm:h-44" />
@@ -686,7 +694,7 @@ function BuildPlanInner() {
             ].map(([label, value]) => (
               <div key={label} className="rounded-xl bg-slate-800/60 px-3 py-2.5 text-center">
                 <div className="text-[10px] uppercase tracking-wider text-stone-500">{label}</div>
-                <div className="font-mono text-sm font-bold text-white">{value}</div>
+                <div className="font-mono text-sm font-bold text-white">{measure(value)}</div>
               </div>
             ))}
           </div>
