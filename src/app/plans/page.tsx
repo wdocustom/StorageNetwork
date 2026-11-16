@@ -30,6 +30,7 @@ import {
 } from "@/lib/schema/plans";
 import { ResendLinkPanel } from "@/components/plans/PlansStorefront";
 import GiftSection from "@/components/plans/GiftSection";
+import { GIFT_FLAT_EACH, GIFT_FLAT_FROM, giftPriceLabel, giftTotalCents } from "@/lib/plan-gifts";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DIY PLANS STOREFRONT — /plans
@@ -277,8 +278,12 @@ export default async function PlansPage() {
           <h2 className={h2}>Know someone with a garage full of piles?</h2>
           <p className="mt-3 text-[15px] leading-relaxed text-stone-400">
             Send All-Access plans to one person or a whole crew. Each gets their own email, their own link and lifetime
-            access: every rack they design, the 3D guide and the printable PDF. {PLANS_PRICES.allAccess} each, up to 10
-            people per order.
+            access: every rack they design, the 3D guide and the printable PDF.
+          </p>
+          <p className="mt-3 text-[15px] leading-relaxed text-stone-300">
+            <span className="font-bold text-emerald-300">Volume discounts:</span> {PLANS_PRICES.allAccess} for one, 3 for{" "}
+            {giftPriceLabel(giftTotalCents(3))}, 5 for {giftPriceLabel(giftTotalCents(5))}, 7 for{" "}
+            {giftPriceLabel(giftTotalCents(7))}, and {GIFT_FLAT_FROM}+ at just {giftPriceLabel(GIFT_FLAT_EACH)} each.
           </p>
         </GiftSection>
 

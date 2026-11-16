@@ -9,6 +9,7 @@ import {
   giftManagePath,
   giftOpenPath,
   giftOrderRef,
+  giftListCents,
   giftPriceLabel,
 } from "@/lib/plan-gifts";
 
@@ -152,6 +153,7 @@ export function giftReceiptEmailContent(p: GiftReceiptEmail): { subject: string;
   const count = p.recipients.length;
   const failed = p.recipients.filter((r) => !r.sent).length;
   const plural = count === 1 ? "gift" : "gifts";
+  const listCents = giftListCents(count);
 
   const rows = p.recipients
     .map(
@@ -187,7 +189,11 @@ export function giftReceiptEmailContent(p: GiftReceiptEmail): { subject: string;
     <div style="background:#111;border-radius:12px;padding:24px;margin-bottom:20px;border:1px solid #222;">
       <p style="margin:0 0 6px;color:#facc15;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">Thank you, ${escapeHtml(firstNameOf(p.gifterName) || p.gifterName)}</p>
       <h2 style="margin:0 0 4px;color:#fff;font-size:20px;font-weight:800;">${failed ? `${count} DIY plan ${plural}` : `${count} DIY plan ${plural} sent`}</h2>
-      <p style="margin:0 0 14px;color:#888;font-size:12px;">Order ${giftOrderRef(p.orderId)} &middot; ${giftPriceLabel(p.amountCents)} paid</p>
+      <p style="margin:0 0 14px;color:#888;font-size:12px;">Order ${giftOrderRef(p.orderId)} &middot; ${
+        listCents > p.amountCents
+          ? `<span style="text-decoration:line-through;color:#666;">${giftPriceLabel(listCents)}</span> ${giftPriceLabel(p.amountCents)} paid &middot; <span style="color:#6ee7b7;">volume discount, you saved ${giftPriceLabel(listCents - p.amountCents)}</span>`
+          : `${giftPriceLabel(p.amountCents)} paid`
+      }</p>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows}</table>
     </div>
 

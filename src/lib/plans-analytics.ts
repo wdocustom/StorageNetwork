@@ -12,6 +12,7 @@
 // ladder jig is priced from whether the buyer owned a tote plan (owner price).
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { giftTotalCents } from "@/lib/plan-gifts";
 import {
   TOTE_PLAN_ALL_ACCESS,
   TOTE_PLAN_ALL_ACCESS_SINCE,
@@ -317,12 +318,26 @@ export function summarizePlansAnalytics(
   const planMap = new Map<string, { purchases: number; revenue: number }>();
   let revenue = 0;
   const paid = new Map(checkoutStarts.map((c) => [c.stripe_session_id, c.amount_cents]));
+  // Gift orders are one charge split across their recipients' rows (volume
+  // pricing: 7 for $85 is $12.14 a gift, not $19).
+  const giftsPerSession = new Map<string, number>();
+  for (const p of purchases) {
+    if (!p.stripe_session_id?.includes(GIFT_SESSION_SUFFIX)) continue;
+    const base = checkoutSessionOf(p.stripe_session_id)!;
+    giftsPerSession.set(base, (giftsPerSession.get(base) ?? 0) + 1);
+  }
+  const giftShare = (p: PlansPurchaseRow): number => {
+    const base = checkoutSessionOf(p.stripe_session_id)!;
+    const n = giftsPerSession.get(base) ?? 1;
+    const charged = paid.get(base) ?? giftTotalCents(n);
+    return charged / n;
+  };
   for (const p of purchases) {
     const day = p.purchased_at.slice(0, 10);
     dayPurchases.set(day, (dayPurchases.get(day) ?? 0) + 1);
     const gift = !!p.stripe_session_id?.includes(GIFT_SESSION_SUFFIX);
     const label = planLabel({ ...p, upgraded_at: null, tier: p.upgraded_at ? "pdf" : p.tier }) + (gift ? " (gift)" : "");
-    const price = purchasePrice(p, toteOwners, paid);
+    const price = gift ? giftShare(p) : purchasePrice(p, toteOwners, paid);
     const entry = planMap.get(label) ?? { purchases: 0, revenue: 0 };
     entry.purchases++;
     entry.revenue += price;
@@ -360,7 +375,8 @@ export function summarizePlansAnalytics(
       storefrontVisitors: storefront.size,
       designerVisitors: designer.size,
       purchases: purchases.length,
-      revenue,
+      // Whole cents: gift shares (e.g. $85 / 7) are fractional.
+      revenue: Math.round(revenue),
       designerConversion: pct(toteBuyers, designer.size),
       splitsPaid: splits.filter((s) => s.status === "paid").reduce((n, s) => n + s.amount_cents, 0),
       checkoutVisitors: checkoutWho.size,
@@ -387,7 +403,7 @@ export function summarizePlansAnalytics(
       .map(([source, visitors]) => ({ source, visitors }))
       .sort((a, b) => b.visitors - a.visitors),
     byPlan: [...planMap.entries()]
-      .map(([plan, d]) => ({ plan, ...d }))
+      .map(([plan, d]) => ({ plan, ...d, revenue: Math.round(d.revenue) }))
       .sort((a, b) => b.revenue - a.revenue),
     recentPurchases: [...purchases]
       .sort((a, b) => b.purchased_at.localeCompare(a.purchased_at))

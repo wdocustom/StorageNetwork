@@ -11,7 +11,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { AlertCircle, ArrowRight, Check, Gift, Loader2, Lock, Mail, Minus, Plus, UserPlus, X } from "lucide-react";
+import { AlertCircle, ArrowRight, Check, Gift, Loader2, Lock, Mail, Minus, Plus, Sparkles, Tag, UserPlus, X } from "lucide-react";
 import EmbeddedCheckoutPanel from "@/components/payments/EmbeddedCheckoutPanel";
 import { createGiftCheckout } from "@/app/actions/plan-gifts";
 import {
@@ -19,9 +19,17 @@ import {
   GIFT_MESSAGE_MAX,
   GIFT_NAME_MAX,
   GIFT_SENDER_ADDRESS,
+  GIFT_FEATURED_BUNDLES,
+  GIFT_FLAT_EACH,
+  GIFT_FLAT_FROM,
   GIFT_UNIT_PRICE,
+  giftDealName,
+  giftEachLabel,
+  giftListCents,
   giftPriceLabel,
+  giftSavingsCents,
   giftTotalCents,
+  nextGiftDeal,
   normalizeEmail,
   parseGiftOrder,
   suggestEmailFix,
@@ -92,6 +100,108 @@ function FieldError({ id, text }: { id: string; text?: string }) {
   );
 }
 
+// ── Volume pricing strip ─────────────────────────────────────────────────────
+
+interface Tier {
+  /** Quantity a tap sets */
+  qty: number;
+  /** Highest quantity this tile covers (inclusive) */
+  upTo: number;
+  label: string;
+  price: string;
+  list: string | null;
+  each: string;
+}
+
+const TIERS: Tier[] = (() => {
+  const featured = [...GIFT_FEATURED_BUNDLES];
+  const tiers: Tier[] = [
+    {
+      qty: 1,
+      upTo: featured[0] - 1,
+      label: `1–${featured[0] - 1}`,
+      price: giftPriceLabel(GIFT_UNIT_PRICE),
+      list: null,
+      each: "each",
+    },
+  ];
+  featured.forEach((q, i) => {
+    tiers.push({
+      qty: q,
+      upTo: (featured[i + 1] ?? GIFT_FLAT_FROM) - 1,
+      label: `${q} for`,
+      price: giftPriceLabel(giftTotalCents(q)),
+      list: giftPriceLabel(giftListCents(q)),
+      each: `${giftEachLabel(q)} ea`,
+    });
+  });
+  tiers.push({
+    qty: GIFT_FLAT_FROM,
+    upTo: Infinity,
+    label: `${GIFT_FLAT_FROM}+`,
+    price: giftPriceLabel(GIFT_FLAT_EACH),
+    list: giftPriceLabel(GIFT_UNIT_PRICE),
+    each: "each",
+  });
+  return tiers;
+})();
+
+function VolumePricing({
+  quantity,
+  minQuantity,
+  onPick,
+}: {
+  quantity: number;
+  /** People already filled in: a tile below this would drop them, so it's off */
+  minQuantity: number;
+  onPick: (q: number) => void;
+}) {
+  return (
+    <section aria-labelledby="gift-volume" className="rounded-2xl border border-emerald-400/25 bg-emerald-400/[0.05] p-4">
+      <div className="flex items-start gap-2.5">
+        <Tag className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" aria-hidden />
+        <div>
+          <h2 id="gift-volume" className="text-[15px] font-extrabold text-white">
+            Volume discounts: send more, pay less
+          </h2>
+          <p className="mt-0.5 text-sm text-stone-400">
+            Bundles start at 3 gifts. {GIFT_FLAT_FROM} or more are just {giftPriceLabel(GIFT_FLAT_EACH)} each.
+          </p>
+        </div>
+      </div>
+      <ul className="mt-4 grid grid-cols-5 gap-1.5" aria-label="Price per order size">
+        {TIERS.map((t) => {
+          const active = quantity >= t.qty && quantity <= t.upTo;
+          const blocked = t.upTo < minQuantity;
+          return (
+            <li key={t.label}>
+              <button
+                type="button"
+                onClick={() => onPick(Math.max(t.qty, Math.min(minQuantity, t.upTo)))}
+                disabled={blocked}
+                aria-pressed={active}
+                aria-label={`${t.label.replace("for", "gifts for")} ${t.price}${t.list ? `, regularly ${t.list}` : ""}`}
+                className={`flex h-full w-full flex-col items-center rounded-xl border px-1 py-2.5 text-center transition disabled:cursor-not-allowed disabled:opacity-35 ${
+                  active
+                    ? "border-emerald-400 bg-emerald-400/15 ring-1 ring-emerald-400/40"
+                    : "border-slate-700/80 bg-slate-900/80 hover:border-slate-500"
+                }`}
+              >
+                <span className={`text-[11px] font-bold leading-none ${active ? "text-emerald-300" : "text-stone-400"}`}>{t.label}</span>
+                <span className="mt-1.5 text-[17px] font-extrabold leading-none tabular-nums text-white">{t.price}</span>
+                <span className="mt-1 h-3.5 text-[11px] leading-none tabular-nums text-stone-500 line-through decoration-stone-500/80">
+                  {t.list ?? ""}
+                </span>
+                <span className={`mt-0.5 text-[10px] leading-none ${t.list ? "text-emerald-300/90" : "text-stone-500"}`}>{t.each}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 export default function GiftPlansForm() {
   const uid = useId();
   // Fixed key for the server-rendered card (a random one wouldn't hydrate);
@@ -132,6 +242,12 @@ export default function GiftPlansForm() {
 
   const quantity = rows.length;
   const total = giftTotalCents(quantity);
+  const listTotal = giftListCents(quantity);
+  const savings = giftSavingsCents(quantity);
+  const deal = giftDealName(quantity);
+  const nextDeal = nextGiftDeal(quantity);
+  // People with anything typed in: picking a smaller tier never drops them.
+  const filled = rows.filter((r) => r.name.trim() || r.email.trim()).length;
   const order = useMemo(
     () => ({
       gifterName,
@@ -225,6 +341,8 @@ export default function GiftPlansForm() {
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} noValidate className="space-y-12">
+      <VolumePricing quantity={quantity} minQuantity={filled} onPick={setQuantity} />
+
       {/* ── 1. Who's it for ─────────────────────────────────────── */}
       <section aria-labelledby={`${uid}-who`}>
         <div className="flex items-center justify-between gap-4">
@@ -256,7 +374,7 @@ export default function GiftPlansForm() {
           </div>
         </div>
         <p className="mt-2 text-[15px] text-stone-400">
-          Each person gets their own email and their own lifetime access. {giftPriceLabel(GIFT_UNIT_PRICE)} each.
+          Each person gets their own email and their own lifetime access.
         </p>
         <FieldError id={`${uid}-recipients`} text={errors.recipients} />
 
@@ -354,6 +472,25 @@ export default function GiftPlansForm() {
           <p className="mt-3 text-center text-sm text-stone-500">
             That&apos;s the most per order ({GIFT_MAX_RECIPIENTS}). Need more? Place a second order.
           </p>
+        )}
+
+        {nextDeal && (
+          <button
+            type="button"
+            onClick={() => setQuantity(nextDeal.quantity)}
+            className="mt-3 flex w-full items-center gap-2.5 rounded-2xl bg-emerald-400/10 px-4 py-3 text-left text-sm text-emerald-200 transition hover:bg-emerald-400/15"
+          >
+            <Sparkles className="h-4 w-4 shrink-0 text-emerald-300" aria-hidden />
+            <span>
+              Add {nextDeal.add} more {nextDeal.add === 1 ? "person" : "people"} and it&apos;s{" "}
+              <strong className="text-white">
+                {nextDeal.quantity >= GIFT_FLAT_FROM
+                  ? `${giftPriceLabel(GIFT_FLAT_EACH)} each`
+                  : `${nextDeal.quantity} for ${giftPriceLabel(nextDeal.total)}`}
+              </strong>{" "}
+              <span className="text-emerald-300/80">({giftPriceLabel(nextDeal.eachCents)} each)</span>
+            </span>
+          </button>
         )}
       </section>
 
@@ -515,15 +652,31 @@ export default function GiftPlansForm() {
       {/* ── Summary + pay ───────────────────────────────────────── */}
       <section aria-label="Order summary" className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
         <div className="flex items-start justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <p className="flex items-center gap-2 font-bold text-white">
-              <Gift className="h-4 w-4 text-yellow-400" aria-hidden /> All-Access plans, gifted
+              <Gift className="h-4 w-4 shrink-0 text-yellow-400" aria-hidden /> All-Access plans, gifted
             </p>
             <p className="mt-0.5 text-sm text-stone-400">
-              {quantity} × {giftPriceLabel(GIFT_UNIT_PRICE)} · lifetime access for each person
+              {quantity} {quantity === 1 ? "person" : "people"} × {giftEachLabel(quantity)} each · lifetime access
             </p>
+            {deal && (
+              <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-400/15 px-2.5 py-1 text-xs font-bold text-emerald-300">
+                <Tag className="h-3.5 w-3.5" aria-hidden /> {deal}
+              </p>
+            )}
           </div>
-          <p className="text-2xl font-extrabold tabular-nums text-white">{giftPriceLabel(total)}</p>
+          <div className="shrink-0 text-right">
+            {savings > 0 && (
+              <p className="text-sm tabular-nums text-stone-500 line-through decoration-stone-500/80">
+                <span className="sr-only">Regular price </span>
+                {giftPriceLabel(listTotal)}
+              </p>
+            )}
+            <p className="text-2xl font-extrabold tabular-nums text-white">{giftPriceLabel(total)}</p>
+            {savings > 0 && (
+              <p className="mt-0.5 text-xs font-bold text-emerald-300">You save {giftPriceLabel(savings)}</p>
+            )}
+          </div>
         </div>
 
         {formError && (

@@ -127,6 +127,26 @@ describe("summarizePlansAnalytics", () => {
     expect(r.kpis.abandonedValue).toBe(2400 + 1400);
     expect(r.kpis.openCheckouts).toBe(1);
   });
+
+  it("splits a gift order's volume price across its recipients, and counts the checkout as paid", () => {
+    const now = Date.parse("2026-11-20T12:00:00Z");
+    const starts: PlansCheckoutStartRow[] = [
+      { stripe_session_id: "cs_gift", plan_id: "tote-organizer", tier: "interactive", amount_cents: 8500, visitor_id: "v9", created_at: "2026-11-17T10:00:00Z" },
+    ];
+    const purchases = Array.from({ length: 7 }, (_, i) => ({
+      plan_id: "tote-organizer",
+      tier: "interactive",
+      email: `p${i}@x.com`,
+      purchased_at: "2026-11-17T10:02:00Z",
+      upgraded_at: null,
+      stripe_session_id: `cs_gift__gift_${i + 1}`,
+    }));
+    const r = summarizePlansAnalytics([], purchases, [], [], new Set(), starts, now);
+    expect(r.kpis.revenue).toBe(8500);
+    const row = r.byPlan.find((p) => p.plan.endsWith("(gift)"));
+    expect(row).toMatchObject({ purchases: 7, revenue: 8500 });
+    expect(r.kpis.abandonedCheckouts).toBe(0);
+  });
 });
 
 describe("summarizeDeviceSharing", () => {
