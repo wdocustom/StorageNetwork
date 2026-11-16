@@ -19,9 +19,9 @@ import Stripe from "stripe";
 import { stripeConfig } from "@/lib/stripe/http";
 import { FINAL_SALE_TEXT, createEmbeddedCheckoutSession } from "@/lib/stripe/embedded-checkout";
 import { siteConfig } from "@/config/site";
+import { fulfilPlanSession, isFreshPurchase } from "@/lib/server/plan-fulfilment";
 import { getServiceClient } from "@/lib/supabase-server";
 import { enforceActionRateLimit, RateLimitError } from "@/lib/server/action-rate-limit";
-import { sendLadderJigAccessEmail } from "@/lib/emails/plansTemplates";
 import { checkPlanDevice } from "@/lib/server/plan-device";
 import { ladderJigContent, type LadderJigContent } from "@/lib/ladder-jig-content";
 import {
@@ -174,50 +174,16 @@ export async function openLadderJig(input: { sessionId: string } | { token: stri
       return gatedJig(row);
     }
 
-    const db = getServiceClient();
-    const { data: existing } = await db
-      .from("public_plan_purchases")
-      .select("access_token, email, plan_id")
-      .eq("stripe_session_id", input.sessionId)
-      .maybeSingle();
-    if (existing) return gatedJig(existing as Row);
-
+    // The webhook usually records the purchase first; either way the row is
+    // made once and the email sent once (plan-fulfilment).
     const session = await getStripe().checkout.sessions.retrieve(input.sessionId);
-    if (session.payment_status !== "paid" || session.metadata?.type !== "ladder_jig") {
-      return { ok: false, error: "We couldn't confirm that payment." };
-    }
-    const email = (session.customer_details?.email ?? session.customer_email ?? "").toLowerCase();
-    if (!email) return { ok: false, error: "Your payment went through but the order is incomplete. Reply to your receipt and we'll sort it out." };
-
-    const { data: inserted, error } = await db
-      .from("public_plan_purchases")
-      .insert({ email, plan_id: LADDER_JIG_PLAN_ID, stripe_session_id: input.sessionId, email_sent: false })
-      .select("access_token, email, plan_id")
-      .single();
-    if (error || !inserted) {
-      if ((error as { code?: string } | null)?.code === "23505") {
-        const { data: winner } = await db
-          .from("public_plan_purchases")
-          .select("access_token, email, plan_id")
-          .eq("stripe_session_id", input.sessionId)
-          .single();
-        if (winner) return gatedJig(winner as Row);
-      }
-      console.error("[LadderJig] Insert error:", error);
-      return { ok: false, error: "We couldn't record your purchase. Please refresh the page." };
-    }
-
-    const token = (inserted as Row).access_token;
-    // The buyer just paid on this device — remember it.
-    await checkPlanDevice(email, { trusted: true });
-    // Awaited so the send isn't dropped after the response; email_sent only on success.
-    const sent = await sendLadderJigAccessEmail(email, token).catch((err) => {
-      console.error("[LadderJig] Email error:", err);
-      return null;
-    });
-    if (sent?.success) await db.from("public_plan_purchases").update({ email_sent: true }).eq("access_token", token);
-    else if (sent) console.error("[LadderJig] Email not sent:", sent.error);
-    return { ok: true, token, content: ladderJigContent(), emailSentTo: email };
+    if (session.metadata?.type !== "ladder_jig") return { ok: false, error: "We couldn't confirm that payment." };
+    const done = await fulfilPlanSession(session);
+    if (!done.ok) return done;
+    // Back from paying shortly after: this is the buyer's device.
+    if (!isFreshPurchase(done.row)) return gatedJig(done.row as Row);
+    await checkPlanDevice(done.email, { trusted: true });
+    return { ok: true, token: done.row.access_token, content: ladderJigContent(), emailSentTo: done.email };
   } catch (err) {
     console.error("[LadderJig] Open failed:", err);
     return { ok: false, error: "We couldn't load your plans. Please try again." };
