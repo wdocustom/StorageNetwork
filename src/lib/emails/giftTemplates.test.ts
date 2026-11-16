@@ -66,5 +66,19 @@ describe("gifter receipt", () => {
     expect(html).toContain("all sales are final");
     expect(html).toContain(`/plans/gift/sent?order=${TOKEN}`);
     expect(html).toContain("$38");
+    expect(html).not.toContain("line-through");
+  });
+
+  it("shows the volume discount with the regular price struck through", () => {
+    const { html } = giftReceiptEmailContent({
+      to: "sky@example.com",
+      gifterName: "Sky",
+      orderId: "abcdef12-0000-4000-8000-000000000000",
+      manageToken: TOKEN,
+      amountCents: 6900,
+      recipients: Array.from({ length: 5 }, (_, i) => ({ name: `P${i}`, email: `p${i}@example.com`, sent: true })),
+    });
+    expect(html).toMatch(/line-through;[^>]*>\$95<\/span> \$69 paid/);
+    expect(html).toContain("you saved $26");
   });
 });

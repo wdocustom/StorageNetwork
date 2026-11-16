@@ -26,7 +26,10 @@ import { resolvePromoterAttributionForCheckout } from "@/app/actions/promoter-pr
 import { enforceActionRateLimit, RateLimitError } from "@/lib/server/action-rate-limit";
 import { TOTE_PLAN_ALL_ACCESS, TOTE_PLAN_ALL_ACCESS_TIER, TOTE_PLAN_ID } from "@/lib/tote-plans";
 import {
-  GIFT_UNIT_PRICE,
+  giftDealName,
+  giftEachCents,
+  giftListCents,
+  giftPriceLabel,
   giftTotalCents,
   parseGiftOrder,
   recipientListLabel,
@@ -94,7 +97,8 @@ export async function createGiftCheckout(rawOrder: unknown, rawVisitorId?: unkno
         gifter_email: gifterEmail,
         message,
         quantity,
-        unit_amount_cents: GIFT_UNIT_PRICE,
+        // Effective price per gift after volume pricing (informational).
+        unit_amount_cents: giftEachCents(quantity),
         amount_cents: amount,
         promoter_id: attribution?.promoterId ?? null,
         visitor_id: visitorId,
@@ -121,8 +125,12 @@ export async function createGiftCheckout(rawOrder: unknown, rawVisitorId?: unkno
       return { ok: false, error: "We couldn't save the recipients. Please try again." };
     }
 
-    // 2. One session, quantity N, priced here.
+    // 2. One session, priced here from the volume table. One line for the
+    // whole order: bundle totals (e.g. 7 for $85) don't divide into whole
+    // cents per gift. No promo codes, offers or other discounts apply.
     const names = recipientListLabel(recipients.map((r) => r.name), 4);
+    const deal = giftDealName(quantity);
+    const list = giftListCents(quantity);
     const session = await createEmbeddedCheckoutSession(getStripe(), {
       mode: "payment",
       customer_email: gifterEmail,
@@ -132,15 +140,14 @@ export async function createGiftCheckout(rawOrder: unknown, rawVisitorId?: unkno
           price_data: {
             currency: "usd",
             product_data: {
-              name: `Gift: ${TOTE_PLAN_ALL_ACCESS.name}`,
-              description: `Lifetime DIY tote rack plans, emailed to ${names}. Each person gets their own access: unlimited plans, 3D guide + printable PDF.`.slice(
-                0,
-                500
-              ),
+              name: `Gift: ${TOTE_PLAN_ALL_ACCESS.name} × ${quantity}${deal ? ` (${deal})` : ""}`,
+              description: `Lifetime DIY tote rack plans, emailed to ${names}. Each person gets their own access: unlimited plans, 3D guide + printable PDF.${
+                amount < list ? ` Volume price: ${giftPriceLabel(amount)} instead of ${giftPriceLabel(list)}.` : ""
+              }`.slice(0, 500),
             },
-            unit_amount: GIFT_UNIT_PRICE,
+            unit_amount: amount,
           },
-          quantity,
+          quantity: 1,
         },
       ],
       return_url: `${siteConfig.baseUrl}/plans/gift/sent?session_id={CHECKOUT_SESSION_ID}`,
