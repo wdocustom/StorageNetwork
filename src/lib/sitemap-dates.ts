@@ -21,6 +21,7 @@ export const PAGE_UPDATED = {
   "/plans": PLANS_UPDATED,
   "/plans/checkout": PLANS_UPDATED,
   "/plans/jig": PLANS_UPDATED,
+  "/plans/gift": PLANS_UPDATED,
   /** /plans/[slug] pages (plan-pages.ts) */
   "/plans/[slug]": PLANS_UPDATED,
   "/about": "2026-10-06",

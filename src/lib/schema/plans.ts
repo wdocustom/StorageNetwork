@@ -181,7 +181,7 @@ export function planPageJsonLd(page: PlanPageContent, plan: PublicPlan) {
 }
 
 /** Bump when the /plans copy or offers change — read as a freshness signal. */
-export const PLANS_UPDATED = "2026-11-12";
+export const PLANS_UPDATED = "2026-11-16";
 
 export function plansWebPageJsonLd(description: string) {
   return {

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Check, ChevronDown } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, Gift } from "lucide-react";
 import PlanSamplesRow from "@/components/plans/PlanSamplesRow";
 import StickyPlanCta from "@/components/plans/StickyPlanCta";
 import { estimatePlanMaterials } from "@/app/actions/plan-materials";
@@ -171,9 +171,14 @@ export default async function PlansPage() {
             <li aria-current="page">DIY Build Plans</li>
           </ol>
         </nav>
-        <a href="#my-plans" className="text-sm text-stone-400 hover:text-white">
-          My plans
-        </a>
+        <div className="flex items-center gap-5">
+          <Link href="/plans/gift" className="flex items-center gap-1.5 text-sm text-stone-400 hover:text-white">
+            <Gift className="h-4 w-4" aria-hidden /> Gift
+          </Link>
+          <a href="#my-plans" className="text-sm text-stone-400 hover:text-white">
+            My plans
+          </a>
+        </div>
       </header>
 
       <main className="mx-auto max-w-xl px-5">
@@ -265,6 +270,22 @@ export default async function PlansPage() {
           <PlanSamplesRow />
         </section>
 
+        {/* ── Gift it ──────────────────────────────────────────────── */}
+        <section className="border-t border-white/5 py-14">
+          <p className={eyebrow}>Give it as a gift</p>
+          <h2 className={h2}>Know someone with a garage full of piles?</h2>
+          <p className="mt-3 text-[15px] leading-relaxed text-stone-400">
+            Send All-Access plans to one person or a whole crew. Each gets their own email, their own link and lifetime
+            access. {PLANS_PRICES.allAccess} each.
+          </p>
+          <Link
+            href="/plans/gift"
+            className="mt-7 flex w-full items-center justify-center gap-2 rounded-2xl border border-yellow-400/50 py-4 text-base font-extrabold text-yellow-400 transition hover:border-yellow-400 hover:bg-yellow-400/5 active:scale-[0.99]"
+          >
+            <Gift className="h-5 w-5" aria-hidden /> Send plans as a gift
+          </Link>
+        </section>
+
         {/* ── Questions ────────────────────────────────────────────── */}
         <section className="border-t border-white/5 py-14">
           <p className={eyebrow}>Questions</p>
@@ -331,6 +352,7 @@ export default async function PlansPage() {
                 {p.title}
               </Link>
             ))}
+            <Link href="/plans/gift" className="hover:text-stone-200">Gift plans</Link>
             <Link href="/installer-network" className="hover:text-stone-200">Find an installer</Link>
             <Link href="/join?src=plans" className="hover:text-stone-200">Build these for a living</Link>
           </nav>
