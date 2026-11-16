@@ -34,6 +34,7 @@ export const CRON_JOBS: CronJob[] = [
   { path: "/api/cron/waitlist-activation", schedule: "0 6 * * *" },
   { path: "/api/cron/install-reminders", schedule: "0 14 * * *" },
   { path: "/api/cron/indexnow", schedule: "0 13 * * *" },
+  { path: "/api/cron/plan-purchase-reconcile", schedule: "20 * * * *" },
 ];
 
 export function jobsForSchedule(cron: string): CronJob[] {

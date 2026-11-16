@@ -739,6 +739,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true });
     }
 
+    // Tote plan / ladder jig: record the purchase and email the link here,
+    // so a buyer who closes the tab after paying still gets their plans
+    // (the return page and the hourly reconcile do the same, idempotently).
+    if (metadata.type === "diy_plan" || metadata.type === "ladder_jig") {
+      try {
+        const { fulfilPlanSession } = await import("@/lib/server/plan-fulfilment");
+        const done = await fulfilPlanSession(session);
+        if (!done.ok) console.error("[Webhook] plan fulfilment failed:", session.id, done.error);
+      } catch (err) {
+        console.error("[Webhook] plan fulfilment threw:", session.id, err);
+      }
+    }
+
     if (metadata.type === "diy_plan") {
       fireAndForget("plan splits", async () => {
         const { processPlanSplits } = await import("@/lib/server/plan-split-payouts");

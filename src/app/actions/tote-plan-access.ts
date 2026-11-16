@@ -34,7 +34,7 @@ import { getServiceClient } from "@/lib/supabase-server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { generateDIYPlan, type CompleteDIYPlan } from "@/app/actions/generate-plan";
 import { checkDIYPlanAccess } from "@/app/actions/diy-plan-checkout";
-import { sendTotePlanAccessEmail } from "@/lib/emails/plansTemplates";
+import { PLAN_ROW_COLUMNS, fulfilPlanSession, isFreshPurchase, type FulfilledRow } from "@/lib/server/plan-fulfilment";
 import { checkPlanDevice } from "@/lib/server/plan-device";
 import {
   enforceActionRateLimit,
@@ -208,87 +208,38 @@ async function openForLeadInstaller(leadId: string): Promise<OpenTotePlanResult>
   return { ok: true, tier: "interactive", design, plan, access: isAdmin && lead.installer_id !== user.id ? "admin" : "installer" };
 }
 
-/** Design recorded on a paid session: compact `design` (current) or `config` JSON (single-unit legacy). */
-function designFromSessionMetadata(metadata: Stripe.Metadata): TotePlanDesign | null {
-  if (metadata.design) return decodeTotePlanDesign(metadata.design, metadata.design_name);
-  try {
-    return parseTotePlanDesign(JSON.parse(metadata.config ?? "null"));
-  } catch {
-    return null;
-  }
-}
 
 async function openFromCheckout(sessionId: string): Promise<OpenTotePlanResult> {
-  const db = getServiceClient();
+  // The webhook usually records the purchase first; either way the row is
+  // made once and the email sent once (plan-fulfilment).
+  let row = await purchaseBySession(sessionId);
+  let email: string;
+  if (row) {
+    email = row.email;
+  } else {
+    const session = await getStripe().checkout.sessions.retrieve(sessionId);
+    if (session.payment_status !== "paid" || session.metadata?.type !== "diy_plan") {
+      return { ok: false, error: "We couldn't confirm that payment." };
+    }
+    const done = await fulfilPlanSession(session);
+    if (!done.ok) return done;
+    row = done.row;
+    email = done.email;
+  }
+  // Back from paying, with the session id, shortly after: this is the buyer's
+  // device — remember it. Later visits with the id go through the code check.
+  if (!isFreshPurchase(row)) return gated(row as PurchaseRow);
+  await checkPlanDevice(email, { trusted: true });
+  return buildResult(row as PurchaseRow, { emailSentTo: email });
+}
 
-  // Already recorded (page refresh, back button) — don't re-send the email.
-  const { data: existing } = await db
+async function purchaseBySession(sessionId: string): Promise<FulfilledRow | null> {
+  const { data } = await getServiceClient()
     .from("public_plan_purchases")
-    .select(PURCHASE_COLUMNS)
+    .select(PLAN_ROW_COLUMNS)
     .eq("stripe_session_id", sessionId)
     .maybeSingle();
-  if (existing) return gated(existing as PurchaseRow);
-
-  const session = await getStripe().checkout.sessions.retrieve(sessionId);
-  if (session.payment_status !== "paid" || session.metadata?.type !== "diy_plan") {
-    return { ok: false, error: "We couldn't confirm that payment." };
-  }
-
-  const design = designFromSessionMetadata(session.metadata);
-  // Sessions created before tiers existed carry no tier — they bought the PDF.
-  const tier: TotePlanTier = isTotePlanTier(session.metadata.tier) ? session.metadata.tier : "pdf";
-  const email = (session.customer_details?.email ?? session.customer_email ?? "").toLowerCase();
-  if (!design || !email) {
-    console.error("[TotePlanAccess] Paid session missing design or email:", sessionId);
-    return { ok: false, error: "Your payment went through but the order is incomplete. Reply to your receipt and we'll sort it out." };
-  }
-
-  const { data: inserted, error } = await db
-    .from("public_plan_purchases")
-    .insert({
-      email,
-      plan_id: TOTE_PLAN_ID,
-      tier,
-      build_config: design,
-      stripe_session_id: sessionId,
-      customer_name: session.customer_details?.name?.trim() || null,
-      email_sent: false,
-      referred_by_promoter_id: session.metadata.promoter_id || null,
-      promoter_referral_code_snapshot: session.metadata.promoter_referral_code || null,
-    })
-    .select(PURCHASE_COLUMNS)
-    .single();
-
-  if (error || !inserted) {
-    // Lost a race with a concurrent load of the same session — use its row.
-    if ((error as { code?: string } | null)?.code === "23505") {
-      const { data: winner } = await db
-        .from("public_plan_purchases")
-        .select(PURCHASE_COLUMNS)
-        .eq("stripe_session_id", sessionId)
-        .single();
-      if (winner) return gated(winner as PurchaseRow);
-    }
-    console.error("[TotePlanAccess] Insert error:", error);
-    return { ok: false, error: "We couldn't record your purchase. Please refresh the page." };
-  }
-
-  const row = inserted as PurchaseRow;
-  // The buyer just paid on this device — remember it.
-  await checkPlanDevice(row.email, { trusted: true });
-  // Awaited: a send left running after the response can be dropped by the
-  // serverless runtime, and email_sent must only be true when it went out.
-  const sent = await sendTotePlanAccessEmail(email, design, tier, row.access_token).catch((err) => {
-    console.error("[TotePlanAccess] Email error:", err);
-    return null;
-  });
-  if (sent?.success) {
-    await db.from("public_plan_purchases").update({ email_sent: true }).eq("access_token", row.access_token);
-  } else if (sent) {
-    console.error("[TotePlanAccess] Email not sent:", sent.error);
-  }
-
-  return buildResult(row, { emailSentTo: email });
+  return (data as FulfilledRow | null) ?? null;
 }
 
 async function openFromToken(token: string, upgradeSessionId?: string): Promise<OpenTotePlanResult> {

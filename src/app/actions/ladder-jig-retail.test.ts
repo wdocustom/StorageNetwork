@@ -17,7 +17,7 @@ function query() {
     order: () => api,
     update: () => api,
     insert: (row: Omit<Row, "access_token">) => {
-      pendingInsert = { ...row, access_token: "00000000-0000-4000-8000-00000000000" + (rows.length + 1) } as Row;
+      pendingInsert = { ...row, access_token: "00000000-0000-4000-8000-00000000000" + (rows.length + 1), purchased_at: new Date().toISOString() } as Row;
       rows.push(pendingInsert);
       return api;
     },
@@ -31,7 +31,7 @@ function query() {
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase-server", () => ({ getServiceClient: () => ({ from: () => query() }) }));
 vi.mock("@/lib/server/action-rate-limit", () => ({ enforceActionRateLimit: vi.fn(), RateLimitError: class extends Error {} }));
-vi.mock("@/lib/emails/plansTemplates", () => ({ sendLadderJigAccessEmail: vi.fn(async () => {}) }));
+vi.mock("@/lib/emails/plansTemplates", () => ({ sendLadderJigAccessEmail: vi.fn(async () => {}), sendTotePlanAccessEmail: vi.fn(async () => {}) }));
 const { checkPlanDevice } = vi.hoisted(() => ({
   checkPlanDevice: vi.fn(async (_email: string, _opts?: { trusted?: boolean }) => ({ ok: true }) as { ok: true } | { ok: false; emailHint: string }),
 }));
@@ -48,7 +48,7 @@ vi.mock("stripe", () => ({
           created.push({ unit_amount: args.line_items[0].price_data.unit_amount, metadata: args.metadata });
           return { url: "https://stripe.test/session" };
         },
-        retrieve: async () => sessionToReturn,
+        retrieve: async (id: string) => ({ id, ...sessionToReturn }),
       },
     };
   },
