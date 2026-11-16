@@ -491,7 +491,7 @@ export default function GiftOrderManager({ sessionId, manageToken: initialToken 
       </section>
 
       <div className="flex flex-col items-center gap-3 pb-6 text-sm">
-        <Link href="/plans/gift" className="font-bold text-yellow-400 hover:text-yellow-300">
+        <Link href="/plans#gift" className="font-bold text-yellow-400 hover:text-yellow-300">
           Send another gift
         </Link>
         <Link href="/plans" className="text-stone-500 hover:text-stone-300">

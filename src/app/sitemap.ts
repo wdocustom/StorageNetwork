@@ -107,7 +107,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/plans`, lastModified: updated("/plans"), changeFrequency: "weekly", priority: 0.9 },
     { url: `${BASE}/plans/checkout`, lastModified: updated("/plans/checkout"), changeFrequency: "monthly", priority: 0.7 },
     { url: `${BASE}/plans/jig`, lastModified: updated("/plans/jig"), changeFrequency: "monthly", priority: 0.6 },
-    { url: `${BASE}/plans/gift`, lastModified: updated("/plans/gift"), changeFrequency: "monthly", priority: 0.5 },
     ...planPageSlugs().map((slug) => ({
       url: `${BASE}/plans/${slug}`,
       lastModified: updated("/plans/[slug]"),

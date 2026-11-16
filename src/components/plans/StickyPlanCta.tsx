@@ -16,6 +16,7 @@ import { ArrowRight, Loader2 } from "lucide-react";
 
 export default function StickyPlanCta({
   watchId,
+  quietId,
   price,
   note,
   label,
@@ -25,6 +26,8 @@ export default function StickyPlanCta({
 }: {
   /** Element id that, while visible, hides the bar */
   watchId: string;
+  /** Element id where the bar stays out of the way (e.g. the gift order form) */
+  quietId?: string;
   price: string;
   note: string;
   label: string;
@@ -32,16 +35,26 @@ export default function StickyPlanCta({
   onClick?: () => void;
   loading?: boolean;
 }) {
-  const [show, setShow] = useState(false);
+  const [pastMain, setPastMain] = useState(false);
+  const [inQuiet, setInQuiet] = useState(false);
+  const show = pastMain && !inQuiet;
 
   useEffect(() => {
     const el = document.getElementById(watchId);
     if (!el) return;
     // Show only once the watched element has been scrolled past or is off screen.
-    const io = new IntersectionObserver(([entry]) => setShow(!entry.isIntersecting), { threshold: 0 });
+    const io = new IntersectionObserver(([entry]) => setPastMain(!entry.isIntersecting), { threshold: 0 });
     io.observe(el);
     return () => io.disconnect();
   }, [watchId]);
+
+  useEffect(() => {
+    const el = quietId ? document.getElementById(quietId) : null;
+    if (!el) return;
+    const io = new IntersectionObserver(([entry]) => setInQuiet(entry.isIntersecting), { threshold: 0 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [quietId]);
 
   const button =
     "flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-2xl bg-yellow-400 px-5 text-[15px] font-extrabold text-gray-950 transition hover:bg-yellow-300 disabled:opacity-60";
