@@ -67,6 +67,13 @@ describe("fulfilPlanSession", () => {
     expect(state.emails).toEqual(["tote:buyer@example.com"]);
   });
 
+  it("records the offer a plan was bought with (FRIDAY is checked against it)", async () => {
+    await fulfilPlanSession(session({ id: "cs_f", metadata: { type: "diy_plan", design: "H4x4wt", tier: "interactive", offer: "friday" } }));
+    await fulfilPlanSession(session({ id: "cs_r" }));
+    expect(state.rows.find((r) => r.stripe_session_id === "cs_f")?.offer_code).toBe("friday");
+    expect(state.rows.find((r) => r.stripe_session_id === "cs_r")?.offer_code).toBeNull();
+  });
+
   it("records a ladder jig", async () => {
     const r = await fulfilPlanSession(session({ id: "cs_j", metadata: { type: "ladder_jig" } }));
     expect(r).toMatchObject({ ok: true, created: true });

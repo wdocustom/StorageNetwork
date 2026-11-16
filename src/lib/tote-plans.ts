@@ -63,22 +63,72 @@ export const TOTE_PLAN_ALL_ACCESS = {
 } as const;
 
 /**
- * "Wait — $5 off": shown once to designer visitors who are leaving (closed
- * the payment form, hesitated at the price, came back from another app),
- * and carried in "email me my design" links as ?offer=save5. The server
- * prices the checkout from the code, never from the client.
+ * The retention ("exit") offer: "Wait — $3 off", shown once to designer
+ * visitors who are leaving (closed the payment form, hesitated at the price,
+ * came back from another app), and carried in "email me my design" links as
+ * ?offer=save3. The server prices the checkout from the code, never from the
+ * client. Never combined with a promo code (TOTE_PLAN_FRIDAY): a checkout
+ * carries one offer.
  */
 export const TOTE_PLAN_EXIT_OFFER = {
-  code: "save5",
+  code: "save3",
   /** In cents */
-  price: 1400,
+  price: 1600,
   /** How long the browser keeps the offer once shown */
   hours: 24,
 } as const;
 
-/** Price in cents for an offer code (unknown codes pay the regular price). */
+/**
+ * Retired retention offers, still honored for links already sent (and
+ * browsers that already hold one): code → price in cents. Until Nov 2026 the
+ * offer was $5 off (save5).
+ */
+export const TOTE_PLAN_LEGACY_OFFERS: Readonly<Record<string, number>> = {
+  save5: 1400,
+};
+
+/** A retention offer code we still honor (the current one or a legacy one). */
+export function isRetentionOffer(code: unknown): code is string {
+  return typeof code === "string" && (code === TOTE_PLAN_EXIT_OFFER.code || Object.prototype.hasOwnProperty.call(TOTE_PLAN_LEGACY_OFFERS, code));
+}
+
+/**
+ * Black Friday promo code: $5 off All-Access, once per customer email, no
+ * end date. Typed in by the buyer (any case); the server checks the email
+ * hasn't used it and locks that email at Stripe checkout. Not combinable
+ * with the retention offer, and not valid on gifts (they have volume pricing).
+ */
+export const TOTE_PLAN_FRIDAY = {
+  /** As stored and sent (lowercase); buyers may type "Friday", "FRIDAY"… */
+  code: "friday",
+  /** As shown */
+  display: "FRIDAY",
+  label: "Black Friday",
+  /** In cents */
+  price: 1400,
+  /** Uses per customer email */
+  perEmail: 1,
+} as const;
+
+/** "Friday " → "friday"; anything unusable → "". */
+export function normalizePromoCode(raw: unknown): string {
+  return typeof raw === "string" ? raw.trim().toLowerCase().slice(0, 40) : "";
+}
+
+/**
+ * Price in cents for a retention offer code (unknown codes pay the regular
+ * price). Promo codes like FRIDAY are priced only after the server checks the
+ * buyer's email: see diy-plan-checkout.
+ */
 export function totePlanOfferPrice(code: unknown): number {
-  return code === TOTE_PLAN_EXIT_OFFER.code ? TOTE_PLAN_EXIT_OFFER.price : TOTE_PLAN_ALL_ACCESS.price;
+  if (code === TOTE_PLAN_EXIT_OFFER.code) return TOTE_PLAN_EXIT_OFFER.price;
+  if (typeof code === "string" && Object.prototype.hasOwnProperty.call(TOTE_PLAN_LEGACY_OFFERS, code)) return TOTE_PLAN_LEGACY_OFFERS[code];
+  return TOTE_PLAN_ALL_ACCESS.price;
+}
+
+/** "$3 off" for an offer price. */
+export function offerOffLabel(priceCents: number): string {
+  return `${formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price - priceCents)} off`;
 }
 
 /** Tier recorded on All-Access purchases and included plans: full access. */

@@ -1,7 +1,7 @@
 "use server";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// "Email me my design + this price" (the designer's $5-off offer)
+// "Email me my design + this price" (the designer's retention offer)
 //
 // Saves the visitor's email and design (plan_design_leads) and emails them a
 // link that reopens the exact design with the offer applied. Rate-limited;
@@ -13,7 +13,7 @@ import { getServiceClient } from "@/lib/supabase-server";
 import { getAppUrl } from "@/lib/url-helper";
 import { sendPlanDesignSavedEmail } from "@/lib/emails/plansTemplates";
 import {
-  TOTE_PLAN_EXIT_OFFER,
+  isRetentionOffer,
   encodeTotePlanDesign,
   formatPlanPrice,
   parseTotePlanDesign,
@@ -39,7 +39,8 @@ export async function emailMyDesign(input: {
   if (!EMAIL.test(email)) return { ok: false, error: "Enter a valid email address." };
   const design = parseTotePlanDesign(input.design);
   if (!design) return { ok: false, error: "Something's off with this design. Refresh and try again." };
-  const offer = input.offer === TOTE_PLAN_EXIT_OFFER.code ? TOTE_PLAN_EXIT_OFFER.code : null;
+  // The current retention offer, or a legacy one the browser got from an older link.
+  const offer = isRetentionOffer(input.offer) ? input.offer : null;
   const visitorId = typeof input.visitorId === "string" && /^[\w-]{1,64}$/.test(input.visitorId) ? input.visitorId : null;
 
   const db = getServiceClient();

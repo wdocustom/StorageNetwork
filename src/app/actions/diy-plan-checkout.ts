@@ -21,7 +21,10 @@ import {
   parseTotePlanDesign,
   totePlanName,
   totePlanSummary,
-  TOTE_PLAN_EXIT_OFFER,
+  TOTE_PLAN_FRIDAY,
+  formatPlanPrice,
+  isRetentionOffer,
+  normalizePromoCode,
   totePlanOfferPrice,
 } from "@/lib/tote-plans";
 import { PLAN_REF_COOKIE, cleanReferralId } from "@/lib/plan-splits";
@@ -102,14 +105,80 @@ async function resolvePlanReferral(rawRef: unknown): Promise<string | null> {
   return data && data.is_realtor !== true ? data.id : null;
 }
 
+// ── Promo codes (FRIDAY) ────────────────────────────────────────────────────
+
+const FINAL_SALE_MESSAGE =
+  FINAL_SALE_TEXT.submit && typeof FINAL_SALE_TEXT.submit === "object" ? FINAL_SALE_TEXT.submit.message : "";
+
+const EMAIL_RE = /^[^\s@<>()[\]\\,;:"]+@[^\s@<>()[\]\\,;:"]+\.[a-z]{2,}$/i;
+
+export type PlanPromoResult =
+  | { ok: true; code: string; display: string; label: string; price: number; email: string }
+  | { ok: false; error: string; field: "code" | "email" };
+
+/** Has this email already bought with FRIDAY? (Paid purchases only.) */
+async function fridayUsedBy(email: string): Promise<boolean> {
+  const { data, error } = await getServiceClient()
+    .from("public_plan_purchases")
+    .select("access_token")
+    .eq("email", email)
+    .eq("offer_code", TOTE_PLAN_FRIDAY.code)
+    .limit(TOTE_PLAN_FRIDAY.perEmail);
+  if (error) throw new Error(`friday lookup failed: ${error.message}`);
+  return (data?.length ?? 0) >= TOTE_PLAN_FRIDAY.perEmail;
+}
+
+/** Check a promo code + the buyer's email; nothing is reserved until they pay. */
+async function validatePromo(rawCode: unknown, rawEmail: unknown): Promise<PlanPromoResult> {
+  const code = normalizePromoCode(rawCode);
+  if (!code) return { ok: false, error: "Enter a code.", field: "code" };
+  if (code !== TOTE_PLAN_FRIDAY.code) return { ok: false, error: "That code isn't valid.", field: "code" };
+  const email = typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : "";
+  if (!email || email.length > 254 || !EMAIL_RE.test(email)) {
+    return { ok: false, error: "Enter the email you'll get your plans at.", field: "email" };
+  }
+  if (await fridayUsedBy(email)) {
+    return { ok: false, error: `${TOTE_PLAN_FRIDAY.display} has already been used with this email (limit ${TOTE_PLAN_FRIDAY.perEmail}).`, field: "code" };
+  }
+  return {
+    ok: true,
+    code: TOTE_PLAN_FRIDAY.code,
+    display: TOTE_PLAN_FRIDAY.display,
+    label: TOTE_PLAN_FRIDAY.label,
+    price: TOTE_PLAN_FRIDAY.price,
+    email,
+  };
+}
+
+/** The designer's "Have a code?" field. */
+export async function checkPlanPromo(rawCode: unknown, rawEmail: unknown): Promise<PlanPromoResult> {
+  try {
+    await enforceActionRateLimit({ action: "plan-promo-check", limit: 20, window: "10 m", identify: "ip" });
+  } catch (err) {
+    if (err instanceof RateLimitError) return { ok: false, error: err.message, field: "code" };
+    throw err;
+  }
+  try {
+    return await validatePromo(rawCode, rawEmail);
+  } catch (err) {
+    console.error("[DIYPlanCheckout] promo check failed:", err);
+    return { ok: false, error: "We couldn't check that code. Please try again.", field: "code" };
+  }
+}
+
 export async function createDIYPlanCheckout(
   rawDesign: unknown,
   source?: string,
   rawRef?: unknown,
   /** Anonymous analytics id (localStorage sn_vid) — counts buy clicks per person. */
   rawVisitorId?: unknown,
-  /** Offer code (TOTE_PLAN_EXIT_OFFER) — the price comes from the code, server-side */
+  /**
+   * One offer per checkout, priced server-side: a retention offer code
+   * (save3, or a legacy save5 link) OR the FRIDAY promo code. Never both.
+   */
   rawOffer?: unknown,
+  /** FRIDAY only: the email the code was checked against (locked at Stripe) */
+  rawPromoEmail?: unknown,
 ): Promise<{ success: boolean; clientSecret?: string; error?: string }> {
   // SECURITY (H-3): each call provisions a Stripe Checkout Session. Cap
   // per identity to prevent scripted abuse of Stripe's session API.
@@ -135,8 +204,24 @@ export async function createDIYPlanCheckout(
     };
   }
   const product = TOTE_PLAN_ALL_ACCESS;
-  const offer = rawOffer === TOTE_PLAN_EXIT_OFFER.code ? TOTE_PLAN_EXIT_OFFER.code : null;
-  const price = totePlanOfferPrice(offer);
+  // Exactly one offer: the promo code if they entered one, else a retention
+  // offer, else the regular price.
+  let offer: string | null = null;
+  let price = totePlanOfferPrice(null);
+  let lockedEmail: string | null = null;
+  if (normalizePromoCode(rawOffer) === TOTE_PLAN_FRIDAY.code) {
+    const promo = await validatePromo(rawOffer, rawPromoEmail).catch((err) => {
+      console.error("[DIYPlanCheckout] promo check failed:", err);
+      return { ok: false as const, error: "We couldn't check that code. Please try again.", field: "code" as const };
+    });
+    if (!promo.ok) return { success: false, error: promo.error };
+    offer = promo.code;
+    price = promo.price;
+    lockedEmail = promo.email;
+  } else if (isRetentionOffer(rawOffer)) {
+    offer = rawOffer;
+    price = totePlanOfferPrice(rawOffer);
+  }
   const sourceTag = typeof source === "string" ? source.replace(/[^a-z0-9_-]/gi, "").slice(0, 40) : "";
 
   try {
@@ -157,7 +242,17 @@ export async function createDIYPlanCheckout(
     // Stripe redirects the page to return_url.
     const session = await createEmbeddedCheckoutSession(stripe, {
       mode: "payment",
-      custom_text: FINAL_SALE_TEXT,
+      // FRIDAY is once per email: the email it was checked for is the one
+      // they pay with (Checkout shows a prefilled email read-only).
+      ...(lockedEmail ? { customer_email: lockedEmail } : {}),
+      custom_text: lockedEmail
+        ? {
+            ...FINAL_SALE_TEXT,
+            submit: {
+              message: `${TOTE_PLAN_FRIDAY.label}: code ${TOTE_PLAN_FRIDAY.display} applied, ${formatPlanPrice(price)} instead of ${formatPlanPrice(totePlanOfferPrice(null))}. ${FINAL_SALE_MESSAGE}`.slice(0, 1200),
+            },
+          }
+        : FINAL_SALE_TEXT,
       line_items: [
         {
           price_data: {

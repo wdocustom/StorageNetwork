@@ -20,7 +20,7 @@ import { useState, useMemo, useEffect, useCallback, useRef, Suspense } from "rea
 import Image from "next/image";
 import Link from "next/link";
 import { Crown, Layers, Loader2, Plus, Ruler, Trash2 } from "lucide-react";
-import { createDIYPlanCheckout, checkDIYPlanAccess } from "@/app/actions/diy-plan-checkout";
+import { createDIYPlanCheckout, checkDIYPlanAccess, checkPlanPromo } from "@/app/actions/diy-plan-checkout";
 import SystemMap from "@/components/plans/SystemMap";
 import UnitsToggle from "@/components/plans/UnitsToggle";
 import { formatLengthIn, useUnits } from "@/lib/measure-units";
@@ -39,7 +39,16 @@ import WalletEscape from "@/components/plans/WalletEscape";
 import ExitOffer from "@/components/plans/ExitOffer";
 import EmailDesignLink from "@/components/plans/EmailDesignLink";
 import { emailMyDesign } from "@/app/actions/plan-design-lead";
-import { activateOffer, offerAlreadySeen, readOffer, type ActiveOffer } from "@/lib/plan-offer";
+import {
+  activateOffer,
+  forgetPromo,
+  offerAlreadySeen,
+  readOffer,
+  readPromo,
+  rememberPromo,
+  type ActiveOffer,
+  type AppliedPromo,
+} from "@/lib/plan-offer";
 import { detectInAppBrowser, type InAppBrowser } from "@/lib/in-app-browser";
 import { trackPlanEvent } from "@/lib/plan-events";
 import { metaTrack } from "@/lib/meta-pixel";
@@ -58,6 +67,9 @@ import {
   totePlanDesignHref,
   TOTE_PLAN_ALL_ACCESS,
   TOTE_PLAN_EXIT_OFFER,
+  isRetentionOffer,
+  offerOffLabel,
+  totePlanOfferPrice,
   formatPlanPrice,
   totePlanName,
   totePlanSummary,
@@ -200,16 +212,52 @@ function PlansDesigner() {
     metaTrack("ViewContent", { content_name: "Tote rack designer", currency: "USD", value: 19 });
   }, []);
 
-  // The $5-off exit offer: active in this browser for 24h once shown, or
-  // when opened from an "email me my design" link (?offer=save5).
+  // The retention offer ($3 off): active in this browser for 24h once
+  // shown, or when opened from an "email me my design" link (?offer=save3;
+  // older links carry save5 and keep their $5 off).
   const [offer, setOffer] = useState<ActiveOffer | null>(null);
   const [exitOpen, setExitOpen] = useState(false);
+  // A promo code (FRIDAY), checked server-side against the buyer's email.
+  // Replaces the retention offer for this checkout: never combined.
+  const [promo, setPromo] = useState<AppliedPromo | null>(null);
   useEffect(() => {
-    if (searchParams.get("offer") === TOTE_PLAN_EXIT_OFFER.code) setOffer(activateOffer());
+    const linkOffer = searchParams.get("offer");
+    if (isRetentionOffer(linkOffer)) setOffer(activateOffer(linkOffer));
     else setOffer(readOffer());
+    // A code carried over (reload, or the open-in-Safari hand-off): check it again.
+    const carried = readPromo();
+    const code = searchParams.get("promo") ?? carried?.code;
+    const email = searchParams.get("pemail") ?? carried?.email;
+    if (code && email) {
+      checkPlanPromo(code, email).then((r) => {
+        if (r.ok) setPromo(rememberPromo(r));
+        else forgetPromo();
+      });
+    }
     // Read once on load; the URL is rewritten as the design changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  const applyPromo = async (code: string, email: string) => {
+    const r = await checkPlanPromo(code, email).catch(() => ({
+      ok: false as const,
+      error: "We couldn't check that code. Check your connection and try again.",
+      field: "code" as const,
+    }));
+    if (r.ok) {
+      setPromo(rememberPromo(r));
+      setExitOpen(false);
+      trackPlanEvent("promo_applied", r.display);
+    } else {
+      trackPlanEvent("promo_rejected", r.field);
+    }
+    return r;
+  };
+  const removePromo = () => {
+    forgetPromo();
+    setPromo(null);
+  };
+  // What this checkout costs: the promo, else a retention offer, else $19.
+  const priceCents = promo ? promo.price : offer ? totePlanOfferPrice(offer.code) : TOTE_PLAN_ALL_ACCESS.price;
 
   useEffect(() => {
     checkDIYPlanAccess().then(setFreeAccess);
@@ -320,7 +368,12 @@ function PlansDesigner() {
     } catch {
       /* storage blocked */
     }
-    const offerParam = readOffer() ? `&offer=${TOTE_PLAN_EXIT_OFFER.code}` : "";
+    const active = readOffer();
+    const offerParam = promo
+      ? `&promo=${encodeURIComponent(promo.code)}&pemail=${encodeURIComponent(promo.email)}`
+      : active
+        ? `&offer=${active.code}`
+        : "";
     return `${window.location.origin}${totePlanDesignHref(design, source, ref)}&pay=1${offerParam}${vid ? `&vid=${vid}` : ""}`;
   };
 
@@ -336,7 +389,11 @@ function PlansDesigner() {
       /* storage blocked — the click still counts, just not per person */
     }
     // A dropped connection must not leave the button spinning forever.
-    const result = await createDIYPlanCheckout(design, source, ref, visitorId, readOffer()?.code).catch(() => ({
+    // One offer per checkout: the promo code if applied, else a retention offer.
+    const result = await (promo
+      ? createDIYPlanCheckout(design, source, ref, visitorId, promo.code, promo.email)
+      : createDIYPlanCheckout(design, source, ref, visitorId, readOffer()?.code)
+    ).catch(() => ({
       success: false as const,
       clientSecret: undefined,
       error: "We couldn't open checkout. Check your connection and try again.",
@@ -349,14 +406,15 @@ function PlansDesigner() {
     }
   };
 
-  // ── The $5-off exit offer ─────────────────────────────────────────────
+  // ── The retention ("exit") offer ──────────────────────────────────────
   // Shown once per browser, only to visitors who'd pay (not Pro / admin /
   // All-Access owners), when they look like they're leaving:
   //   "closed"    closed the payment form without paying
   //   "hesitate"  saw the price 20s+ ago, no design edits for 45s, then
   //               scrolled back up above it
   //   "return"    came back to the tab after 5s+ away, having designed 30s+
-  const canOffer = !hasFree && !member;
+  // Not to anyone with a promo code applied: the two never combine.
+  const canOffer = !hasFree && !member && !promo;
   const showExitOffer = (trigger: "closed" | "hesitate" | "return") => {
     // ("closed" fires while the panel is still closing, so it skips that check)
     if (!canOffer || exitOpen || (checkout && trigger !== "closed") || offerAlreadySeen()) return;
@@ -657,7 +715,18 @@ function PlansDesigner() {
                 setSampleTier(tier);
               }}
               wallet={inApp && inApp.os !== "other" ? <WalletEscape inApp={inApp} buildUrl={escapeUrl} /> : undefined}
-              offerPrice={offer ? formatPlanPrice(TOTE_PLAN_EXIT_OFFER.price) : undefined}
+              offerPrice={priceCents < TOTE_PLAN_ALL_ACCESS.price ? formatPlanPrice(priceCents) : undefined}
+              offerTag={
+                promo
+                  ? `${promo.label} · ${offerOffLabel(promo.price)}`
+                  : offer
+                    ? `${offerOffLabel(priceCents)} · 24 hours`
+                    : undefined
+              }
+              promo={promo}
+              onApplyPromo={applyPromo}
+              onRemovePromo={removePromo}
+              retentionActive={!!offer}
             />
             <EmailDesignLink
               onSend={async (email) => {
@@ -680,8 +749,9 @@ function PlansDesigner() {
         {exitOpen && (
           <ExitOffer
             designName={totePlanName(design)}
-            price={formatPlanPrice(TOTE_PLAN_EXIT_OFFER.price)}
+            price={formatPlanPrice(totePlanOfferPrice(offer?.code ?? TOTE_PLAN_EXIT_OFFER.code))}
             wasPrice={formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price)}
+            off={offerOffLabel(totePlanOfferPrice(offer?.code ?? TOTE_PLAN_EXIT_OFFER.code))}
             wallet={inApp && inApp.os !== "other" ? <WalletEscape inApp={inApp} buildUrl={escapeUrl} /> : undefined}
             buying={buying}
             onBuy={async () => {
@@ -696,7 +766,7 @@ function PlansDesigner() {
               } catch {
                 /* storage blocked */
               }
-              const r = await emailMyDesign({ email, design, offer: TOTE_PLAN_EXIT_OFFER.code, visitorId });
+              const r = await emailMyDesign({ email, design, offer: offer?.code ?? TOTE_PLAN_EXIT_OFFER.code, visitorId });
               if (r.ok) trackPlanEvent("exit_offer_email");
               return r;
             }}
@@ -718,7 +788,7 @@ function PlansDesigner() {
         {!hasFree && (
           <StickyPlanCta
             watchId="plan-tiers"
-            price={member ? "Included" : `${formatPlanPrice(offer ? TOTE_PLAN_EXIT_OFFER.price : TOTE_PLAN_ALL_ACCESS.price)} for life`}
+            price={member ? "Included" : `${formatPlanPrice(priceCents)} for life`}
             note={member ? "with your All-Access plans" : "This plan + every one after"}
             label={member ? "Generate free" : "Get my plans"}
             onClick={
