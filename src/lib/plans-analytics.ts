@@ -198,7 +198,7 @@ export function summarizeDeviceSharing(
 export function plansPageKind(path: string): PlansPageKind {
   const p = path.split("?")[0].replace(/\/+$/, "") || "/";
   if (p === "/plans/checkout") return "designer";
-  if (/^\/plans\/(build|library|access)(\/|$)/.test(p)) return "owner";
+  if (/^\/plans\/(build|library|access|gift\/(sent|open))(\/|$)/.test(p)) return "owner";
   return "storefront";
 }
 
@@ -213,6 +213,15 @@ export function planLabel(
   }
   if (row.plan_id === LADDER_JIG_PLAN_ID) return "Ladder jig plan";
   return getPlanById(row.plan_id)?.name ?? row.plan_id;
+}
+
+/**
+ * Gift purchases (one Stripe session, one row per recipient) store
+ * "<cs_…>__gift_<n>"; this maps them back to the checkout session.
+ */
+const GIFT_SESSION_SUFFIX = "__gift_";
+export function checkoutSessionOf(id: string | null | undefined): string | null {
+  return id ? id.split(GIFT_SESSION_SUFFIX)[0] : null;
 }
 
 /** Price in cents of the original purchase (upgrades counted separately). */
@@ -311,7 +320,8 @@ export function summarizePlansAnalytics(
   for (const p of purchases) {
     const day = p.purchased_at.slice(0, 10);
     dayPurchases.set(day, (dayPurchases.get(day) ?? 0) + 1);
-    const label = planLabel({ ...p, upgraded_at: null, tier: p.upgraded_at ? "pdf" : p.tier });
+    const gift = !!p.stripe_session_id?.includes(GIFT_SESSION_SUFFIX);
+    const label = planLabel({ ...p, upgraded_at: null, tier: p.upgraded_at ? "pdf" : p.tier }) + (gift ? " (gift)" : "");
     const price = purchasePrice(p, toteOwners, paid);
     const entry = planMap.get(label) ?? { purchases: 0, revenue: 0 };
     entry.purchases++;
@@ -328,7 +338,7 @@ export function summarizePlansAnalytics(
 
   // ── Stripe step: clicked Buy → payment page → paid or walked away ──
   const toteStarts = checkoutStarts.filter((c) => c.plan_id === "tote-organizer");
-  const paidSessions = new Set(purchases.map((p) => p.stripe_session_id).filter(Boolean) as string[]);
+  const paidSessions = new Set(purchases.map((p) => checkoutSessionOf(p.stripe_session_id)).filter(Boolean) as string[]);
   const checkoutWho = new Set(toteStarts.map((c) => c.visitor_id ?? c.stripe_session_id));
   let abandonedCheckouts = 0;
   let abandonedValue = 0;

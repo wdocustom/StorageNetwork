@@ -11,6 +11,7 @@ import {
   type PlansAnalytics,
   type PlansCheckoutStartRow,
   type PlansEventRow,
+  checkoutSessionOf,
   type PlansPurchaseRow,
   type PlansSplitRow,
   type PlansViewRow,
@@ -218,7 +219,7 @@ export async function getAdminPlansAnalytics(
     }));
 
     // Funnel by first-touch source; a buyer is a visitor whose checkout paid.
-    const paidSessions = new Set(purchases.map((p) => p.stripe_session_id).filter(Boolean) as string[]);
+    const paidSessions = new Set(purchases.map((p) => checkoutSessionOf(p.stripe_session_id)).filter(Boolean) as string[]);
     const buyerVisitors = new Set(starts.filter((s) => paidSessions.has(s.stripe_session_id)).map((s) => s.visitor_id));
     const firstView = new Map<string, ViewWithMeta>();
     const designers = new Set<string>();

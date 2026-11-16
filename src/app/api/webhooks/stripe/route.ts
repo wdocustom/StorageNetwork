@@ -417,6 +417,7 @@ const PLAN_PURCHASE_TYPES = new Set([
   "chair_bundle",
   "chair_template",
   "diy_plan",
+  "diy_plan_gift",
   "public_plan",
   "ladder_jig",
 ]);
@@ -736,6 +737,21 @@ export async function POST(request: NextRequest) {
       if (session.payment_status === "paid" && email) {
         await grantDiyInventory(email, session.id, session.amount_total ?? 0);
       }
+      return NextResponse.json({ received: true });
+    }
+
+    // Gift DIY plans: create each recipient's purchase and send their own
+    // email, then the gifter's receipt (the return page and the hourly
+    // reconcile do the same, idempotently).
+    if (metadata.type === "diy_plan_gift") {
+      try {
+        const { fulfilGiftSession } = await import("@/lib/server/plan-gifts");
+        const done = await fulfilGiftSession(session);
+        if (!done.ok) console.error("[Webhook] gift fulfilment failed:", session.id, done.error);
+      } catch (err) {
+        console.error("[Webhook] gift fulfilment threw:", session.id, err);
+      }
+      if (metadata.promoter_id) fireAndForget("promoter commission", () => processPromoterCommission(session));
       return NextResponse.json({ received: true });
     }
 

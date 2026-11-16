@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Check, ChevronDown } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, Gift } from "lucide-react";
 import PlanSamplesRow from "@/components/plans/PlanSamplesRow";
 import StickyPlanCta from "@/components/plans/StickyPlanCta";
 import { estimatePlanMaterials } from "@/app/actions/plan-materials";
@@ -29,6 +29,7 @@ import {
   totePlansProductJsonLd,
 } from "@/lib/schema/plans";
 import { ResendLinkPanel } from "@/components/plans/PlansStorefront";
+import GiftSection from "@/components/plans/GiftSection";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DIY PLANS STOREFRONT — /plans
@@ -171,9 +172,14 @@ export default async function PlansPage() {
             <li aria-current="page">DIY Build Plans</li>
           </ol>
         </nav>
-        <a href="#my-plans" className="text-sm text-stone-400 hover:text-white">
-          My plans
-        </a>
+        <div className="flex items-center gap-5">
+          <a href="#gift" className="flex items-center gap-1.5 text-sm text-stone-400 hover:text-white">
+            <Gift className="h-4 w-4" aria-hidden /> Gift
+          </a>
+          <a href="#my-plans" className="text-sm text-stone-400 hover:text-white">
+            My plans
+          </a>
+        </div>
       </header>
 
       <main className="mx-auto max-w-xl px-5">
@@ -265,6 +271,17 @@ export default async function PlansPage() {
           <PlanSamplesRow />
         </section>
 
+        {/* ── Gift it ──────────────────────────────────────────────── */}
+        <GiftSection>
+          <p className={eyebrow}>Give it as a gift</p>
+          <h2 className={h2}>Know someone with a garage full of piles?</h2>
+          <p className="mt-3 text-[15px] leading-relaxed text-stone-400">
+            Send All-Access plans to one person or a whole crew. Each gets their own email, their own link and lifetime
+            access: every rack they design, the 3D guide and the printable PDF. {PLANS_PRICES.allAccess} each, up to 10
+            people per order.
+          </p>
+        </GiftSection>
+
         {/* ── Questions ────────────────────────────────────────────── */}
         <section className="border-t border-white/5 py-14">
           <p className={eyebrow}>Questions</p>
@@ -331,6 +348,7 @@ export default async function PlansPage() {
                 {p.title}
               </Link>
             ))}
+            <a href="#gift" className="hover:text-stone-200">Gift plans</a>
             <Link href="/installer-network" className="hover:text-stone-200">Find an installer</Link>
             <Link href="/join?src=plans" className="hover:text-stone-200">Build these for a living</Link>
           </nav>
@@ -345,6 +363,7 @@ export default async function PlansPage() {
 
       <StickyPlanCta
         watchId="hero-cta"
+        quietId="gift"
         price={`${PLANS_PRICES.allAccess} for life`}
         note="Free to design"
         label="Start designing"
