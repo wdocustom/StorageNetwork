@@ -14,7 +14,7 @@
 // installers use.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Home, Lightbulb, Wrench, X } from "lucide-react";
 import AssemblyGuide from "@/components/visualizer/AssemblyGuide";
@@ -243,14 +243,23 @@ function UnitAssembly({
   );
 }
 
+/** What the buyer is doing in the guide, for plan activity (see @/lib/plan-activity). */
+export type GuideActivity =
+  | { kind: "section"; label: string; index: number; total: number }
+  | { kind: "step"; label: string; step: number; total: number };
+
+const sectionLabel = (s: Section) => (s.kind === "module" ? `Module ${s.type.letter}` : `Unit ${s.unit.letter} assembly`);
+
 export default function ModularBuildGuide({
   plan,
   onClose,
   links,
+  onActivity,
 }: {
   plan: CompleteDIYPlan;
   onClose?: () => void;
   links: GuideLinks;
+  onActivity?: (a: GuideActivity) => void;
 }) {
   const sections = useMemo<Section[]>(
     () => [
@@ -263,6 +272,15 @@ export default function ModularBuildGuide({
   const section = sections[Math.min(index, sections.length - 1)];
   const multi = sections.length > 1;
   const go = (i: number) => setIndex(Math.max(0, Math.min(sections.length - 1, i)));
+
+  const label = sectionLabel(section);
+  useEffect(() => {
+    onActivity?.({ kind: "section", label, index: Math.min(index, sections.length - 1) + 1, total: sections.length });
+  }, [label, index, sections.length, onActivity]);
+  const handleStep = useCallback(
+    (step: number, total: number) => onActivity?.({ kind: "step", label, step, total }),
+    [label, onActivity],
+  );
 
   if (section.kind === "unit") {
     return (
@@ -283,6 +301,7 @@ export default function ModularBuildGuide({
       rails="2x4"
       sideways={t.sideways}
       onClose={onClose}
+      onStep={handleStep}
       label={multi ? moduleTypeTitle(t) : undefined}
       hud={
         <div className="space-y-2">

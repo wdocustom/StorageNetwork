@@ -23,6 +23,7 @@ import { fulfilPlanSession, isFreshPurchase } from "@/lib/server/plan-fulfilment
 import { getServiceClient } from "@/lib/supabase-server";
 import { enforceActionRateLimit, RateLimitError } from "@/lib/server/action-rate-limit";
 import { checkPlanDevice } from "@/lib/server/plan-device";
+import { recordPlanActivity } from "@/lib/server/plan-activity";
 import { ladderJigContent, type LadderJigContent } from "@/lib/ladder-jig-content";
 import {
   LADDER_JIG_NAME,
@@ -157,12 +158,14 @@ export type OpenLadderJigResult =
 async function gatedJig(row: Row, extras: { emailSentTo?: string } = {}): Promise<OpenLadderJigResult> {
   const device = await checkPlanDevice(row.email);
   if (!device.ok) {
+    await recordPlanActivity(row, "open_needs_code", { detail: "jig" });
     return {
       ok: false,
       error: "Confirm it's you to open these plans on this device.",
       verify: { token: row.access_token, emailHint: device.emailHint },
     };
   }
+  await recordPlanActivity(row, "jig_open", { detail: "link" });
   return { ok: true, token: row.access_token, content: ladderJigContent(), ...extras };
 }
 
@@ -183,6 +186,7 @@ export async function openLadderJig(input: { sessionId: string } | { token: stri
     // Back from paying shortly after: this is the buyer's device.
     if (!isFreshPurchase(done.row)) return gatedJig(done.row as Row);
     await checkPlanDevice(done.email, { trusted: true });
+    await recordPlanActivity(done.row, "jig_open", { detail: "checkout" });
     return { ok: true, token: done.row.access_token, content: ladderJigContent(), emailSentTo: done.email };
   } catch (err) {
     console.error("[LadderJig] Open failed:", err);

@@ -4,7 +4,6 @@
 // only says which buyer; the code goes to that buyer's email. See
 // @/lib/server/plan-device.
 
-import { getServiceClient } from "@/lib/supabase-server";
 import { enforceActionRateLimit, RateLimitError } from "@/lib/server/action-rate-limit";
 import {
   sendPlanDeviceCode,
@@ -12,19 +11,9 @@ import {
   type SendCodeResult,
   type VerifyCodeResult,
 } from "@/lib/server/plan-device";
+import { activityOwnerByToken, recordPlanActivity } from "@/lib/server/plan-activity";
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const INVALID = "This link is invalid or has expired.";
-
-async function buyerEmail(token: string): Promise<string | null> {
-  if (!UUID_RE.test(token)) return null;
-  const { data } = await getServiceClient()
-    .from("public_plan_purchases")
-    .select("email")
-    .eq("access_token", token)
-    .maybeSingle();
-  return (data?.email as string | undefined) ?? null;
-}
 
 async function limited(action: string, limit: number): Promise<string | null> {
   try {
@@ -39,15 +28,19 @@ async function limited(action: string, limit: number): Promise<string | null> {
 export async function requestPlanDeviceCode(token: string): Promise<SendCodeResult> {
   const slow = await limited("plan-device-code", 10);
   if (slow) return { ok: false, error: slow };
-  const email = await buyerEmail(token);
-  if (!email) return { ok: false, error: INVALID };
-  return sendPlanDeviceCode(email);
+  const owner = await activityOwnerByToken(token);
+  if (!owner) return { ok: false, error: INVALID };
+  const res = await sendPlanDeviceCode(owner.email);
+  if (res.ok) await recordPlanActivity(owner, "code_sent");
+  return res;
 }
 
 export async function confirmPlanDeviceCode(token: string, code: string): Promise<VerifyCodeResult> {
   const slow = await limited("plan-device-verify", 20);
   if (slow) return { ok: false, error: slow };
-  const email = await buyerEmail(token);
-  if (!email) return { ok: false, error: INVALID };
-  return verifyPlanDeviceCode(email, code);
+  const owner = await activityOwnerByToken(token);
+  if (!owner) return { ok: false, error: INVALID };
+  const res = await verifyPlanDeviceCode(owner.email, code);
+  await recordPlanActivity(owner, res.ok ? "code_verified" : "code_rejected");
+  return res;
 }

@@ -67,6 +67,8 @@ import { AFFILIATE_DISCLOSURE } from "@/lib/plan-product-links";
 import DeviceVerify from "@/components/plans/DeviceVerify";
 import UnitsToggle from "@/components/plans/UnitsToggle";
 import { currentUnits, useMeasure } from "@/lib/measure-units";
+import { trackPlanActivity } from "@/lib/plan-activity";
+import type { GuideActivity } from "@/components/plans/ModularBuildGuide";
 
 const ModularBuildGuide = dynamic(() => import("@/components/plans/ModularBuildGuide"), {
   ssr: false,
@@ -163,6 +165,7 @@ type PdfState =
 function PdfCard({ data }: { data: Ready }) {
   const [state, setState] = useState<PdfState>({ phase: "idle" });
   const snapshotsRef = useRef<Record<string, string> | null>(null);
+  const startedAt = useRef(0);
   const totalRenders = data.plan.moduleTypes.reduce((s, t) => s + t.steps.length, 0);
 
   const writePdf = useCallback(
@@ -192,9 +195,14 @@ function PdfCard({ data }: { data: Ready }) {
           units: currentUnits(),
         });
         setState({ phase: "done" });
+        trackPlanActivity(data.token, "pdf_download", {
+          value: Math.round((Date.now() - startedAt.current) / 1000),
+          detail: currentUnits(),
+        });
       } catch (err) {
         console.error("[BuildPlan] PDF generation failed:", err);
         setState({ phase: "error" });
+        trackPlanActivity(data.token, "pdf_error", { detail: err instanceof Error ? err.message : String(err) });
       }
     },
     [data],
@@ -211,6 +219,8 @@ function PdfCard({ data }: { data: Ready }) {
   const handleProgress = useCallback((done: number) => setState({ phase: "rendering", done }), []);
 
   const start = () => {
+    startedAt.current = Date.now();
+    trackPlanActivity(data.token, "pdf_start");
     if (snapshotsRef.current) {
       writePdf(snapshotsRef.current);
       return;
@@ -320,6 +330,7 @@ function BuildAnotherCard({ token }: { token: string }) {
       <div className="flex shrink-0 flex-col gap-2 sm:items-end">
         <Link
           href={`/plans/checkout?member=${token}`}
+          onClick={() => trackPlanActivity(token, "build_another")}
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black uppercase tracking-wider text-white transition hover:bg-emerald-500"
         >
           <Plus className="h-4 w-4" /> Build another plan
@@ -428,6 +439,27 @@ function Checklists({ data }: { data: Ready }) {
   const shopDone = items.filter((i) => shop.checked.has(itemId(i))).length;
   const toolsDone = tools.filter((t) => kit.checked.has(t)).length;
 
+  // Progress, once they've settled for a moment (not every tap).
+  const touched = useRef(false);
+  useEffect(() => {
+    if (!touched.current) return;
+    const t = setTimeout(() => trackPlanActivity(data.token, "shop_progress", { value: shopDone, total: items.length }), 2500);
+    return () => clearTimeout(t);
+  }, [shopDone, items.length, data.token]);
+  useEffect(() => {
+    if (!touched.current) return;
+    const t = setTimeout(() => trackPlanActivity(data.token, "tools_progress", { value: toolsDone, total: tools.length }), 2500);
+    return () => clearTimeout(t);
+  }, [toolsDone, tools.length, data.token]);
+  const toggleShop = (id: string) => {
+    touched.current = true;
+    shop.toggle(id);
+  };
+  const toggleKit = (id: string) => {
+    touched.current = true;
+    kit.toggle(id);
+  };
+
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
@@ -447,7 +479,7 @@ function Checklists({ data }: { data: Ready }) {
                   type="button"
                   role="checkbox"
                   aria-checked={on}
-                  onClick={() => shop.toggle(itemId(item))}
+                  onClick={() => toggleShop(itemId(item))}
                   className="flex min-w-0 flex-1 items-start gap-3 rounded-lg px-2 py-2 text-left text-xs transition hover:bg-white/[0.03] active:bg-white/[0.06]"
                 >
                   <CheckBox on={on} />
@@ -464,6 +496,7 @@ function Checklists({ data }: { data: Ready }) {
                     href={item.url}
                     target="_blank"
                     rel="noopener noreferrer sponsored"
+                    onClick={() => trackPlanActivity(data.token, "buy_link", { detail: item.name })}
                     className={`mr-2 mt-2 flex h-fit shrink-0 items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-bold transition ${
                       on
                         ? "border-slate-700 text-stone-600"
@@ -499,7 +532,7 @@ function Checklists({ data }: { data: Ready }) {
                   type="button"
                   role="checkbox"
                   aria-checked={on}
-                  onClick={() => kit.toggle(tool)}
+                  onClick={() => toggleKit(tool)}
                   className="flex w-full items-start gap-3 rounded-lg px-2 py-2 text-left text-xs transition hover:bg-white/[0.03] active:bg-white/[0.06]"
                 >
                   <CheckBox on={on} />
@@ -523,6 +556,8 @@ function BuildPlanInner() {
   const router = useRouter();
   const [result, setResult] = useState<OpenTotePlanResult | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
+  /** How the guide was opened, for plan activity: the page button or a ?guide=1 link. */
+  const guideVia = useRef<"button" | "link">("button");
   const measure = useMeasure();
   const started = useRef(false);
   /** What to re-open with after the device is verified (keeps an upgrade session). */
@@ -563,13 +598,48 @@ function BuildPlanInner() {
         const offer = readOffer();
         metaTrack("Purchase", { currency: "USD", value: offer ? TOTE_PLAN_EXIT_OFFER.price / 100 : TOTE_PLAN_ALL_ACCESS.price / 100 });
       }
-      if (wantsGuide && res.tier === "interactive") setGuideOpen(true);
+      if (wantsGuide && res.tier === "interactive") {
+        guideVia.current = "link";
+        setGuideOpen(true);
+      }
       // Swap one-time params for the permanent link.
       if (res.token && (sessionId || upgradeSessionId || wantsUpgrade || wantsGuide)) {
         router.replace(`/plans/build?token=${res.token}`);
       }
     });
   }, [searchParams, router]);
+
+  // ── Plan activity (purchases only: Pro / installer access has no token) ──
+  const planToken = result?.ok ? result.token : undefined;
+  useEffect(() => {
+    if (!guideOpen || !planToken) return;
+    const openedAt = Date.now();
+    trackPlanActivity(planToken, "guide_open", { detail: guideVia.current });
+    guideVia.current = "button";
+    let closed = false;
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      trackPlanActivity(planToken, "guide_close", { value: Math.round((Date.now() - openedAt) / 1000) });
+    };
+    // Leaving the page with the guide open counts as closing it.
+    window.addEventListener("pagehide", close);
+    return () => {
+      window.removeEventListener("pagehide", close);
+      close();
+    };
+  }, [guideOpen, planToken]);
+  const handleGuideActivity = useCallback(
+    (a: GuideActivity) => {
+      if (a.kind === "section") {
+        trackPlanActivity(planToken, "guide_section", { detail: a.label, value: a.index, total: a.total });
+      } else {
+        trackPlanActivity(planToken, "guide_step", { detail: a.label, value: a.step, total: a.total });
+        if (a.step === a.total) trackPlanActivity(planToken, "guide_section_done", { detail: a.label, total: a.total });
+      }
+    },
+    [planToken],
+  );
 
   if (!result) {
     return (
@@ -624,6 +694,7 @@ function BuildPlanInner() {
           <ModularBuildGuide
             plan={plan}
             onClose={() => setGuideOpen(false)}
+            onActivity={handleGuideActivity}
             links={{ homeHref: result.token ? libraryHref(result.token) : "/plans", jig: result.jig }}
           />
         </div>

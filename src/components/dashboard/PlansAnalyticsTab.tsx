@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { getAdminPlansAnalytics } from "@/app/actions/plans-analytics";
 import type { PlansAnalytics, PlansPageKind } from "@/lib/plans-analytics";
+import PlanBuyerActivity from "@/components/dashboard/PlanBuyerActivity";
 
 /** Day the "clicked buy" step started being recorded (migration 153). */
 const CHECKOUT_TRACKING_SINCE = "Nov 7, 2026";
@@ -69,7 +70,12 @@ export default function PlansAnalyticsTab({ range }: { range: number }) {
     return <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">{error}</p>;
   }
 
-  return <PlansAnalyticsView data={data} />;
+  return (
+    <div className="space-y-5">
+      <PlansAnalyticsView data={data} />
+      <PlanBuyerActivity range={range} />
+    </div>
+  );
 }
 
 export function PlansAnalyticsView({ data }: { data: PlansAnalytics }) {

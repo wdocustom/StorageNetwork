@@ -15,6 +15,7 @@ function query(table: string) {
       filters.push([k, v]);
       return api;
     },
+    limit: () => api,
     maybeSingle: async () => ({ data: matches()[0] ?? null, error: null }),
     single: async () => {
       if (insertRow) {
@@ -44,8 +45,14 @@ vi.mock("@/lib/server/action-rate-limit", () => ({
 vi.mock("@/app/actions/generate-plan", () => ({ generateDIYPlan: async () => ({}) }));
 vi.mock("@/app/actions/diy-plan-checkout", () => ({ checkDIYPlanAccess: async () => ({ hasFreeAccess: false }) }));
 vi.mock("@/lib/emails/plansTemplates", () => ({ sendTotePlanAccessEmail: async () => ({ success: true }) }));
+const { activity } = vi.hoisted(() => ({ activity: [] as { token: string; event: string; detail?: unknown }[] }));
+vi.mock("@/lib/server/plan-activity", () => ({
+  recordPlanActivity: async (owner: { access_token: string }, event: string, p: { detail?: unknown } = {}) => {
+    activity.push({ token: owner.access_token, event, detail: p.detail });
+  },
+}));
 
-import { checkAllAccess, createIncludedPlan } from "./tote-plan-access";
+import { checkAllAccess, createIncludedPlan, openTotePlan } from "./tote-plan-access";
 
 const PAID = "11111111-1111-4111-8111-111111111111";
 const design = (cols: number) => ({ units: [{ cols, rows: 3, toteType: "HDX", hasWheels: true, hasTop: true }] });
@@ -93,6 +100,8 @@ describe("All-Access: build another plan", () => {
       customer_name: "Jo Builder",
     });
     expect(String(created.stripe_session_id)).toMatch(/^included_/);
+    // Buyer activity: recorded against the new plan's own link.
+    expect(activity.at(-1)).toEqual({ token: created.access_token, event: "included_plan", detail: "1 unit" });
   });
 
   it("plans built from an included plan still point at the original purchase", async () => {
@@ -114,6 +123,15 @@ describe("All-Access: build another plan", () => {
     const res = await createIncludedPlan(PAID, design(2));
     expect(res).toMatchObject({ ok: false, verify: { token: PAID, emailHint: "jo•••@example.com" } });
     expect(rows).toHaveLength(2);
+  });
+
+  it("records opening a plan from its link, or the new-device prompt", async () => {
+    activity.length = 0;
+    expect((await openTotePlan({ token: PAID })).ok).toBe(true);
+    expect(activity).toEqual([{ token: PAID, event: "open", detail: "link" }]);
+    device = { ok: false, emailHint: "jo•••@example.com" };
+    expect((await openTotePlan({ token: PAID })).ok).toBe(false);
+    expect(activity.at(-1)).toMatchObject({ token: PAID, event: "open_needs_code" });
   });
 
   it("rejects designs outside the plan limits", async () => {

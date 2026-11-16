@@ -36,6 +36,8 @@ import { generateDIYPlan, type CompleteDIYPlan } from "@/app/actions/generate-pl
 import { checkDIYPlanAccess } from "@/app/actions/diy-plan-checkout";
 import { PLAN_ROW_COLUMNS, fulfilPlanSession, isFreshPurchase, type FulfilledRow } from "@/lib/server/plan-fulfilment";
 import { checkPlanDevice } from "@/lib/server/plan-device";
+import { recordPlanActivity } from "@/lib/server/plan-activity";
+import type { PlanOpenVia } from "@/lib/plan-activity";
 import {
   enforceActionRateLimit,
   RateLimitError,
@@ -230,7 +232,9 @@ async function openFromCheckout(sessionId: string): Promise<OpenTotePlanResult> 
   // device — remember it. Later visits with the id go through the code check.
   if (!isFreshPurchase(row)) return gated(row as PurchaseRow);
   await checkPlanDevice(email, { trusted: true });
-  return buildResult(row as PurchaseRow, { emailSentTo: email });
+  const result = await buildResult(row as PurchaseRow, { emailSentTo: email });
+  if (result.ok) await recordOpen(row as PurchaseRow, "checkout");
+  return result;
 }
 
 async function purchaseBySession(sessionId: string): Promise<FulfilledRow | null> {
@@ -251,10 +255,18 @@ async function openFromToken(token: string, upgradeSessionId?: string): Promise<
   // A PDF → guide upgrade paid before All-Access: record it (the plan
   // opens with full access either way).
   if (upgradeSessionId && row.tier === "pdf") await applyUpgrade(row, upgradeSessionId);
-  return buildResult(row);
+  const result = await buildResult(row);
+  if (result.ok) await recordOpen(row, "link");
+  return result;
 }
 
-function needsCode(row: PurchaseRow, emailHint: string): OpenTotePlanResult {
+/** A buyer opened one of their plans (who, which plan, how). */
+async function recordOpen(row: PurchaseRow, via: PlanOpenVia): Promise<void> {
+  await recordPlanActivity(row, "open", { detail: via });
+}
+
+async function needsCode(row: PurchaseRow, emailHint: string): Promise<OpenTotePlanResult> {
+  await recordPlanActivity(row, "open_needs_code");
   return {
     ok: false,
     error: "Confirm it's you to open these plans on this device.",
@@ -270,7 +282,9 @@ function needsCode(row: PurchaseRow, emailHint: string): OpenTotePlanResult {
 async function gated(row: PurchaseRow): Promise<OpenTotePlanResult> {
   const device = await checkPlanDevice(row.email);
   if (!device.ok) return needsCode(row, device.emailHint);
-  return buildResult(row);
+  const result = await buildResult(row);
+  if (result.ok) await recordOpen(row, "checkout_reload");
+  return result;
 }
 
 async function applyUpgrade(row: PurchaseRow, upgradeSessionId: string): Promise<void> {
@@ -403,6 +417,11 @@ export async function createIncludedPlan(token: string, rawDesign: unknown): Pro
       console.error("[TotePlanAccess] Included plan insert failed:", error);
       return { ok: false, error: "We couldn't create that plan. Please try again." };
     }
+    await recordPlanActivity(
+      { access_token: inserted.access_token as string, email: row.email, plan_id: TOTE_PLAN_ID },
+      "included_plan",
+      { detail: design.name ?? `${design.units.length} unit${design.units.length === 1 ? "" : "s"}` },
+    );
     return { ok: true, token: inserted.access_token as string };
   } catch (err) {
     console.error("[TotePlanAccess] createIncludedPlan:", err);
