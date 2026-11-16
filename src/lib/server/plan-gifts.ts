@@ -24,6 +24,7 @@ import type Stripe from "stripe";
 import { getServiceClient } from "@/lib/supabase-server";
 import { getAppUrl } from "@/lib/url-helper";
 import { sendGiftReceiptEmail, sendGiftRecipientEmail } from "@/lib/emails/giftTemplates";
+import { activityOwnerByToken, recordPlanActivity } from "@/lib/server/plan-activity";
 import { DEFAULT_TOTE_PLAN_DESIGN, TOTE_PLAN_ALL_ACCESS_TIER, TOTE_PLAN_ID } from "@/lib/tote-plans";
 import {
   GIFT_MAX_EMAIL_CORRECTIONS,
@@ -607,4 +608,6 @@ export async function markGiftOpened(token: string): Promise<void> {
     .update({ opened_at: new Date().toISOString() })
     .eq("purchase_token", token)
     .is("opened_at", null);
+  const owner = await activityOwnerByToken(token);
+  if (owner) await recordPlanActivity(owner, "gift_open");
 }

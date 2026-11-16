@@ -13,6 +13,7 @@
 // plans "Included".
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { recordPlanActivity } from "@/lib/server/plan-activity";
 import { getServiceClient } from "@/lib/supabase-server";
 import { checkPlanDevice } from "@/lib/server/plan-device";
 import { getPlanById } from "@/lib/plans-config";
@@ -71,18 +72,22 @@ export async function listMyPlans(token: string): Promise<LibraryResult> {
     const db = getServiceClient();
     const { data: me } = await db
       .from("public_plan_purchases")
-      .select("email")
+      .select("email, plan_id")
       .eq("access_token", token)
       .maybeSingle();
     if (!me?.email) return { ok: false, error: "This link is invalid or has expired." };
+    const owner = { access_token: token, email: me.email as string, plan_id: me.plan_id as string };
     const device = await checkPlanDevice(me.email);
     if (!device.ok) {
+      await recordPlanActivity(owner, "open_needs_code", { detail: "library" });
       return {
         ok: false,
         error: "Confirm it's you to open your plans on this device.",
         verify: { token, emailHint: device.emailHint },
       };
     }
+
+    await recordPlanActivity(owner, "library_open");
 
     const { data: rows } = await db
       .from("public_plan_purchases")

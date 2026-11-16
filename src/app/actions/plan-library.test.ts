@@ -22,6 +22,12 @@ const { checkPlanDevice } = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/server/plan-device", () => ({ checkPlanDevice }));
 vi.mock("@/lib/supabase-server", () => ({ getServiceClient: () => ({ from: () => query() }) }));
+const { activity } = vi.hoisted(() => ({ activity: [] as { token: string; event: string; detail?: unknown }[] }));
+vi.mock("@/lib/server/plan-activity", () => ({
+  recordPlanActivity: async (owner: { access_token: string }, event: string, p: { detail?: unknown } = {}) => {
+    activity.push({ token: owner.access_token, event, detail: p.detail });
+  },
+}));
 
 import { listMyPlans } from "./plan-library";
 
@@ -39,6 +45,8 @@ describe("My Builds", () => {
     expect(res.items[0]).toMatchObject({ kind: "tote", title: "4×4 Tote Organizer", badge: "All-Access" });
     expect(res.buildAnotherHref).toBe("/plans/checkout?member=11111111-1111-4111-8111-111111111111");
     expect(res.jigOffer).toEqual({ href: "/plans/jig?owner=11111111-1111-4111-8111-111111111111", price: 500 });
+    // Buyer activity: opening My Builds is recorded against the link used.
+    expect(activity.at(-1)).toEqual({ token: "22222222-2222-4222-8222-222222222222", event: "library_open", detail: undefined });
   });
 
   it("asks for the emailed code on a device the buyer hasn't used", async () => {
@@ -46,6 +54,7 @@ describe("My Builds", () => {
     const res = await listMyPlans("22222222-2222-4222-8222-222222222222");
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.verify).toEqual({ token: "22222222-2222-4222-8222-222222222222", emailHint: "jo•••@example.com" });
+    expect(activity.at(-1)).toMatchObject({ event: "open_needs_code", detail: "library" });
   });
 
   it("rejects unknown or malformed tokens", async () => {

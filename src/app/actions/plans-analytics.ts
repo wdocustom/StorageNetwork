@@ -1,6 +1,7 @@
 "use server";
 
 import { getServiceClient } from "@/lib/supabase-server";
+import { getAuthenticatedUser } from "@/lib/auth";
 import { MAX_DEVICES } from "@/lib/server/plan-device";
 import {
   excludeStaffTraffic,
@@ -110,8 +111,12 @@ export async function getAdminPlansAnalytics(
   days: number = 30,
 ): Promise<{ success: boolean; data?: PlansAnalytics; error?: string }> {
   try {
+    // The signed-in session decides, never the id the browser passes in
+    // (anyone could pass an admin's id).
+    const authed = await getAuthenticatedUser();
+    if (!authed || authed.id !== userId) return { success: false, error: "Not authorized." };
     const supabase = getServiceClient();
-    const { data: profile } = await supabase.from("profiles").select("is_admin").eq("id", userId).single();
+    const { data: profile } = await supabase.from("profiles").select("is_admin").eq("id", authed.id).single();
     if (!profile?.is_admin) return { success: false, error: "Not authorized." };
 
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();

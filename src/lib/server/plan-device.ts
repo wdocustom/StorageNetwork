@@ -145,6 +145,12 @@ export async function checkPlanDevice(rawEmail: string, opts: { trusted?: boolea
   return { ok: false, emailHint: maskEmail(email) };
 }
 
+/** sha256 of this browser's plan-device cookie (as stored in plan_buyer_devices), or null. */
+export async function currentDeviceHash(): Promise<string | null> {
+  const id = await readDeviceId();
+  return id ? sha(id) : null;
+}
+
 /** Read-only check for route handlers that can't set cookies mid-stream. */
 export async function isKnownPlanDevice(rawEmail: string): Promise<boolean> {
   const deviceId = await readDeviceId();

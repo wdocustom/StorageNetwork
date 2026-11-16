@@ -1461,6 +1461,8 @@ interface AssemblyGuideProps {
   rails?: RailStyle;
   /** 2×4 rails only: totes turned 90° (30-1/4" bays, 20" deep) */
   sideways?: boolean;
+  /** Called with the step shown (1-based) and the step count, in step mode */
+  onStep?: (step: number, total: number) => void;
 }
 
 export default function AssemblyGuide({
@@ -1474,6 +1476,7 @@ export default function AssemblyGuide({
   hud,
   rails = "plywood",
   sideways = false,
+  onStep,
 }: AssemblyGuideProps) {
   const config: BuildConfig = { hasWheels, hasTop, toteType, rails, sideways };
   const steps = useMemo(() => getStepsForConfig(config), [hasWheels, hasTop, toteType, rails, sideways]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1487,6 +1490,10 @@ export default function AssemblyGuide({
   const [stepIndex, setStepIndex] = useState(0);
 
   const currentStep = steps[stepIndex];
+
+  useEffect(() => {
+    if (mode === "step" && steps.length) onStep?.(stepIndex + 1, steps.length);
+  }, [mode, stepIndex, steps.length, onStep]);
 
   const handleStartBuild = useCallback(() => {
     setMode("step");

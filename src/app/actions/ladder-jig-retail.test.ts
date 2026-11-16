@@ -37,6 +37,12 @@ const { checkPlanDevice } = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/server/plan-device", () => ({ checkPlanDevice }));
 vi.mock("@/config/site", () => ({ siteConfig: { baseUrl: "https://x.test" } }));
+const { activity } = vi.hoisted(() => ({ activity: [] as { token: string; event: string; detail?: unknown }[] }));
+vi.mock("@/lib/server/plan-activity", () => ({
+  recordPlanActivity: async (owner: { access_token: string }, event: string, p: { detail?: unknown } = {}) => {
+    activity.push({ token: owner.access_token, event, detail: p.detail });
+  },
+}));
 
 const created: { unit_amount: number; metadata: Record<string, string> }[] = [];
 let sessionToReturn: Record<string, unknown> = {};
@@ -109,6 +115,9 @@ describe("ladder jig content is gated", () => {
     if (first.ok) expect(first.content.marks).toEqual([13, 29, 45, 61, 77, 93]);
     // The device that paid is remembered without a code.
     expect(checkPlanDevice).toHaveBeenCalledWith("new@example.com", { trusted: true });
+    // Buyer activity: every open is recorded (both came back through checkout).
+    const opens = activity.filter((a) => a.event === "jig_open" && a.token === (first.ok ? first.token : ""));
+    expect(opens.map((o) => o.detail)).toEqual(["checkout", "checkout"]);
   });
 
   it("asks for the emailed code when the link is opened on a new device", async () => {
@@ -119,5 +128,8 @@ describe("ladder jig content is gated", () => {
     const res = await openLadderJig({ token });
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.verify).toEqual({ token, emailHint: "ne•••@example.com" });
+    expect(activity.at(-1)).toMatchObject({ token, event: "open_needs_code", detail: "jig" });
+    expect((await openLadderJig({ token })).ok).toBe(true);
+    expect(activity.at(-1)).toMatchObject({ token, event: "jig_open", detail: "link" });
   });
 });
