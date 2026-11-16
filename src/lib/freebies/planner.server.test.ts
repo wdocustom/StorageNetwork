@@ -89,7 +89,7 @@ describe("planDay", () => {
     generateObject.mockResolvedValue(answer({}));
     await planDay({ places: PLACES, origin: ORIGIN, startMin: START });
     expect(generateObject.mock.calls[0][0].providerOptions).toEqual({
-      google: { thinkingConfig: { thinkingBudget: 0 } },
+      google: { thinkingConfig: { thinkingLevel: "minimal" } },
     });
   });
 

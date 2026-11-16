@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from "next/server";
-import { getChatModel, hasChatProvider, generateTextWithFallback } from "@/lib/ai-provider";
+import { getChatModel, hasChatProvider, generateTextWithFallback, describeAIError } from "@/lib/ai-provider";
 import { z } from "zod";
 import { buildSystemPrompt } from "./prompt";
 import { formatAssistantResponse } from "./response-templates";
@@ -603,14 +603,8 @@ ${systemPrompt}`,
       ...(parsedUnits.length > 0 ? { parsedUnits } : {}),
     });
   } catch (error: unknown) {
-    console.error("Build assistant error:", error);
-
-    const message =
-      error instanceof Error
-        ? error.cause instanceof Error
-          ? error.cause.message
-          : error.message
-        : String(error);
+    const message = describeAIError(error);
+    console.error("Build assistant error:", message);
 
     if (message.includes("quota") || message.includes("rate") || message.includes("429")) {
       return NextResponse.json(

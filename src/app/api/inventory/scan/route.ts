@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateObject } from "ai";
 import { z } from "zod";
+import { GEMINI_MODEL, describeAIError } from "@/lib/ai-provider";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // POST /api/inventory/scan
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
         };
 
     const { object: result } = await generateObject({
-      model: google("gemini-2.5-flash"),
+      model: google(GEMINI_MODEL),
       schema: ScanResultSchema,
       messages: [
         {
@@ -105,7 +106,7 @@ This is for a home storage inventory system — accuracy matters because the cus
       ...result,
     });
   } catch (error) {
-    console.error("[InventoryScan] AI scan failed:", error);
+    console.error("[InventoryScan] AI scan failed:", describeAIError(error));
     return NextResponse.json(
       {
         error: "Failed to analyze photo. Please try again.",

@@ -7,7 +7,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from "next/server";
-import { getChatModel, hasChatProvider, generateTextWithFallback } from "@/lib/ai-provider";
+import { getChatModel, hasChatProvider, generateTextWithFallback, describeAIError } from "@/lib/ai-provider";
 import { calculateBuild } from "@/app/actions/calculator";
 import { RAISED_BED_SIZES } from "@/lib/raised-beds";
 import type { InstallerPricing } from "@/types/viewModels";
@@ -323,9 +323,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ units: resolvedUnits, notes: parsed.notes || undefined });
   } catch (err) {
-    console.error("[BuildAI] Error processing input:", input, err);
+    const message = describeAIError(err);
+    console.error("[BuildAI] Error processing input:", input, "→", message);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "AI generation failed" },
+      { error: message },
       { status: 500 }
     );
   }
