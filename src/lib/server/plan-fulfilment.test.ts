@@ -5,7 +5,12 @@ vi.mock("server-only", () => ({}));
 
 const state: { rows: Record<string, unknown>[]; emails: string[] } = { rows: [], emails: [] };
 
-const { grants } = vi.hoisted(() => ({ grants: [] as [string, string | null, number][] }));
+const { grants, queued } = vi.hoisted(() => ({ grants: [] as [string, string | null, number][], queued: [] as string[] }));
+vi.mock("@/lib/server/smart-inventory-follow-up", () => ({
+  queueSmartInventoryFollowUp: async (email: string) => {
+    queued.push(email);
+  },
+}));
 vi.mock("@/lib/server/diy-inventory", () => ({
   grantDiyInventory: async (email: string, sessionId: string | null, cents: number) => {
     grants.push([email, sessionId, cents]);
@@ -82,13 +87,22 @@ describe("fulfilPlanSession", () => {
     expect(state.rows.find((r) => r.stripe_session_id === "cs_r")?.offer_code).toBeNull();
   });
 
+  it("queues the Smart Inventory follow-up for a regular tote purchase, once", async () => {
+    queued.length = 0;
+    await fulfilPlanSession(session({ id: "cs_q" }));
+    await fulfilPlanSession(session({ id: "cs_q" })); // webhook + return page
+    expect(queued).toHaveLength(1);
+  });
+
   it("last-chance offer: Smart Inventory included free, once, and the email says so", async () => {
     grants.length = 0;
+    queued.length = 0;
     const meta = { type: "diy_plan", design: "H4x4wt", tier: "interactive", offer: "save3inv" };
     await fulfilPlanSession(session({ id: "cs_lc", metadata: meta }));
     await fulfilPlanSession(session({ id: "cs_lc", metadata: meta })); // webhook + return page
     expect(grants).toEqual([[expect.any(String), "cs_lc", 0]]);
     expect(state.emails.filter((e) => e.endsWith(":inventory"))).toHaveLength(1);
+    expect(queued).toHaveLength(0); // they own it: no follow-up
     // A regular $3-off purchase doesn't include it.
     await fulfilPlanSession(session({ id: "cs_3", metadata: { ...meta, offer: "save3" } }));
     expect(grants).toHaveLength(1);

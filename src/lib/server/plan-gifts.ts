@@ -25,6 +25,7 @@ import { getServiceClient } from "@/lib/supabase-server";
 import { getAppUrl } from "@/lib/url-helper";
 import { sendGiftReceiptEmail, sendGiftRecipientEmail } from "@/lib/emails/giftTemplates";
 import { activityOwnerByToken, recordPlanActivity } from "@/lib/server/plan-activity";
+import { queueSmartInventoryFollowUp } from "@/lib/server/smart-inventory-follow-up";
 import { DEFAULT_TOTE_PLAN_DESIGN, TOTE_PLAN_ALL_ACCESS_TIER, TOTE_PLAN_ID } from "@/lib/tote-plans";
 import {
   GIFT_MAX_EMAIL_CORRECTIONS,
@@ -228,6 +229,8 @@ async function ensureGiftPurchase(
   }
 
   await db.from("plan_gifts").update({ purchase_token: token }).eq("id", gift.id).is("purchase_token", null);
+  // Their gift email doesn't pitch Smart Inventory: the follow-up does, 4–5 days on.
+  await queueSmartInventoryFollowUp(gift.recipient_email, token);
   return token;
 }
 
