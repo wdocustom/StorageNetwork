@@ -42,6 +42,26 @@ export function activateOffer(code: string = TOTE_PLAN_EXIT_OFFER.code, now = Da
   return o;
 }
 
+// The last-chance offer (after "No thanks" on the first): at most once per browser.
+const LAST_CHANCE_SEEN_KEY = "sn_plan_last_chance_seen";
+
+export function lastChanceSeen(): boolean {
+  try {
+    return localStorage.getItem(LAST_CHANCE_SEEN_KEY) === "1";
+  } catch {
+    // Can't remember it: don't show it, rather than risk showing it every visit.
+    return true;
+  }
+}
+
+export function markLastChanceSeen(): void {
+  try {
+    localStorage.setItem(LAST_CHANCE_SEEN_KEY, "1");
+  } catch {
+    /* storage blocked */
+  }
+}
+
 export function offerAlreadySeen(): boolean {
   try {
     return localStorage.getItem(SEEN_KEY) === "1";

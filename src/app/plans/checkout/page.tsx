@@ -19,7 +19,8 @@ import { useSearchParams } from "next/navigation";
 import { useState, useMemo, useEffect, useCallback, useRef, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Crown, Layers, Loader2, Plus, Ruler, Trash2 } from "lucide-react";
+import { Crown, Gift, Layers, Loader2, Plus, Ruler, Trash2 } from "lucide-react";
+import { DIY_INVENTORY } from "@/lib/diy-inventory";
 import { createDIYPlanCheckout, checkDIYPlanAccess, checkPlanPromo } from "@/app/actions/diy-plan-checkout";
 import SystemMap from "@/components/plans/SystemMap";
 import UnitsToggle from "@/components/plans/UnitsToggle";
@@ -42,6 +43,8 @@ import { emailMyDesign } from "@/app/actions/plan-design-lead";
 import {
   activateOffer,
   forgetPromo,
+  lastChanceSeen,
+  markLastChanceSeen,
   offerAlreadySeen,
   readOffer,
   readPromo,
@@ -67,7 +70,9 @@ import {
   totePlanDesignHref,
   TOTE_PLAN_ALL_ACCESS,
   TOTE_PLAN_EXIT_OFFER,
+  TOTE_PLAN_LAST_CHANCE,
   isRetentionOffer,
+  offerIncludesInventory,
   offerOffLabel,
   totePlanOfferPrice,
   formatPlanPrice,
@@ -217,6 +222,8 @@ function PlansDesigner() {
   // older links carry save5 and keep their $5 off).
   const [offer, setOffer] = useState<ActiveOffer | null>(null);
   const [exitOpen, setExitOpen] = useState(false);
+  // The last-chance offer, after "No thanks" on the exit offer (see showLastChance).
+  const [lastChanceOpen, setLastChanceOpen] = useState(false);
   // A promo code (FRIDAY), checked server-side against the buyer's email.
   // Replaces the retention offer for this checkout: never combined.
   const [promo, setPromo] = useState<AppliedPromo | null>(null);
@@ -417,11 +424,26 @@ function PlansDesigner() {
   const canOffer = !hasFree && !member && !promo;
   const showExitOffer = (trigger: "closed" | "hesitate" | "return") => {
     // ("closed" fires while the panel is still closing, so it skips that check)
-    if (!canOffer || exitOpen || (checkout && trigger !== "closed") || offerAlreadySeen()) return;
+    if (!canOffer || exitOpen || lastChanceOpen || (checkout && trigger !== "closed") || offerAlreadySeen()) return;
     setOffer(activateOffer());
     setExitOpen(true);
     trackPlanEvent("exit_offer_shown", trigger);
   };
+  // ── The last-chance offer ─────────────────────────────────────────────
+  // Right after "No thanks" on the $3-off offer: same $16, plus Smart
+  // Inventory free. Once per browser. Never for anyone with a promo code,
+  // or holding an older, better offer (a $5-off link).
+  const showLastChance = () => {
+    if (!canOffer || lastChanceSeen()) return;
+    const current = readOffer();
+    if (current && totePlanOfferPrice(current.code) < TOTE_PLAN_LAST_CHANCE.price) return;
+    markLastChanceSeen();
+    setOffer(activateOffer(TOTE_PLAN_LAST_CHANCE.code));
+    // A beat between the two, so it reads as a new offer, not the same one.
+    window.setTimeout(() => setLastChanceOpen(true), 350);
+    trackPlanEvent("last_chance_shown");
+  };
+
   const showExitOfferRef = useRef(showExitOffer);
   showExitOfferRef.current = showExitOffer;
 
@@ -720,7 +742,9 @@ function PlansDesigner() {
                 promo
                   ? `${promo.label} · ${offerOffLabel(promo.price)}`
                   : offer
-                    ? `${offerOffLabel(priceCents)} · 24 hours`
+                    ? offerIncludesInventory(offer.code)
+                      ? `${offerOffLabel(priceCents)} + ${DIY_INVENTORY.name} free`
+                      : `${offerOffLabel(priceCents)} · 24 hours`
                     : undefined
               }
               promo={promo}
@@ -773,6 +797,59 @@ function PlansDesigner() {
             onClose={() => {
               trackPlanEvent("exit_offer_dismiss");
               setExitOpen(false);
+            }}
+            onDecline={() => {
+              trackPlanEvent("exit_offer_dismiss");
+              setExitOpen(false);
+              showLastChance();
+            }}
+          />
+        )}
+        {lastChanceOpen && (
+          <ExitOffer
+            designName={totePlanName(design)}
+            price={formatPlanPrice(TOTE_PLAN_LAST_CHANCE.price)}
+            wasPrice={formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price)}
+            off={offerOffLabel(TOTE_PLAN_LAST_CHANCE.price)}
+            eyebrow="Okay, one last thing"
+            headline={`${offerOffLabel(TOTE_PLAN_LAST_CHANCE.price)} + ${DIY_INVENTORY.name}, free`}
+            badge="Last chance"
+            bonus={
+              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/[0.07] p-3.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-400/15">
+                  <Gift className="h-5 w-5 text-emerald-300" aria-hidden />
+                </span>
+                <span className="min-w-0 text-sm leading-snug text-stone-300">
+                  <span className="flex flex-wrap items-baseline gap-x-2 font-bold text-white">
+                    {DIY_INVENTORY.name} included
+                    <span className="text-xs font-semibold text-stone-500 line-through">{formatPlanPrice(DIY_INVENTORY.price)}</span>
+                    <span className="text-xs font-bold text-emerald-300">Free</span>
+                  </span>
+                  Snap a photo of each tote and search &ldquo;camping stove&rdquo; to find it. Yours for life, for every rack.
+                </span>
+              </div>
+            }
+            wallet={inApp && inApp.os !== "other" ? <WalletEscape inApp={inApp} buildUrl={escapeUrl} /> : undefined}
+            buying={buying}
+            onBuy={async () => {
+              trackPlanEvent("last_chance_buy");
+              await handleBuy("offer");
+              setLastChanceOpen(false);
+            }}
+            onEmail={async (email) => {
+              let visitorId: string | null = null;
+              try {
+                visitorId = localStorage.getItem("sn_vid");
+              } catch {
+                /* storage blocked */
+              }
+              const r = await emailMyDesign({ email, design, offer: TOTE_PLAN_LAST_CHANCE.code, visitorId });
+              if (r.ok) trackPlanEvent("exit_offer_email", "last_chance");
+              return r;
+            }}
+            onClose={() => {
+              trackPlanEvent("last_chance_dismiss");
+              setLastChanceOpen(false);
             }}
           />
         )}

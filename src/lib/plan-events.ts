@@ -44,6 +44,9 @@ export const PLAN_EVENTS = {
   save_home: "Buyer tapped save to home screen / bookmark",
   save_home_added: "Buyer added plans to home screen",
   units: "Switched inches / millimetres",
+  last_chance_shown: "Saw the last-chance offer ($3 off + Smart Inventory)",
+  last_chance_buy: "Tapped buy on the last-chance offer",
+  last_chance_dismiss: "Said no thanks to the last-chance offer",
   promo_applied: "Applied a promo code (FRIDAY)",
   promo_rejected: "Entered a promo code that didn't apply",
 } as const;

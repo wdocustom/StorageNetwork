@@ -55,8 +55,18 @@ export function diyPlansEmailBlock(url: string | null | undefined): string {
  * "Now that you've built it, let's get organized": the Smart Inventory
  * add-on ($5, every rack for life), linking the buyer's own inventory page.
  */
-export function smartInventoryEmailBlock(appUrl: string, accessToken: string): string {
+export function smartInventoryEmailBlock(appUrl: string, accessToken: string, included = false): string {
   const url = `${appUrl}${diyInventoryHref(accessToken)}`;
+  if (included) {
+    // Bought with the last-chance offer: Smart Inventory came with the plans.
+    return `
+    <div style="background:#06281e;border:1px solid #065f46;border-radius:8px;padding:16px 20px;margin-bottom:20px;">
+      <p style="margin:0 0 4px;color:#6ee7b7;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">Included with your order &middot; ${DIY_INVENTORY.name}</p>
+      <p style="margin:0 0 6px;color:#fff;font-size:14px;font-weight:800;">Your ${DIY_INVENTORY.name} is ready.</p>
+      <p style="margin:0 0 10px;color:#a7f3d0;font-size:12px;line-height:1.5;">Once your rack is built: tap a tote, snap a photo and it lists what&rsquo;s inside. Search &ldquo;camping stove&rdquo; and the right tote lights up. QR labels for each rack, for every rack you build, for life.</p>
+      <a href="${url}" style="color:#6ee7b7;font-size:13px;font-weight:800;text-decoration:none;">Open ${DIY_INVENTORY.name} &rarr;</a>
+    </div>`;
+  }
   const price = usdMoney(formatPlanPrice(DIY_INVENTORY.price));
   return `
     <div style="background:#0a0a0a;border:1px solid #3f3a1c;border-radius:8px;padding:16px 20px;margin-bottom:20px;">
@@ -119,6 +129,8 @@ export async function sendTotePlanAccessEmail(
   design: TotePlanDesign,
   tier: TotePlanTier,
   accessToken: string,
+  /** Bought with the last-chance offer: Smart Inventory included */
+  inventoryIncluded = false,
 ): Promise<SendEmailResult> {
   const appUrl = getAppUrl();
   const accessUrl = `${appUrl}/plans/build?token=${accessToken}`;
@@ -158,7 +170,7 @@ export async function sendTotePlanAccessEmail(
       <a href="${buildAnotherUrl}" style="color:#6ee7b7;font-size:13px;font-weight:800;text-decoration:none;">Build another plan &rarr;</a>
     </div>
 
-    ${smartInventoryEmailBlock(appUrl, accessToken)}
+    ${smartInventoryEmailBlock(appUrl, accessToken, inventoryIncluded)}
 
     <div style="background:#0a0a0a;border:1px solid #1e1e1e;border-radius:8px;padding:16px 20px;margin-bottom:20px;">
       <p style="margin:0 0 4px;color:#facc15;font-size:13px;font-weight:800;">Interested in building these for a living?</p>

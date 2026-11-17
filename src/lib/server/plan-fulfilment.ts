@@ -17,10 +17,12 @@ import type Stripe from "stripe";
 import { getServiceClient } from "@/lib/supabase-server";
 import { sendLadderJigAccessEmail, sendTotePlanAccessEmail } from "@/lib/emails/plansTemplates";
 import { LADDER_JIG_PLAN_ID } from "@/lib/ladder-jig";
+import { grantDiyInventory } from "@/lib/server/diy-inventory";
 import {
   TOTE_PLAN_ID,
   decodeTotePlanDesign,
   isTotePlanTier,
+  offerIncludesInventory,
   parseTotePlanDesign,
   type TotePlanDesign,
   type TotePlanTier,
@@ -122,10 +124,16 @@ export async function fulfilPlanSession(session: Stripe.Checkout.Session): Promi
   }
 
   const row = inserted as FulfilledRow;
+  // Last-chance offer: Smart Inventory included free (idempotent per email).
+  if (isTote && offerIncludesInventory(metadata.offer)) {
+    await grantDiyInventory(email, session.id, 0).catch((err) =>
+      console.error("[PlanFulfilment] Smart Inventory grant failed:", session.id, err)
+    );
+  }
   // Awaited: a send left running after the response can be dropped by the
   // serverless runtime, and email_sent must only be true when it went out.
   const sent = await (isTote
-    ? sendTotePlanAccessEmail(email, design!, tier, row.access_token)
+    ? sendTotePlanAccessEmail(email, design!, tier, row.access_token, offerIncludesInventory(metadata.offer))
     : sendLadderJigAccessEmail(email, row.access_token)
   ).catch((err) => {
     console.error("[PlanFulfilment] Email error:", err);
