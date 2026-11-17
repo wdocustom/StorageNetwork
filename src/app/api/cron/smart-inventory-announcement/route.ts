@@ -4,8 +4,9 @@ import { processSmartInventoryAnnouncement } from "@/app/actions/smart-inventory
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
-// POST /api/cron/smart-inventory-announcement — one email per earlier DIY plan
-// buyer about Smart Inventory. Safe to re-run (plan_buyer_campaigns dedupes).
+// POST /api/cron/smart-inventory-announcement — the Smart Inventory email, to
+// each tote plan buyer 4–5 days after they bought. Safe to re-run
+// (plan_buyer_campaigns dedupes).
 export async function POST(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret || req.headers.get("authorization") !== `Bearer ${cronSecret}`) {

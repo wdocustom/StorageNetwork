@@ -1,12 +1,13 @@
 "use server";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Smart Inventory announcement — one email to every DIY plan buyer from
-// before the add-on existed (newer buyers read about it in their purchase
-// email). Skips buyers who already own it. One row per buyer in
-// plan_buyer_campaigns, so re-runs never repeat. Called daily by
-// /api/cron/smart-inventory-announcement; after the first run it finds no
-// one and does nothing.
+// Smart Inventory follow-up: one email to every tote plan buyer, sent
+// SMART_INVENTORY_DELAY_DAYS after their first purchase (by then the rack is
+// built or close), instead of pitching it in the purchase email. Skips buyers
+// who already own it. One row per buyer in plan_buyer_campaigns, so re-runs
+// never repeat; buyers from before Nov 16, 2026 got it once as an
+// announcement under the same campaign key. Called daily (15:00 UTC) by
+// /api/cron/smart-inventory-announcement, so it lands 4–5 days after buying.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { getServiceClient } from "@/lib/supabase-server";
@@ -14,8 +15,8 @@ import { sendSmartInventoryAnnouncementEmail } from "@/lib/emails/plansTemplates
 import { TOTE_PLAN_ID, parseTotePlanDesign, totePlanName } from "@/lib/tote-plans";
 
 const SMART_INVENTORY_CAMPAIGN = "smart_inventory_nov2026";
-/** Buyers before this got a purchase email without Smart Inventory in it. */
-const CUTOFF = "2026-11-16T15:00:00Z";
+/** Days after a buyer's first plan purchase before the email goes out. */
+const SMART_INVENTORY_DELAY_DAYS = 4;
 
 export interface CampaignResult {
   eligible: number;
@@ -23,16 +24,20 @@ export interface CampaignResult {
   errors: string[];
 }
 
-export async function processSmartInventoryAnnouncement(): Promise<CampaignResult> {
+export async function processSmartInventoryAnnouncement(now = Date.now()): Promise<CampaignResult> {
   const result: CampaignResult = { eligible: 0, sent: 0, errors: [] };
   const db = getServiceClient();
+  const dueBefore = new Date(now - SMART_INVENTORY_DELAY_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
   const [purchases, owners, already] = await Promise.all([
     db
       .from("public_plan_purchases")
       .select("email, access_token, build_config, customer_name, purchased_at")
       .eq("plan_id", TOTE_PLAN_ID)
-      .lt("purchased_at", CUTOFF)
+      // Real purchases only (plans built free under All-Access aren't), at
+      // least SMART_INVENTORY_DELAY_DAYS old.
+      .is("included_from", null)
+      .lt("purchased_at", dueBefore)
       .order("purchased_at", { ascending: false }),
     db.from("diy_inventory_access").select("email"),
     db.from("plan_buyer_campaigns").select("email").eq("campaign", SMART_INVENTORY_CAMPAIGN),
