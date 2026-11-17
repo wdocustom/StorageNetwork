@@ -1,7 +1,11 @@
 # Hosting on Cloudflare Workers
 
 The app runs on Cloudflare Workers via [OpenNext](https://opennext.js.org/cloudflare).
-The same code still deploys to Vercel, so both can run side by side during cutover.
+Cutover is done: storage-network.app and www are Custom Domains on the Worker,
+and every cron runs here. Vercel no longer builds anything (`vercel.json` sets
+`git.deploymentEnabled: false`, Nov 17, 2026); the Vercel project can be deleted.
+The few Vercel-only reads left in the code (Edge Config, x-vercel-* headers,
+VERCEL_URL) fall back to their Cloudflare equivalents or defaults.
 
 ## Pieces
 
@@ -38,7 +42,8 @@ npm run cf:deploy    # build + deploy
    only because of `keep_vars: true` in wrangler.jsonc.
 7. Cutover: merge the change that sets `CRONS_ENABLED` to `"true"` and drops
    the crons from `vercel.json` (jobs then run only on Cloudflare), add the domain as a Custom Domain on the Worker (domain must be on
-   Cloudflare DNS), confirm, then remove the Vercel project.
+   Cloudflare DNS), confirm, then remove the Vercel project. (Done: Vercel
+   builds are off in `vercel.json`; delete the project in the Vercel dashboard.)
 
 ## Limits to know
 
