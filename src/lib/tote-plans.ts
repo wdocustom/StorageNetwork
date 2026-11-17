@@ -87,9 +87,33 @@ export const TOTE_PLAN_LEGACY_OFFERS: Readonly<Record<string, number>> = {
   save5: 1400,
 };
 
-/** A retention offer code we still honor (the current one or a legacy one). */
+/**
+ * The last-chance offer: shown once, right after a visitor taps "No thanks"
+ * on the $3-off offer. Same $16 price, plus Smart Inventory (normally $5)
+ * included free: granted to the buyer's email when the purchase is
+ * recorded. Like every retention offer it is never combined with a promo code.
+ */
+export const TOTE_PLAN_LAST_CHANCE = {
+  code: "save3inv",
+  /** In cents */
+  price: 1600,
+  /** Smart Inventory comes with the purchase */
+  includesInventory: true,
+} as const;
+
+/** A retention offer code we still honor (current, last-chance or legacy). */
 export function isRetentionOffer(code: unknown): code is string {
-  return typeof code === "string" && (code === TOTE_PLAN_EXIT_OFFER.code || Object.prototype.hasOwnProperty.call(TOTE_PLAN_LEGACY_OFFERS, code));
+  return (
+    typeof code === "string" &&
+    (code === TOTE_PLAN_EXIT_OFFER.code ||
+      code === TOTE_PLAN_LAST_CHANCE.code ||
+      Object.prototype.hasOwnProperty.call(TOTE_PLAN_LEGACY_OFFERS, code))
+  );
+}
+
+/** Does this offer code include Smart Inventory free? */
+export function offerIncludesInventory(code: unknown): boolean {
+  return code === TOTE_PLAN_LAST_CHANCE.code;
 }
 
 /**
@@ -122,6 +146,7 @@ export function normalizePromoCode(raw: unknown): string {
  */
 export function totePlanOfferPrice(code: unknown): number {
   if (code === TOTE_PLAN_EXIT_OFFER.code) return TOTE_PLAN_EXIT_OFFER.price;
+  if (code === TOTE_PLAN_LAST_CHANCE.code) return TOTE_PLAN_LAST_CHANCE.price;
   if (typeof code === "string" && Object.prototype.hasOwnProperty.call(TOTE_PLAN_LEGACY_OFFERS, code)) return TOTE_PLAN_LEGACY_OFFERS[code];
   return TOTE_PLAN_ALL_ACCESS.price;
 }

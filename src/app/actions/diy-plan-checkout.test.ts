@@ -63,6 +63,9 @@ describe("retention offer", () => {
     expect(sessions.at(-1)!.metadata).toMatchObject({ offer: "save3" });
     await createDIYPlanCheckout(design, "t", null, null, "save5");
     expect(charged()).toBe(1400);
+    await createDIYPlanCheckout(design, "t", null, null, "save3inv");
+    expect(charged()).toBe(1600);
+    expect(sessions.at(-1)!.metadata).toMatchObject({ offer: "save3inv" });
     await createDIYPlanCheckout(design, "t", null, null, "bogus");
     expect(charged()).toBe(1900);
     expect(sessions.at(-1)!.metadata?.offer).toBeUndefined();

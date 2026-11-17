@@ -365,6 +365,7 @@ describe("offer pricing", () => {
     expect(TOTE_PLAN_EXIT_OFFER.code).toBe("save3");
     expect(totePlanOfferPrice("save3")).toBe(1600);
     expect(totePlanOfferPrice("save5")).toBe(1400); // links already sent keep their $5 off
+    expect(totePlanOfferPrice("save3inv")).toBe(1600); // last chance: $3 off + Smart Inventory
     expect(totePlanOfferPrice("SAVE5")).toBe(TOTE_PLAN_ALL_ACCESS.price);
     expect(totePlanOfferPrice("friday")).toBe(TOTE_PLAN_ALL_ACCESS.price); // promo codes are priced after the email check
     expect(totePlanOfferPrice("toString")).toBe(TOTE_PLAN_ALL_ACCESS.price);
@@ -377,11 +378,16 @@ describe("offer pricing", () => {
     const { isRetentionOffer, normalizePromoCode, offerOffLabel } = await import("./tote-plans");
     expect(isRetentionOffer("save3")).toBe(true);
     expect(isRetentionOffer("save5")).toBe(true);
+    expect(isRetentionOffer("save3inv")).toBe(true);
     expect(isRetentionOffer("friday")).toBe(false);
     expect(isRetentionOffer("constructor")).toBe(false);
     expect(normalizePromoCode("  Friday ")).toBe("friday");
     expect(normalizePromoCode(5)).toBe("");
     expect(offerOffLabel(1600)).toBe("$3 off");
     expect(offerOffLabel(1400)).toBe("$5 off");
+    const { offerIncludesInventory } = await import("./tote-plans");
+    expect(offerIncludesInventory("save3inv")).toBe(true);
+    expect(offerIncludesInventory("save3")).toBe(false);
+    expect(offerIncludesInventory("friday")).toBe(false);
   });
 });

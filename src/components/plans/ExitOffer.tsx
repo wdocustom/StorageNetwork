@@ -21,6 +21,11 @@ export default function ExitOffer({
   onBuy,
   onEmail,
   onClose,
+  onDecline,
+  eyebrow = "Wait — before you go",
+  headline,
+  bonus,
+  badge = "Saved for 24 hours",
 }: {
   designName: string;
   price: string;
@@ -33,6 +38,14 @@ export default function ExitOffer({
   onBuy: () => void;
   onEmail: (email: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   onClose: () => void;
+  /** The "No thanks" button (defaults to onClose). The X, Escape and backdrop always close. */
+  onDecline?: () => void;
+  eyebrow?: string;
+  /** Defaults to "Take {off} your plans" */
+  headline?: string;
+  /** Extra value shown under the price (the last-chance Smart Inventory bonus) */
+  bonus?: React.ReactNode;
+  badge?: string;
 }) {
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
@@ -79,15 +92,16 @@ export default function ExitOffer({
           <X className="h-5 w-5" />
         </button>
 
-        <p className="text-xs font-black uppercase tracking-widest text-yellow-400">Wait — before you go</p>
-        <h2 className="mt-1 text-2xl font-black leading-tight text-white">Take {off} your plans</h2>
+        <p className="text-xs font-black uppercase tracking-widest text-yellow-400">{eyebrow}</p>
+        <h2 className="mt-1 text-2xl font-black leading-tight text-white">{headline ?? `Take ${off} your plans`}</h2>
         <p className="mt-1 text-sm text-stone-400">For your {designName}, and every rack you design after it.</p>
 
         <div className="mt-4 flex items-baseline gap-3">
           <span className="text-5xl font-black text-white">{price}</span>
           <span className="text-xl font-bold text-stone-500 line-through">{wasPrice}</span>
-          <span className="rounded-full bg-emerald-400/15 px-2.5 py-1 text-xs font-bold text-emerald-300">Saved for 24 hours</span>
+          <span className="rounded-full bg-emerald-400/15 px-2.5 py-1 text-xs font-bold text-emerald-300">{badge}</span>
         </div>
+        {bonus}
 
         <div className="mt-5 space-y-3">
           {wallet}
@@ -137,7 +151,11 @@ export default function ExitOffer({
           )}
         </div>
 
-        <button type="button" onClick={onClose} className="mt-4 w-full text-center text-xs font-semibold text-stone-500 hover:text-stone-300">
+        <button
+          type="button"
+          onClick={onDecline ?? onClose}
+          className="mt-4 w-full text-center text-xs font-semibold text-stone-500 hover:text-stone-300"
+        >
           No thanks
         </button>
       </div>

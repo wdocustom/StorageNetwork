@@ -5,8 +5,16 @@ vi.mock("server-only", () => ({}));
 
 const state: { rows: Record<string, unknown>[]; emails: string[] } = { rows: [], emails: [] };
 
+const { grants } = vi.hoisted(() => ({ grants: [] as [string, string | null, number][] }));
+vi.mock("@/lib/server/diy-inventory", () => ({
+  grantDiyInventory: async (email: string, sessionId: string | null, cents: number) => {
+    grants.push([email, sessionId, cents]);
+  },
+}));
 vi.mock("@/lib/emails/plansTemplates", () => ({
-  sendTotePlanAccessEmail: async (email: string) => (state.emails.push(`tote:${email}`), { success: true }),
+  sendTotePlanAccessEmail: async (email: string, _d: unknown, _t: unknown, _tok: unknown, included?: boolean) => (
+    state.emails.push(`tote:${email}${included ? ":inventory" : ""}`), { success: true }
+  ),
   sendLadderJigAccessEmail: async (email: string) => (state.emails.push(`jig:${email}`), { success: true }),
 }));
 vi.mock("@/lib/supabase-server", () => ({
@@ -72,6 +80,18 @@ describe("fulfilPlanSession", () => {
     await fulfilPlanSession(session({ id: "cs_r" }));
     expect(state.rows.find((r) => r.stripe_session_id === "cs_f")?.offer_code).toBe("friday");
     expect(state.rows.find((r) => r.stripe_session_id === "cs_r")?.offer_code).toBeNull();
+  });
+
+  it("last-chance offer: Smart Inventory included free, once, and the email says so", async () => {
+    grants.length = 0;
+    const meta = { type: "diy_plan", design: "H4x4wt", tier: "interactive", offer: "save3inv" };
+    await fulfilPlanSession(session({ id: "cs_lc", metadata: meta }));
+    await fulfilPlanSession(session({ id: "cs_lc", metadata: meta })); // webhook + return page
+    expect(grants).toEqual([[expect.any(String), "cs_lc", 0]]);
+    expect(state.emails.filter((e) => e.endsWith(":inventory"))).toHaveLength(1);
+    // A regular $3-off purchase doesn't include it.
+    await fulfilPlanSession(session({ id: "cs_3", metadata: { ...meta, offer: "save3" } }));
+    expect(grants).toHaveLength(1);
   });
 
   it("records a ladder jig", async () => {
