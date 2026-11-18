@@ -21,7 +21,7 @@ export const REFUND_GIVEAWAY = {
   /** Where free (no-purchase) entries can be emailed */
   entryEmail: "refunds@storage-network.app",
   /** Winners list requests and questions */
-  contactEmail: "refunds@storage-network.app" as string | null,
+  contactEmail: "contact@storage-network.app" as string | null,
   timeZone: "America/Chicago",
 };
 
