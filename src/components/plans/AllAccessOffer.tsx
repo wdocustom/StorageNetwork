@@ -13,6 +13,7 @@ import { useId, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Box, CheckCircle, FileText, Hammer, Infinity as InfinityIcon, Loader2, Sparkles, Tag, X } from "lucide-react";
 import type { AppliedPromo } from "@/lib/plan-offer";
+import GiveawayNote from "@/components/plans/GiveawayNote";
 
 import { TOTE_PLAN_ALL_ACCESS, formatPlanPrice, type TotePlanTier } from "@/lib/tote-plans";
 
@@ -191,7 +192,7 @@ export function AllAccessOffer({
   retentionActive?: boolean;
   onApplyPromo?: (code: string, email: string) => Promise<PromoCheck>;
   onRemovePromo?: () => void;
-  /** The Holiday Full Refund Giveaway is running: one line under the buy button */
+  /** The Holiday Full Refund Giveaway is running: a reminder just above the buy button */
   giveaway?: boolean;
 }) {
   const shown = offerPrice ?? PRICE;
@@ -231,6 +232,7 @@ export function AllAccessOffer({
         )}
       </ul>
 
+      {giveaway && <GiveawayNote className="mt-4" />}
       {wallet && (
         <div className="mt-4">
           {wallet}
@@ -250,15 +252,6 @@ export function AllAccessOffer({
       <p className="mt-2 text-center text-[11px] text-stone-500">
         Instant access · link by email · all sales final
       </p>
-      {giveaway && (
-        <p className="mt-1 text-center text-[11px] text-stone-400">
-          Holiday refund giveaway: several random buyers refunded daily. No purchase necessary.{" "}
-          <a href="/refund-rules" className="font-semibold text-yellow-400 underline-offset-2 hover:underline">
-            Official Rules
-          </a>
-          .
-        </p>
-      )}
       {onApplyPromo && onRemovePromo && (
         <PromoCode promo={promo} retentionActive={retentionActive} onApply={onApplyPromo} onRemove={onRemovePromo} />
       )}

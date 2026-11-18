@@ -38,6 +38,7 @@ import { BestsellersButton, BestsellersLightbox } from "@/components/plans/PlanB
 import { PLAN_REF_COOKIE, cleanReferralId } from "@/lib/plan-splits";
 import WalletEscape from "@/components/plans/WalletEscape";
 import ExitOffer from "@/components/plans/ExitOffer";
+import GiveawayNote from "@/components/plans/GiveawayNote";
 import EmailDesignLink from "@/components/plans/EmailDesignLink";
 import { emailMyDesign } from "@/app/actions/plan-design-lead";
 import {
@@ -859,7 +860,12 @@ function PlansDesigner() {
           <EmbeddedCheckoutPanel
             clientSecret={checkout.clientSecret}
             onClose={closeCheckout}
-            notice={inApp && inApp.os !== "other" ? <WalletEscape inApp={inApp} buildUrl={escapeUrl} variant="bar" /> : undefined}
+            notice={
+              <>
+                {inApp && inApp.os !== "other" && <WalletEscape inApp={inApp} buildUrl={escapeUrl} variant="bar" />}
+                <GiveawayNote variant="bar" />
+              </>
+            }
           />
         )}
 
