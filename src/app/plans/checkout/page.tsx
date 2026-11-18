@@ -54,6 +54,7 @@ import {
 } from "@/lib/plan-offer";
 import { detectInAppBrowser, type InAppBrowser } from "@/lib/in-app-browser";
 import { trackPlanEvent } from "@/lib/plan-events";
+import { giveawayStatus } from "@/lib/refund-giveaway";
 import { metaTrack } from "@/lib/meta-pixel";
 import {
   DEFAULT_TOTE_PLAN_DESIGN,
@@ -732,6 +733,7 @@ function PlansDesigner() {
             <AllAccessOffer
               loading={buying}
               onBuy={() => handleBuy("offer")}
+              giveaway={giveawayStatus() === "active"}
               onSample={(tier) => {
                 trackPlanEvent("sample", tier);
                 setSampleTier(tier);
