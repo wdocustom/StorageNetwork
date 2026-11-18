@@ -26,8 +26,6 @@ export const REFUND_GIVEAWAY = {
   entryEmail: "refunds@storage-network.app",
   /** Winners list requests and questions */
   contactEmail: null as string | null,
-  /** Prize value, the plans price */
-  prizeValue: "$19",
   timeZone: "America/Chicago",
 };
 

@@ -93,8 +93,8 @@ export default function RefundRulesPage() {
           <h2 className={h2}>4. How to enter</h2>
           <p>There are two ways to enter. Both have the same chance of winning.</p>
           <p>
-            <strong className="text-white">a. Purchase entry.</strong> Every completed purchase of DIY build plans ($19)
-            on Storage-Network.app during a daily drawing period receives one entry into that day&apos;s drawing. A gift
+            <strong className="text-white">a. Purchase entry.</strong> Every completed purchase of DIY build plans on
+            Storage-Network.app during a daily drawing period receives one entry into that day&apos;s drawing. A gift
             purchase counts as one entry per order, no matter how many people it includes. Purchases that are later
             refunded outside this Promotion, or charged back, are not eligible.
           </p>
@@ -107,7 +107,8 @@ export default function RefundRulesPage() {
           </p>
           <p>
             If a winner drawn from free entries did not make a qualifying purchase that day, their prize is one free
-            lifetime DIY plans account (approximate retail value {g.prizeValue}) instead of a refund.
+            lifetime DIY plans account (approximate retail value: the price of DIY plans on Storage-Network.app on the day of
+            the drawing) instead of a refund.
           </p>
 
           <div className="not-prose my-6">
@@ -124,9 +125,10 @@ export default function RefundRulesPage() {
 
           <h2 className={h2}>6. Prize</h2>
           <p>
-            Each prize is a full refund of the winner&apos;s $19 DIY plans purchase from that day, issued to the original
+            Each prize is a full refund of the amount the winner paid for their DIY plans purchase from that day, issued to the original
             payment method within <Value value={g.refundBusinessDays} blank="X" /> business days after the winner is
-            confirmed. Approximate retail value: {g.prizeValue} per prize. The winner keeps the plans. Prizes are not
+            confirmed. Approximate retail value of each prize: the amount paid for that purchase (the price of the plans at the time of
+            purchase). The winner keeps the plans. Prizes are not
             transferable, and no cash alternative or substitution is available, except the refund itself (or the free
             plans account described in section 4b). Any taxes on a prize are the winner&apos;s responsibility.
           </p>
