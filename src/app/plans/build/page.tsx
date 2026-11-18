@@ -69,6 +69,7 @@ import DeviceVerify from "@/components/plans/DeviceVerify";
 import UnitsToggle from "@/components/plans/UnitsToggle";
 import { currentUnits, useMeasure } from "@/lib/measure-units";
 import { trackPlanActivity } from "@/lib/plan-activity";
+import { loadCoverLogo } from "@/lib/pdf-logo";
 import type { GuideActivity } from "@/components/plans/ModularBuildGuide";
 
 const ModularBuildGuide = dynamic(() => import("@/components/plans/ModularBuildGuide"), {
@@ -135,26 +136,6 @@ function PlanSnapshots({
 }
 
 // ── PDF card ─────────────────────────────────────────────────────────────
-
-/** The Storage Network wordmark as an RGBA PNG data URL for the PDF cover. */
-function loadCoverLogo(): Promise<string | undefined> {
-  return new Promise((resolve) => {
-    const img = new window.Image();
-    img.onload = () => {
-      try {
-        const canvas = document.createElement("canvas");
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        canvas.getContext("2d")?.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL("image/png"));
-      } catch {
-        resolve(undefined);
-      }
-    };
-    img.onerror = () => resolve(undefined);
-    img.src = "/brand-wordmark.png";
-  });
-}
 
 type PdfState =
   | { phase: "idle" }

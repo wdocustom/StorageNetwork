@@ -1649,3 +1649,39 @@ export function downloadDIYPDF(input: DIYPDFInput): void {
   const slug = input.plan.name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "Tote-Organizer";
   generateDIYPDF(input).save(`Build-Plan-${slug}.pdf`);
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Shared building blocks — other Storage Network workbooks (the ladder jig)
+// use these so every PDF a customer gets looks like one family.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const pdfKit = {
+  PAGE_W,
+  PAGE_H,
+  MARGIN,
+  CONTENT_W,
+  BODY_TOP,
+  BODY_BOTTOM,
+  COLORS,
+  pdfText,
+  setText,
+  lineH,
+  paragraph,
+  measure,
+  checkbox,
+  kicker,
+  heading,
+  pill,
+  card,
+  formatInches,
+  paperPage,
+  drawIcon,
+  iconFor,
+  hatch,
+  stepBadge,
+  bullets,
+  renderStepBody,
+  Cursor,
+} as const;
+export type PdfCursor = Cursor;
+export type PdfRGB = RGB;

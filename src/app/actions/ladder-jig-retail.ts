@@ -151,8 +151,20 @@ export async function createLadderJigCheckout(
 }
 
 export type OpenLadderJigResult =
-  | { ok: true; token: string; content: LadderJigContent; emailSentTo?: string }
+  | {
+      ok: true;
+      token: string;
+      content: LadderJigContent;
+      emailSentTo?: string;
+      /** Buyer email + order ref, stamped on every page of the PDF */
+      license: { email: string; order: string };
+    }
   | { ok: false; error: string; verify?: { token: string; emailHint: string } };
+
+/** "SN-3F9A2C1B": the same order reference the tote plan PDFs carry. */
+function licenseFor(row: { email: string; access_token: string }): { email: string; order: string } {
+  return { email: row.email, order: `SN-${row.access_token.replace(/-/g, "").slice(0, 8).toUpperCase()}` };
+}
 
 /** Purchases pass the device gate (@/lib/server/plan-device). */
 async function gatedJig(row: Row, extras: { emailSentTo?: string } = {}): Promise<OpenLadderJigResult> {
@@ -166,7 +178,7 @@ async function gatedJig(row: Row, extras: { emailSentTo?: string } = {}): Promis
     };
   }
   await recordPlanActivity(row, "jig_open", { detail: "link" });
-  return { ok: true, token: row.access_token, content: ladderJigContent(), ...extras };
+  return { ok: true, token: row.access_token, content: ladderJigContent(), license: licenseFor(row), ...extras };
 }
 
 export async function openLadderJig(input: { sessionId: string } | { token: string }): Promise<OpenLadderJigResult> {
@@ -187,7 +199,13 @@ export async function openLadderJig(input: { sessionId: string } | { token: stri
     if (!isFreshPurchase(done.row)) return gatedJig(done.row as Row);
     await checkPlanDevice(done.email, { trusted: true });
     await recordPlanActivity(done.row, "jig_open", { detail: "checkout" });
-    return { ok: true, token: done.row.access_token, content: ladderJigContent(), emailSentTo: done.email };
+    return {
+      ok: true,
+      token: done.row.access_token,
+      content: ladderJigContent(),
+      emailSentTo: done.email,
+      license: licenseFor(done.row),
+    };
   } catch (err) {
     console.error("[LadderJig] Open failed:", err);
     return { ok: false, error: "We couldn't load your plans. Please try again." };

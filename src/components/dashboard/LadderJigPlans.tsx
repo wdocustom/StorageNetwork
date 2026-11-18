@@ -7,14 +7,15 @@ import {
   Clock,
   DollarSign,
   Download,
+  Loader2,
   Lock,
   Ruler,
-  Scissors,
   ShoppingCart,
   Wrench,
   Zap,
 } from "lucide-react";
-import { createJigPlanCheckout, verifyJigPlanPurchase, checkJigPlanAccess } from "@/app/actions/jig-plans";
+import { createJigPlanCheckout, verifyJigPlanPurchase, checkJigPlanAccess, getJigPlanContent } from "@/app/actions/jig-plans";
+import LadderJigGuide, { JigPdfCard } from "@/components/plans/LadderJigGuide";
 import { useSearchParams } from "next/navigation";
 import { UsdSymbol } from "@/components/currency/CurrencyContext";
 
@@ -26,99 +27,34 @@ import { UsdSymbol } from "@/components/currency/CurrencyContext";
 // step-by-step build instructions after purchase.
 // ═══════════════════════════════════════════════════════════════════════════
 
-// ── Cut Plan Data ────────────────────────────────────────────────────────
-const MATERIALS = [
-  { qty: 1, item: '4\u2019 x 8\u2019 sheet of 1/2" OSB', note: "Base platform" },
-  {
-    qty: 3,
-    item: "2x4 x 8\u2019 construction lumber",
-    note: "Rails & stop block \u2014 pick the straightest ones you can find",
-  },
-  { qty: 38, item: '2" star-bit countersink head screws', note: "Construction / deck screws" },
-];
+// The plans themselves (materials, cut list, rail marks, steps) live in one
+// place, @/lib/ladder-jig-content, shared with DIY buyers: the server sends
+// them after the access check (getJigPlanContent) and LadderJigGuide +
+// JigPdfCard lay them out, so installers and DIY buyers get the same jig.
 
-const TOOLS = [
-  "Framing square (NOT a speed square)",
-  "Tape measure",
-  "Circular saw",
-  "Pencil",
-  "Clamps (optional, but helpful)",
-  "Drill / driver with star bit",
-];
-
-const CUT_LIST = [
-  {
-    piece: "OSB Base",
-    material: '1/2" OSB',
-    qty: 1,
-    dimensions: '37" x 96"',
-    notes: "Rip 11\" off the 48\" width. Keep the factory edge.",
-  },
-  {
-    piece: "Rail A (left)",
-    material: "2x4 x 8\u2019",
-    qty: 1,
-    dimensions: '1.5" x 3.5" x 96" (full length)',
-    notes: "No cut needed. Use full board.",
-  },
-  {
-    piece: "Rail B (right)",
-    material: "2x4 x 8\u2019",
-    qty: 1,
-    dimensions: '1.5" x 3.5" x 96" (full length)',
-    notes: "No cut needed. Use full board.",
-  },
-  {
-    piece: "Stop Block",
-    material: "2x4 x 8\u2019",
-    qty: 1,
-    dimensions: '1.5" x 3.5" x 30"',
-    notes: "Cut from third 2x4. Sits between the rails, not over them.",
-  },
-];
-
-const RUNG_MARKS = [
-  { mark: '13"', fromStop: '13"' },
-  { mark: '29"', fromStop: '29"' },
-  { mark: '45"', fromStop: '45"' },
-  { mark: '61"', fromStop: '61"' },
-  { mark: '77"', fromStop: '77"' },
-  { mark: '93"', fromStop: '93"' },
-];
-
-// ── Build Steps ──────────────────────────────────────────────────────────
-const BUILD_STEPS = [
-  {
-    step: 1,
-    title: "Cut the OSB base",
-    detail:
-      'Rip the 4\u2019x8\u2019 OSB sheet to 37" wide. Keep the full 96" length. Use a straight edge or chalk line for an accurate rip.',
-  },
-  {
-    step: 2,
-    title: "Fasten Rail A",
-    detail:
-      'Place a full-length 2x4x8\u2019 flush against one long edge of the OSB. Clamp or pre-drill, then fasten with 2" screws every 12\u201316". Keep it dead-straight along the edge.',
-  },
-  {
-    step: 3,
-    title: "Fasten Rail B",
-    detail:
-      'Place the second full-length 2x4x8\u2019 on the opposite long edge. Measure between the two rails \u2014 it should be exactly 30" the entire length. Fasten down with 2" screws.',
-  },
-  {
-    step: 4,
-    title: "Square & fasten the Stop Block",
-    detail:
-      'Cut the third 2x4 to 30". Place it between Rails A and B on one short end — it sits in the gap, not on top of the rails. Use a framing square to ensure it\u2019s perfectly 90\u00b0 to both rails. Then fasten with 2" screws.',
-  },
-  {
-    step: 5,
-    title: "Mark the rung lines",
-    detail:
-      'From the inside edge of the stop block, mark lines on both rails at: 13", 29", 45", 61", 77", and 93". These are your rung alignment marks.',
-  },
-];
+/** Unlocked: the same guide and printable PDF DIY buyers get. */
+function InstallerJigPlans() {
+  const [result, setResult] = useState<Awaited<ReturnType<typeof getJigPlanContent>> | null>(null);
+  useEffect(() => {
+    getJigPlanContent()
+      .then(setResult)
+      .catch(() => setResult({ ok: false, error: "Couldn't load the plans. Please refresh." }));
+  }, []);
+  if (!result) {
+    return (
+      <div className="flex justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
+      </div>
+    );
+  }
+  if (!result.ok) return <p className="rounded-lg bg-red-500/10 px-3 py-2.5 text-xs text-red-300">{result.error}</p>;
+  return (
+    <div className="space-y-4">
+      <JigPdfCard content={result.content} edition="installer" />
+      <LadderJigGuide content={result.content} />
+    </div>
+  );
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Build Diagram (inline SVG)
@@ -505,195 +441,10 @@ export default function LadderJigPlans() {
               {showPlans ? "Hide Build Plans" : "View Build Plans"}
             </button>
 
-            {showPlans && (
-              <div className="space-y-4">
-                {/* ── Build Diagram ──────────────────────────────────── */}
-                <JigBuildDiagram />
-
-                {/* ── Materials List ─────────────────────────────────── */}
-                <div className="rounded-xl border border-slate-700/50 bg-slate-800/50 p-4">
-                  <div className="mb-3 flex items-center gap-2">
-                    <ShoppingCart className="h-4 w-4 text-yellow-400" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-                      Materials
-                    </h3>
-                  </div>
-                  <div className="space-y-2">
-                    {MATERIALS.map((m, i) => (
-                      <div
-                        key={i}
-                        className="flex items-start gap-3 rounded-lg border border-slate-700/30 bg-slate-900/50 px-3 py-2.5"
-                      >
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-yellow-500/10 text-[11px] font-black text-yellow-400">
-                          {m.qty}
-                        </span>
-                        <div>
-                          <p className="text-[13px] font-semibold text-stone-300">
-                            {m.item}
-                          </p>
-                          <p className="text-[11px] text-stone-500">{m.note}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* ── Tools Needed ───────────────────────────────────── */}
-                <div className="rounded-xl border border-slate-700/50 bg-slate-800/50 p-4">
-                  <div className="mb-3 flex items-center gap-2">
-                    <Wrench className="h-4 w-4 text-blue-400" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-                      Tools Needed
-                    </h3>
-                  </div>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {TOOLS.map((tool, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center gap-2 rounded-lg px-2 py-1.5"
-                      >
-                        <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400/60" />
-                        <p className="text-[11px] text-stone-400">{tool}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* ── Cut List (Job Ticket Style) ────────────────────── */}
-                <div className="rounded-xl border border-slate-700/50 bg-slate-800/50 p-4">
-                  <div className="mb-3 flex items-center gap-2">
-                    <Scissors className="h-4 w-4 text-rose-400" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-                      Cut List
-                    </h3>
-                  </div>
-                  <div className="space-y-2">
-                    {CUT_LIST.map((cut, i) => (
-                      <div
-                        key={i}
-                        className="rounded-lg border border-slate-700/30 bg-slate-900/50 p-3"
-                      >
-                        <div className="mb-1 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="flex h-5 w-5 items-center justify-center rounded bg-rose-500/10 text-[10px] font-black text-rose-400">
-                              {cut.qty}
-                            </span>
-                            <p className="text-[13px] font-bold text-white">
-                              {cut.piece}
-                            </p>
-                          </div>
-                          <span className="rounded bg-slate-700/50 px-2 py-0.5 text-[10px] font-mono font-bold text-stone-300">
-                            {cut.dimensions}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-stone-500">
-                          <span className="text-stone-400">{cut.material}</span>{" "}
-                          — {cut.notes}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* ── Rung Mark Positions ─────────────────────────────── */}
-                <div className="rounded-xl border border-slate-700/50 bg-slate-800/50 p-4">
-                  <div className="mb-3 flex items-center gap-2">
-                    <Ruler className="h-4 w-4 text-pink-400" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-                      Rung Mark Positions
-                    </h3>
-                    <span className="text-[10px] text-stone-600">
-                      (from inside edge of stop block)
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-6 gap-1.5">
-                    {RUNG_MARKS.map((rm, i) => (
-                      <div
-                        key={i}
-                        className="flex flex-col items-center rounded-lg border border-pink-500/10 bg-pink-500/5 px-2 py-2"
-                      >
-                        <span className="text-[10px] font-bold text-pink-400">
-                          #{i + 1}
-                        </span>
-                        <span className="text-[13px] font-black text-white">
-                          {rm.mark}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="mt-2 text-[10px] text-stone-600">
-                    Mark on both Rail A and Rail B at each position
-                  </p>
-                </div>
-
-                {/* ── Build Steps ─────────────────────────────────────── */}
-                <div className="rounded-xl border border-slate-700/50 bg-slate-800/50 p-4">
-                  <div className="mb-3 flex items-center gap-2">
-                    <ClipboardIcon className="h-4 w-4 text-emerald-400" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-                      Build Instructions
-                    </h3>
-                  </div>
-                  <div className="space-y-3">
-                    {BUILD_STEPS.map((s) => (
-                      <div
-                        key={s.step}
-                        className="flex gap-3 rounded-lg border border-slate-700/30 bg-slate-900/50 p-3"
-                      >
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-[12px] font-black text-emerald-400">
-                          {s.step}
-                        </span>
-                        <div>
-                          <p className="text-[13px] font-bold text-white">
-                            {s.title}
-                          </p>
-                          <p className="mt-0.5 text-[11px] leading-relaxed text-stone-400">
-                            {s.detail}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* ── Pro Tip ─────────────────────────────────────────── */}
-                <div className="rounded-lg bg-slate-700/30 px-3 py-2.5">
-                  <p className="text-[11px] leading-relaxed text-stone-500">
-                    <span className="font-semibold text-emerald-400">Pro tip:</span>{" "}
-                    Once you build the jig, lean it against the wall or hang it in your
-                    trailer. It takes zero extra space and turns a 20-minute ladder build
-                    into a 5-minute assembly. Your installs will be faster, your ladders
-                    will be straighter, and your customers will notice the quality.
-                  </p>
-                </div>
-              </div>
-            )}
+            {showPlans && <InstallerJigPlans />}
           </>
         )}
       </div>
     </section>
-  );
-}
-
-// Small clipboard icon (to avoid importing another icon)
-function ClipboardIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-      <path d="M12 11h4" />
-      <path d="M12 16h4" />
-      <path d="M8 11h.01" />
-      <path d="M8 16h.01" />
-    </svg>
   );
 }

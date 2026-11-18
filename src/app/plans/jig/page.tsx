@@ -23,11 +23,11 @@ import {
   type LadderJigOffer,
   type OpenLadderJigResult,
 } from "@/app/actions/ladder-jig-retail";
-import LadderJigGuide, { JigDiagram } from "@/components/plans/LadderJigGuide";
+import LadderJigGuide, { JigDiagram, JigPdfCard } from "@/components/plans/LadderJigGuide";
 import { LADDER_JIG_NAME, LADDER_JIG_TAGLINE } from "@/lib/ladder-jig";
 import { formatPlanPrice } from "@/lib/tote-plans";
 import { railTopMarks2x4 } from "@/components/visualizer/assemblySteps";
-import { CONTACT_EMAIL } from "@/lib/plan-library";
+import { CONTACT_EMAIL, libraryHref } from "@/lib/plan-library";
 import DeviceVerify from "@/components/plans/DeviceVerify";
 
 function Header({ homeToken }: { homeToken?: string | null }) {
@@ -216,6 +216,12 @@ function JigInner() {
                 <strong>Check your email</strong> — we sent your permanent link to {result.emailSentTo}.
               </div>
             )}
+            <JigPdfCard
+              content={result.content}
+              token={result.token}
+              licensedTo={`Licensed to ${result.license.email} · Order ${result.license.order}`}
+              libraryUrl={`${window.location.origin}${libraryHref(result.token)}`}
+            />
             <LadderJigGuide content={result.content} />
           </>
         )}

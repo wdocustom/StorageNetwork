@@ -113,6 +113,8 @@ describe("ladder jig content is gated", () => {
     expect(rows.filter((r) => r.plan_id === "ladder-jig")).toHaveLength(1);
     expect(rows.find((r) => r.plan_id === "ladder-jig")?.email).toBe("new@example.com");
     if (first.ok) expect(first.content.marks).toEqual([13, 29, 45, 61, 77, 93]);
+    // The PDF's license line: buyer email + the same SN- order ref as the tote plans
+    if (first.ok) expect(first.license).toEqual({ email: "new@example.com", order: expect.stringMatching(/^SN-[0-9A-F]{8}$/) });
     // The device that paid is remembered without a code.
     expect(checkPlanDevice).toHaveBeenCalledWith("new@example.com", { trusted: true });
     // Buyer activity: every open is recorded (both came back through checkout).
