@@ -19,7 +19,7 @@ export const REFUND_GIVEAWAY = {
   /** Last day, YYYY-MM-DD, Central Time (ends 11:59 PM CT) */
   endDate: "2027-01-30" as string | null,
   /** Where free (no-purchase) entries can be emailed */
-  entryEmail: "refunds@storage-network.app",
+  entryEmail: "contact@storage-network.app",
   /** Winners list requests and questions */
   contactEmail: "contact@storage-network.app" as string | null,
   timeZone: "America/Chicago",
@@ -58,4 +58,40 @@ export function formatGiveawayDate(ymd: string): string {
     year: "numeric",
     timeZone: "UTC",
   });
+}
+
+/** The UTC instants a Central Time day runs between: [start, end). Handles CST and CDT. */
+export function centralDayRange(ymd: string): { start: string; end: string } {
+  const startOf = (day: string): Date => {
+    const [y, m, d] = day.split("-").map(Number);
+    // Central midnight is 05:00 UTC (CDT) or 06:00 UTC (CST).
+    for (const h of [5, 6]) {
+      const t = new Date(Date.UTC(y, m - 1, d, h));
+      if (centralDate(t) === day && centralDate(new Date(t.getTime() - 1)) !== day) return t;
+    }
+    throw new Error(`No Central Time midnight found for ${day}`);
+  };
+  const start = startOf(ymd);
+  const next = centralDate(new Date(start.getTime() + 30 * 60 * 60 * 1000)); // +30h is always the next day
+  return { start: start.toISOString(), end: startOf(next).toISOString() };
+}
+
+/** YYYY-MM-DD plus or minus whole days (calendar arithmetic, no time zone). */
+export function addDays(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
+/**
+ * Days whose drawing can run: inside the promotion and already over in
+ * Central Time (a day's entries aren't final until 11:59 PM CT). Newest first.
+ */
+export function drawableDays(at: Date = new Date()): string[] {
+  const { startDate, endDate } = REFUND_GIVEAWAY;
+  if (!startDate || !endDate) return [];
+  const yesterday = addDays(centralDate(at), -1);
+  const last = yesterday < endDate ? yesterday : endDate;
+  const days: string[] = [];
+  for (let d = last; d >= startDate; d = addDays(d, -1)) days.push(d);
+  return days;
 }

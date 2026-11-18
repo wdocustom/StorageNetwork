@@ -24,7 +24,8 @@ vi.mock("@/lib/supabase-server", () => ({
 }));
 
 import { submitFreeEntry } from "./refund-giveaway";
-import { REFUND_GIVEAWAY, centralDate, formatGiveawayDate, giveawayStatus } from "@/lib/refund-giveaway";
+import { REFUND_GIVEAWAY, centralDate, centralDayRange, drawableDays, formatGiveawayDate, giveawayStatus } from "@/lib/refund-giveaway";
+import { giveawayWinnerEmailContent } from "@/lib/emails/giveawayTemplates";
 
 const original = { ...REFUND_GIVEAWAY };
 
@@ -45,6 +46,37 @@ describe("refund giveaway helpers", () => {
     expect(giveawayStatus(new Date("2026-12-01T06:00:00Z"))).toBe("active");
     expect(giveawayStatus(new Date("2026-12-25T05:59:00Z"))).toBe("active"); // 11:59 PM Dec 24 CT
     expect(giveawayStatus(new Date("2026-12-25T06:00:00Z"))).toBe("ended");
+  });
+
+  it("knows when each Central Time day starts and ends, in CST and CDT", () => {
+    expect(centralDayRange("2026-12-01")).toEqual({ start: "2026-12-01T06:00:00.000Z", end: "2026-12-02T06:00:00.000Z" });
+    expect(centralDayRange("2026-10-01")).toEqual({ start: "2026-10-01T05:00:00.000Z", end: "2026-10-02T05:00:00.000Z" });
+    // Clocks fall back Nov 1, 2026: a 25-hour day.
+    expect(centralDayRange("2026-11-01")).toEqual({ start: "2026-11-01T05:00:00.000Z", end: "2026-11-02T06:00:00.000Z" });
+  });
+
+  it("lists only finished days inside the promotion as drawable", () => {
+    Object.assign(REFUND_GIVEAWAY, { startDate: "2026-11-17", endDate: "2026-11-19" });
+    expect(drawableDays(new Date("2026-11-17T18:00:00Z"))).toEqual([]);
+    expect(drawableDays(new Date("2026-11-19T18:00:00Z"))).toEqual(["2026-11-18", "2026-11-17"]);
+    expect(drawableDays(new Date("2026-12-25T18:00:00Z"))).toEqual(["2026-11-19", "2026-11-18", "2026-11-17"]);
+  });
+
+  it("writes the winner email with the amount and no unescaped names", () => {
+    const refund = giveawayWinnerEmailContent({
+      to: "a@x.com",
+      name: "<b>Al</b> Smith",
+      prize: "refund",
+      drawDate: "2026-12-01",
+      amountCents: 1600,
+      accessToken: "tok",
+    });
+    expect(refund.subject).toBe("You won: your $16 plans purchase is refunded");
+    expect(refund.html).toContain("December 1, 2026");
+    expect(refund.html).toContain("/plans/library?token=tok");
+    expect(refund.html).not.toContain("<b>Al</b>");
+    const plans = giveawayWinnerEmailContent({ to: "b@x.com", name: null, prize: "plans_account", drawDate: "2026-12-01", amountCents: null, accessToken: "t2" });
+    expect(plans.subject).toBe("You won lifetime DIY tote rack plans");
   });
 
   it("formats dates for the rules", () => {
