@@ -46,6 +46,15 @@ describe("generateDIYPlan — sideways", () => {
     expect(p.dimensions.depth).toBe('30"');
   });
 
+  it("labels rails by their top edge from the bottom of the upright, never from the floor", async () => {
+    const pdf = generateDIYPDF({ plan: await plan("H4x4wt"), snapshots: {} }).output();
+    expect(pdf).toContain("rail tops from upright bottom".toUpperCase());
+    // (PDF strings escape parentheses)
+    expect(pdf).toMatch(/First rail, top edge \\\(from upright bottom\\\)/);
+    expect(pdf).not.toMatch(/from floor/i);
+    expect(pdf).not.toContain('17-1/4"');
+  });
+
   it("renders the PDF", async () => {
     const p = await plan("H4x4wts");
     const pdf = generateDIYPDF({ plan: p, snapshots: {} }).output();

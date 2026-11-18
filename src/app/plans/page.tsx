@@ -356,6 +356,7 @@ export default async function PlansPage() {
             <a href="#gift" className="hover:text-stone-200">Gift plans</a>
             <Link href="/installer-network" className="hover:text-stone-200">Find an installer</Link>
             <Link href="/join?src=plans" className="hover:text-stone-200">Build these for a living</Link>
+            <Link href="/refund-rules" className="hover:text-stone-200">Holiday refund giveaway – Official Rules</Link>
           </nav>
           <p className="text-xs text-stone-600">
             © Storage Network · Updated{" "}

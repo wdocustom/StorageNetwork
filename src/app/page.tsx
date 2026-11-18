@@ -248,7 +248,7 @@ export default function LandingPage() {
 
       {/* ── Footer ────────────────────────────────────────────────────── */}
       <footer className="border-t border-stone-800 bg-gray-950 px-4 py-8">
-        <div className="mx-auto flex max-w-4xl items-center justify-between">
+        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <Image
               src="/Header_avatar_logo.png"
@@ -261,7 +261,7 @@ export default function LandingPage() {
           <p className="text-xs text-stone-700">
             &copy; {new Date().getFullYear()} Storage-Network.app. All rights reserved.
           </p>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <a
               href="/plans"
               className="text-[11px] font-semibold text-stone-600 transition-colors hover:text-yellow-400"
@@ -273,6 +273,12 @@ export default function LandingPage() {
               className="text-[11px] font-semibold text-stone-600 transition-colors hover:text-yellow-400"
             >
               Become a Builder
+            </a>
+            <a
+              href="/refund-rules"
+              className="text-[11px] font-semibold text-stone-600 transition-colors hover:text-yellow-400"
+            >
+              Holiday refund giveaway &ndash; Official Rules
             </a>
           </div>
         </div>

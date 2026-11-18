@@ -18,6 +18,7 @@ import { getServiceClient } from "@/lib/supabase-server";
 import { sendLadderJigAccessEmail, sendTotePlanAccessEmail } from "@/lib/emails/plansTemplates";
 import { LADDER_JIG_PLAN_ID } from "@/lib/ladder-jig";
 import { grantDiyInventory } from "@/lib/server/diy-inventory";
+import { queueSmartInventoryFollowUp } from "@/lib/server/smart-inventory-follow-up";
 import {
   TOTE_PLAN_ID,
   decodeTotePlanDesign,
@@ -129,6 +130,9 @@ export async function fulfilPlanSession(session: Stripe.Checkout.Session): Promi
     await grantDiyInventory(email, session.id, 0).catch((err) =>
       console.error("[PlanFulfilment] Smart Inventory grant failed:", session.id, err)
     );
+  } else if (isTote) {
+    // The purchase email doesn't pitch Smart Inventory: a follow-up does, 4–5 days on.
+    await queueSmartInventoryFollowUp(email, row.access_token);
   }
   // Awaited: a send left running after the response can be dropped by the
   // serverless runtime, and email_sent must only be true when it went out.

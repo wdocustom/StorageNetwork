@@ -170,7 +170,7 @@ export async function sendTotePlanAccessEmail(
       <a href="${buildAnotherUrl}" style="color:#6ee7b7;font-size:13px;font-weight:800;text-decoration:none;">Build another plan &rarr;</a>
     </div>
 
-    ${smartInventoryEmailBlock(appUrl, accessToken, inventoryIncluded)}
+    ${inventoryIncluded ? smartInventoryEmailBlock(appUrl, accessToken, true) : ""}
 
     <div style="background:#0a0a0a;border:1px solid #1e1e1e;border-radius:8px;padding:16px 20px;margin-bottom:20px;">
       <p style="margin:0 0 4px;color:#facc15;font-size:13px;font-weight:800;">Interested in building these for a living?</p>
@@ -318,11 +318,11 @@ export async function sendSmartInventoryAnnouncementEmail(
   const body = `
     <p style="margin:0 0 8px;color:#fff;font-size:16px;">Hi ${first || "there"},</p>
     <p style="margin:0 0 20px;color:#a3a3a3;font-size:15px;line-height:1.7;">
-      Thanks again for building with our ${data.designName} plans. Now that your rack is up, here&rsquo;s something new to keep it organized.
+      Thanks again for building with our ${data.designName} plans. Once your rack is up, here&rsquo;s how to keep it organized.
     </p>
 
     <div style="background:#111;border-radius:12px;padding:24px;margin-bottom:20px;border:1px solid #222;">
-      <p style="margin:0 0 6px;color:#facc15;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">New &middot; ${DIY_INVENTORY.name}</p>
+      <p style="margin:0 0 6px;color:#facc15;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">For your rack &middot; ${DIY_INVENTORY.name}</p>
       <h2 style="margin:0 0 16px;color:#fff;font-size:20px;font-weight:800;">Know what&rsquo;s in every tote without opening one.</h2>
       <div style="text-align:center;margin:0 0 18px;">
         <img src="${appUrl}/plan-samples/inventory-rack.jpg" width="240" alt="Smart Inventory on a phone: a rack with every tote" style="width:240px;max-width:70%;height:auto;border-radius:14px;border:1px solid #333;" />
@@ -343,7 +343,7 @@ export async function sendSmartInventoryAnnouncementEmail(
 
   return sendTransactionalEmail({
     to: email,
-    subject: `Your rack is built. Now know what's in every tote.`,
+    subject: `Built your rack? Now know what's in every tote.`,
     html: masterEmailLayout(`${DIY_INVENTORY.name}`, body),
   });
 }

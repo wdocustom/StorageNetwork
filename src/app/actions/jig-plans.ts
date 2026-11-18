@@ -5,6 +5,7 @@ import { stripeConfig } from "@/lib/stripe/http";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import { siteConfig } from "@/config/site";
+import { ladderJigContent, type LadderJigContent } from "@/lib/ladder-jig-content";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Jig Plans — $9 Digital Download for Ladder Building Jig
@@ -130,4 +131,17 @@ export async function verifyJigPlanPurchase(
   } catch {
     return { success: false, verified: false };
   }
+}
+
+/**
+ * The jig plans themselves (same content DIY buyers get: one jig for
+ * everyone), for an installer who bought them or an admin. Sent only after
+ * the access check, so the plans never ship in the page bundle.
+ */
+export async function getJigPlanContent(): Promise<
+  { ok: true; content: LadderJigContent } | { ok: false; error: string }
+> {
+  const access = await checkJigPlanAccess();
+  if (!access.hasAccess) return { ok: false, error: "Purchase the jig plans to open them." };
+  return { ok: true, content: ladderJigContent() };
 }

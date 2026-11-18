@@ -22,6 +22,7 @@ import {
   type RailStyle,
 } from "./assemblySteps";
 import { toFraction } from "@/lib/utils";
+import { railCenterFromBottom, railTopFromBottom } from "@/lib/rails2x4";
 import { useMeasure } from "@/lib/measure-units";
 import {
   ChevronRight,
@@ -49,7 +50,6 @@ const BIN_LIP_WIDTH = 1.0;
 const BIN_GAP = 0.25;
 const PLATE_H = 1.5;
 const RACK_DEPTH = 30;
-const TIER_SPACING = 16;
 const PLY_TOP_H = 0.75;
 
 const TOTE_FULL_W_HDX = 19.75;
@@ -66,7 +66,6 @@ function getPostX(i: number, bayW: number): number {
   return i * (bayW + POST_W) + POST_W / 2;
 }
 
-const MIN_FIRST_RAIL_Y = 13; // First rail at 13" from bottom of upright
 
 /** Frame dimensions for either rail style (inches). */
 interface FrameGeometry {
@@ -86,7 +85,7 @@ interface FrameGeometry {
   depth: number;
 }
 
-function frameGeometry(cols: number, rows: number, toteType: ToteType, rails: RailStyle, sideways = false): FrameGeometry {
+export function frameGeometry(cols: number, rows: number, toteType: ToteType, rails: RailStyle, sideways = false): FrameGeometry {
   if (rails === "2x4") {
     // Ripped 2×4 rails, universal 21" bays (30-1/4" × 20" deep sideways) — mirrors buildEngine / Rack3D
     const geo = rails2x4Geometry(sideways);
@@ -108,14 +107,16 @@ function frameGeometry(cols: number, rows: number, toteType: ToteType, rails: Ra
   const bayW = getBayWidth(toteType);
   // Correct structural plate length (uses actual tote opening, not visual bay width)
   const opening = toteType === "HDX" ? TOTE_FULL_W_HDX : TOTE_FULL_W_GM;
-  const firstRailY = Math.max(MIN_FIRST_RAIL_Y, PLATE_H + 2);
-  const lastRailY = firstRailY + (rows - 1) * TIER_SPACING;
-  const frameH = PLATE_H + lastRailY + 3 + PLATE_H;
+  // Plywood rails sit at the same TOP-edge heights as 2×4 rails (13", then
+  // every 16" from the bottom of the upright); the center is only for drawing.
+  const lastRailTop = railTopFromBottom(rows - 1);
+  // Upright = top rail's top edge + 3" (unchanged: rows × 16", as buildEngine cuts them)
+  const frameH = PLATE_H + lastRailTop + 3 + PLATE_H;
   return {
     bayW,
     totalW: cols * bayW + (cols + 1) * POST_W,
     plateLen: cols * opening + (cols + 1) * POST_W,
-    railCenters: Array.from({ length: rows }, (_, r) => firstRailY + r * TIER_SPACING),
+    railCenters: Array.from({ length: rows }, (_, r) => railCenterFromBottom(r, RAIL_HEIGHT)),
     postH: frameH - PLATE_H * 2,
     frameH,
     railW: RAIL_THICKNESS,
@@ -840,7 +841,7 @@ function ExplodedAssembly({
                               position={[railX, railY, RACK_DEPTH / 2]}
                               length={railLen}
                               vis={vis("rails")}
-                              label={`3/4" Plywood Rail — 1-7/8" × ${railLen}" long, ${toFraction(railFromBottom)}" from bottom`}
+                              label={`3/4" Plywood Rail — 1-7/8" × ${railLen}" long, top edge ${toFraction(railFromBottom + railH / 2)}" from bottom of upright`}
                             />
                           )}
                         </AnimatedGroup>
@@ -874,7 +875,7 @@ function ExplodedAssembly({
                               position={[railX, railY, RACK_DEPTH / 2]}
                               length={railLen}
                               vis={vis("rails")}
-                              label={`3/4" Plywood Rail — 1-7/8" × ${railLen}" long, ${toFraction(railFromBottom)}" from bottom`}
+                              label={`3/4" Plywood Rail — 1-7/8" × ${railLen}" long, top edge ${toFraction(railFromBottom + railH / 2)}" from bottom of upright`}
                             />
                           )}
                         </AnimatedGroup>

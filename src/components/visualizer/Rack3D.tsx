@@ -31,7 +31,7 @@ import { PAINT_COLORS } from "@/types/viewModels";
 // ═══════════════════════════════════════════════════════════════════════════
 
 import type { SectionAddon } from "@/types/viewModels";
-import { RAIL_2X4_CENTERS, RAIL_2X4_H, RAIL_2X4_W, upright2x4Length } from "@/lib/rails2x4";
+import { RAIL_2X4_CENTERS, RAIL_2X4_H, RAIL_2X4_PITCH, RAIL_2X4_W, railCenterFromBottom, upright2x4Length } from "@/lib/rails2x4";
 
 type ToteType = "HDX" | "GM";
 type ToteColor = "black" | "clear";
@@ -180,7 +180,7 @@ const BIN_GAP = 0.25;          // tolerance
 
 const PLATE_H = 1.5;           // bottom/top plate (2×4 flat)
 const RACK_DEPTH = 30;         // front-to-back
-const TIER_SPACING = 16;       // center-to-center between rails
+const TIER_SPACING = RAIL_2X4_PITCH; // 16" rail top to rail top (same for plywood and 2×4)
 const PLY_TOP_H = 0.75;        // plywood top sheet
 
 // Tote (Standard 27 Gallon)
@@ -257,14 +257,12 @@ function getFirstRailY(unitType: UnitType): number {
   if (unitType === "mini") {
     return MINI_FIRST_RAIL_H;
   }
-  // Standard: First rail Y offset from bottom plate top.
-  // Tote hangs: TOTE_BODY_H below rail top. Rail top = railY + RAIL_HEIGHT/2.
-  const MIN_FIRST_RAIL_Y = TOTE_BODY_H - RAIL_HEIGHT / 2 + 2;
-  return Math.max(MIN_FIRST_RAIL_Y, PLATE_H + 2);
+  // Standard (plywood strips): the rail's TOP edge sits at the same height as
+  // a 2×4 rail's — 13" from the bottom of the upright (@/lib/rails2x4). This
+  // returns the CENTER, for drawing only.
+  return railCenterFromBottom(0, RAIL_HEIGHT);
 }
 
-// First rail Y offset from bottom plate top (Standard units only).
-const MIN_FIRST_RAIL_Y = TOTE_BODY_H - RAIL_HEIGHT / 2 + 2;
 
 // ── Materials ────────────────────────────────────────────────────────────
 // Procedural doug-fir and plywood textures for realistic lumber appearance.

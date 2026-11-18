@@ -8,9 +8,73 @@
 // sales-page teaser.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { Check, Ruler, Scissors, ShoppingCart, Wrench } from "lucide-react";
-import type { LadderJigContent } from "@/lib/ladder-jig-content";
+import { useState } from "react";
+import { Check, Download, FileText, Lightbulb, Loader2, Ruler, Scissors, ShoppingCart, Wrench } from "lucide-react";
+import type { JigStep, LadderJigContent } from "@/lib/ladder-jig-content";
 import { toFraction } from "@/lib/utils";
+import { loadCoverLogo } from "@/lib/pdf-logo";
+import { trackPlanActivity } from "@/lib/plan-activity";
+
+/**
+ * The printable jig plans: the same e-workbook as the tote plan PDF.
+ * Everyone who owns the jig gets this (DIY buyers and installers).
+ */
+export function JigPdfCard({
+  content,
+  edition = "diy",
+  licensedTo,
+  libraryUrl,
+  token,
+}: {
+  content: LadderJigContent;
+  edition?: "diy" | "installer";
+  /** "Licensed to jo@example.com · Order SN-…" on every page */
+  licensedTo?: string;
+  /** Absolute link to My Builds, for the last page */
+  libraryUrl?: string;
+  /** Purchase token (DIY buyers), for plan activity */
+  token?: string;
+}) {
+  const [state, setState] = useState<"idle" | "busy" | "done" | "error">("idle");
+  const download = async () => {
+    setState("busy");
+    const started = Date.now();
+    trackPlanActivity(token, "pdf_start", { detail: "jig" });
+    try {
+      const [{ downloadLadderJigPDF }, logoDataUrl] = await Promise.all([import("@/lib/ladder-jig-pdf"), loadCoverLogo()]);
+      downloadLadderJigPDF({ content, edition, licensedTo, logoDataUrl, links: libraryUrl ? { libraryUrl } : undefined });
+      setState("done");
+      trackPlanActivity(token, "pdf_download", { detail: "jig", value: Math.round((Date.now() - started) / 1000) });
+    } catch (err) {
+      console.error("[LadderJig] PDF failed:", err);
+      setState("error");
+      trackPlanActivity(token, "pdf_error", { detail: `jig: ${err instanceof Error ? err.message : String(err)}` });
+    }
+  };
+  const steps = content.buildSteps.length + content.useSteps.length;
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+      <div className="mb-3 flex items-center gap-2">
+        <FileText className="h-4 w-4 text-yellow-400" />
+        <h2 className="text-sm font-bold text-white">Printable PDF Plan</h2>
+      </div>
+      <p className="mb-4 text-xs text-stone-400">
+        The full jig plan to print or keep on your phone: a to-scale drawing, the six rail marks, shopping and cut lists,
+        and {steps} illustrated steps. Prints on US Letter.
+      </p>
+      {state === "error" && <p className="mb-3 text-xs font-medium text-red-400">Something went wrong building the PDF. Please try again.</p>}
+      <button
+        type="button"
+        onClick={download}
+        disabled={state === "busy"}
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-black uppercase tracking-wider text-gray-950 transition hover:bg-yellow-300 disabled:opacity-60"
+      >
+        {state === "busy" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+        {state === "busy" ? "Building PDF…" : state === "done" ? "Download Again" : "Download PDF"}
+      </button>
+    </div>
+  );
+}
 
 /** Top view of the finished jig, drawn to scale (96" long × 37" wide). */
 export function JigDiagram({ marks, showLabels = true }: { marks: number[]; showLabels?: boolean }) {
@@ -19,9 +83,9 @@ export function JigDiagram({ marks, showLabels = true }: { marks: number[]; show
   const pad = 6;
   const railW = 3.5;
   const gap = 30; // inside distance between rails
-  const railA = (W - gap) / 2 - railW / 2; // centered pair of rails on the base
-  const railAy = Math.max(0, railA);
-  const railBy = railAy + railW + gap;
+  // Rails flush along both long edges of the 37" base: 3-1/2 + 30 + 3-1/2
+  const railAy = 0;
+  const railBy = W - railW;
   const stop = 1.5;
   return (
     <svg viewBox={`0 0 ${L + pad * 2} ${W + pad * 2 + (showLabels ? 10 : 0)}`} className="w-full" role="img" aria-label="Ladder jig, top view">
@@ -68,7 +132,7 @@ function Section({ icon: Icon, title, children }: { icon: typeof Wrench; title: 
   );
 }
 
-function Steps({ steps, start = 1 }: { steps: { title: string; detail: string }[]; start?: number }) {
+function Steps({ steps, start = 1 }: { steps: JigStep[]; start?: number }) {
   return (
     <ol className="space-y-3">
       {steps.map((s, i) => (
@@ -79,6 +143,12 @@ function Steps({ steps, start = 1 }: { steps: { title: string; detail: string }[
           <div>
             <p className="text-sm font-bold text-white">{s.title}</p>
             <p className="mt-0.5 text-sm leading-relaxed text-stone-400">{s.detail}</p>
+            {s.tip && (
+              <p className="mt-2 flex gap-2 rounded-lg bg-yellow-400/10 px-3 py-2 text-xs italic text-yellow-100/90">
+                <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 not-italic text-yellow-400" aria-hidden />
+                {s.tip}
+              </p>
+            )}
           </div>
         </li>
       ))}

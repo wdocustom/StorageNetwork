@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // Ripped-2×4 rail construction — the ONE source for rail heights and upright
 // lengths (DIY plans, installer 2×4-rail builds, 3D models, diagrams, jig).
+// Plywood-strip rails sit at the SAME top-edge heights (railTopFromBottom).
 //
 // Each tote hangs by its rim on two rails. A rail is half a 2×4 ripped
 // lengthwise: (3-1/2" − blade kerf) / 2 → 1-9/16" tall, 1-1/2" thick.
@@ -46,6 +47,24 @@ export const RAIL_2X4_TOPS: readonly number[] = Array.from(
 
 /** Rail CENTERS from the bottom of the upright (for drawing / 3D placement). */
 export const RAIL_2X4_CENTERS: readonly number[] = RAIL_2X4_TOPS.map((t) => t - RAIL_2X4_H / 2);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EVERY rail — ripped 2×4 or 3/4" plywood strip — is positioned by its TOP
+// edge, measured up from the bottom end of the upright: 13", then every 16"
+// (29, 45, 61, 77, 93 …). Never by its center, never from the floor. The
+// marking step, the ladder jig, the 3D guide, the blueprint and the PDF all
+// use these same numbers; drawings that need a center derive it here.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Top edge of rail `row` (0 = bottom) from the bottom of the upright, for 2×4 and plywood rails. */
+export function railTopFromBottom(row: number): number {
+  return RAIL_2X4_FIRST_TOP + row * RAIL_2X4_PITCH;
+}
+
+/** Center of rail `row` for a rail `railHeight` tall (drawing / 3D only), from its top edge. */
+export function railCenterFromBottom(row: number, railHeight: number): number {
+  return railTopFromBottom(row) - railHeight / 2;
+}
 
 /** Rail top edges for a frame `rows` high, from the bottom of the upright. */
 export function railTops2x4(rows: number): number[] {

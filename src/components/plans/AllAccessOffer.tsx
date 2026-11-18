@@ -174,6 +174,7 @@ export function AllAccessOffer({
   retentionActive = false,
   onApplyPromo,
   onRemovePromo,
+  giveaway = false,
 }: {
   loading: boolean;
   onBuy: () => void;
@@ -190,6 +191,8 @@ export function AllAccessOffer({
   retentionActive?: boolean;
   onApplyPromo?: (code: string, email: string) => Promise<PromoCheck>;
   onRemovePromo?: () => void;
+  /** The Holiday Full Refund Giveaway is running: one line under the buy button */
+  giveaway?: boolean;
 }) {
   const shown = offerPrice ?? PRICE;
   return (
@@ -247,6 +250,15 @@ export function AllAccessOffer({
       <p className="mt-2 text-center text-[11px] text-stone-500">
         Instant access · link by email · all sales final
       </p>
+      {giveaway && (
+        <p className="mt-1 text-center text-[11px] text-stone-400">
+          Holiday refund giveaway: several random buyers refunded daily. No purchase necessary.{" "}
+          <a href="/refund-rules" className="font-semibold text-yellow-400 underline-offset-2 hover:underline">
+            Official Rules
+          </a>
+          .
+        </p>
+      )}
       {onApplyPromo && onRemovePromo && (
         <PromoCode promo={promo} retentionActive={retentionActive} onApply={onApplyPromo} onRemove={onRemovePromo} />
       )}

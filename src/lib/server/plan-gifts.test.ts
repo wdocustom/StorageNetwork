@@ -94,6 +94,13 @@ let failFor = new Set<string>();
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase-server", () => ({ getServiceClient: () => ({ from }) }));
 vi.mock("@/lib/url-helper", () => ({ getAppUrl: () => "https://app.test" }));
+const { queued } = vi.hoisted(() => ({ queued: [] as string[] }));
+vi.mock("@/lib/server/smart-inventory-follow-up", () => ({
+  queueSmartInventoryFollowUp: async (email: string) => {
+    queued.push(email);
+  },
+}));
+vi.mock("@/lib/server/plan-activity", () => ({ activityOwnerByToken: async () => null, recordPlanActivity: async () => {} }));
 vi.mock("@/lib/emails/giftTemplates", () => ({
   sendGiftRecipientEmail: async (p: { to: string }) => {
     emails.push({ kind: "recipient", to: p.to, payload: p });
@@ -173,6 +180,7 @@ const receipts = () => emails.filter((e) => e.kind === "receipt");
 
 beforeEach(() => {
   emails.length = 0;
+  queued.length = 0;
   failFor = new Set();
   seed([
     ["Jo Builder", "jo@example.com"],
@@ -209,6 +217,8 @@ describe("fulfilGiftSession", () => {
     expect(order).toMatchObject({ status: "paid" });
     expect(order?.receipt_sent_at).toBeTruthy();
     expect(tables.plan_gifts.every((g) => g.email_status === "sent")).toBe(true);
+    // Each recipient is queued for the Smart Inventory follow-up.
+    expect(queued.sort()).toEqual(["alex@example.com", "jo@example.com", "sam@example.com"]);
   });
 
   it("is idempotent: a second caller sends nothing again", async () => {
