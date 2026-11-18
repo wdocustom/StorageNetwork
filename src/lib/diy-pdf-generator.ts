@@ -563,8 +563,9 @@ function drawSideView(
   doc.line(box.x, floorY, box.x + box.w, floorY);
 
   // Seen from the side: a 2×4 plate end under and over each upright (front
-  // and back), the uprights between them, and the rails across. Every label
-  // is a height from the floor.
+  // and back), the uprights between them, and the rails across. Each rail is
+  // labelled with its TOP edge measured from the bottom of its upright: the
+  // same number the marking step and the ladder jig use (never from the floor).
   const railTops: number[] = [];
   let clearance = 0;
   const plate = RAIL_2X4_PLATE_H;
@@ -584,13 +585,13 @@ function drawSideView(
     const marks = railTopMarks2x4(m.rows);
     for (const mark of marks) {
       const at = m.y + plate + mark;
-      railTops.push(at);
+      railTops.push(mark);
       piece(ox + post, at - RAIL_2X4_H, at, d - 2 * post, COLORS.lumberDark);
       doc.setDrawColor(...COLORS.faint);
       doc.setLineWidth(0.15);
       doc.line(ox + d + 1, toY(at), ox + d + 3, toY(at));
       setText(doc, 6, COLORS.muted);
-      doc.text(formatInches(at), ox + d + 3.6, toY(at) + 0.9);
+      doc.text(formatInches(mark), ox + d + 3.6, toY(at) + 0.9);
     }
     // Room above the top rail, to the underside of the top plate
     clearance = top - plate - (m.y + plate + marks[marks.length - 1]);
@@ -866,7 +867,11 @@ function renderDesign(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan, layout: De
   const sideW = 50;
   const frontBox = { x: MARGIN + 12, y: cur.y + 9, w: CONTENT_W - sideW - 22, h: drawH - 20 };
   kicker(doc, "Front view", MARGIN + 5, cur.y + 5.5, COLORS.muted, 6.5);
-  kicker(doc, "Side view · rail tops from floor", MARGIN + CONTENT_W - sideW - 14, cur.y + 5.5, COLORS.muted, 6.5);
+  // Right-aligned inside the card (kicker letter-spacing is 0.5 mm per character)
+  const sideLabel = "Side view · rail tops from upright bottom";
+  setText(doc, 6.5, COLORS.muted, "bold");
+  const sideLabelW = doc.getTextWidth(pdfText(sideLabel.toUpperCase())) + 0.5 * sideLabel.length;
+  kicker(doc, sideLabel, MARGIN + CONTENT_W - 5 - sideLabelW, cur.y + 5.5, COLORS.muted, 6.5);
   const map = drawSystemMap(doc, layout, frontBox, { dimensions: false });
   const left = map.toX(0);
   const right = map.toX(layout.widthIn);
@@ -891,10 +896,10 @@ function renderDesign(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan, layout: De
           ? '21" (30-1/4" sideways)'
           : '21"',
     ],
-    ["First rail top (from floor)", formatInches(Math.min(...railTops))],
+    ["First rail, top edge (from upright bottom)", formatInches(Math.min(...railTops))],
     ["Rail spacing", '16" top to top'],
     ["Top rail to top plate", formatInches(clearance)],
-    ["Top rail (from floor)", formatInches(Math.max(...railTops))],
+    ["Top rail, top edge (from upright bottom)", formatInches(Math.max(...railTops))],
   ];
   const colW = CONTENT_W / 2;
   const rowsPerCol = Math.ceil(rows.length / 2);
@@ -911,7 +916,16 @@ function renderDesign(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan, layout: De
     doc.setLineWidth(0.2);
     doc.line(x, y + 2.2, x + w, y + 2.2);
   });
-  cur.y += rowsPerCol * 6.5 + 6;
+  cur.y += rowsPerCol * 6.5;
+  setText(doc, 7.5, COLORS.muted, "italic");
+  cur.y = paragraph(
+    doc,
+    "Rails are always placed by their TOP edge, measured up from the bottom end of the upright — the same marks as the marking step and the ladder jig.",
+    MARGIN,
+    cur.y + 1,
+    CONTENT_W,
+    7.5,
+  ) + 4;
 
   // Angled view
   cur.ensure(80);

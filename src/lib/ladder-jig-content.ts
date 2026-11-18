@@ -112,10 +112,10 @@ export function ladderJigContent(): LadderJigContent {
         diagram: "uprights",
       },
       {
-        title: "Set each 2×4 rail on its line",
+        title: "Set each rail on its line",
         detail:
-          "Lay each ripped 2×4 rail across both uprights with its far edge (away from the stop block) on the line. The ends land flush with the outsides of the uprights automatically.",
-        parts: ["Ripped 2×4 rails, from your plan's cut list"],
+          "Lay each rail (ripped 2×4 or plywood strip) across both uprights with its TOP edge — the far edge, away from the stop block — on the line. The ends land flush with the outsides of the uprights automatically.",
+        parts: ["Rails, from your plan's cut list"],
         tip: "Far edge on the line, never the near edge. The lines mark the tops of the rails, where the totes hang.",
         diagram: "rails",
       },
@@ -145,7 +145,7 @@ export function ladderJigContent(): LadderJigContent {
     notes: [
       "Rail marks are the TOP edges of your tote rails, measured from the inside face of the stop block (the bottom of the uprights).",
       `The six marks fit a rack up to 6 totes tall. Shorter racks use the first marks only: a 4-high rack uses ${marks.slice(0, 4).map((m) => `${toFraction(m)}"`).join(", ")}.`,
-      "The jig works for standard rails (30\" between the uprights' outside faces). It's sized for the plans' 2×4 rail construction.",
+      "Ripped 2×4 rails and plywood-strip rails use the same marks: every rail is placed by its TOP edge, never its center. The jig fits standard racks, 30\" between the uprights' outside faces.",
       "Store the jig flat, or stand it on edge against a wall. It keeps for every rack you build.",
     ],
   };

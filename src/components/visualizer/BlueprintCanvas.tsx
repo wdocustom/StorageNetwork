@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { create2DWoodPattern, create2DPlywoodPattern } from "./woodCanvas";
 import type { SectionAddon } from "@/types/viewModels";
-import { RAIL_2X4_CENTERS, RAIL_2X4_H, upright2x4Length } from "@/lib/rails2x4";
+import { RAIL_2X4_CENTERS, RAIL_2X4_H, railTopFromBottom, upright2x4Length } from "@/lib/rails2x4";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BlueprintCanvas — 2D visual-only rendering (dimensions from server)
@@ -170,7 +170,6 @@ export default function BlueprintCanvas({
     const pStud = RENDER_GAP * scale;
     const pBay = opening * scale;
     const pPlate = RENDER_PLATE * scale;
-    const pTopGap = RENDER_TOP_GAP * scale;
     const pTotalW = unitRealW * scale;
     // Actual post-to-post width (matches where vertical posts are drawn)
     const pPostToPostW = unitCols * (pBay + pStud) + pStud;
@@ -238,9 +237,10 @@ export default function BlueprintCanvas({
           const railFromBottom = RAILS_2X4_POSITIONS[Math.min(r, RAILS_2X4_POSITIONS.length - 1)];
           railY = startY + pFrameH - pPlate - railFromBottom * scale - railH / 2;
         } else {
-          // Invert row for canvas coords: row 0 = bottom (large Y), highest row = top (small Y)
-          const invertedR = unitRows - 1 - r;
-          railY = startY + pPlate + pTopGap + invertedR * RENDER_TIER * scale;
+          // Plywood rails: placed by their TOP edge, measured up from the
+          // bottom of the upright — the same 13", 29", 45" … as 2×4 rails
+          // (@/lib/rails2x4). railY is the rect's top edge.
+          railY = startY + pFrameH - pPlate - railTopFromBottom(r) * scale;
         }
 
         if (!isRailRemoved) {
