@@ -83,9 +83,9 @@ export function JigDiagram({ marks, showLabels = true }: { marks: number[]; show
   const pad = 6;
   const railW = 3.5;
   const gap = 30; // inside distance between rails
-  const railA = (W - gap) / 2 - railW / 2; // centered pair of rails on the base
-  const railAy = Math.max(0, railA);
-  const railBy = railAy + railW + gap;
+  // Rails flush along both long edges of the 37" base: 3-1/2 + 30 + 3-1/2
+  const railAy = 0;
+  const railBy = W - railW;
   const stop = 1.5;
   return (
     <svg viewBox={`0 0 ${L + pad * 2} ${W + pad * 2 + (showLabels ? 10 : 0)}`} className="w-full" role="img" aria-label="Ladder jig, top view">
