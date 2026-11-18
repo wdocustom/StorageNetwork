@@ -38,6 +38,7 @@ describe("refund giveaway helpers", () => {
   });
 
   it("is unscheduled until both dates are set, then follows the CT window", () => {
+    Object.assign(REFUND_GIVEAWAY, { startDate: null, endDate: null });
     expect(giveawayStatus()).toBe("unscheduled");
     Object.assign(REFUND_GIVEAWAY, { startDate: "2026-12-01", endDate: "2026-12-24" });
     expect(giveawayStatus(new Date("2026-12-01T05:59:00Z"))).toBe("upcoming"); // 11:59 PM Nov 30 CT

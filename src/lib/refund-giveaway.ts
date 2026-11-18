@@ -11,21 +11,17 @@ export const REFUND_GIVEAWAY = {
   name: "Holiday Full Refund Giveaway",
   rulesPath: "/refund-rules",
   /** Sponsor's legal business name, e.g. "Example Storage LLC" */
-  sponsorLegalName: null as string | null,
+  sponsorLegalName: "WDO Custom dba Storage-Network.app" as string | null,
   /** e.g. "Omaha, Nebraska" */
-  sponsorCityState: null as string | null,
+  sponsorCityState: "Omaha, Nebraska" as string | null,
   /** First day, YYYY-MM-DD, Central Time (starts 12:00 AM CT) */
-  startDate: null as string | null,
+  startDate: "2026-11-17" as string | null,
   /** Last day, YYYY-MM-DD, Central Time (ends 11:59 PM CT) */
-  endDate: null as string | null,
-  /** Refund issued within this many business days of verification */
-  refundBusinessDays: null as number | null,
-  /** Winners notified within this many days of their drawing */
-  notifyDays: null as number | null,
+  endDate: "2027-01-30" as string | null,
   /** Where free (no-purchase) entries can be emailed */
   entryEmail: "refunds@storage-network.app",
   /** Winners list requests and questions */
-  contactEmail: null as string | null,
+  contactEmail: "refunds@storage-network.app" as string | null,
   timeZone: "America/Chicago",
 };
 

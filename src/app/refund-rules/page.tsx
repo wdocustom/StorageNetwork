@@ -125,19 +125,20 @@ export default function RefundRulesPage() {
 
           <h2 className={h2}>6. Prize</h2>
           <p>
-            Each prize is a full refund of the amount the winner paid for their DIY plans purchase from that day, issued to the original
-            payment method within <Value value={g.refundBusinessDays} blank="X" /> business days after the winner is
-            confirmed. Approximate retail value of each prize: the amount paid for that purchase (the price of the plans at the time of
-            purchase). The winner keeps the plans. Prizes are not
-            transferable, and no cash alternative or substitution is available, except the refund itself (or the free
-            plans account described in section 4b). Any taxes on a prize are the winner&apos;s responsibility.
+            Each prize is a full refund of the amount the winner paid for their DIY plans purchase from that day,
+            issued to the original payment method. Refunds are issued daily, as each day&apos;s winners are drawn
+            (your bank or card issuer may take a few business days to show it). Approximate retail value of each prize:
+            the amount paid for that purchase (the price of the plans at the time of purchase). The winner keeps the
+            plans. Prizes are not transferable, and no cash alternative or substitution is available, except the refund
+            itself (or the free plans account described in section 4b). Any taxes on a prize are the winner&apos;s
+            responsibility.
           </p>
 
           <h2 className={h2}>7. Notification</h2>
           <p>
-            Winners are notified by email, at the address used to enter, within <Value value={g.notifyDays} blank="X" />{" "}
-            days of their drawing. The Sponsor may publish a winner&apos;s first name and last initial, unless prohibited by
-            law.
+            Winners are notified by email, at the address used to enter, at the time their refund is issued (or, for a
+            free plans account, when it is set up). The Sponsor may publish a winner&apos;s first name and last initial,
+            unless prohibited by law.
           </p>
 
           <h2 className={h2}>8. General conditions</h2>
