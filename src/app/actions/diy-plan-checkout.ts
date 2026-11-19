@@ -2,6 +2,7 @@
 
 import Stripe from "stripe";
 import { stripeConfig } from "@/lib/stripe/http";
+import { LADDER_JIG_NAME } from "@/lib/ladder-jig";
 import { FINAL_SALE_TEXT, createEmbeddedCheckoutSession } from "@/lib/stripe/embedded-checkout";
 import { cookies } from "next/headers";
 import { siteConfig } from "@/config/site";
@@ -24,6 +25,7 @@ import {
   TOTE_PLAN_FRIDAY,
   formatPlanPrice,
   isRetentionOffer,
+  offerIncludesLadderJig,
   normalizePromoCode,
   totePlanOfferPrice,
 } from "@/lib/tote-plans";
@@ -259,7 +261,9 @@ export async function createDIYPlanCheckout(
             currency: "usd",
             product_data: {
               name: `${product.name} — starting with your ${name}`,
-              description: `Lifetime access: this plan (${totePlanSummary(design)}) and a free plan for every tote organizer you design after it. Interactive 3D guide + printable PDF for each.`,
+              description: `Lifetime access: this plan (${totePlanSummary(design)}) and a free plan for every tote organizer you design after it. Interactive 3D guide + printable PDF for each.${
+                offerIncludesLadderJig(offer) ? ` Includes the ${LADDER_JIG_NAME} plans free.` : ""
+              }`,
             },
             unit_amount: price,
           },

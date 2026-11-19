@@ -24,6 +24,7 @@ import {
   decodeTotePlanDesign,
   isTotePlanTier,
   offerIncludesInventory,
+  offerIncludesLadderJig,
   parseTotePlanDesign,
   type TotePlanDesign,
   type TotePlanTier,
@@ -148,8 +149,47 @@ export async function fulfilPlanSession(session: Stripe.Checkout.Session): Promi
   } else if (sent) {
     console.error("[PlanFulfilment] Email not sent:", sent.error);
   }
+  // Come-back offer: the Ladder Building Jig plans come with it.
+  if (isTote && offerIncludesLadderJig(metadata.offer)) {
+    await grantIncludedLadderJig(email, row.access_token).catch((err) =>
+      console.error("[PlanFulfilment] Ladder jig grant failed:", session.id, err)
+    );
+  }
   console.log(`[PlanFulfilment] Recorded ${type} ${session.id}`);
   return { ok: true, row, created: true, email };
+}
+
+/**
+ * Free Ladder Building Jig plans with a come-back offer purchase: a jig row
+ * for the buyer's email (unless they already own the jig), marked as
+ * included with the tote purchase (included_from = its access token) so it
+ * never counts as a sale or a giveaway entry, and its own access email.
+ * Idempotent per tote purchase.
+ */
+export async function grantIncludedLadderJig(email: string, toteAccessToken: string): Promise<void> {
+  const db = getServiceClient();
+  const { data: owned } = await db.from("public_plan_purchases").select("access_token").eq("email", email).eq("plan_id", LADDER_JIG_PLAN_ID).limit(1);
+  if ((owned as unknown[] | null)?.length) return;
+
+  const { data, error } = await db
+    .from("public_plan_purchases")
+    .insert({
+      email,
+      plan_id: LADDER_JIG_PLAN_ID,
+      stripe_session_id: `included_jig_${toteAccessToken}`,
+      included_from: toteAccessToken,
+      email_sent: false,
+      purchased_at: new Date().toISOString(),
+    })
+    .select("access_token")
+    .single();
+  const token = (data as { access_token: string } | null)?.access_token;
+  if (!token) {
+    if ((error as { code?: string } | null)?.code === "23505") return; // another caller granted it
+    throw new Error(error?.message ?? "insert failed");
+  }
+  const sent = await sendLadderJigAccessEmail(email, token).catch(() => null);
+  if (sent?.success) await db.from("public_plan_purchases").update({ email_sent: true }).eq("access_token", token);
 }
 
 /** The buyer is back from checkout with the session id: trust this device for a fresh purchase. */

@@ -101,12 +101,35 @@ export const TOTE_PLAN_LAST_CHANCE = {
   includesInventory: true,
 } as const;
 
-/** A retention offer code we still honor (current, last-chance or legacy). */
+/**
+ * Come-back offers, sent by email to people who emailed themselves a design
+ * but never bought (design-lead-comeback): the price they were offered when
+ * they saved it, plus the Ladder Building Jig plans free (granted to the
+ * buyer's email when the purchase is recorded). code → price in cents.
+ * Like every retention offer, never combined with a promo code.
+ */
+export const TOTE_PLAN_COMEBACK_OFFERS: Readonly<Record<string, number>> = {
+  save5jig: 1400,
+  save3jig: 1600,
+};
+
+/** The come-back offer for a design lead, from the offer they saved it with. */
+export function comebackOfferFor(savedOffer: string | null | undefined): string {
+  return totePlanOfferPrice(savedOffer) <= TOTE_PLAN_COMEBACK_OFFERS.save5jig ? "save5jig" : "save3jig";
+}
+
+/** Does this offer code include the Ladder Building Jig plans free? */
+export function offerIncludesLadderJig(code: unknown): boolean {
+  return typeof code === "string" && Object.prototype.hasOwnProperty.call(TOTE_PLAN_COMEBACK_OFFERS, code);
+}
+
+/** A retention offer code we still honor (current, last-chance, come-back or legacy). */
 export function isRetentionOffer(code: unknown): code is string {
   return (
     typeof code === "string" &&
     (code === TOTE_PLAN_EXIT_OFFER.code ||
       code === TOTE_PLAN_LAST_CHANCE.code ||
+      offerIncludesLadderJig(code) ||
       Object.prototype.hasOwnProperty.call(TOTE_PLAN_LEGACY_OFFERS, code))
   );
 }
@@ -147,6 +170,7 @@ export function normalizePromoCode(raw: unknown): string {
 export function totePlanOfferPrice(code: unknown): number {
   if (code === TOTE_PLAN_EXIT_OFFER.code) return TOTE_PLAN_EXIT_OFFER.price;
   if (code === TOTE_PLAN_LAST_CHANCE.code) return TOTE_PLAN_LAST_CHANCE.price;
+  if (offerIncludesLadderJig(code)) return TOTE_PLAN_COMEBACK_OFFERS[code as string];
   if (typeof code === "string" && Object.prototype.hasOwnProperty.call(TOTE_PLAN_LEGACY_OFFERS, code)) return TOTE_PLAN_LEGACY_OFFERS[code];
   return TOTE_PLAN_ALL_ACCESS.price;
 }

@@ -75,6 +75,7 @@ import {
   TOTE_PLAN_LAST_CHANCE,
   isRetentionOffer,
   offerIncludesInventory,
+  offerIncludesLadderJig,
   offerOffLabel,
   totePlanOfferPrice,
   formatPlanPrice,
@@ -439,6 +440,8 @@ function PlansDesigner() {
     if (!canOffer || lastChanceSeen()) return;
     const current = readOffer();
     if (current && totePlanOfferPrice(current.code) < TOTE_PLAN_LAST_CHANCE.price) return;
+    // A come-back link's free jig plans beat the last-chance add-on: keep it.
+    if (current && offerIncludesLadderJig(current.code)) return;
     markLastChanceSeen();
     setOffer(activateOffer(TOTE_PLAN_LAST_CHANCE.code));
     // A beat between the two, so it reads as a new offer, not the same one.
@@ -747,7 +750,9 @@ function PlansDesigner() {
                   : offer
                     ? offerIncludesInventory(offer.code)
                       ? `${offerOffLabel(priceCents)} + ${DIY_INVENTORY.name} free`
-                      : `${offerOffLabel(priceCents)} · 24 hours`
+                      : offerIncludesLadderJig(offer.code)
+                        ? `${offerOffLabel(priceCents)} + jig plans free`
+                        : `${offerOffLabel(priceCents)} · 24 hours`
                     : undefined
               }
               promo={promo}
