@@ -69,6 +69,11 @@ export interface AssemblyStep {
   condition?: "hasWheels" | "hasTop";
   /** Sub-instruction for pro tips */
   proTip?: string;
+  /**
+   * The frame lies on its front here and gets checked for square: the guide
+   * can show tape measures across the back face's diagonals (Pro Tip).
+   */
+  squareCheck?: boolean;
 }
 
 /** How the totes are carried: 3/4" plywood strips or ripped 2×4 rails */
@@ -409,6 +414,7 @@ const ALL_STEPS: AssemblyStep[] = [
       { name: "2×4 Top Plates", qty: "2", detail: "Front and back" },
       { name: '#9 × 3" Screws', qty: "TOP_PLATE_SCREWS_QTY", detail: "2 per post-plate joint" },
     ],
+    squareCheck: true,
     proTip: "Measure corner-to-corner diagonals. If they match within 1/8\", you're square. If not, rack the frame by pushing the long-diagonal corner before driving the last screws.",
     cameraHint: "laid-front",
   },
@@ -441,6 +447,7 @@ const ALL_STEPS: AssemblyStep[] = [
       { name: "Plywood Back Supports", qty: "BACK_SUPPORTS_QTY", detail: "Diagonal braces at top & bottom corners" },
       { name: '#9 × 1-5/8" Screws', qty: "BACK_SUPPORT_SCREWS_QTY", detail: "2 per end of each brace" },
     ],
+    squareCheck: true,
     proTip: "Measure corner-to-corner diagonals before fastening. If they match within 1/8\", you're square. The diagonal braces lock the frame and prevent racking.",
     cameraHint: "laid-bottom",
   },
