@@ -9,7 +9,7 @@
 
 import { Suspense, lazy, useMemo } from "react";
 import { Loader2 } from "lucide-react";
-import { CASTER_IN, designLayout, type TotePlanDesign } from "@/lib/tote-plans";
+import { CASTER_IN, designLayout, isMiniDesign, isMiniUnit, type TotePlanDesign } from "@/lib/tote-plans";
 import type { StackedModule3D } from "@/components/visualizer/Rack3D";
 
 const Rack3D = lazy(() => import("@/components/visualizer/Rack3D"));
@@ -32,6 +32,7 @@ export function planModules3D(design: TotePlanDesign): StackedModule3D[] {
       hasWheels: unit.hasWheels && y === 0,
       hasTop: unit.hasTop && m.y === topY,
       sideways: m.sideways,
+      ...(isMiniUnit(unit) ? { mini: true } : {}),
     };
   });
 }
@@ -50,9 +51,9 @@ export default function PlanRack3D({ design }: { design: TotePlanDesign }) {
       <Rack3D
         cols={first.cols}
         rows={first.rows}
-        toteType={first.toteType}
+        toteType={first.toteType === "GM" ? "GM" : "HDX"}
         toteColor="black"
-        unitType="standard"
+        unitType={isMiniDesign(design) ? "mini" : "standard"}
         orientation={first.sideways ? "sideways" : "standard"}
         hasTotes={false}
         hasWheels={first.hasWheels}

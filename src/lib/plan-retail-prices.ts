@@ -14,6 +14,14 @@
 //   #9 star-drive boxes      $8.97   platform screw-box prices (137ct 3", 158ct 1-5/8")
 //   HDX 27-gal tote          $8.98   Home Depot
 //   Greenmade 27-gal tote    $11.49  Costco (regular price)
+// Mini Tote Rack (Nov 2026 estimates — verify at the store):
+//   2×3×8' stud             $3.48   Home Depot
+//   3/4" 2'×4' plywood panel $24.98  Home Depot project panel
+//   3/4" 4'×4' plywood       $32.00
+//   4'×8' sheet              $40.00  (same as above)
+//   (the plan buys ONE of these: the smallest that holds the rails + top)
+//   #8 × 1-1/4" / #9 × 2-1/2" boxes $8.97
+//   HDX 6.5 qt tote          $3.97   Home Depot
 // ═══════════════════════════════════════════════════════════════════════════
 
 import type { TotePlanDesign } from "@/lib/tote-plans";
@@ -27,6 +35,12 @@ export const RETAIL_PRICES = {
   screwBox158: 8.97,
   toteHDX: 8.98,
   toteGM: 11.49,
+  stud2x3: 3.48,
+  plywoodPanel2x4: 24.98,
+  plywoodHalf4x4: 32,
+  screwBox125: 8.97,
+  screwBox25: 8.97,
+  toteMini: 3.97,
 } as const;
 
 export const RETAIL_PRICES_CHECKED = "October 2026";
@@ -79,11 +93,19 @@ export function priceShoppingList(items: ShoppingItemLike[], design: TotePlanDes
     else if (item.name === '1/4" × 1" Structural Screws') add("Caster screws", qty, "box", RETAIL_PRICES.structuralScrewBox);
     else if (item.name === '#9 × 3" Star-Drive Screws') add('#9 × 3" screws', qty, "box", RETAIL_PRICES.screwBox3in);
     else if (item.name === '#9 × 1-5/8" Star-Drive Screws') add('#9 × 1-5/8" screws', qty, "box", RETAIL_PRICES.screwBox158);
+    // Mini Tote Rack
+    else if (item.name === "2×3 Lumber") add("2×3×8' studs", qty, "board", RETAIL_PRICES.stud2x3);
+    else if (item.name === '3/4" Plywood Panel') add('3/4" plywood 2\'×4\' panel', qty, "panel", RETAIL_PRICES.plywoodPanel2x4);
+    else if (item.name === '3/4" Plywood Half Sheet') add('3/4" plywood 4\'×4\' sheet', qty, "sheet", RETAIL_PRICES.plywoodHalf4x4);
+    else if (item.name === '3/4" Plywood Sheet') add('3/4" plywood 4\'×8\' sheet', qty, "sheet", RETAIL_PRICES.plywoodSheet);
+    else if (item.name === '#8 × 1-1/4" Star-Drive Screws') add('#8 × 1-1/4" screws', qty, "box", RETAIL_PRICES.screwBox125);
+    else if (item.name === '#9 × 2-1/2" Star-Drive Screws') add('#9 × 2-1/2" screws', qty, "box", RETAIL_PRICES.screwBox25);
   }
 
   // Totes by brand, straight from the design
   const toteTotal = design.units.reduce(
-    (s, u) => s + u.cols * u.rows * (u.toteType === "GM" ? RETAIL_PRICES.toteGM : RETAIL_PRICES.toteHDX),
+    (s, u) =>
+      s + u.cols * u.rows * (u.toteType === "MINI" ? RETAIL_PRICES.toteMini : u.toteType === "GM" ? RETAIL_PRICES.toteGM : RETAIL_PRICES.toteHDX),
     0,
   );
   return {

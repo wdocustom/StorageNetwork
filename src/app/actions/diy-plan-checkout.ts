@@ -28,6 +28,8 @@ import {
   offerIncludesLadderJig,
   normalizePromoCode,
   totePlanOfferPrice,
+  TOTE_PLAN_MINI,
+  isMiniDesign,
 } from "@/lib/tote-plans";
 import { PLAN_REF_COOKIE, cleanReferralId } from "@/lib/plan-splits";
 
@@ -168,6 +170,34 @@ export async function checkPlanPromo(rawCode: unknown, rawEmail: unknown): Promi
   }
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Does this plan link's email own the 27-gal All-Access plans? That earns
+ * the Mini Tote Rack Plans owner price. Decided from the database, never
+ * from anything the client claims; any of their plan links works.
+ */
+async function bigRackOwnerFor(rawToken: unknown): Promise<{ email: string } | null> {
+  if (typeof rawToken !== "string" || !UUID_RE.test(rawToken)) return null;
+  const db = getServiceClient();
+  const { data: link } = await db.from("public_plan_purchases").select("email").eq("access_token", rawToken).maybeSingle();
+  const email = (link as { email: string } | null)?.email;
+  if (!email) return null;
+  const { data } = await db.from("public_plan_purchases").select("access_token").eq("email", email).eq("plan_id", TOTE_PLAN_ID).limit(1);
+  return (data as unknown[] | null)?.length ? { email } : null;
+}
+
+/** What Mini Tote Rack Plans cost this visitor: $12, or $9 with a 27-gal All-Access plan link. */
+export async function getMiniPlanPrice(rawToken: unknown): Promise<{ price: number; regularPrice: number; ownerDiscount: boolean }> {
+  const regular = { price: TOTE_PLAN_MINI.price, regularPrice: TOTE_PLAN_MINI.price, ownerDiscount: false };
+  try {
+    return (await bigRackOwnerFor(rawToken)) ? { ...regular, price: TOTE_PLAN_MINI.ownerPrice, ownerDiscount: true } : regular;
+  } catch (err) {
+    console.error("[DIYPlanCheckout] mini price lookup failed:", err);
+    return regular;
+  }
+}
+
 export async function createDIYPlanCheckout(
   rawDesign: unknown,
   source?: string,
@@ -181,6 +211,8 @@ export async function createDIYPlanCheckout(
   rawOffer?: unknown,
   /** FRIDAY only: the email the code was checked against (locked at Stripe) */
   rawPromoEmail?: unknown,
+  /** Mini designs: a plan link, for the 27-gal owner price (verified here) */
+  rawOwnerToken?: unknown,
 ): Promise<{ success: boolean; clientSecret?: string; error?: string }> {
   // SECURITY (H-3): each call provisions a Stripe Checkout Session. Cap
   // per identity to prevent scripted abuse of Stripe's session API.
@@ -205,6 +237,7 @@ export async function createDIYPlanCheckout(
       error: `Plans cover up to ${TOTE_PLAN_LIMITS.maxUnits} standard tote units, each up to ${TOTE_PLAN_LIMITS.maxCols} wide × ${TOTE_PLAN_LIMITS.maxRows} tall.`,
     };
   }
+  if (isMiniDesign(design)) return createMiniPlanCheckout(design, source, rawRef, rawVisitorId, rawOwnerToken);
   const product = TOTE_PLAN_ALL_ACCESS;
   // Exactly one offer: the promo code if they entered one, else a retention
   // offer, else the regular price.
@@ -309,6 +342,73 @@ export async function createDIYPlanCheckout(
       success: false,
       error: "Failed to create checkout. Please try again.",
     };
+  }
+}
+
+/**
+ * Mini Tote Rack Plans: $12 (or $9 for 27-gal All-Access owners), lifetime,
+ * every mini design. No retention offers or promo codes — they're priced for
+ * All-Access — and no installer plan splits.
+ */
+async function createMiniPlanCheckout(
+  design: NonNullable<ReturnType<typeof parseTotePlanDesign>>,
+  source: unknown,
+  rawRef: unknown,
+  rawVisitorId: unknown,
+  rawOwnerToken: unknown,
+): Promise<{ success: boolean; clientSecret?: string; error?: string }> {
+  const owner = await bigRackOwnerFor(rawOwnerToken).catch(() => null);
+  const price = owner ? TOTE_PLAN_MINI.ownerPrice : TOTE_PLAN_MINI.price;
+  const sourceTag = typeof source === "string" ? source.replace(/[^a-z0-9_-]/gi, "").slice(0, 40) : "";
+  try {
+    const baseUrl = siteConfig.baseUrl;
+    const buyer = await getAuthenticatedUser();
+    const attribution = await resolvePromoterAttributionForCheckout(buyer?.id ?? null);
+    const name = totePlanName(design);
+    const session = await createEmbeddedCheckoutSession(stripe, {
+      mode: "payment",
+      // Owner price: pay with the email that owns the 27-gal plans
+      ...(owner ? { customer_email: owner.email } : {}),
+      custom_text: FINAL_SALE_TEXT,
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: `${TOTE_PLAN_MINI.name} — starting with your ${name}`,
+              description: `Lifetime access: this plan (${totePlanSummary(design)}) and a free plan for every mini tote rack you design after it. Interactive 3D guide + printable PDF for each.${owner ? " Owner price for All-Access plan owners." : ""}`,
+            },
+            unit_amount: price,
+          },
+          quantity: 1,
+        },
+      ],
+      return_url: `${baseUrl}/plans/build?session_id={CHECKOUT_SESSION_ID}`,
+      metadata: {
+        type: "mini_plan",
+        plan_id: TOTE_PLAN_MINI.id,
+        tier: TOTE_PLAN_ALL_ACCESS_TIER,
+        product: "mini",
+        ...(owner ? { offer: "owner" } : {}),
+        design: encodeTotePlanDesign(design),
+        ...(design.name ? { design_name: design.name } : {}),
+        ...(sourceTag ? { source: sourceTag } : {}),
+        ...(attribution ? { promoter_id: attribution.promoterId, promoter_referral_code: attribution.code } : {}),
+      },
+    });
+    if (!session.client_secret) return { success: false, error: "Failed to create checkout session." };
+    void rawRef; // installer referrals earn plan splits on All-Access only
+    await recordCheckoutStart({
+      stripeSessionId: session.id,
+      planId: TOTE_PLAN_MINI.id,
+      tier: TOTE_PLAN_ALL_ACCESS_TIER,
+      amountCents: price,
+      visitorId: rawVisitorId,
+    });
+    return { success: true, clientSecret: session.client_secret };
+  } catch (err) {
+    console.error("[DIYPlanCheckout] mini Stripe session error:", err);
+    return { success: false, error: "Failed to create checkout. Please try again." };
   }
 }
 

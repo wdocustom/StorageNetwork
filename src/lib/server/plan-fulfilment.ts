@@ -21,6 +21,7 @@ import { grantDiyInventory } from "@/lib/server/diy-inventory";
 import { queueSmartInventoryFollowUp } from "@/lib/server/smart-inventory-follow-up";
 import {
   TOTE_PLAN_ID,
+  TOTE_PLAN_MINI,
   decodeTotePlanDesign,
   isTotePlanTier,
   offerIncludesInventory,
@@ -30,7 +31,8 @@ import {
   type TotePlanTier,
 } from "@/lib/tote-plans";
 
-export const FULFILLED_PLAN_TYPES = new Set(["diy_plan", "ladder_jig"]);
+/** "mini_plan": Mini Tote Rack Plans (TOTE_PLAN_MINI), recorded like a tote plan. */
+export const FULFILLED_PLAN_TYPES = new Set(["diy_plan", "ladder_jig", "mini_plan"]);
 
 export const PLAN_ROW_COLUMNS =
   "access_token, email, tier, build_config, plan_id, customer_name, included_from, purchased_at";
@@ -80,7 +82,8 @@ export async function fulfilPlanSession(session: Stripe.Checkout.Session): Promi
   const email = (session.customer_details?.email ?? session.customer_email ?? "").toLowerCase();
   const metadata = session.metadata ?? {};
 
-  const isTote = type === "diy_plan";
+  const isMini = type === "mini_plan";
+  const isTote = type === "diy_plan" || isMini;
   const design = isTote ? designFromSessionMetadata(metadata) : null;
   // Sessions created before tiers existed carry no tier: they bought the PDF.
   const tier: TotePlanTier = isTotePlanTier(metadata.tier) ? metadata.tier : "pdf";
@@ -98,7 +101,7 @@ export async function fulfilPlanSession(session: Stripe.Checkout.Session): Promi
       isTote
         ? {
             email,
-            plan_id: TOTE_PLAN_ID,
+            plan_id: isMini ? TOTE_PLAN_MINI.id : TOTE_PLAN_ID,
             tier,
             build_config: design,
             stripe_session_id: session.id,
@@ -131,7 +134,7 @@ export async function fulfilPlanSession(session: Stripe.Checkout.Session): Promi
     await grantDiyInventory(email, session.id, 0).catch((err) =>
       console.error("[PlanFulfilment] Smart Inventory grant failed:", session.id, err)
     );
-  } else if (isTote) {
+  } else if (isTote && !isMini) {
     // The purchase email doesn't pitch Smart Inventory: a follow-up does, 4–5 days on.
     await queueSmartInventoryFollowUp(email, row.access_token);
   }

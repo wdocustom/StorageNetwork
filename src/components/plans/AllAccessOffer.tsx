@@ -15,7 +15,7 @@ import { ArrowRight, Box, CheckCircle, FileText, Hammer, Infinity as InfinityIco
 import type { AppliedPromo } from "@/lib/plan-offer";
 import GiveawayNote from "@/components/plans/GiveawayNote";
 
-import { TOTE_PLAN_ALL_ACCESS, formatPlanPrice, type TotePlanTier } from "@/lib/tote-plans";
+import { TOTE_PLAN_ALL_ACCESS, TOTE_PLAN_MINI, formatPlanPrice, type TotePlanTier } from "@/lib/tote-plans";
 
 const PRICE = formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price);
 
@@ -176,6 +176,7 @@ export function AllAccessOffer({
   onApplyPromo,
   onRemovePromo,
   giveaway = false,
+  mini = false,
 }: {
   loading: boolean;
   onBuy: () => void;
@@ -194,8 +195,11 @@ export function AllAccessOffer({
   onRemovePromo?: () => void;
   /** The Holiday Full Refund Giveaway is running: a reminder just above the buy button */
   giveaway?: boolean;
+  /** A Mini Tote Rack design: the separate Mini Tote Rack Plans product */
+  mini?: boolean;
 }) {
-  const shown = offerPrice ?? PRICE;
+  const regular = mini ? formatPlanPrice(TOTE_PLAN_MINI.price) : PRICE;
+  const shown = offerPrice ?? regular;
   return (
     <div className="relative overflow-hidden rounded-2xl border border-yellow-400/40 bg-slate-900 p-5">
       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-400 to-yellow-500" />
@@ -203,12 +207,12 @@ export function AllAccessOffer({
       <div className="flex items-end justify-between gap-3">
         <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-yellow-400">
-            <InfinityIcon className="h-4 w-4" /> Unlimited plans
+            <InfinityIcon className="h-4 w-4" /> {mini ? "Unlimited mini plans" : "Unlimited plans"}
           </p>
           <h3 className="mt-1 text-lg font-black leading-tight text-white">Get the plan for this design</h3>
         </div>
         <div className="shrink-0 text-right">
-          {offerPrice && <p className="text-sm font-bold text-stone-500 line-through">{PRICE}</p>}
+          {offerPrice && <p className="text-sm font-bold text-stone-500 line-through">{regular}</p>}
           <p className="text-4xl font-black leading-none text-white">{shown}</p>
           <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-yellow-400">
             {offerPrice ? offerTag ?? "Offer price" : "Once, for life"}
@@ -217,12 +221,21 @@ export function AllAccessOffer({
       </div>
 
       <p className="mt-3 text-sm leading-relaxed text-stone-300">
-        Plus a free plan for <strong className="text-white">every tote organizer you design after it</strong>. Your
-        garage today, the shed next spring.
+        {mini ? (
+          <>
+            Plus a free plan for <strong className="text-white">every mini tote rack you design after it</strong>.
+            Sized for HDX 6.5 qt totes, built from 2×3s and plywood.
+          </>
+        ) : (
+          <>
+            Plus a free plan for <strong className="text-white">every tote organizer you design after it</strong>. Your
+            garage today, the shed next spring.
+          </>
+        )}
       </p>
 
       <ul className="mt-3 grid gap-x-3 gap-y-1.5 text-xs text-stone-300 sm:grid-cols-2">
-        {["Unlimited plans, any size", "Interactive 3D build guide", "Printable PDF with cut list", "No subscription, ever"].map(
+        {[mini ? "Unlimited mini plans, any size" : "Unlimited plans, any size", "Interactive 3D build guide", "Printable PDF with cut list", "No subscription, ever"].map(
           (item) => (
             <li key={item} className="flex items-center gap-1.5">
               <CheckCircle className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
@@ -272,19 +285,22 @@ export function IncludedPlanCard({
   emailHint,
   loading,
   onGenerate,
+  mini = false,
 }: {
   emailHint: string;
   loading: boolean;
   onGenerate: () => void;
+  /** Covered by Mini Tote Rack Plans (not All-Access) */
+  mini?: boolean;
 }) {
   return (
     <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/5 p-5 text-center sm:p-6">
       <p className="flex items-center justify-center gap-1.5 text-sm font-bold text-emerald-300">
-        <Sparkles className="h-4 w-4" /> Included with your All-Access plans
+        <Sparkles className="h-4 w-4" /> Included with your {mini ? TOTE_PLAN_MINI.name : "All-Access plans"}
       </p>
       <p className="mx-auto mt-2 max-w-md text-sm text-stone-300">
-        You own unlimited tote organizer plans ({emailHint}). Generate this design&apos;s plan, with the 3D guide and the
-        PDF, at no charge.
+        You own unlimited {mini ? "mini tote rack" : "tote organizer"} plans ({emailHint}). Generate this design&apos;s
+        plan, with the 3D guide and the PDF, at no charge.
       </p>
       <button
         onClick={onGenerate}

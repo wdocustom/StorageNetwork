@@ -12,6 +12,7 @@
 // never the formulas that produce them.
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { MINI, MINI_PLY_SHEET, miniMaxRowsPerTier, miniPiecesPer, miniUpright } from "@/lib/mini-rack";
 import { splitModuleWidths } from "@/lib/module-split";
 import type { MaterialConfig, MaterialBreakdown, MaterialPrices } from "@/utils/calculateMaterials";
 import { DEFAULT_MATERIAL_PRICES } from "@/utils/calculateMaterials";
@@ -43,11 +44,10 @@ const TIER_HEIGHT = 16;
 const MAX_ROWS_PER_TIER = Math.floor(STOCK_LENGTH / TIER_HEIGHT); // 6
 
 // ── Mini Unit Constants ─────────────────────────────────────────────────
-const MINI_OPENING = 8.25;
-const MINI_GAP = 1.5;
-const MINI_TIER_HEIGHT = 7;
-const MINI_FIRST_RAIL_HEIGHT = 5.25;
-const MINI_MAX_ROWS_PER_TIER = 13; // but mini is capped at 4 anyway
+// Measured from a built rack — @/lib/mini-rack is the source of truth
+const MINI_OPENING = MINI.opening;
+const MINI_GAP = MINI.postW;
+const MINI_MAX_ROWS_PER_TIER = miniMaxRowsPerTier(); // installers cap minis at 4 anyway
 
 // ── Sideways Orientation Constants ─────────────────────────────────────
 const SIDEWAYS_OPENING = 30.25;          // Tote depth becomes slot width
@@ -72,12 +72,12 @@ function rails2x4PerBoard(depth: number): number {
 const STANDARD_STRIPS_PER_STRUCT_SHEET = 72;  // 24 rips × 3 pieces
 const STANDARD_STRIPS_PER_TOP_OFFCUT = 27;
 
-// Mini: 1" wide × 12.75" long strips (from NEW plywood only)
-//   48" / (1" + 0.125" kerf) = 42 rips × floor(96" / 12.875") = 7 pieces = 294
-const MINI_STRIPS_PER_STRUCT_SHEET = 294;
-// Mini top offcut: top is small (~40.5"×12.75"), leaves most of 4×8 for 1" strips
-//   Conservative: 42 rips × 4 pieces from remainder ≈ 200+
-const MINI_STRIPS_PER_TOP_OFFCUT = 200;
+// Mini: 1-1/4" wide × 12-3/4" long strips (from NEW plywood only)
+//   35 rips × 7 pieces = 245 per 4×8 sheet (@/lib/mini-rack)
+const MINI_STRIPS_PER_STRUCT_SHEET = miniPiecesPer(MINI_PLY_SHEET, MINI.depth);
+// Mini top offcut: the top is small (~40-1/2" × 12-3/4"); the rest of the
+// sheet still rips into ~25 strips × 7 pieces — conservative.
+const MINI_STRIPS_PER_TOP_OFFCUT = 175;
 
 function splitHeightTiers(totalRows: number, unitType: "standard" | "mini" = "standard", use2x4Rails = false): number[] {
   if (use2x4Rails) {
@@ -104,7 +104,7 @@ function calcUprightHeight(rows: number, unitType: "standard" | "mini", use2x4Ra
     return upright2x4Length(rows);
   }
   if (unitType === "mini") {
-    return MINI_FIRST_RAIL_HEIGHT + (rows - 1) * MINI_TIER_HEIGHT + 2;
+    return miniUpright(rows);
   }
   return rows * TIER_HEIGHT;
 }
@@ -129,7 +129,7 @@ export async function calculateMaterialCostServer(
   let totalScrewBoxes3 = 0;
 
   let globalStripCount = 0;      // standard-width strips (1-7/8")
-  let globalMiniStripCount = 0;  // mini-width strips (1")
+  let globalMiniStripCount = 0;  // mini-width strips (1-1/4")
   let global2x4RailCount = 0;   // 2x4 rail pieces (ripped from 2x4x8')
   let globalTopSheets = 0;
   let globalMiniTopSheets = 0;
@@ -250,8 +250,8 @@ export async function calculateMaterialCostServer(
           allParts.push(uprightHeight);
         }
 
-        // Plates: 2x4 rail mode has top + bottom plates (4), standard has 4, mini has 2
-        const numPlates = is2x4Rails ? 4 : (isMini ? 2 : 4);
+        // Plates: every frame has top + bottom plates, front and back (minis: 2×3)
+        const numPlates = 4;
         for (let k = 0; k < numPlates; k++) {
           allParts.push(modWidth);
         }

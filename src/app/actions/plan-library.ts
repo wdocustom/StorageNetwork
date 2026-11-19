@@ -19,6 +19,7 @@ import { checkPlanDevice } from "@/lib/server/plan-device";
 import { getPlanById } from "@/lib/plans-config";
 import {
   TOTE_PLAN_ID,
+  isTotePlanProduct,
   isTotePlanTier,
   parseTotePlanDesign,
   totePlanName,
@@ -100,7 +101,7 @@ export async function listMyPlans(token: string): Promise<LibraryResult> {
     let ownsJig = false;
 
     for (const row of (rows ?? []) as Row[]) {
-      if (row.plan_id === TOTE_PLAN_ID) {
+      if (isTotePlanProduct(row.plan_id)) {
         const design = parseTotePlanDesign(row.build_config);
         if (!design || !isTotePlanTier(row.tier)) continue;
         firstToteToken ??= row.access_token;
@@ -108,7 +109,7 @@ export async function listMyPlans(token: string): Promise<LibraryResult> {
           kind: "tote",
           title: totePlanName(design),
           subtitle: totePlanSummary(design),
-          badge: row.included_from ? "Included" : "All-Access",
+          badge: row.included_from ? "Included" : row.plan_id === TOTE_PLAN_ID ? "All-Access" : "Mini",
           purchasedAt: row.purchased_at,
           href: `/plans/build?token=${row.access_token}`,
         });

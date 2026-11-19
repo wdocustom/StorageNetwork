@@ -23,15 +23,16 @@ import { PAINT_COLORS } from "@/types/viewModels";
 //   - Bottom/Top 2x4 plates span full width
 //   - 4 industrial casters at the 4 outer corners
 //
-//   Mini (6.5 Quart):
-//   - Same 2×4 posts but closer together (8.25" slots)
-//   - 1" wide plywood rails, 12.75" depth
-//   - No top 2x4 plates, solid plywood top instead
-//   - Smaller shoebox totes (8" x 12.75" x 6.25")
+//   Mini (HDX 6.5 qt) — every number from @/lib/mini-rack:
+//   - 2×3 uprights and top/bottom plates (2-1/2" deep), 8-1/4" bays (13" sideways)
+//   - 3/4" plywood rails ripped to 1-1/4", 12-3/4" deep (8" sideways)
+//   - Rail tops at 5-3/4" then every 6-1/2" from the bottom of the upright
+//   - Optional plywood top on the top plates; 8" × 12-3/4" × 6-1/4" totes
 // ═══════════════════════════════════════════════════════════════════════════
 
 import type { SectionAddon } from "@/types/viewModels";
 import { RAIL_2X4_CENTERS, RAIL_2X4_H, RAIL_2X4_PITCH, RAIL_2X4_W, railCenterFromBottom, upright2x4Length } from "@/lib/rails2x4";
+import { MINI, miniDepth, miniFrameHeight, miniOpening, miniPlateLength, miniUpright } from "@/lib/mini-rack";
 
 type ToteType = "HDX" | "GM";
 type ToteColor = "black" | "clear";
@@ -113,11 +114,19 @@ export interface StackedModule3D {
   hasTop: boolean;
   /** Totes turned 90°: 30-1/4" bays, 20" deep */
   sideways?: boolean;
+  /** Mini Tote Rack module (@/lib/mini-rack): 2×3 frame, plywood rails */
+  mini?: boolean;
 }
 
-/** Outside width of a stacked 2×4-rail module (inches). */
+/** Outside width of a stacked module (inches). */
 function stackedModuleW(m: StackedModule3D): number {
+  if (m.mini) return miniPlateLength(m.cols, m.sideways === true);
   return m.cols * (m.sideways ? SIDEWAYS_SLOT_W : RAILS_2X4_OPENING) + (m.cols + 1) * POST_W;
+}
+
+/** Frame height of a stacked module, without casters (inches). */
+function stackedFrameH(m: StackedModule3D): number {
+  return m.mini ? miniFrameHeight(m.rows) : frameHeight2x4(m.rows);
 }
 
 /** Floor to the bottom of a stacked module (or its casters). */
@@ -198,17 +207,16 @@ const SIDEWAYS_DEPTH = 20;       // Shallower depth
 
 // ── Mini Unit Constants (6.5 Quart) ──────────────────────────────────────
 
-const MINI_SLOT_W = 8.25;         // Slot width (fits 8" wide tote)
-const MINI_TIER_SPACING = 7;      // Rail-to-rail vertical spacing
-const MINI_FIRST_RAIL_H = 5.25;   // First rail height from bottom plate
-const MINI_DEPTH = 12.75;         // Rail length / unit depth
-const MINI_RAIL_HEIGHT = 1.0;     // 1" wide plywood strips
+const MINI_TIER_SPACING = MINI.railPitch;  // Rail top to rail top
+/** First rail CENTER from the bottom of the upright (its TOP is at 5-3/4") */
+const MINI_FIRST_RAIL_H = MINI.firstRailTop - MINI.railH / 2;
+const MINI_RAIL_HEIGHT = MINI.railH;       // 3/4" plywood ripped to 1-1/4"
 
-// Mini Tote (6.5 Quart shoebox)
-const MINI_TOTE_W = 8.0;          // Tote width
-const MINI_TOTE_H = 6.25;         // Tote body height
-const MINI_TOTE_D = 12.75;        // Tote depth (matches unit depth)
-const MINI_TOTE_RIM_H = 0.75;     // Rim/lid height
+// Mini Tote (HDX 6.5 qt): body below the lip, lid/lip above it
+const MINI_TOTE_W = MINI.tote.width;
+const MINI_TOTE_H = MINI.tote.lipFromBottom;
+const MINI_TOTE_D = MINI.tote.length;
+const MINI_TOTE_RIM_H = MINI.tote.height - MINI.tote.lipFromBottom;
 
 // ── 2x4 Rail Construction Constants ──────────────────────────────────────
 const RAILS_2X4_OPENING = 21;       // Universal 21" bay width
@@ -224,7 +232,7 @@ const S = 1 / 48;
 
 function getBayWidth(toteType: ToteType, unitType: UnitType, orientation: Orientation = "standard"): number {
   if (unitType === "mini") {
-    return MINI_SLOT_W;
+    return miniOpening(orientation === "sideways");
   }
   // Sideways orientation uses fixed 30.25" slot width
   if (orientation === "sideways") {
@@ -239,7 +247,7 @@ function getPostX(i: number, bayW: number): number {
 }
 
 function getUnitDepth(unitType: UnitType, orientation: Orientation = "standard"): number {
-  if (unitType === "mini") return MINI_DEPTH;
+  if (unitType === "mini") return miniDepth(orientation === "sideways");
   // Sideways orientation uses shallower depth
   if (orientation === "sideways") return SIDEWAYS_DEPTH;
   return RACK_DEPTH;
@@ -371,8 +379,10 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
   let toteDepth: number;
 
   if (isMini) {
-    toteW = MINI_TOTE_W;
-    toteDepth = MINI_TOTE_D;
+    // Sideways minis turn the tote 90°: its 12-3/4" length spans the bay
+    const sidewaysMini = orientation === "sideways";
+    toteW = sidewaysMini ? MINI_TOTE_D : MINI_TOTE_W;
+    toteDepth = sidewaysMini ? MINI_TOTE_W : MINI_TOTE_D;
   } else if (isSideways) {
     toteW = bayW - BIN_GAP * 2;
     toteDepth = unitDepth - 2;
@@ -602,7 +612,9 @@ function RackAssembly({
   use2x4Rails,
 }: Rack3DProps & { drawerSlideRows?: number; drawerSlideColumns?: number[]; drawersOpen?: boolean }) {
   const isMini = unitType === "mini";
-  const is2x4 = use2x4Rails === true;
+  const is2x4 = use2x4Rails === true && !isMini;
+  // Mini racks are 2×3s: 2-1/2" front to back (posts and plates)
+  const postD = isMini ? MINI.postD : POST_D;
 
   // Resolve paint materials (null = use default wood texture)
   const frameMat = getPaintMaterial(paintFrameColor) ?? undefined;
@@ -654,8 +666,8 @@ function RackAssembly({
     const postHeight = upright2x4Length(effectiveRows);
     frameH = PLATE_H + postHeight + PLATE_H;
   } else if (isMini) {
-    // Mini: bottom plate + rails + clearance above top rail + plywood top
-    frameH = PLATE_H + lastRailY + 2 + PLY_TOP_H;
+    // Mini: 2×3 bottom plate + upright + 2×3 top plate
+    frameH = miniFrameHeight(effectiveRows);
   } else {
     // Standard: bottom plate + rails + gap + top plate
     const topGap = 3;
@@ -676,7 +688,7 @@ function RackAssembly({
   const postH = is2x4
     ? upright2x4Length(effectiveRows)                  // 2x4: full 96" at 6 high, else top rail + 2-1/2"
     : isMini
-      ? lastRailY + 2 // Mini: just past the top rail
+      ? miniUpright(effectiveRows) // Mini: top rail + 2-1/2"
       : frameH - PLATE_H * 2;
 
   // Tote body height for positioning
@@ -691,14 +703,14 @@ function RackAssembly({
         <group position={[0, lift, 0]}>
 
           {/* Bottom plates (same for both unit types) */}
-          <Lumber position={[totalW / 2, PLATE_H / 2, POST_D / 2]} size={[totalW, PLATE_H, POST_D]} material={frameMat} />
-          <Lumber position={[totalW / 2, PLATE_H / 2, unitDepth - POST_D / 2]} size={[totalW, PLATE_H, POST_D]} material={frameMat} />
+          <Lumber position={[totalW / 2, PLATE_H / 2, postD / 2]} size={[totalW, PLATE_H, postD]} material={frameMat} />
+          <Lumber position={[totalW / 2, PLATE_H / 2, unitDepth - postD / 2]} size={[totalW, PLATE_H, postD]} material={frameMat} />
 
-          {/* Top plates — Standard and 2x4 rail units (not Mini) */}
-          {(is2x4 || !isMini) && (
+          {/* Top plates — every unit (mini racks have 2×3 top plates too) */}
+          {(
             <>
-              <Lumber position={[totalW / 2, frameH - PLATE_H / 2, POST_D / 2]} size={[totalW, PLATE_H, POST_D]} material={frameMat} />
-              <Lumber position={[totalW / 2, frameH - PLATE_H / 2, unitDepth - POST_D / 2]} size={[totalW, PLATE_H, POST_D]} material={frameMat} />
+              <Lumber position={[totalW / 2, frameH - PLATE_H / 2, postD / 2]} size={[totalW, PLATE_H, postD]} material={frameMat} />
+              <Lumber position={[totalW / 2, frameH - PLATE_H / 2, unitDepth - postD / 2]} size={[totalW, PLATE_H, postD]} material={frameMat} />
             </>
           )}
 
@@ -708,8 +720,8 @@ function RackAssembly({
             return (
               <group key={`ladder-${i}`}>
                 {/* Front + Back posts */}
-                <Lumber position={[px, PLATE_H + postH / 2, POST_D / 2]} size={[POST_W, postH, POST_D]} material={frameMat} />
-                <Lumber position={[px, PLATE_H + postH / 2, unitDepth - POST_D / 2]} size={[POST_W, postH, POST_D]} material={frameMat} />
+                <Lumber position={[px, PLATE_H + postH / 2, postD / 2]} size={[POST_W, postH, postD]} material={frameMat} />
+                <Lumber position={[px, PLATE_H + postH / 2, unitDepth - postD / 2]} size={[POST_W, postH, postD]} material={frameMat} />
 
                 {/* Right-face rails (serve bay i) — skip if rail_removed addon */}
                 {i < cols && Array.from({ length: effectiveRows }).map((_, r) => {
@@ -859,9 +871,7 @@ function RackAssembly({
               <mesh
                 position={[
                   topCenterX,
-                  isMini
-                    ? PLATE_H + postH + PLY_TOP_H / 2
-                    : frameH + PLY_TOP_H / 2,
+                  frameH + PLY_TOP_H / 2,
                   unitDepth / 2
                 ]}
                 material={frameMat ?? PLYWOOD_TOP_MAT}
@@ -885,9 +895,7 @@ function RackAssembly({
             // For standard units: from 0 (bottom of bottom plate) to frameH (top of top plate)
             // For mini units: from 0 to PLATE_H + postH + PLY_TOP_H
             const panelBottom = 0;
-            const panelTop = isMini
-              ? PLATE_H + postH + PLY_TOP_H
-              : frameH; // covers top 2x4 plates fully
+            const panelTop = frameH; // covers the top plates fully
             const panelH = panelTop - panelBottom;
             const panelCenterY = panelBottom + panelH / 2;
 
@@ -961,10 +969,10 @@ function RackAssembly({
           const lastPostX = getColPostX(cols);
           return (
             <>
-              <IndustrialCaster position={[firstPostX, 0, POST_D / 2]} />
-              <IndustrialCaster position={[lastPostX, 0, POST_D / 2]} />
-              <IndustrialCaster position={[firstPostX, 0, unitDepth - POST_D / 2]} />
-              <IndustrialCaster position={[lastPostX, 0, unitDepth - POST_D / 2]} />
+              <IndustrialCaster position={[firstPostX, 0, postD / 2]} />
+              <IndustrialCaster position={[lastPostX, 0, postD / 2]} />
+              <IndustrialCaster position={[firstPostX, 0, unitDepth - postD / 2]} />
+              <IndustrialCaster position={[lastPostX, 0, unitDepth - postD / 2]} />
             </>
           );
         })()}
@@ -977,7 +985,7 @@ function RackAssembly({
           const slideColor = "#c0c0c0";
           const backerMat = frameMat ?? PINE_MAT;
           const slideOffset = drawersOpen ? unitDepth * 0.6 : 0;
-          const backerDepth = unitDepth - POST_D; // spans between front and back posts
+          const backerDepth = unitDepth - postD; // spans between front and back posts
 
           // Determine which columns have drawers
           const drawerCols = drawerSlideColumns ?? (drawerSlideRows ? Array.from({ length: cols }, (_, i) => i) : []);
@@ -1021,12 +1029,12 @@ function RackAssembly({
               // Fixed channel — stays on frame (back portion)
               const fixedLen = unitDepth * 0.4;
               slideElements.push(
-                <mesh key={`sf-l-${row}-${col}`} position={[leftSlideX, slideCenterY, unitDepth - fixedLen / 2 - POST_D / 2]} material={SLIDE_FIXED_MAT}>
+                <mesh key={`sf-l-${row}-${col}`} position={[leftSlideX, slideCenterY, unitDepth - fixedLen / 2 - postD / 2]} material={SLIDE_FIXED_MAT}>
                   <boxGeometry args={[slideW, slideH, fixedLen]} />
                 </mesh>
               );
               slideElements.push(
-                <mesh key={`sf-r-${row}-${col}`} position={[rightSlideX, slideCenterY, unitDepth - fixedLen / 2 - POST_D / 2]} material={SLIDE_FIXED_MAT}>
+                <mesh key={`sf-r-${row}-${col}`} position={[rightSlideX, slideCenterY, unitDepth - fixedLen / 2 - postD / 2]} material={SLIDE_FIXED_MAT}>
                   <boxGeometry args={[slideW, slideH, fixedLen]} />
                 </mesh>
               );
@@ -1158,7 +1166,7 @@ function stackedBounds(modules: StackedModule3D[]) {
   let h = 0;
   for (const m of modules) {
     w = Math.max(w, m.x + stackedModuleW(m));
-    h = Math.max(h, stackedBaseY(m) + frameHeight2x4(m.rows) + (m.hasWheels ? CASTER_HEIGHT : 0));
+    h = Math.max(h, stackedBaseY(m) + stackedFrameH(m) + (m.hasWheels ? CASTER_HEIGHT : 0));
   }
   return { w, h };
 }
@@ -1174,7 +1182,7 @@ function StackedModulesAssembly({ modules, toteType, toteColor, hasTotes }: {
     <group scale={[S, S, S]}>
       {modules.map((m, i) => {
         const mw = stackedModuleW(m);
-        const mh = frameHeight2x4(m.rows) + (m.hasWheels ? CASTER_HEIGHT : 0);
+        const mh = stackedFrameH(m) + (m.hasWheels ? CASTER_HEIGHT : 0);
         // RackAssembly is centered on its own origin; x runs left → right
         // when facing the front, so mirror it like the assembly does.
         const x = w / 2 - (m.x + mw / 2);
@@ -1187,12 +1195,12 @@ function StackedModulesAssembly({ modules, toteType, toteColor, hasTotes }: {
                 rows={m.rows}
                 toteType={toteType}
                 toteColor={toteColor}
-                unitType="standard"
+                unitType={m.mini ? "mini" : "standard"}
                 orientation={m.sideways ? "sideways" : "standard"}
                 hasTotes={hasTotes}
                 hasWheels={m.hasWheels}
                 hasTop={m.hasTop}
-                use2x4Rails
+                use2x4Rails={!m.mini}
               />
             </group>
           </group>
@@ -1208,7 +1216,7 @@ function StackedModulesCameraRig({ modules }: { modules: StackedModule3D[] }) {
   const { w, h } = stackedBounds(modules);
   const sw = w * S;
   const sh = h * S;
-  const sd = RACK_DEPTH * S;
+  const sd = (modules.every((m) => m.mini) ? MINI.depth : RACK_DEPTH) * S;
   const dist = Math.max(sw, sh, sd) * 2.2;
 
   useEffect(() => {

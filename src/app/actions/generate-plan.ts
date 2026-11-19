@@ -61,7 +61,10 @@ import {
   type PlanModule,
   type PlanModuleType,
   type TotePlanDesign,
+  type TotePlanToteType,
+  isMiniDesign,
 } from "@/lib/tote-plans";
+import { generateMiniPlan } from "@/app/actions/generate-mini-plan";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Output Types
@@ -114,7 +117,7 @@ export interface PlanUnit {
   label: string;
   cols: number;
   rows: number;
-  toteType: "HDX" | "GM";
+  toteType: TotePlanToteType;
   /** Totes turned 90°: 30-1/4" bays, 20" deep */
   sideways: boolean;
   hasWheels: boolean;
@@ -133,6 +136,20 @@ export interface PlanCutBoard {
 }
 
 export interface CompleteDIYPlan {
+  /** "mini": Mini Tote Rack (2×3 frame, plywood rails — see miniRails). Absent on 27-gal plans. */
+  kind?: "mini";
+  /** Frame lumber, for labels: "2×4" (27-gal) or "2×3" (mini) */
+  frameLumber?: "2×4" | "2×3";
+  /** Mini only: rails and back braces ripped from 3/4" plywood */
+  miniRails?: {
+    stockName: string;
+    pieces: number;
+    strips: number;
+    piecesPerStrip: number;
+    pieceLength: number;
+    rails: number;
+    braces: number;
+  }[];
   name: string;
   summary: string;
   design: TotePlanDesign;
@@ -376,6 +393,7 @@ function unitSteps(unit: PlanUnit): PlanAssemblyStep[] {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteDIYPlan> {
+  if (isMiniDesign(design)) return generateMiniPlan(design);
   const { modules, types } = designModules(design);
   // Cut labels name the module type by the modules it covers ("A, C"),
   // shortened when long so it fits on the board bar.
@@ -398,7 +416,7 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
       quoteUnits.push({
         cols: u.cols,
         rows,
-        toteType: u.toteType,
+        toteType: u.toteType === "GM" ? "GM" : "HDX",
         unitType: "standard",
         orientation: sideways ? "sideways" : "standard",
         hasTotes: true,

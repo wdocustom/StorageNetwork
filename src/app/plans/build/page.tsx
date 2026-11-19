@@ -52,7 +52,7 @@ import {
   type OpenTotePlanInput,
   type OpenTotePlanResult,
 } from "@/app/actions/tote-plan-access";
-import {
+import { isMiniDesign,
   TOTE_PLAN_ALL_ACCESS,
   TOTE_PLAN_FRIDAY,
   totePlanOfferPrice,
@@ -296,7 +296,7 @@ function GuideCard({ data, onLaunch }: { data: Ready; onLaunch: () => void }) {
 
 // ── Build another (All-Access) ───────────────────────────────────────────
 
-function BuildAnotherCard({ token }: { token: string }) {
+function BuildAnotherCard({ token, mini = false }: { token: string; mini?: boolean }) {
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-emerald-500/40 bg-emerald-500/5 p-5 sm:flex-row sm:items-center">
       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10">
@@ -305,8 +305,10 @@ function BuildAnotherCard({ token }: { token: string }) {
       <div className="min-w-0 flex-1">
         <p className="text-base font-black text-white">Build another? It&apos;s included.</p>
         <p className="mt-0.5 text-sm text-stone-400">
-          All-Access covers every tote organizer you design, for life. Pick a new size and get its plan, 3D guide
-          and PDF, free.
+          {mini
+            ? "Your Mini Tote Rack Plans cover every mini rack you design, for life."
+            : "All-Access covers every tote organizer you design, for life."}{" "}
+          Pick a new size and get its plan, 3D guide and PDF, free.
         </p>
       </div>
       <div className="flex shrink-0 flex-col gap-2 sm:items-end">
@@ -783,10 +785,10 @@ function BuildPlanInner() {
           </Link>
         )}
 
-        {result.access === "purchase" && result.token && <BuildAnotherCard token={result.token} />}
+        {result.access === "purchase" && result.token && <BuildAnotherCard token={result.token} mini={isMiniDesign(result.design)} />}
 
-        {/* Built it? Smart Inventory, the $5 lifetime add-on (owners see their racks) */}
-        {result.access === "purchase" && result.token && (
+        {/* Built it? Smart Inventory, the $5 lifetime add-on (owners see their racks) — 27-gal racks */}
+        {result.access === "purchase" && result.token && !isMiniDesign(result.design) && (
           <SmartInventoryCta inventoryKey={{ token: result.token }} placement="plan" />
         )}
         {/* Admins and paid Pro installers: included, through their account */}

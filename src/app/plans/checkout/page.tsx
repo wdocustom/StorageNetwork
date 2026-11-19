@@ -21,7 +21,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Crown, Gift, Layers, Loader2, Plus, Ruler, Trash2 } from "lucide-react";
 import { DIY_INVENTORY } from "@/lib/diy-inventory";
-import { createDIYPlanCheckout, checkDIYPlanAccess, checkPlanPromo } from "@/app/actions/diy-plan-checkout";
+import { createDIYPlanCheckout, checkDIYPlanAccess, checkPlanPromo, getMiniPlanPrice } from "@/app/actions/diy-plan-checkout";
 import SystemMap from "@/components/plans/SystemMap";
 import UnitsToggle from "@/components/plans/UnitsToggle";
 import { formatLengthIn, useUnits } from "@/lib/measure-units";
@@ -71,6 +71,11 @@ import {
   splitWidth,
   totePlanDesignHref,
   TOTE_PLAN_ALL_ACCESS,
+  TOTE_PLAN_MINI,
+  isMiniDesign,
+  isMiniUnit,
+  unitDepthIn,
+  type TotePlanToteType,
   TOTE_PLAN_EXIT_OFFER,
   TOTE_PLAN_LAST_CHANCE,
   isRetentionOffer,
@@ -162,8 +167,9 @@ function WallFit({
 }
 
 function moduleNote(unit: TotePlanUnit): string | null {
-  const widths = splitWidth(unit.cols, unit.sideways);
-  const tiers = splitHeight(unit.rows);
+  const mini = isMiniUnit(unit);
+  const widths = splitWidth(unit.cols, unit.sideways, mini);
+  const tiers = splitHeight(unit.rows, mini);
   if (widths.length === 1 && tiers.length === 1) return null;
   const parts: string[] = [];
   if (widths.length > 1) parts.push(`${widths.length} modules side by side (${widths.join(" + ")} wide)`);
@@ -189,6 +195,18 @@ function PlansDesigner() {
   // All-Access owner: their plan link (from ?member= or this device), checked server-side.
   const [member, setMember] = useState<{ token: string; emailHint: string } | null>(null);
   const [memberNote, setMemberNote] = useState<{ text: string; href?: string } | null>(null);
+  // Mini Tote Rack Plans are their own product: owned separately, and 27-gal
+  // owners pay the owner price (both checked server-side from the plan link).
+  const isMini = isMiniDesign(design);
+  const [memberMini, setMemberMini] = useState<{ token: string; emailHint: string } | null>(null);
+  const [miniPrice, setMiniPrice] = useState<{ price: number; regularPrice: number; ownerDiscount: boolean }>({
+    price: TOTE_PLAN_MINI.price,
+    regularPrice: TOTE_PLAN_MINI.price,
+    ownerDiscount: false,
+  });
+  const memberTokenRef = useRef<string | null>(null);
+  /** The owner whose plans cover THIS design (mini or 27-gal) */
+  const activeMember = isMini ? memberMini : member;
   const [sampleTier, setSampleTier] = useState<TotePlanTier | null>(null);
   const [error, setError] = useState("");
   const [freeAccess, setFreeAccess] = useState<{ hasFreeAccess: boolean; reason?: "pro" | "admin" } | null>(null);
@@ -267,7 +285,7 @@ function PlansDesigner() {
     setPromo(null);
   };
   // What this checkout costs: the promo, else a retention offer, else $19.
-  const priceCents = promo ? promo.price : offer ? totePlanOfferPrice(offer.code) : TOTE_PLAN_ALL_ACCESS.price;
+  const priceCents = isMini ? miniPrice.price : promo ? promo.price : offer ? totePlanOfferPrice(offer.code) : TOTE_PLAN_ALL_ACCESS.price;
 
   useEffect(() => {
     checkDIYPlanAccess().then(setFreeAccess);
@@ -285,9 +303,16 @@ function PlansDesigner() {
     }
     if (!token) return;
     const memberToken = token;
+    memberTokenRef.current = memberToken;
+    checkAllAccess(memberToken, "mini").then((res) => {
+      if (res.ok) setMemberMini({ token: memberToken, emailHint: res.emailHint });
+    });
+    getMiniPlanPrice(memberToken).then(setMiniPrice).catch(() => {});
     checkAllAccess(memberToken).then((res) => {
       if (res.ok) {
         setMember({ token: memberToken, emailHint: res.emailHint });
+      } else if (res.notOwned) {
+        // A Mini Tote Rack Plans link: keep it (it still covers mini designs)
       } else if (res.verify) {
         setMemberNote({
           text: "Confirm it's you on this device to use your included plans.",
@@ -329,6 +354,17 @@ function PlansDesigner() {
     for (const key of Object.keys(patch)) {
       if (key === "cols" || key === "rows") trackPlanEvent("edit_size", key);
       else trackPlanEvent("edit_option", key);
+    }
+    // Mini and 27-gal racks are separate products: switching one unit across
+    // switches them all, with the new size limits (and no casters on minis).
+    if (patch.toteType && isMiniUnit({ toteType: patch.toteType }) !== isMiniUnit(design.units[unitIndex])) {
+      const toteType = patch.toteType as TotePlanToteType;
+      const mini = isMiniUnit({ toteType });
+      const maxRows = mini ? TOTE_PLAN_LIMITS.maxRowsMini : TOTE_PLAN_LIMITS.maxRows;
+      setDesign((d) => ({
+        units: d.units.map(({ bestseller: _b, ...u }) => ({ ...u, toteType, rows: Math.min(u.rows, maxRows), hasWheels: mini ? false : u.hasWheels })),
+      }));
+      return;
     }
     setDesign((d) => ({ units: normalizeBestsellers(d.units.map((u, i) => (i === unitIndex ? { ...u, ...patch } : u))) }));
   };
@@ -400,9 +436,12 @@ function PlansDesigner() {
     }
     // A dropped connection must not leave the button spinning forever.
     // One offer per checkout: the promo code if applied, else a retention offer.
-    const result = await (promo
-      ? createDIYPlanCheckout(design, source, ref, visitorId, promo.code, promo.email)
-      : createDIYPlanCheckout(design, source, ref, visitorId, readOffer()?.code)
+    const result = await (isMini
+      ? // Mini: one price, no offers or codes; the plan link earns the owner price
+        createDIYPlanCheckout(design, source, ref, visitorId, undefined, undefined, memberTokenRef.current)
+      : promo
+        ? createDIYPlanCheckout(design, source, ref, visitorId, promo.code, promo.email)
+        : createDIYPlanCheckout(design, source, ref, visitorId, readOffer()?.code)
     ).catch(() => ({
       success: false as const,
       clientSecret: undefined,
@@ -424,7 +463,8 @@ function PlansDesigner() {
   //               scrolled back up above it
   //   "return"    came back to the tab after 5s+ away, having designed 30s+
   // Not to anyone with a promo code applied: the two never combine.
-  const canOffer = !hasFree && !member && !promo;
+  // (Never on mini designs: the retention offers are priced for All-Access.)
+  const canOffer = !hasFree && !activeMember && !promo && !isMini;
   const showExitOffer = (trigger: "closed" | "hesitate" | "return") => {
     // ("closed" fires while the panel is still closing, so it skips that check)
     if (!canOffer || exitOpen || lastChanceOpen || (checkout && trigger !== "closed") || offerAlreadySeen()) return;
@@ -516,10 +556,10 @@ function PlansDesigner() {
 
   // All-Access owners: generate this design's plan at no charge and open it.
   const handleIncluded = async () => {
-    if (!member) return;
+    if (!activeMember) return;
     setBuying(true);
     setError("");
-    const result = await createIncludedPlan(member.token, design);
+    const result = await createIncludedPlan(activeMember.token, design);
     if (result.ok) {
       window.location.href = `/plans/build?token=${result.token}`;
       return;
@@ -569,7 +609,7 @@ function PlansDesigner() {
               </div>
               <UnitsToggle />
             </div>
-            <div className="absolute right-3 top-3">
+            <div className={`absolute right-3 top-3 ${isMini ? "hidden" : ""}`}>
               <BestsellersButton
                 onClick={() => {
                   trackPlanEvent("bestsellers");
@@ -641,19 +681,20 @@ function PlansDesigner() {
                 label="Totes tall"
                 value={unit.rows}
                 min={TOTE_PLAN_LIMITS.minRows}
-                max={TOTE_PLAN_LIMITS.maxRows}
+                max={isMiniUnit(unit) ? TOTE_PLAN_LIMITS.maxRowsMini : TOTE_PLAN_LIMITS.maxRows}
                 onChange={(rows) => updateUnit({ rows })}
               />
             </div>
             {note && <p className="rounded-xl bg-yellow-400/5 px-3 py-2 text-[11px] text-yellow-200/80">{note}</p>}
             <WallFit unit={unit} onFit={updateUnit} />
             <Segmented
-              label="Totes (27 gallon)"
+              label="Totes"
               value={unit.toteType}
               onChange={(toteType) => updateUnit({ toteType })}
               options={[
-                { value: "HDX", label: "HDX", hint: "Home Depot, Walmart, Menards" },
-                { value: "GM", label: "Greenmade", hint: "Costco" },
+                { value: "HDX", label: "HDX 27 gal", hint: "Home Depot, Walmart, Menards" },
+                { value: "GM", label: "Greenmade 27 gal", hint: "Costco" },
+                { value: "MINI", label: "Mini 6.5 qt", hint: "HDX 6.5 qt · Mini Tote Rack" },
               ]}
             />
             <Segmented
@@ -661,11 +702,12 @@ function PlansDesigner() {
               value={unit.sideways === true}
               onChange={(sideways) => updateUnit({ sideways: sideways || undefined })}
               options={[
-                { value: false, label: "Standard", hint: 'Short end out · 30" deep' },
-                { value: true, label: "Sideways", hint: 'Long side out · 20" deep' },
+                { value: false, label: "Standard", hint: `Short end out · ${unitDepthIn(false, isMiniUnit(unit))}" deep` },
+                { value: true, label: "Sideways", hint: `Long side out · ${unitDepthIn(true, isMiniUnit(unit))}" deep` },
               ]}
             />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className={`grid grid-cols-1 gap-4 ${isMiniUnit(unit) ? "" : "sm:grid-cols-2"}`}>
+              {!isMiniUnit(unit) && (
               <Segmented
                 label="Casters"
                 value={unit.hasWheels}
@@ -675,6 +717,7 @@ function PlansDesigner() {
                   { value: false, label: "Stationary" },
                 ]}
               />
+              )}
               <Segmented
                 label="Top"
                 value={unit.hasTop}
@@ -720,8 +763,8 @@ function PlansDesigner() {
               Open My Build Plan
             </Link>
           </div>
-        ) : member ? (
-          <IncludedPlanCard emailHint={member.emailHint} loading={buying} onGenerate={handleIncluded} />
+        ) : activeMember ? (
+          <IncludedPlanCard emailHint={activeMember.emailHint} loading={buying} onGenerate={handleIncluded} mini={isMini} />
         ) : (
           <>
             {memberNote && (
@@ -743,9 +786,22 @@ function PlansDesigner() {
                 setSampleTier(tier);
               }}
               wallet={inApp && inApp.os !== "other" ? <WalletEscape inApp={inApp} buildUrl={escapeUrl} /> : undefined}
-              offerPrice={priceCents < TOTE_PLAN_ALL_ACCESS.price ? formatPlanPrice(priceCents) : undefined}
+              mini={isMini}
+              offerPrice={
+                isMini
+                  ? miniPrice.ownerDiscount
+                    ? formatPlanPrice(miniPrice.price)
+                    : undefined
+                  : priceCents < TOTE_PLAN_ALL_ACCESS.price
+                    ? formatPlanPrice(priceCents)
+                    : undefined
+              }
               offerTag={
-                promo
+                isMini
+                  ? miniPrice.ownerDiscount
+                    ? "All-Access owner price"
+                    : undefined
+                  : promo
                   ? `${promo.label} · ${offerOffLabel(promo.price)}`
                   : offer
                     ? offerIncludesInventory(offer.code)
@@ -755,10 +811,10 @@ function PlansDesigner() {
                         : `${offerOffLabel(priceCents)} · 24 hours`
                     : undefined
               }
-              promo={promo}
-              onApplyPromo={applyPromo}
-              onRemovePromo={removePromo}
-              retentionActive={!!offer}
+              promo={isMini ? null : promo}
+              onApplyPromo={isMini ? undefined : applyPromo}
+              onRemovePromo={isMini ? undefined : removePromo}
+              retentionActive={!!offer && !isMini}
             />
             <EmailDesignLink
               onSend={async (email) => {
@@ -768,7 +824,7 @@ function PlansDesigner() {
                 } catch {
                   /* storage blocked */
                 }
-                const r = await emailMyDesign({ email, design, offer: readOffer()?.code ?? null, visitorId });
+                const r = await emailMyDesign({ email, design, offer: isMini ? null : readOffer()?.code ?? null, visitorId });
                 if (r.ok) trackPlanEvent("email_design");
                 return r;
               }}
@@ -878,11 +934,11 @@ function PlansDesigner() {
         {!hasFree && (
           <StickyPlanCta
             watchId="plan-tiers"
-            price={member ? "Included" : `${formatPlanPrice(priceCents)} for life`}
-            note={member ? "with your All-Access plans" : "This plan + every one after"}
-            label={member ? "Generate free" : "Get my plans"}
+            price={activeMember ? "Included" : `${formatPlanPrice(priceCents)} for life`}
+            note={activeMember ? (isMini ? "with your Mini Tote Rack Plans" : "with your All-Access plans") : isMini ? "Every mini rack you design" : "This plan + every one after"}
+            label={activeMember ? "Generate free" : "Get my plans"}
             onClick={
-              member
+              activeMember
                 ? handleIncluded
                 : inApp && inApp.os !== "other"
                   ? // In Facebook / Instagram: go to the offer, where Apple / Google Pay leads
@@ -901,7 +957,9 @@ function PlansDesigner() {
         />
 
         <p className="pb-4 text-center text-[11px] text-stone-600">
-          One price, every design: All-Access covers this plan and every tote organizer you design after it, for life.
+          {isMini
+            ? `One price, every mini: ${TOTE_PLAN_MINI.name} cover this plan and every mini tote rack you design after it, for life (${formatPlanPrice(TOTE_PLAN_MINI.ownerPrice)} if you own All-Access).`
+            : "One price, every design: All-Access covers this plan and every tote organizer you design after it, for life."}{" "}
           Already own it? Open any of your plans and tap &ldquo;Build another plan&rdquo;.
         </p>
       </div>

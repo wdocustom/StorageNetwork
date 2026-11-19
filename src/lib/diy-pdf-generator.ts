@@ -43,6 +43,14 @@ import {
 } from "@/lib/tote-plans";
 import { railTopMarks2x4 } from "@/components/visualizer/assemblySteps";
 import { RAIL_2X4_H, RAIL_2X4_PLATE_H } from "@/lib/rails2x4";
+import { MINI, miniRailTops } from "@/lib/mini-rack";
+
+/** Rail top edges (from the bottom of the upright), post depth, rail and tote sizes for a unit. */
+function frameSpec(mini: boolean | undefined) {
+  return mini
+    ? { railTops: miniRailTops, postD: MINI.postD, railH: MINI.railH, toteBody: MINI.tote.lipFromBottom, toteLid: MINI.tote.height - MINI.tote.lipFromBottom, toteInset: 0.6 }
+    : { railTops: railTopMarks2x4, postD: 3.5, railH: RAIL_2X4_H, toteBody: 13.5, toteLid: 1.4, toteInset: 1.9 };
+}
 
 // ── Layout constants (mm) ──────────────────────────────────────────────
 
@@ -551,18 +559,19 @@ function drawSideView(
     .filter((m) => m.unitIndex === tallest.unitIndex && Math.abs(m.x - tallest.x) < 0.01)
     .sort((a, b) => a.y - b.y);
   const depthIn = tallest.depthIn ?? DEPTH_IN;
-  const scale = Math.min((box.w - 22) / DEPTH_IN, (box.h - 12) / tallest.h);
+  const spec = frameSpec(tallest.mini);
+  const scale = Math.min((box.w - 22) / (tallest.mini ? depthIn : DEPTH_IN), (box.h - 12) / tallest.h);
   const ox = box.x + 6;
   const floorY = box.y + box.h - 6;
   const toY = (inches: number) => floorY - inches * scale;
-  const post = 3.5 * scale;
+  const post = spec.postD * scale;
   const d = depthIn * scale;
 
   doc.setDrawColor(...COLORS.faint);
   doc.setLineWidth(0.4);
   doc.line(box.x, floorY, box.x + box.w, floorY);
 
-  // Seen from the side: a 2×4 plate end under and over each upright (front
+  // Seen from the side: a 2×4 (2×3 on minis) plate end under and over each upright (front
   // and back), the uprights between them, and the rails across. Each rail is
   // labelled with its TOP edge measured from the bottom of its upright: the
   // same number the marking step and the ladder jig use (never from the floor).
@@ -582,11 +591,11 @@ function drawSideView(
       piece(x, m.y + plate, top - plate, post, COLORS.lumber); // upright
       piece(x, top - plate, top, post, COLORS.lumberDark); // top plate end
     }
-    const marks = railTopMarks2x4(m.rows);
+    const marks = spec.railTops(m.rows);
     for (const mark of marks) {
       const at = m.y + plate + mark;
       railTops.push(mark);
-      piece(ox + post, at - RAIL_2X4_H, at, d - 2 * post, COLORS.lumberDark);
+      piece(ox + post, at - spec.railH, at, d - 2 * post, COLORS.lumberDark);
       doc.setDrawColor(...COLORS.faint);
       doc.setLineWidth(0.15);
       doc.line(ox + d + 1, toY(at), ox + d + 3, toY(at));
@@ -641,6 +650,7 @@ function drawAngledView(doc: jsPDF, layout: DesignLayout, box: { x: number; y: n
     const right = unit.x + unit.w;
     const top = unit.h;
     const DEPTH = unit.depthIn ?? DEPTH_IN;
+    const spec = frameSpec(unit.mini);
 
     // Right side and top
     doc.setFillColor(...COLORS.lumberDark);
@@ -652,8 +662,8 @@ function drawAngledView(doc: jsPDF, layout: DesignLayout, box: { x: number; y: n
     for (const m of layout.modules.filter((mm) => mm.unitIndex === unit.unitIndex && Math.abs(mm.x + mm.w - right) < 0.01)) {
       doc.setDrawColor(...COLORS.lumberInk);
       doc.setLineWidth(0.2);
-      for (const t of railTopMarks2x4(m.rows)) {
-        doc.line(X(right, 3.5), Y(m.y + RAIL_2X4_PLATE_H + t, 3.5), X(right, DEPTH - 3.5), Y(m.y + RAIL_2X4_PLATE_H + t, DEPTH - 3.5));
+      for (const t of spec.railTops(m.rows)) {
+        doc.line(X(right, spec.postD), Y(m.y + RAIL_2X4_PLATE_H + t, spec.postD), X(right, DEPTH - spec.postD), Y(m.y + RAIL_2X4_PLATE_H + t, DEPTH - spec.postD));
       }
     }
 
@@ -664,19 +674,19 @@ function drawAngledView(doc: jsPDF, layout: DesignLayout, box: { x: number; y: n
       doc.setLineWidth(0.2);
       doc.rect(X(m.x), Y(m.y + m.h), m.w * scale, m.h * scale, "FD");
       const cellW = m.w / m.cols;
-      const marks = railTopMarks2x4(m.rows);
+      const marks = spec.railTops(m.rows);
       for (let r = 0; r < m.rows; r++) {
         // Each tote's lip rides on its rails; the body hangs down toward the rail below.
         const railTop = m.y + RAIL_2X4_PLATE_H + marks[r];
         const floor = r === 0 ? m.y + RAIL_2X4_PLATE_H + 0.5 : m.y + RAIL_2X4_PLATE_H + marks[r - 1] + 1;
-        const bodyH = Math.max(0, Math.min(13.5, railTop - floor));
+        const bodyH = Math.max(0, Math.min(spec.toteBody, railTop - floor));
         for (let c = 0; c < m.cols; c++) {
-          const tx = m.x + c * cellW + 1.9;
-          const tw = cellW - 3.8;
+          const tx = m.x + c * cellW + spec.toteInset;
+          const tw = cellW - spec.toteInset * 2;
           doc.setFillColor(...COLORS.tote);
           doc.rect(X(tx + 0.4), Y(railTop), (tw - 0.8) * scale, bodyH * scale, "F");
           doc.setFillColor(...COLORS.accent);
-          doc.rect(X(tx), Y(railTop + 1.4), tw * scale, 1.4 * scale, "F");
+          doc.rect(X(tx), Y(railTop + spec.toteLid), tw * scale, spec.toteLid * scale, "F");
         }
       }
     }
@@ -752,7 +762,7 @@ function renderCover(doc: jsPDF, input: DIYPDFInput, layout: DesignLayout) {
   // Tags
   const tags = [
     `${plan.toteCount} totes`,
-    `${plan.totals.boards} 2×4×8' boards`,
+    `${plan.totals.boards} ${plan.frameLumber ?? "2×4"}×8' boards`,
     plan.moduleCount > 1 ? `${plan.moduleCount} modules` : "One module",
     "Cut list included",
   ];
@@ -825,8 +835,10 @@ function renderContents(doc: jsPDF, page: number, plan: CompleteDIYPlan, section
     ["Height", d.totalHeight],
     ["Depth", d.depth],
     ["Totes", String(plan.toteCount)],
-    ["2×4×8' boards", String(plan.totals.boards)],
-    plan.moduleCount > 1 ? ["Modules to build", String(plan.moduleCount)] : ["2×4 rails", String(plan.railBoards.rails)],
+    [`${plan.frameLumber ?? "2×4"}×8' boards`, String(plan.totals.boards)],
+    plan.moduleCount > 1
+      ? ["Modules to build", String(plan.moduleCount)]
+      : [plan.kind === "mini" ? "Plywood rails" : "2×4 rails", String(plan.railBoards.rails)],
   ];
   const cellW = CONTENT_W / 3;
   const cellH = 16;
@@ -890,14 +902,20 @@ function renderDesign(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan, layout: De
     ["Overall depth", plan.dimensions.depth],
     [
       "Tote bay (between uprights)",
-      plan.design.units.every((u) => u.sideways)
-        ? '30-1/4" (sideways)'
-        : plan.design.units.some((u) => u.sideways)
-          ? '21" (30-1/4" sideways)'
-          : '21"',
+      plan.kind === "mini"
+        ? plan.design.units.every((u) => u.sideways)
+          ? `${formatInches(MINI.openingSideways)} (sideways)`
+          : plan.design.units.some((u) => u.sideways)
+            ? `${formatInches(MINI.opening)} (${formatInches(MINI.openingSideways)} sideways)`
+            : formatInches(MINI.opening)
+        : plan.design.units.every((u) => u.sideways)
+          ? '30-1/4" (sideways)'
+          : plan.design.units.some((u) => u.sideways)
+            ? '21" (30-1/4" sideways)'
+            : '21"',
     ],
     ["First rail, top edge (from upright bottom)", formatInches(Math.min(...railTops))],
-    ["Rail spacing", '16" top to top'],
+    ["Rail spacing", `${formatInches(plan.kind === "mini" ? MINI.railPitch : 16)} top to top`],
     ["Top rail to top plate", formatInches(clearance)],
     ["Top rail, top edge (from upright bottom)", formatInches(Math.max(...railTops))],
   ];
@@ -920,7 +938,9 @@ function renderDesign(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan, layout: De
   setText(doc, 7.5, COLORS.muted, "italic");
   cur.y = paragraph(
     doc,
-    "Rails are always placed by their TOP edge, measured up from the bottom end of the upright — the same marks as the marking step and the ladder jig.",
+    plan.kind === "mini"
+      ? "Rails are always placed by their TOP edge, measured up from the bottom end of the upright — the same marks as the marking step."
+      : "Rails are always placed by their TOP edge, measured up from the bottom end of the upright — the same marks as the marking step and the ladder jig.",
     MARGIN,
     cur.y + 1,
     CONTENT_W,
@@ -1119,10 +1139,19 @@ function hatch(doc: jsPDF, x: number, y: number, w: number, h: number) {
   }
 }
 
-function boardBar(doc: jsPDF, y: number, h: number, cuts: { length: number; label: string }[], remainder: number, labelSize = 7.5) {
+function boardBar(
+  doc: jsPDF,
+  y: number,
+  h: number,
+  cuts: { length: number; label: string }[],
+  remainder: number,
+  labelSize = 7.5,
+  /** Inches across the bar: 96 (an 8' board); 48 draws a 4' plywood strip at 2× */
+  barLength = 96,
+) {
   let x = MARGIN;
   for (const cut of cuts) {
-    const w = (cut.length / 96) * CONTENT_W;
+    const w = (cut.length / barLength) * CONTENT_W;
     doc.setFillColor(...COLORS.lumber);
     doc.rect(x, y, w, h, "F");
     doc.setDrawColor(...COLORS.paper);
@@ -1134,7 +1163,7 @@ function boardBar(doc: jsPDF, y: number, h: number, cuts: { length: number; labe
     }
     x += w;
   }
-  const wasteW = (remainder / 96) * CONTENT_W;
+  const wasteW = (remainder / barLength) * CONTENT_W;
   hatch(doc, x, y, wasteW, h);
   if (wasteW > 18) {
     setText(doc, 6.5, COLORS.muted, "bold");
@@ -1150,8 +1179,10 @@ function boardBar(doc: jsPDF, y: number, h: number, cuts: { length: number; labe
 }
 
 function renderCutList(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
+  const mini = plan.kind === "mini";
+  const lumber = plan.frameLumber ?? "2×4";
   const total = plan.cutBoards.length + plan.railBoards.boards;
-  cur.y = heading(doc, "Cut list", `${total} boards, cut to plan`, cur.y);
+  cur.y = heading(doc, "Cut list", `${total} ${lumber} boards, cut to plan`, cur.y);
 
   // Parts per module type
   for (const t of plan.moduleTypes) {
@@ -1190,7 +1221,9 @@ function renderCutList(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
   setText(doc, 8.5, COLORS.body);
   cur.y = paragraph(
     doc,
-    `Each bar is one 2×4×8' board (96"), to scale. Tan is a cut, labeled with the modules it's for; hatched is scrap. ${plan.cutBoards.length} boards for uprights and plates, plus ${plan.railBoards.boards} ripped into rails and back braces.`,
+    mini
+      ? `Each bar is one ${lumber}×8' board (96"), to scale. Tan is a cut, labeled with the modules it's for; hatched is scrap. ${plan.cutBoards.length} boards for uprights and plates. Rails and back braces are ripped from 3/4" plywood (below).`
+      : `Each bar is one 2×4×8' board (96"), to scale. Tan is a cut, labeled with the modules it's for; hatched is scrap. ${plan.cutBoards.length} boards for uprights and plates, plus ${plan.railBoards.boards} ripped into rails and back braces.`,
     MARGIN,
     cur.y + 1,
     CONTENT_W,
@@ -1207,9 +1240,36 @@ function renderCutList(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
     cur.y += barH + 6;
   }
 
+  // Mini: rails + braces are 1-1/4" strips ripped from 3/4" plywood,
+  // each strip crosscut to the rack depth — one bar = one strip.
+  for (const g of plan.miniRails ?? []) {
+    cur.ensure(24);
+    setText(doc, 8.5, COLORS.ink, "bold");
+    doc.text(
+      pdfText(`Rip ${g.pieces} plywood ${g.stockName}${g.pieces === 1 ? "" : "s"} into ${g.strips} strips each, then cut every strip like this: ${g.rails} rails + ${g.braces} back braces`),
+      MARGIN,
+      cur.y,
+    );
+    cur.y += 2.5;
+    const stripLen = /4' × 8'/.test(g.stockName) ? 96 : 48;
+    const scrap = stripLen - g.piecesPerStrip * (g.pieceLength + 0.125);
+    const cuts = Array.from({ length: g.piecesPerStrip }, () => ({ length: g.pieceLength, label: "Rail / brace" }));
+    boardBar(doc, cur.y, 5.5, cuts, scrap, 6.5, stripLen);
+    cur.y += 5.5 + 4;
+    setText(doc, 7.5, COLORS.muted);
+    doc.text(
+      pdfText(
+        `Fence at 1-1/4" — rip along the ${stripLen}" side, then crosscut each strip into ${g.piecesPerStrip} at ${formatInches(g.pieceLength)} (about ${formatInches(Math.floor(scrap * 8) / 8)} scrap per strip). Bar drawn ${stripLen === 96 ? "to scale" : "at 2× scale"}.`,
+      ),
+      MARGIN,
+      cur.y,
+    );
+    cur.y += 8;
+  }
+
   // Rail boards — one 2×4 ripped in half, crosscut to the rack depth:
   // three 30" pieces per half (standard), four 20" pieces (sideways)
-  const railGroups = plan.railBoards.groups ?? [
+  const railGroups = mini ? [] : plan.railBoards.groups ?? [
     { boards: plan.railBoards.boards, pieceLength: 30, perHalf: 3, rails: plan.railBoards.rails, braces: plan.railBoards.braces },
   ];
   for (const g of railGroups) {

@@ -14,6 +14,8 @@ import { getAppUrl } from "@/lib/url-helper";
 import { sendPlanDesignSavedEmail } from "@/lib/emails/plansTemplates";
 import {
   isRetentionOffer,
+  isMiniDesign,
+  TOTE_PLAN_MINI,
   encodeTotePlanDesign,
   formatPlanPrice,
   parseTotePlanDesign,
@@ -40,7 +42,9 @@ export async function emailMyDesign(input: {
   const design = parseTotePlanDesign(input.design);
   if (!design) return { ok: false, error: "Something's off with this design. Refresh and try again." };
   // The current retention offer, or a legacy one the browser got from an older link.
-  const offer = isRetentionOffer(input.offer) ? input.offer : null;
+  // Mini designs are Mini Tote Rack Plans: one price, no retention offers.
+  const mini = isMiniDesign(design);
+  const offer = !mini && isRetentionOffer(input.offer) ? input.offer : null;
   const visitorId = typeof input.visitorId === "string" && /^[\w-]{1,64}$/.test(input.visitorId) ? input.visitorId : null;
 
   const db = getServiceClient();
@@ -55,7 +59,7 @@ export async function emailMyDesign(input: {
   }
 
   const link = `${getAppUrl()}${totePlanDesignHref(design, "design_email")}${offer ? `&offer=${offer}` : ""}`;
-  const sent = await sendPlanDesignSavedEmail(email, design, link, formatPlanPrice(totePlanOfferPrice(offer)));
+  const sent = await sendPlanDesignSavedEmail(email, design, link, formatPlanPrice(mini ? TOTE_PLAN_MINI.price : totePlanOfferPrice(offer)), mini ? TOTE_PLAN_MINI.price : undefined);
   if (sent.success) await db.from("plan_design_leads").update({ emailed: true }).eq("id", row.id);
   else console.error("[PlanDesignLead] email failed for lead", row.id);
   return { ok: true };

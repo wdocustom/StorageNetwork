@@ -1,5 +1,6 @@
 "use client";
 
+import { MINI, miniFrameHeight } from "@/lib/mini-rack";
 import { useCallback, useEffect, useRef } from "react";
 import { create2DWoodPattern, create2DPlywoodPattern } from "./woodCanvas";
 import type { SectionAddon } from "@/types/viewModels";
@@ -99,15 +100,16 @@ export default function BlueprintCanvas({
   const isSideways = unitType === "standard" && orientation === "sideways";
   const is2x4 = use2x4Rails && !isMini;
   const RENDER_GAP = 1.5; // Post width (same for both)
-  const RENDER_TIER = isMini ? 7 : 16; // Vertical spacing (uniform fallback)
+  const RENDER_TIER = isMini ? MINI.railPitch : 16; // Vertical spacing (uniform fallback)
   const RENDER_PLATE = 1.5;
-  const RENDER_TOP_GAP = isMini ? 0 : 2.5; // Mini has no top plate gap
-  const RENDER_FIRST_RAIL = isMini ? 5.25 : 13; // First rail height from bottom
+  const RENDER_TOP_GAP = 2.5;
+  // Mini: first rail CENTER from the bottom of the upright (its top edge is 5-3/4" — @/lib/mini-rack)
+  const RENDER_FIRST_RAIL = isMini ? MINI.firstRailTop - MINI.railH / 2 : 13;
   const PLY_TOP_H = 0.75; // Plywood top thickness
   // Opening width: 2x4 rails use universal 21" (sideways still 30.25");
   // standard mini/HDX/GM still tote-width based.
   const opening = isMini
-    ? 8.25
+    ? MINI.opening
     : isSideways
       ? 30.25
       : is2x4
@@ -128,7 +130,8 @@ export default function BlueprintCanvas({
     const postHeight = upright2x4Length(cappedRows);
     calcH = RENDER_PLATE * 2 + postHeight;
   } else if (isMini) {
-    calcH = RENDER_PLATE + RENDER_FIRST_RAIL + (rows - 1) * RENDER_TIER + 2 + PLY_TOP_H;
+    // 2×3 plates + upright (top rail + 2-1/2"), plus the installer's plywood top
+    calcH = miniFrameHeight(rows) + PLY_TOP_H;
   } else {
     calcH = rows * RENDER_TIER + RENDER_PLATE * 2 + RENDER_TOP_GAP;
   }
@@ -162,7 +165,7 @@ export default function BlueprintCanvas({
       const postHeight = upright2x4Length(cappedRows);
       unitFrameH = RENDER_PLATE * 2 + postHeight;
     } else if (isMini) {
-      unitFrameH = RENDER_PLATE + RENDER_FIRST_RAIL + (unitRows - 1) * RENDER_TIER + 2 + PLY_TOP_H;
+      unitFrameH = miniFrameHeight(unitRows);
     } else {
       unitFrameH = unitRows * RENDER_TIER + RENDER_PLATE * 2 + RENDER_TOP_GAP;
     }
@@ -198,15 +201,13 @@ export default function BlueprintCanvas({
     ctx.fillRect(startX, startY + pFrameH - pPlate, pPostToPostW, pPlate);
     ctx.strokeRect(startX, startY + pFrameH - pPlate, pPostToPostW, pPlate);
 
-    // Top 2x4 plate (Standard only)
-    if (!isMini) {
-      ctx.fillRect(startX, startY, pPostToPostW, pPlate);
-      ctx.strokeRect(startX, startY, pPostToPostW, pPlate);
-    }
+    // Top plate (2×4, or 2×3 on minis)
+    ctx.fillRect(startX, startY, pPostToPostW, pPlate);
+    ctx.strokeRect(startX, startY, pPostToPostW, pPlate);
 
-    // Vertical posts
-    const postH = isMini ? pFrameH - pPlate : pFrameH - pPlate * 2;
-    const postY = isMini ? startY : startY + pPlate;
+    // Vertical posts, between the plates
+    const postH = pFrameH - pPlate * 2;
+    const postY = startY + pPlate;
     for (let i = 0; i <= unitCols; i++) {
       const x = startX + i * (pBay + pStud);
       ctx.fillStyle = woodFill;
@@ -216,7 +217,7 @@ export default function BlueprintCanvas({
     }
 
     // Rails + Totes (with rail-skip for rail_removed addons)
-    const railH = (isMini ? 1.0 : is2x4 ? RAIL_2X4_H : 1.875) * scale;
+    const railH = (isMini ? MINI.railH : is2x4 ? RAIL_2X4_H : 1.875) * scale;
     const railW = 0.75 * scale;
     for (let c = 0; c < unitCols; c++) {
       const bayLeftX = startX + pStud + c * (pBay + pStud);
@@ -283,11 +284,11 @@ export default function BlueprintCanvas({
         }
 
         if (hasTotes && !isRailRemoved && !hasShelf) {
-          const toteBodyH = isMini ? 6.25 : 11;
+          const toteBodyH = isMini ? MINI.tote.lipFromBottom : 11;
           const tW = pBay * 0.94;
           const tH = toteBodyH * scale;
           const tX = bayLeftX + (pBay - tW) / 2;
-          const lidH = (isMini ? 0.75 : 1.0) * scale;
+          const lidH = (isMini ? MINI.tote.height - MINI.tote.lipFromBottom : 1.0) * scale;
           ctx.fillStyle = "#fbbf24";
           ctx.strokeStyle = "#d97706";
           ctx.fillRect(tX, railY - lidH, tW, lidH);
@@ -319,8 +320,8 @@ export default function BlueprintCanvas({
             ctx.lineWidth = 2;
             ctx.setLineDash([4, 3]);
             const doorW = pBay + 2; // slightly larger than opening
-            const panelTop = isMini ? startY : startY + pPlate;
-            const panelBot = isMini ? startY + pFrameH - pPlate : startY + pFrameH - pPlate;
+            const panelTop = startY + pPlate;
+            const panelBot = startY + pFrameH - pPlate;
             const doorH = panelBot - panelTop;
             const doorX = bayLeftX + (pBay - doorW) / 2;
             const doorY = panelTop;
@@ -344,8 +345,8 @@ export default function BlueprintCanvas({
       const hasLeftPanel = unitAddons.some((a) => a.type === "side_panel" && a.target === "left");
       const hasRightPanel = unitAddons.some((a) => a.type === "side_panel" && a.target === "right");
       const panelW = 3 * scale;
-      const panelH = isMini ? pFrameH - pPlate : pFrameH - pPlate * 2;
-      const panelY = isMini ? startY : startY + pPlate;
+      const panelH = pFrameH - pPlate * 2;
+      const panelY = startY + pPlate;
 
       if (hasLeftPanel) {
         ctx.save();
@@ -372,7 +373,7 @@ export default function BlueprintCanvas({
     }
 
     // Plywood top (flush with unit sides — no overhang)
-    if (unitHasTop) {
+    if (unitHasTop || isMini) {
       const topThick = PLY_TOP_H * scale;
       ctx.fillStyle = plywoodFill;
       ctx.strokeStyle = woodStroke;
@@ -770,7 +771,7 @@ export default function BlueprintCanvas({
       const maxFrameH = Math.max(...presetUnits.map((u) => {
         const uRows = u.rows;
         return isMini
-          ? (RENDER_PLATE + RENDER_FIRST_RAIL + (uRows - 1) * RENDER_TIER + 2 + PLY_TOP_H)
+          ? miniFrameHeight(uRows)
           : (uRows * RENDER_TIER + RENDER_PLATE * 2 + RENDER_TOP_GAP);
       }));
       let visualH_in = maxFrameH;
@@ -786,7 +787,7 @@ export default function BlueprintCanvas({
 
       for (const unit of presetUnits) {
         const unitFrameH = isMini
-          ? (RENDER_PLATE + RENDER_FIRST_RAIL + (unit.rows - 1) * RENDER_TIER + 2 + PLY_TOP_H)
+          ? miniFrameHeight(unit.rows)
           : (unit.rows * RENDER_TIER + RENDER_PLATE * 2 + RENDER_TOP_GAP);
         // Align bottoms: taller units start higher, shorter ones start lower
         const yOffset = (maxFrameH - unitFrameH) * scale;
@@ -812,12 +813,13 @@ export default function BlueprintCanvas({
 
     // Visual height includes wheels if selected, and plywood top overhang if hasTop
     let visualH_in = realH;
-    if (hasTop && !isMini) visualH_in += 1;
+    // Installer minis always get the plywood top (calculator: topIsMandatory)
+    if (hasTop || isMini) visualH_in += 1;
 
     const scale = Math.min(safeW / realW, safeH / visualH_in);
     if (scale <= 0 || !isFinite(scale)) return;
 
-    const topOverhang = (hasTop && !isMini) ? 1 * scale : 0;
+    const topOverhang = (hasTop || isMini) ? 1 * scale : 0;
     const visualPixelH = visualH_in * scale;
     const startX = (cW - realW * scale) / 2;
     const startY = (cH - visualPixelH) / 2 + topOverhang;

@@ -6,6 +6,7 @@ import { sendDesignComebackEmail, type DesignComebackEmail } from "@/lib/emails/
 import {
   TOTE_PLAN_ID,
   comebackOfferFor,
+  isMiniDesign,
   decodeTotePlanDesign,
   totePlanDesignHref,
   totePlanOfferPrice,
@@ -65,7 +66,8 @@ export async function comebackRecipients(db: SupabaseClient, now = Date.now()): 
   for (const [email, rows] of byEmail) {
     // Newest design that still opens; the best price they were ever offered.
     const newest = rows.map((r) => ({ r, design: decodeTotePlanDesign(r.design, r.design_name) })).find((x) => x.design);
-    if (!newest?.design) continue;
+    // The come-back offers are All-Access prices: not for Mini Tote Rack designs.
+    if (!newest?.design || isMiniDesign(newest.design)) continue;
     const best = rows.reduce<string | null>((b, r) => (totePlanOfferPrice(r.offer) < totePlanOfferPrice(b) ? r.offer : b), null);
     const offer = comebackOfferFor(best);
     out.push({

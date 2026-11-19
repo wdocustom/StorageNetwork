@@ -13,7 +13,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { giftTotalCents } from "@/lib/plan-gifts";
-import {
+import { TOTE_PLAN_MINI,
   TOTE_PLAN_ALL_ACCESS,
   TOTE_PLAN_ALL_ACCESS_SINCE,
   TOTE_PLAN_TIERS,
@@ -213,6 +213,7 @@ export function planLabel(
     return `Tote plan — ${tier}${row.upgraded_at ? " (upgraded)" : ""}`;
   }
   if (row.plan_id === LADDER_JIG_PLAN_ID) return "Ladder jig plan";
+  if (row.plan_id === TOTE_PLAN_MINI.id) return TOTE_PLAN_MINI.name;
   return getPlanById(row.plan_id)?.name ?? row.plan_id;
 }
 
@@ -237,6 +238,9 @@ function purchasePrice(row: PlansPurchaseRow, toteOwners: ReadonlySet<string>, p
   }
   if (row.plan_id === LADDER_JIG_PLAN_ID) {
     return toteOwners.has(row.email.toLowerCase()) ? LADDER_JIG_OWNER_PRICE : LADDER_JIG_PRICE;
+  }
+  if (row.plan_id === TOTE_PLAN_MINI.id) {
+    return toteOwners.has(row.email.toLowerCase()) ? TOTE_PLAN_MINI.ownerPrice : TOTE_PLAN_MINI.price;
   }
   return getPlanById(row.plan_id)?.price ?? 0;
 }

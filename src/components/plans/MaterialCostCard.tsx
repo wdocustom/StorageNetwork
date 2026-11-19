@@ -11,7 +11,7 @@ import { trackPlanEvent } from "@/lib/plan-events";
 import { ChevronDown, Loader2, ShoppingCart } from "lucide-react";
 import { estimatePlanMaterials } from "@/app/actions/plan-materials";
 import { RETAIL_PRICES_CHECKED, type MaterialEstimate } from "@/lib/plan-retail-prices";
-import { TOTE_PLAN_ALL_ACCESS, encodeTotePlanDesign, formatPlanPrice, type TotePlanDesign } from "@/lib/tote-plans";
+import { TOTE_PLAN_ALL_ACCESS, TOTE_PLAN_MINI, encodeTotePlanDesign, formatPlanPrice, isMiniDesign, type TotePlanDesign } from "@/lib/tote-plans";
 
 const dollars = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
@@ -54,8 +54,10 @@ export default function MaterialCostCard({ design }: { design: TotePlanDesign })
           </p>
           {estimate && (
             <p className="text-[11px] text-stone-400">
-              DIY total ≈ {dollars(estimate.materialsTotal + TOTE_PLAN_ALL_ACCESS.price / 100)} with{" "}
-              {formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price)} All-Access plans
+              DIY total ≈ {dollars(estimate.materialsTotal + (isMiniDesign(design) ? TOTE_PLAN_MINI.price : TOTE_PLAN_ALL_ACCESS.price) / 100)} with{" "}
+              {isMiniDesign(design)
+                ? `${formatPlanPrice(TOTE_PLAN_MINI.price)} ${TOTE_PLAN_MINI.name}`
+                : `${formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price)} All-Access plans`}
             </p>
           )}
         </div>
