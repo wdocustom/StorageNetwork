@@ -6,10 +6,11 @@
 // are the same products installers buy from their job ticket purchase list
 // (JobTicket.tsx), so DIY builds use identical hardware.
 //
-// Lumber, plywood and totes are bought locally and have no link.
+// Lumber and plywood are bought locally and have no link. The Mini Tote
+// Rack's 6.5 qt totes link to Home Depot (on sale 5 for $10, Nov 2026).
 // ═══════════════════════════════════════════════════════════════════════════
 
-export type ProductStore = "Amazon" | "Menards";
+export type ProductStore = "Amazon" | "Menards" | "Home Depot";
 
 export interface ProductLink {
   url: string;
@@ -17,7 +18,11 @@ export interface ProductLink {
 }
 
 /** Keyed by the shopping-list item name generate-plan.ts emits. */
+export const MINI_TOTE_URL =
+  "https://www.homedepot.com/p/HDX-6-5-qt-Mini-Storage-Bin-Tote-in-Clear-with-Yellow-Lid-999-6QT-C-HDX/332895816";
+
 const LINKS: Record<string, ProductLink> = {
+  "HDX 6.5 qt Totes": { url: MINI_TOTE_URL, store: "Home Depot" },
   "Caster Kits": { url: "https://amzn.to/4rPMxf6", store: "Amazon" },
   '#9 × 3" Star-Drive Screws': { url: "https://amzn.to/3OEWiho", store: "Amazon" },
   '#9 × 1-5/8" Star-Drive Screws': { url: "https://amzn.to/46xZ664", store: "Amazon" },

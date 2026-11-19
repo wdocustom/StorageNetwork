@@ -21,10 +21,11 @@
 //   4'×8' sheet              $40.00  (same as above)
 //   (the plan buys ONE of these: the smallest that holds the rails + top)
 //   #8 × 1-1/4" / #9 × 2-1/2" boxes $8.97
-//   HDX 6.5 qt tote          $3.97   Home Depot
+//   HDX 6.5 qt tote          $3.97   Home Depot regular — on sale 5 for $10 ($2 each)
 // ═══════════════════════════════════════════════════════════════════════════
 
 import type { TotePlanDesign } from "@/lib/tote-plans";
+import { MINI_TOTE_URL } from "@/lib/plan-product-links";
 
 export const RETAIL_PRICES = {
   stud2x4: 4.15,
@@ -40,7 +41,9 @@ export const RETAIL_PRICES = {
   plywoodHalf4x4: 32,
   screwBox125: 8.97,
   screwBox25: 8.97,
-  toteMini: 3.97,
+  /** Sale: 5 for $10 at Home Depot (Nov 2026) — set back to toteMiniRegular when it ends */
+  toteMini: 2,
+  toteMiniRegular: 3.97,
 } as const;
 
 export const RETAIL_PRICES_CHECKED = "October 2026";
@@ -65,7 +68,15 @@ export interface MaterialEstimate {
   lines: MaterialLine[];
   /** Everything except totes, dollars */
   materialsTotal: number;
-  totes: { count: number; total: number };
+  totes: {
+    count: number;
+    total: number;
+    /** On sale: what they'd cost at the regular price (shown struck through) */
+    regularTotal?: number;
+    /** Where to buy them, e.g. the Home Depot page */
+    url?: string;
+    deal?: string;
+  };
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -103,6 +114,8 @@ export function priceShoppingList(items: ShoppingItemLike[], design: TotePlanDes
   }
 
   // Totes by brand, straight from the design
+  const mini = design.units.every((u) => u.toteType === "MINI");
+  const miniTotes = design.units.reduce((s, u) => s + (u.toteType === "MINI" ? u.cols * u.rows : 0), 0);
   const toteTotal = design.units.reduce(
     (s, u) =>
       s + u.cols * u.rows * (u.toteType === "MINI" ? RETAIL_PRICES.toteMini : u.toteType === "GM" ? RETAIL_PRICES.toteGM : RETAIL_PRICES.toteHDX),
@@ -111,6 +124,13 @@ export function priceShoppingList(items: ShoppingItemLike[], design: TotePlanDes
   return {
     lines,
     materialsTotal: round2(lines.reduce((s, l) => s + l.total, 0)),
-    totes: { count: design.units.reduce((s, u) => s + u.cols * u.rows, 0), total: round2(toteTotal) },
+    totes: {
+      count: design.units.reduce((s, u) => s + u.cols * u.rows, 0),
+      total: round2(toteTotal),
+      ...(mini && RETAIL_PRICES.toteMini < RETAIL_PRICES.toteMiniRegular
+        ? { regularTotal: round2(miniTotes * RETAIL_PRICES.toteMiniRegular), deal: "5 for $10 at Home Depot" }
+        : {}),
+      ...(mini ? { url: MINI_TOTE_URL } : {}),
+    },
   };
 }

@@ -319,7 +319,7 @@ export async function generateMiniPlan(design: TotePlanDesign): Promise<Complete
     detail: `3/4" ${plywoodItem.size} — rails + back braces${topPieces.length ? ` and the top${topPieces.length > 1 ? "s" : ""}` : ""}, all from ${plywood.count > 1 ? "these" : "one piece"}`,
     qty: plywood.count,
   });
-  shoppingList.push({ name: `${MINI.tote.name} Totes`, detail: "HDX 6.5 qt storage totes with lids", qty: toteCount });
+  shoppingList.push({ name: `${MINI.tote.name} Totes`, detail: "HDX 6.5 qt clear totes with yellow lids — on sale 5 for $10 at Home Depot", qty: toteCount });
   const screwLines: [string, string, number, string][] = [
     [RAIL_SCREW, '#8 × 1-1/4" Star-Drive Screws', SCREWS_1_25_PER_BOX, "rails and back braces"],
     [PLATE_SCREW, '#9 × 3" Star-Drive Screws', SCREWS_3IN_PER_BOX, "plates into uprights"],

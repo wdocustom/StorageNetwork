@@ -24,6 +24,7 @@ export const PLAN_EVENTS = {
   bestsellers: "Opened bestsellers",
   wall_fit: "Used fit-to-wall",
   materials: "Opened material costs",
+  tote_link: "Tapped the tote store link",
   sample: "Opened a sample",
   offer_seen: "Saw the $19 offer",
   buy_click: "Tapped buy",

@@ -67,7 +67,7 @@ describe("generateDIYPlan for a mini design", () => {
     expect(plan.shoppingList.map((i) => i.name)).toEqual(
       expect.arrayContaining(["2×3 Lumber", "HDX 6.5 qt Totes", '#8 × 1-1/4" Star-Drive Screws', '#9 × 3" Star-Drive Screws']),
     );
-    expect(plan.shoppingList.find((i) => i.name === "HDX 6.5 qt Totes")?.qty).toBe(16);
+    expect(plan.shoppingList.find((i) => i.name === "HDX 6.5 qt Totes")).toMatchObject({ qty: 16, store: "Home Depot" });
     // 10 × 27-3/4" uprights + 4 × 40-1/2" plates, packed on 8' boards
     expect(plan.cutBoards.flatMap((b) => b.cuts)).toHaveLength(14);
     expect(plan.cutBoards.every((b) => b.cuts.reduce((s, c) => s + c.length, 0) <= 96)).toBe(true);
