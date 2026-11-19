@@ -109,7 +109,8 @@ export function designComebackEmailContent(p: DesignComebackEmail, now: Date = n
 
     <p style="margin:0;color:#555;font-size:11px;line-height:1.6;text-align:center;">
       You&rsquo;re getting this because you emailed yourself a design at storage-network.app. This is the only reminder
-      we&rsquo;ll send about it. Questions? Just reply.
+      we&rsquo;ll send about it. Questions? Just reply.<br />
+      Storage-Network.app &middot; Omaha, Nebraska
     </p>
   `;
 

@@ -150,13 +150,13 @@ describe("come-back offer codes", () => {
 });
 
 describe("comebackRecipients", () => {
-  it("emails each lead once with their newest design and best price, skipping buyers and fresh leads", async () => {
+  it("emails every pre-launch lead on the first run with their newest design and best price, skipping buyers", async () => {
     lead("a@x.com", "H4x4wt", "save5", 120);
     lead("A@x.com", "H6x2wts", "save3", 50); // newer design, worse price: keep $14, use 6x2
     lead("b@x.com", "H5x4", "save3", 30);
     lead("bought@x.com", "H4x4", "save5", 90);
     tables.public_plan_purchases.push({ email: "Bought@x.com", plan_id: "tote-organizer" });
-    lead("fresh@x.com", "H4x4", "save3", 2); // saved 2 hours ago: not yet
+    lead("fresh@x.com", "H4x4", "save3", -1); // saved after launch: waits its 48 hours
     lead("done@x.com", "H4x4", "save3", 90);
     tables.plan_buyer_campaigns.push({ email: "done@x.com", campaign: DESIGN_COMEBACK_CAMPAIGN });
 
@@ -166,6 +166,16 @@ describe("comebackRecipients", () => {
     expect(by["a@x.com"]).toMatchObject({ offer: "save5jig", email_data: { priceCents: 1400 } });
     expect(by["a@x.com"].email_data.link).toBe("https://app.test/plans/checkout?design=H6x2wts&utm_source=design_comeback&offer=save5jig");
     expect(by["b@x.com"]).toMatchObject({ offer: "save3jig", email_data: { priceCents: 1600 } });
+  });
+
+  it("waits 48 hours for leads saved after launch", async () => {
+    const later = Date.parse("2026-11-25T15:00:00Z");
+    const at = (h: number) => new Date(later - h * 3600_000).toISOString();
+    tables.plan_design_leads.push(
+      { email: "47h@x.com", design: "H4x4", design_name: null, offer: "save3", created_at: at(47) },
+      { email: "49h@x.com", design: "H4x4", design_name: null, offer: "save3", created_at: at(49) }
+    );
+    expect((await comebackRecipients(db, later)).map((r) => r.email)).toEqual(["49h@x.com"]);
   });
 
   it("sends once, and retries a failed send on the next run", async () => {

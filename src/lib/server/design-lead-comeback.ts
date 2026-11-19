@@ -14,7 +14,8 @@ import {
 // ═══════════════════════════════════════════════════════════════════════════
 // Come-back email to design leads: people who used "email me my design"
 // (plan_design_leads) and haven't bought tote plans. One email per person,
-// ever (plan_buyer_campaigns), at least a day after they saved it:
+// ever (plan_buyer_campaigns), 48 hours after they saved it (everyone who
+// saved one before launch gets it on the first run, all at once):
 //   • their newest saved design
 //   • the price they saved it at ($14 if they ever saved at $5 off, else $16)
 //   • the Ladder Building Jig plans free (offer save5jig / save3jig)
@@ -23,7 +24,9 @@ import {
 
 export const DESIGN_COMEBACK_CAMPAIGN = "design_lead_comeback";
 /** Hours after saving the design before the come-back email can go out. */
-export const DESIGN_COMEBACK_DELAY_HOURS = 24;
+export const DESIGN_COMEBACK_DELAY_HOURS = 48;
+/** Leads saved before launch: emailed on the first run, without the wait. */
+export const DESIGN_COMEBACK_LAUNCH = "2026-11-19T00:30:00Z";
 
 export interface ComebackRecipient {
   email: string;
@@ -41,7 +44,8 @@ interface LeadRow {
 
 /** Who gets the email now, and what it says. Nothing is sent. */
 export async function comebackRecipients(db: SupabaseClient, now = Date.now()): Promise<ComebackRecipient[]> {
-  const before = new Date(now - DESIGN_COMEBACK_DELAY_HOURS * 3600_000).toISOString();
+  const waited = new Date(now - DESIGN_COMEBACK_DELAY_HOURS * 3600_000).toISOString();
+  const before = waited > DESIGN_COMEBACK_LAUNCH ? waited : DESIGN_COMEBACK_LAUNCH;
   const [leads, buyers, already] = await Promise.all([
     db.from("plan_design_leads").select("email, design, design_name, offer, created_at").lt("created_at", before).order("created_at", { ascending: false }).limit(5000),
     db.from("public_plan_purchases").select("email").eq("plan_id", TOTE_PLAN_ID).limit(20000),
