@@ -921,17 +921,12 @@ export function totePlanName(design: TotePlanDesign): string {
 export function totePlanSummary(design: TotePlanDesign): string {
   const totes = design.units.reduce((s, u) => s + u.cols * u.rows, 0);
   const brands = new Set(design.units.map((u) => u.toteType));
-  const parts = [
+  const parts: string[] = [
     design.units.length > 1
       ? `${design.units.map(totePlanUnitLabel).join(" + ")} · ${totes} totes`
       : `${totes} totes`,
-    brands.has(MINI_TOTE_TYPE)
-      ? `${MINI.tote.name} totes`
-      : brands.size > 1
-        ? "HDX + Greenmade totes"
-        : brands.has("HDX")
-          ? "HDX / Home Depot totes"
-          : "Greenmade / Costco totes",
+    // One universal 21" bay fits HDX, Greenmade and most other 27-gallon totes
+    brands.has(MINI_TOTE_TYPE) ? `${MINI.tote.name} totes` : "27-gallon totes",
   ];
   if (design.units.length === 1 && design.units[0].sideways) {
     parts.push(`sideways (${unitDepthIn(true, isMiniUnit(design.units[0]))}" deep)`);

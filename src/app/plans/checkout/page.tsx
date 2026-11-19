@@ -56,6 +56,8 @@ import {
 import { detectInAppBrowser, type InAppBrowser } from "@/lib/in-app-browser";
 import { trackPlanEvent } from "@/lib/plan-events";
 import { giveawayStatus } from "@/lib/refund-giveaway";
+import { MINI } from "@/lib/mini-rack";
+import { toFraction } from "@/lib/utils";
 import { metaTrack } from "@/lib/meta-pixel";
 import {
   DEFAULT_TOTE_PLAN_DESIGN,
@@ -689,14 +691,22 @@ function PlansDesigner() {
             <WallFit unit={unit} onFit={updateUnit} />
             <Segmented
               label="Totes"
-              value={unit.toteType}
-              onChange={(toteType) => updateUnit({ toteType })}
+              // One universal 27-gal bay: older Greenmade designs show as 27 gallon too
+              value={isMiniUnit(unit) ? "MINI" : "HDX"}
+              onChange={(toteType) => {
+                if (toteType === "HDX" && unit.toteType === "GM") return;
+                updateUnit({ toteType });
+              }}
               options={[
-                { value: "HDX", label: "HDX 27 gal", hint: "Home Depot, Walmart, Menards" },
-                { value: "GM", label: "Greenmade 27 gal", hint: "Costco" },
+                { value: "HDX", label: "27 gallon", hint: "HDX, Greenmade & most brands" },
                 { value: "MINI", label: "Mini 6.5 qt", hint: "HDX 6.5 qt · Mini Tote Rack" },
               ]}
             />
+            <p className="-mt-1 text-[11px] leading-snug text-stone-500">
+              {isMiniUnit(unit)
+                ? `Bays are ${toFraction(MINI.opening)}" between uprights, sized for HDX 6.5 qt totes (8" × 12-3/4" lid). Measure yours before you build.`
+                : 'The 21" opening between uprights is universal: it should fit most brands of 27-gallon totes (HDX, Greenmade and others). Double-check your totes\' measurements before you build.'}
+            </p>
             <Segmented
               label="Tote direction"
               value={unit.sideways === true}

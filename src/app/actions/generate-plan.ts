@@ -614,7 +614,6 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
 
   // ── Notes ────────────────────────────────────────────────────────────
   const size = designOuterSize(design);
-  const brands = new Set(design.units.map((u) => u.toteType));
   const safetyNotes = [
     "Always wear safety glasses when operating power tools.",
     "Use a push stick when ripping narrow strips on the table saw.",
@@ -628,7 +627,7 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
   }
 
   const generalNotes = [
-    `Every ${design.units.some((u) => u.sideways) ? "standard " : ""}bay is a universal ${inches(BAY_OPENING_IN)} opening between uprights, so it fits ${brands.size > 1 || brands.has("HDX") ? "HDX (Home Depot / Walmart / Menards)" : ""}${brands.size > 1 ? " and " : ""}${brands.size > 1 || brands.has("GM") ? "Greenmade (Costco)" : ""} 27-gallon totes. Each tote hangs by its rim on two 2×4 rails.`,
+    `Every ${design.units.some((u) => u.sideways) ? "standard " : ""}bay is a universal ${inches(BAY_OPENING_IN)} opening between uprights: it should fit most brands of 27-gallon totes (HDX, Greenmade and others), but double-check your totes' measurements before you build. Each tote hangs by its rim on two 2×4 rails.`,
     'Built from standard 2×4s (actual 1-1/2" × 3-1/2"). Rails are 2×4s ripped in half; plywood is only used for worktops.',
     "Screws are #9 star-drive construction screws. No pilot holes needed in 2×4 or plywood.",
     `Finished size: ${inches(size.widthIn)} W × ${inches(size.heightIn)} H × ${inches(size.depthIn)} D${design.units.length > 1 ? " (all units side by side, tallest unit)" : ""}.`,
