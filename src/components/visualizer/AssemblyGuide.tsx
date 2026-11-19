@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, ContactShadows, Html } from "@react-three/drei";
 import { Group, Vector3 } from "three";
@@ -212,8 +212,19 @@ function AnimatedRotation({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// HOVERABLE PART WRAPPER — shows dimensions/material on hover
+// HOVERABLE PART WRAPPER — shows a piece's dimensions/material
+//
+// Mouse: on hover. Touch (and click): tap a piece to show its label, tap it
+// again (or tap empty space) to hide it, so the label isn't only visible
+// while a finger is held on it, under the thumb. One label at a time; the
+// guide clears it when the build steps open. A tap that turned into a drag
+// (rotating the view) doesn't count.
 // ═══════════════════════════════════════════════════════════════════════════
+
+const PartLabelContext = createContext<{ selected: string | null; setSelected: (id: string | null) => void } | null>(null);
+
+/** Pixels a press can move and still count as a tap, not a rotate. */
+const TAP_SLOP_PX = 8;
 
 function HoverablePart({
   children,
@@ -227,6 +238,10 @@ function HoverablePart({
   visible?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
+  const id = useId();
+  const shared = useContext(PartLabelContext);
+  const [localSelected, setLocalSelected] = useState(false);
+  const selected = shared ? shared.selected === id : localSelected;
   const measure = useMeasure();
 
   if (!visible) return <>{children}</>;
@@ -236,16 +251,25 @@ function HoverablePart({
       position={position}
       onPointerOver={(e) => {
         e.stopPropagation();
+        // Touch "hovers" only while the finger is down: taps handle touch.
+        if (e.nativeEvent.pointerType !== "mouse") return;
         setHovered(true);
         document.body.style.cursor = "pointer";
       }}
-      onPointerOut={() => {
+      onPointerOut={(e) => {
+        if (e.nativeEvent.pointerType !== "mouse") return;
         setHovered(false);
         document.body.style.cursor = "auto";
       }}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (e.delta > TAP_SLOP_PX) return; // dragged to rotate the view
+        if (shared) shared.setSelected(selected ? null : id);
+        else setLocalSelected((v) => !v);
+      }}
     >
       {children}
-      {hovered && (
+      {(hovered || selected) && (
         <Html center position={[0, 2, 0]} style={{ pointerEvents: "none" }}>
           <div
             style={{
@@ -1496,7 +1520,12 @@ export default function AssemblyGuide({
     if (mode === "step" && steps.length) onStep?.(stepIndex + 1, steps.length);
   }, [mode, stepIndex, steps.length, onStep]);
 
+  // The piece whose label is showing (tap to show, tap again to hide).
+  const [selectedPart, setSelectedPart] = useState<string | null>(null);
+  const partLabels = useMemo(() => ({ selected: selectedPart, setSelected: setSelectedPart }), [selectedPart]);
+
   const handleStartBuild = useCallback(() => {
+    setSelectedPart(null);
     setMode("step");
     setStepIndex(0);
   }, []);
@@ -1510,18 +1539,24 @@ export default function AssemblyGuide({
   }, []);
 
   const handleReset = useCallback(() => {
+    setSelectedPart(null);
     setMode("exploded");
     setStepIndex(0);
   }, []);
 
+  // A label from one step shouldn't linger into the next.
+  useEffect(() => setSelectedPart(null), [stepIndex]);
+
   return (
     <div className="relative h-full w-full bg-slate-950">
       {/* ── Full-screen 3D Viewport ─────────────────────────────────── */}
+      <PartLabelContext.Provider value={partLabels}>
       <Canvas
         shadows
         camera={{ fov: 40 }}
         gl={{ antialias: true, alpha: false }}
         style={{ touchAction: "none", position: "absolute", inset: 0 }}
+        onPointerMissed={() => setSelectedPart(null)}
       >
         <color attach="background" args={["#ffffff"]} />
 
@@ -1575,6 +1610,7 @@ export default function AssemblyGuide({
           sideways={sideways}
         />
       </Canvas>
+      </PartLabelContext.Provider>
 
       {/* ── HTML Overlay Layer (above Canvas) ──────────────────────── */}
       <div className="pointer-events-none absolute inset-0 z-10">
@@ -1612,7 +1648,7 @@ export default function AssemblyGuide({
                   {label ?? `${cols}×${rows} ${toteType} Storage Unit`}
                 </p>
                 <p className="text-xs text-stone-400">
-                  Hover any piece for dimensions
+                  Tap any piece for dimensions
                   {hasWheels ? " — with casters" : ""}
                   {hasTop ? " — with top" : ""}
                 </p>

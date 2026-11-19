@@ -280,7 +280,7 @@ function GuideCard({ data, onLaunch }: { data: Ready; onLaunch: () => void }) {
       <p className="mb-4 text-xs text-stone-400">
         {data.plan.moduleCount > 1
           ? "Builds one module at a time — a live map shows which module you're on and where it goes."
-          : "Step through the build in 3D. Rotate and zoom, hover any part for its exact size."}{" "}
+          : "Step through the build in 3D. Rotate and zoom, tap any part for its exact size."}{" "}
         Prop your phone up in the garage and go.
       </p>
       <button
