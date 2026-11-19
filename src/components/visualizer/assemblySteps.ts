@@ -11,6 +11,18 @@
 
 import { toFraction } from "@/lib/utils";
 import {
+  MINI,
+  MINI_PLY_PANEL,
+  miniDepth,
+  miniOpening,
+  miniPiecesPer,
+  miniPiecesPerStrip,
+  miniPlateLength,
+  miniRailTops,
+  miniStripsPer,
+  miniUpright,
+} from "@/lib/mini-rack";
+import {
   RAIL_2X4_CENTERS,
   RAIL_2X4_H,
   RAIL_2X4_MAX_ROWS,
@@ -83,7 +95,8 @@ export type RailStyle = "plywood" | "2x4";
 export interface BuildConfig {
   hasWheels: boolean;
   hasTop: boolean;
-  toteType?: "HDX" | "GM";
+  /** "MINI": the Mini Tote Rack (HDX 6.5 qt, 2×3 frame, 1-1/4" plywood rails — @/lib/mini-rack) */
+  toteType?: "HDX" | "GM" | "MINI";
   /** Defaults to "plywood" (the installer standard); DIY plans use "2x4" */
   rails?: RailStyle;
   /** 2×4 rails only: totes turned 90° — wider bays, shallower rack */
@@ -174,14 +187,16 @@ const floorQuarter = (n: number) => Math.floor(n * 4 + 1e-9) / 4;
  * 2-high frames take shorter corner braces; 1-high frames take one diagonal
  * per end bay running from the bottom plate to the top plate.
  */
-export function braceLayout2x4(cols: number, rows: number, sideways = false): BraceLayout2x4 {
-  const geo = rails2x4Geometry(sideways);
-  const pitch = geo.opening + 1.5;
+export function braceLayout2x4(cols: number, rows: number, sideways = false, mini = false): BraceLayout2x4 {
+  // Mini racks: braces are the same 1-1/4" plywood strip as a rail, at most a rail long.
+  const opening = mini ? miniOpening(sideways) : rails2x4Geometry(sideways).opening;
+  const pitch = opening + 1.5;
   const w = cols * pitch; // first to last upright, center to center
-  const d = upright2x4(Math.min(rows, RAILS_2X4.maxRows)) + 1.5; // plate center to plate center
+  const upright = mini ? miniUpright(rows) : upright2x4(Math.min(rows, RAILS_2X4.maxRows));
+  const d = upright + 1.5; // plate center to plate center
   const mid = Math.floor(cols / 2) * pitch;
   const wide = cols > 4;
-  const maxLen = geo.depth; // one ripped rail piece
+  const maxLen = mini ? miniDepth(sideways) : rails2x4Geometry(sideways).depth; // one rail piece
 
   if (rows <= 1) {
     const length = Math.min(maxLen, floorQuarter(d * Math.SQRT2));
@@ -654,33 +669,165 @@ const RAILS_2X4_STEPS: Partial<Record<string, Partial<AssemblyStep>>> = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Mini Tote Rack versions (@/lib/mini-rack): 2×3 frame, 3/4" plywood rails
+// ripped to 1-1/4", 1-1/4" rail screws, no casters. Same step ids, so the
+// 3D guide animates them the same way.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const MINI_RAIL_SCREW = '#8 × 1-1/4" Screws';
+
+const MINI_STEPS: Partial<Record<string, Partial<AssemblyStep>>> = {
+  "cut-uprights": {
+    instruction:
+      "Cut the 2×3×8' boards to UPRIGHT_HEIGHT for the uprights. Use a speed square to mark a clean line around the board, then make your cut. Stack the finished pieces to check they're all the same length.",
+    materials: [{ name: "2×3 Uprights", qty: "POSTS_QTY", detail: "Cut to UPRIGHT_HEIGHT" }],
+    proTip:
+      "Pick the straightest 2×3s in the pile for uprights — sight down each edge. Cut one, then use it as the template to mark the rest so every upright is identical.",
+  },
+  "cut-plates": {
+    instruction:
+      "Cut 4 plates (2 top, 2 bottom) from 2×3 stock to the full unit width (PLATE_LENGTH). These tie the ladder frames together across the front and back.",
+    materials: [
+      { name: "2×3 Bottom Plates", qty: "2", detail: "Cut to PLATE_LENGTH" },
+      { name: "2×3 Top Plates", qty: "2", detail: "Cut to PLATE_LENGTH" },
+    ],
+    proTip: "Cut all four plates with the same stop block on the saw so the front and back match exactly.",
+  },
+  "rip-rails": {
+    title: "Rip the Plywood Rails",
+    instruction:
+      'Each tote hangs by its lid lip on two rails, one on each side. If you\'re building the plywood top, cut it out of your 3/4" plywood first (see the cut list). Then set the table saw fence to 1-1/4" and rip the rest into strips along its long side, and crosscut the strips into rails at RAIL_LENGTH. You need RAILS_QTY rails plus BACK_SUPPORTS_QTY back braces. Set the brace pieces aside — they go on in the back-brace step (BRACE_LENGTH).',
+    tools: [
+      { name: "Table Saw", detail: 'fence at 1-1/4"' },
+      { name: "Miter Saw", detail: "crosscut rails to RAIL_LENGTH" },
+      { name: "Safety Glasses" },
+      { name: "Push Stick" },
+    ],
+    materials: [
+      { name: "Plywood Rails", qty: "RAILS_QTY", detail: '3/4" × 1-1/4" × RAIL_LENGTH' },
+      { name: "Plywood Back Braces", qty: "BACK_SUPPORTS_QTY", detail: "Same strip as a rail — BRACE_LENGTH" },
+    ],
+    proTip: "Use a push stick for every rip this narrow, and sand the top edge of each rail lightly so tote lids slide without catching.",
+  },
+  "mark-posts": {
+    instruction:
+      'Measuring up from the BOTTOM end of each upright, mark the top edge of every rail at RAIL_MARKS — 6-1/2" between rail tops. Square each mark across the inside face with a combination square and put an X just below the line so you know which side the rail goes.',
+    materials: [{ name: "Cut Uprights", qty: "POSTS_QTY", detail: "Mark rail top edges on the inside face" }],
+    proTip:
+      "Clamp all the uprights together side by side with their bottom ends flush and mark them in one pass — every rail lands at exactly the same height.",
+  },
+  "build-ladders": {
+    instruction:
+      'Pair a front and a back upright, inside faces up. Lay each rail with its top edge on its mark and its ends flush with the outside faces of both uprights (RAIL_LENGTH overall). Drive #8 × 1-1/4" screws through the rail into each upright — 2 per end, 4 per rail (8 per tote slot). End uprights get rails on one face; middle uprights carry rails on both faces. Each finished pair is a "ladder frame."',
+    screwType: {
+      label: '#8 × 1-1/4" Star Drive',
+      length: MINI.railScrewLength,
+      description: "Through the 3/4\" plywood rail into the 2×3 upright. No pilot hole required; keep screws 1/2\" in from the rail ends.",
+    },
+    tools: [
+      { name: "Drill/Driver" },
+      { name: "T-25 Star Bit" },
+      { name: "Clamps", detail: "hold each rail on its line while driving" },
+      { name: "Speed Square", detail: "keep rails square to the uprights" },
+    ],
+    materials: [
+      { name: "Plywood Rails", qty: "RAILS_QTY", detail: "4 screws each" },
+      { name: MINI_RAIL_SCREW, qty: "RAIL_SCREWS_QTY", detail: "2 per rail end" },
+    ],
+    proTip:
+      "On middle uprights, shift the second side's screws about 1/4\" up or down from the first side's so they don't meet inside the 2×3.",
+  },
+  "attach-bottom-plates": {
+    materials: [
+      { name: "2×3 Bottom Plates", qty: "2", detail: "Front and back" },
+      { name: '#9 × 3" Screws', qty: "BOTTOM_PLATE_SCREWS_QTY", detail: "2 per post-plate joint" },
+    ],
+  },
+  "attach-top-plates": {
+    instruction:
+      'With the ladder frames still on their sides, position the 2 top plates across the top ends of all uprights (front and back). Verify the same OPENING_SPAN spacing between uprights as the bottom. Drive #9 × 3" screws down through the top plate into the top end grain of each upright — 2 screws per connection. The unit stays laid on its front for the back braces.',
+    materials: [
+      { name: "2×3 Top Plates", qty: "2", detail: "Front and back" },
+      { name: '#9 × 3" Screws', qty: "TOP_PLATE_SCREWS_QTY", detail: "2 per post-plate joint" },
+    ],
+    proTip:
+      "Measure corner-to-corner diagonals — when they match within 1/8\", you're square. If not, push the long-diagonal corner before driving the last screws. The back braces in the next step lock it there.",
+  },
+  "install-back-supports": {
+    title: "Install Back Braces",
+    instruction:
+      'With the unit still laying on its front, square it up: measure both corner-to-corner diagonals of the back face (the face pointing up) and push the long corner until they match within 1/8". BACK_BRACE_LAYOUT Drive #8 × 1-1/4" screws through each brace into the upright or plate beneath — 2 per end.',
+    screwType: {
+      label: '#8 × 1-1/4" Star Drive',
+      length: MINI.railScrewLength,
+      description: "Through the plywood brace into the 2×3 plate or upright beneath. No pilot hole required.",
+    },
+    tools: [
+      { name: "Drill/Driver" },
+      { name: "T-25 Star Bit" },
+      { name: "Tape Measure", detail: "corner-to-corner diagonals" },
+      { name: "Speed Square", detail: "set each brace at 45°" },
+    ],
+    materials: [
+      { name: "Plywood Back Braces", qty: "BACK_SUPPORTS_QTY", detail: '1-1/4" strip, BRACE_LENGTH' },
+      { name: MINI_RAIL_SCREW, qty: "BACK_SUPPORT_SCREWS_QTY", detail: "2 per brace end" },
+    ],
+    proTip:
+      "Square first, brace second — once the braces are screwed on, the frame holds whatever shape it's in. Braces on the back stay clear of the totes, which load from the front.",
+  },
+  "attach-top": {
+    instruction:
+      'Cut 3/4" plywood to the unit footprint (PLATE_LENGTH × UNIT_DEPTH). Set it flush on the top plates and secure it with #9 × 1-5/8" screws — one at each upright location, driven down through the plywood into the top plate. That\'s TOP_SCREWS_QTY screws total.',
+    materials: [
+      { name: '3/4" Plywood', qty: "1", detail: "Cut to PLATE_LENGTH × UNIT_DEPTH" },
+      { name: '#9 × 1-5/8" Screws', qty: "TOP_SCREWS_QTY", detail: "1 per upright location × 2 plates" },
+    ],
+    screwType: {
+      label: '#9 × 1-5/8" Star Drive',
+      length: 1.625,
+      description: "Through the plywood top into the 2×3 top plate at each upright location.",
+    },
+  },
+  final: {
+    instruction:
+      "Stand the unit upright and set it in place. Check that it sits level and rock it gently to confirm it's rigid. Slide a tote into every bay — the lid lip rides on the two rails.",
+    materials: [{ name: `${MINI.tote.name} Totes`, qty: "TOTES_QTY", detail: "Test-fit in each bay" }],
+    proTip:
+      "If a tote drags, check that its two rails sit level on their marks and the screw heads are flush. A quick pass with a sanding block on the rail's top edge fixes minor catches.",
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Runtime: filter steps by build configuration
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function getStepsForConfig(config: BuildConfig): AssemblyStep[] {
-  const is2x4 = config.rails === "2x4";
+  const mini = config.toteType === "MINI";
+  const is2x4 = config.rails === "2x4" && !mini;
   return ALL_STEPS.filter((step) => {
     if (!step.condition) return true;
-    if (step.condition === "hasWheels") return config.hasWheels;
+    if (step.condition === "hasWheels") return config.hasWheels && !mini;
     if (step.condition === "hasTop") return config.hasTop;
     return true;
   }).map((base) => {
-    const step: AssemblyStep = is2x4
-      ? { ...base, ...RAILS_2X4_STEPS[base.id] }
-      : base;
+    const step: AssemblyStep = mini
+      ? { ...base, ...MINI_STEPS[base.id] }
+      : is2x4
+        ? { ...base, ...RAILS_2X4_STEPS[base.id] }
+        : base;
     // For the final step, adjust caster/plyTop visibility based on config
     if (step.id === "final") {
       return {
         ...step,
         partStates: {
           ...step.partStates,
-          casters: config.hasWheels ? "visible" as const : "hidden" as const,
+          casters: config.hasWheels && !mini ? "visible" as const : "hidden" as const,
           plyTop: config.hasTop ? "visible" as const : "hidden" as const,
         },
       };
     }
     // For steps before casters are attached, keep them hidden
-    if (!config.hasWheels && step.partStates.casters === "visible") {
+    if ((!config.hasWheels || mini) && step.partStates.casters === "visible") {
       return {
         ...step,
         partStates: { ...step.partStates, casters: "hidden" as const },
@@ -713,7 +860,65 @@ function joinMarks(marks: number[]): string {
   return s.length <= 1 ? (s[0] ?? "") : `${s.slice(0, -1).join(", ")} and ${s[s.length - 1]}`;
 }
 
+/** Token values for a Mini Tote Rack module (@/lib/mini-rack). */
+function miniTokenValues(cols: number, rows: number, config: BuildConfig): Record<string, string> {
+  const sideways = config.sideways === true;
+  const opening = miniOpening(sideways);
+  const depth = miniDepth(sideways);
+  const depthStr = `${toFraction(depth)}"`;
+  const uprightH = miniUpright(rows);
+  const plateLen = miniPlateLength(cols, sideways);
+  const plateLenStr = `${toFraction(plateLen)}"`;
+  const numPosts = (cols + 1) * 2;
+  const numRails = cols * rows * 2;
+  const perPlateScrews = (cols + 1) * 2 * 2;
+  const braces = braceLayout2x4(cols, rows, sideways, true);
+  const backSupports = braces.segments.length;
+  const perPanel = miniPiecesPer(MINI_PLY_PANEL, depth);
+  const braceLen = braces.length >= depth ? `${depthStr} (no cut)` : `cut to ${toFraction(braces.length)}"`;
+  const braceCut =
+    braces.length >= depth
+      ? `Use ${backSupports} of the ${depthStr} plywood pieces as-is.`
+      : `Cut ${backSupports} of your ${depthStr} plywood pieces to ${toFraction(braces.length)}" (square ends).`;
+  const braceLayout =
+    braces.style === "diagonal"
+      ? `${braceCut} ${cols > 1 ? "In each end bay, lay one flat at 45° from the bottom plate at the corner up to the top plate" : "Lay one flat at 45° from the bottom plate at one corner up to the top plate"} — ends centered on the plates.${cols > 4 ? " This module is wider than 4 bays, so add one more the same way from the middle upright." : ""}`
+      : `${braceCut} Lay one flat at 45° across each of the four corners — one end centered on the plate, the other centered on the end upright.${cols > 4 ? " This module is wider than 4 bays, so add 2 more at the middle upright — one up from the bottom plate, one down from the top plate." : ""}`;
+  return {
+    POSTS_QTY: String(numPosts),
+    RAILS_QTY: String(numRails),
+    RAIL_SCREWS_QTY: String(numRails * MINI.railScrewsPerEnd * 2),
+    PLATE_SCREWS_QTY: String(perPlateScrews),
+    BOTTOM_PLATE_SCREWS_QTY: String(perPlateScrews),
+    TOP_PLATE_SCREWS_QTY: String(perPlateScrews),
+    TOTES_QTY: String(cols * rows),
+    BOARDS_QTY: String(packBoards([...Array(numPosts).fill(uprightH), ...Array(4).fill(plateLen)])),
+    RAIL_BOARDS_QTY: String(Math.ceil((numRails + backSupports) / perPanel)),
+    RAIL_PANELS_QTY: String(Math.ceil((numRails + backSupports) / perPanel)),
+    RAIL_STRIPS_PER_PANEL: String(miniStripsPer(MINI_PLY_PANEL)),
+    RAILS_PER_STRIP: String(miniPiecesPerStrip(MINI_PLY_PANEL, depth)),
+    RAILS_PER_BOARD: String(perPanel),
+    RAILS_PER_PANEL: String(perPanel),
+    UNIT_DEPTH: depthStr,
+    UPRIGHT_HEIGHT: `${toFraction(uprightH)}"`,
+    UPRIGHT_DETAIL: `Cut to ${toFraction(uprightH)}"`,
+    UPRIGHT_CUT: `Cut the 2×3s to ${toFraction(uprightH)}".`,
+    PLATE_LENGTH: plateLenStr,
+    RAIL_LENGTH: depthStr,
+    RAIL_MARKS: joinMarks(miniRailTops(rows)),
+    UNIT_WIDTH: plateLenStr,
+    TOP_SHEETS_QTY: "1",
+    TOP_SCREWS_QTY: String((cols + 1) * 2),
+    BACK_SUPPORTS_QTY: String(backSupports),
+    BACK_SUPPORT_SCREWS_QTY: String(backSupports * 4),
+    BACK_BRACE_LAYOUT: braceLayout,
+    BRACE_LENGTH: braceLen,
+    OPENING_SPAN: `${toFraction(opening)}"`,
+  };
+}
+
 function tokenValues(cols: number, rows: number, config: BuildConfig): Record<string, string> {
+  if (config.toteType === "MINI") return miniTokenValues(cols, rows, config);
   const is2x4 = config.rails === "2x4";
   const geo = rails2x4Geometry(is2x4 && config.sideways === true);
   const opening = is2x4 ? geo.opening : config.toteType === "GM" ? 20.75 : 19.75;
@@ -786,7 +991,7 @@ function tokenValues(cols: number, rows: number, config: BuildConfig): Record<st
 }
 
 // Longest names first so e.g. UPRIGHT_HEIGHT isn't clipped by a shorter token
-const TOKEN_RE = /UPRIGHT_DETAIL|UPRIGHT_HEIGHT|UPRIGHT_CUT|BOTTOM_PLATE_SCREWS_QTY|TOP_PLATE_SCREWS_QTY|PLATE_SCREWS_QTY|BACK_SUPPORT_SCREWS_QTY|BACK_SUPPORTS_QTY|BACK_BRACE_LAYOUT|BRACE_LENGTH|RAIL_BOARDS_QTY|RAIL_SCREWS_QTY|RAILS_QTY|POSTS_QTY|TOTES_QTY|BOARDS_QTY|TOP_SHEETS_QTY|TOP_SCREWS_QTY|RAILS_PER_STRIP|RAILS_PER_BOARD|PLATE_LENGTH|RAIL_LENGTH|RAIL_MARKS|UNIT_WIDTH|UNIT_DEPTH|OPENING_SPAN/g;
+const TOKEN_RE = /RAIL_STRIPS_PER_PANEL|RAIL_PANELS_QTY|RAILS_PER_PANEL|UPRIGHT_DETAIL|UPRIGHT_HEIGHT|UPRIGHT_CUT|BOTTOM_PLATE_SCREWS_QTY|TOP_PLATE_SCREWS_QTY|PLATE_SCREWS_QTY|BACK_SUPPORT_SCREWS_QTY|BACK_SUPPORTS_QTY|BACK_BRACE_LAYOUT|BRACE_LENGTH|RAIL_BOARDS_QTY|RAIL_SCREWS_QTY|RAILS_QTY|POSTS_QTY|TOTES_QTY|BOARDS_QTY|TOP_SHEETS_QTY|TOP_SCREWS_QTY|RAILS_PER_STRIP|RAILS_PER_BOARD|PLATE_LENGTH|RAIL_LENGTH|RAIL_MARKS|UNIT_WIDTH|UNIT_DEPTH|OPENING_SPAN/g;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Runtime quantity calculator

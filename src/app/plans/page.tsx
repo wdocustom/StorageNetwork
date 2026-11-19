@@ -353,6 +353,7 @@ export default async function PlansPage() {
                 {p.title}
               </Link>
             ))}
+            <Link href="/plans/checkout?design=M4x4t&utm_source=plans_nav" className="hover:text-stone-200">Mini tote rack (6.5 qt)</Link>
             <a href="#gift" className="hover:text-stone-200">Gift plans</a>
             <Link href="/installer-network" className="hover:text-stone-200">Find an installer</Link>
             <Link href="/join?src=plans" className="hover:text-stone-200">Build these for a living</Link>

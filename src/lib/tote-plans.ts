@@ -31,6 +31,16 @@
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import { RAILS_2X4, RAILS_2X4_DEPTH, rails2x4Geometry, upright2x4 } from "@/components/visualizer/assemblySteps";
 import { MAX_MODULE_COLS, MAX_MODULE_COLS_SIDEWAYS } from "@/lib/module-split";
+import {
+  MINI,
+  MINI_TOTE_TYPE,
+  miniDepth,
+  miniFrameHeight,
+  miniMaxModuleCols,
+  miniMaxRowsPerTier,
+  miniOpening,
+  miniPlateLength,
+} from "@/lib/mini-rack";
 
 export const TOTE_PLAN_ID = "tote-organizer";
 
@@ -257,6 +267,38 @@ export const TOTE_PLAN_TIERS: Record<TotePlanTier, TotePlanTierInfo> = {
 export const TOTE_PLAN_UPGRADE_PRICE =
   TOTE_PLAN_TIERS.interactive.price - TOTE_PLAN_TIERS.pdf.price;
 
+// ── Mini Tote Rack Plans (separate product, since Nov 2026) ─────────────────
+// Same lifetime model as All-Access, for MINI designs only: this mini plan
+// and every mini size the buyer designs after it. Owners of the 27-gal
+// All-Access plans pay the owner price (checked server-side from their plan
+// link, like the ladder jig). Purchases: plan_id = TOTE_PLAN_MINI.id.
+
+export const TOTE_PLAN_MINI = {
+  id: "mini-tote-rack",
+  name: "Mini Tote Rack Plans",
+  /** In cents. One payment, lifetime. */
+  price: 1200,
+  /** In cents, for 27-gal All-Access owners */
+  ownerPrice: 900,
+  tagline: "Every mini tote rack you design, for life.",
+  includes: [
+    "Unlimited mini plans: any size, any time, generated free",
+    "Interactive 3D build guide for every plan",
+    "Printable PDF: shopping list, cut diagrams, every step",
+    "Sized for HDX 6.5 qt totes · 2×3 frame · plywood rails",
+  ],
+} as const;
+
+/** The product a design belongs to: mini designs are TOTE_PLAN_MINI, the rest All-Access. */
+export function planIdForDesign(design: Pick<TotePlanDesign, "units">): string {
+  return isMiniDesign(design) ? TOTE_PLAN_MINI.id : TOTE_PLAN_ID;
+}
+
+/** A tote plan purchase row of either product. */
+export function isTotePlanProduct(planId: unknown): boolean {
+  return planId === TOTE_PLAN_ID || planId === TOTE_PLAN_MINI.id;
+}
+
 export function formatPlanPrice(cents: number): string {
   return `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
 }
@@ -269,7 +311,18 @@ export function isTotePlanTier(value: unknown): value is TotePlanTier {
 // Design model
 // ═══════════════════════════════════════════════════════════════════════════
 
-export type TotePlanToteType = "HDX" | "GM";
+/** "MINI" = the Mini Tote Rack (HDX 6.5 qt totes, 2×3 frame) — a separate product, see TOTE_PLAN_MINI. */
+export type TotePlanToteType = "HDX" | "GM" | typeof MINI_TOTE_TYPE;
+
+/** Mini Tote Rack unit (6.5 qt totes)? */
+export function isMiniUnit(unit: Pick<TotePlanUnit, "toteType">): boolean {
+  return unit.toteType === MINI_TOTE_TYPE;
+}
+
+/** A design is all mini or all 27-gal (parseTotePlanDesign enforces it). */
+export function isMiniDesign(design: Pick<TotePlanDesign, "units">): boolean {
+  return design.units.length > 0 && design.units.every(isMiniUnit);
+}
 
 /** One freestanding tote organizer, any size the designer allows. */
 export interface TotePlanUnit {
@@ -299,6 +352,8 @@ export const TOTE_PLAN_LIMITS = {
   maxCols: 24,
   minRows: 1,
   maxRows: 10, // the designer's own standard-unit maximum
+  /** Mini racks: 14 totes tall is one 8' upright */
+  maxRowsMini: miniMaxRowsPerTier(),
   maxUnits: 8,
 };
 
@@ -331,18 +386,20 @@ export function parseTotePlanUnit(raw: unknown): TotePlanUnit | null {
   const rows = Number(c.rows);
   if (!Number.isInteger(cols) || !Number.isInteger(rows)) return null;
   if (cols < TOTE_PLAN_LIMITS.minCols || cols > TOTE_PLAN_LIMITS.maxCols) return null;
-  if (rows < TOTE_PLAN_LIMITS.minRows || rows > TOTE_PLAN_LIMITS.maxRows) return null;
-  if (c.toteType !== "HDX" && c.toteType !== "GM") return null;
+  if (c.toteType !== "HDX" && c.toteType !== "GM" && c.toteType !== MINI_TOTE_TYPE) return null;
+  const mini = c.toteType === MINI_TOTE_TYPE;
+  if (rows < TOTE_PLAN_LIMITS.minRows || rows > (mini ? TOTE_PLAN_LIMITS.maxRowsMini : TOTE_PLAN_LIMITS.maxRows)) return null;
 
   const unit: TotePlanUnit = {
     cols,
     rows,
     toteType: c.toteType,
-    hasWheels: c.hasWheels === true,
+    // Mini racks don't roll: a 2×3 plate is narrower than a caster plate.
+    hasWheels: !mini && c.hasWheels === true,
     hasTop: c.hasTop === true,
   };
   if (c.sideways === true || c.orientation === "sideways") unit.sideways = true;
-  if (typeof c.bestseller === "string" && c.bestseller in BESTSELLER_CODES) unit.bestseller = c.bestseller;
+  if (!mini && typeof c.bestseller === "string" && c.bestseller in BESTSELLER_CODES) unit.bestseller = c.bestseller;
   return unit;
 }
 
@@ -433,23 +490,28 @@ export function parseTotePlanDesign(raw: unknown): TotePlanDesign | null {
     if (!unit) return null;
     units.push(unit);
   }
+  // Mini and 27-gal racks are separate products: a design is one or the other.
+  if (units.some(isMiniUnit) && !units.every(isMiniUnit)) return null;
   const name = cleanName(c.name);
   const normalized = normalizeBestsellers(units);
   return name ? { units: normalized, name } : { units: normalized };
 }
 
 // ── Compact string form (URLs, Stripe metadata) ──────────────────────────
-// Unit token: <H|G><cols>x<rows>[w][t][s][_<bestseller code>]
-//             e.g. "H4x4wt", "G2x6", "H2x4t_ij", "H3x4wts" (s = sideways)
+// Unit token: <H|G|M><cols>x<rows>[w][t][s][_<bestseller code>]
+//             e.g. "H4x4wt", "G2x6", "H2x4t_ij", "H3x4wts" (s = sideways),
+//             "M4x4t" (Mini Tote Rack)
 // Design:     tokens joined by "."      e.g. "H2x4t_ij.H2x2t_ij.H2x4t_ij"
 
-const UNIT_TOKEN = /^([HG])(\d{1,2})x(\d{1,2})(w?)(t?)(s?)(?:_([a-z]{2,3}))?$/;
+const UNIT_TOKEN = /^([HGM])(\d{1,2})x(\d{1,2})(w?)(t?)(s?)(?:_([a-z]{2,3}))?$/;
+const TOTE_LETTER: Record<TotePlanToteType, string> = { HDX: "H", GM: "G", MINI: "M" };
+const TOTE_BY_LETTER: Record<string, TotePlanToteType> = { H: "HDX", G: "GM", M: MINI_TOTE_TYPE };
 
 export function encodeTotePlanDesign(design: TotePlanDesign): string {
   return design.units
     .map(
       (u) =>
-        `${u.toteType === "HDX" ? "H" : "G"}${u.cols}x${u.rows}${u.hasWheels ? "w" : ""}${u.hasTop ? "t" : ""}${u.sideways ? "s" : ""}` +
+        `${TOTE_LETTER[u.toteType]}${u.cols}x${u.rows}${u.hasWheels ? "w" : ""}${u.hasTop ? "t" : ""}${u.sideways ? "s" : ""}` +
         (u.bestseller && BESTSELLER_CODES[u.bestseller] ? `_${BESTSELLER_CODES[u.bestseller]}` : ""),
     )
     .join(".");
@@ -464,7 +526,7 @@ export function decodeTotePlanDesign(value: string | null | undefined, name?: st
     const m = UNIT_TOKEN.exec(token);
     if (!m) return null;
     units.push({
-      toteType: m[1] === "H" ? "HDX" : "GM",
+      toteType: TOTE_BY_LETTER[m[1]],
       cols: Number(m[2]),
       rows: Number(m[3]),
       hasWheels: m[4] === "w",
@@ -531,19 +593,36 @@ export const UNIT_DEPTH_IN = RAILS_2X4_DEPTH;
 /** Sideways racks are shallower: 20" rails */
 export const UNIT_DEPTH_SIDEWAYS_IN = rails2x4Geometry(true).depth;
 
+// Every geometry helper takes `mini` last: Mini Tote Racks (@/lib/mini-rack)
+// have 8-1/4" bays (13" sideways), 12-3/4" depth (8" sideways), 2×3 frames,
+// and modules up to 9 wide (6 sideways) × 14 tall.
+
 /** Bay opening for a unit, standard or sideways. */
-export function bayOpeningIn(sideways?: boolean): number {
+export function bayOpeningIn(sideways?: boolean, mini = false): number {
+  if (mini) return miniOpening(sideways === true);
   return sideways ? BAY_OPENING_SIDEWAYS_IN : BAY_OPENING_IN;
 }
 
 /** Rack depth (= rail length) for a unit, standard or sideways. */
-export function unitDepthIn(sideways?: boolean): number {
+export function unitDepthIn(sideways?: boolean, mini = false): number {
+  if (mini) return miniDepth(sideways === true);
   return sideways ? UNIT_DEPTH_SIDEWAYS_IN : UNIT_DEPTH_IN;
 }
 
+/** Most totes across one module. */
+export function moduleMaxCols(sideways = false, mini = false): number {
+  if (mini) return miniMaxModuleCols(sideways);
+  return sideways ? MODULE_MAX_COLS_SIDEWAYS : MODULE_MAX_COLS;
+}
+
+/** Most totes tall in one tier. */
+export function moduleMaxRows(mini = false): number {
+  return mini ? miniMaxRowsPerTier() : MODULE_MAX_ROWS;
+}
+
 /** Width split: greedy 4s (2s sideways), remainder last — identical to buildEngine for standard. */
-export function splitWidth(cols: number, sideways = false): number[] {
-  const max = sideways ? MODULE_MAX_COLS_SIDEWAYS : MODULE_MAX_COLS;
+export function splitWidth(cols: number, sideways = false, mini = false): number[] {
+  const max = moduleMaxCols(sideways, mini);
   const mods: number[] = [];
   let remaining = cols;
   while (remaining > max) {
@@ -554,34 +633,38 @@ export function splitWidth(cols: number, sideways = false): number[] {
   return mods;
 }
 
-/** Height split: 6-row tiers, remainder on top — identical to buildEngine. */
-export function splitHeight(rows: number): number[] {
+/** Height split: 6-row tiers (14 for mini), remainder on top — identical to buildEngine. */
+export function splitHeight(rows: number, mini = false): number[] {
   const tiers: number[] = [];
+  const max = moduleMaxRows(mini);
   let remaining = rows;
-  while (remaining > MODULE_MAX_ROWS) {
-    tiers.push(MODULE_MAX_ROWS);
-    remaining -= MODULE_MAX_ROWS;
+  while (remaining > max) {
+    tiers.push(max);
+    remaining -= max;
   }
   if (remaining > 0) tiers.push(remaining);
   return tiers;
 }
 
 /** Outside width of one module. Tote brand doesn't matter: the 21" bay fits both. */
-export function moduleWidthIn(cols: number, sideways = false): number {
+export function moduleWidthIn(cols: number, sideways = false, mini = false): number {
+  if (mini) return miniPlateLength(cols, sideways);
   return cols * bayOpeningIn(sideways) + (cols + 1) * POST_IN;
 }
 
 /** Frame height of one module (plates + upright), without casters. */
-export function moduleFrameHeightIn(rows: number): number {
+export function moduleFrameHeightIn(rows: number, mini = false): number {
+  if (mini) return miniFrameHeight(rows);
   return PLATES_H_IN + upright2x4(rows);
 }
 
 export function unitOuterSize(unit: TotePlanUnit): { widthIn: number; heightIn: number; depthIn: number } {
+  const mini = isMiniUnit(unit);
   return {
-    widthIn: splitWidth(unit.cols, unit.sideways).reduce((s, c) => s + moduleWidthIn(c, unit.sideways), 0),
+    widthIn: splitWidth(unit.cols, unit.sideways, mini).reduce((s, c) => s + moduleWidthIn(c, unit.sideways, mini), 0),
     heightIn:
-      splitHeight(unit.rows).reduce((s, r) => s + moduleFrameHeightIn(r), 0) + (unit.hasWheels ? CASTER_IN : 0),
-    depthIn: unitDepthIn(unit.sideways),
+      splitHeight(unit.rows, mini).reduce((s, r) => s + moduleFrameHeightIn(r, mini), 0) + (unit.hasWheels ? CASTER_IN : 0),
+    depthIn: unitDepthIn(unit.sideways, mini),
   };
 }
 
@@ -595,12 +678,13 @@ const CASTER_BASE_LENGTH_IN = 96;
 const CASTER_EXTRA_PAIR_EVERY_IN = 48;
 
 /** Upright centerlines across a unit, inches from its left end (seams have two). */
-export function unitUprightXs(unit: Pick<TotePlanUnit, "cols" | "sideways">): number[] {
+export function unitUprightXs(unit: Pick<TotePlanUnit, "cols" | "sideways"> & Partial<Pick<TotePlanUnit, "toteType">>): number[] {
+  const mini = unit.toteType === MINI_TOTE_TYPE;
   const xs: number[] = [];
   let offset = 0;
-  for (const cols of splitWidth(unit.cols, unit.sideways)) {
-    for (let i = 0; i <= cols; i++) xs.push(offset + POST_IN / 2 + i * (bayOpeningIn(unit.sideways) + POST_IN));
-    offset += moduleWidthIn(cols, unit.sideways);
+  for (const cols of splitWidth(unit.cols, unit.sideways, mini)) {
+    for (let i = 0; i <= cols; i++) xs.push(offset + POST_IN / 2 + i * (bayOpeningIn(unit.sideways, mini) + POST_IN));
+    offset += moduleWidthIn(cols, unit.sideways, mini);
   }
   return xs;
 }
@@ -618,7 +702,7 @@ export function casterPairCount(unit: Pick<TotePlanUnit, "cols" | "sideways">): 
  * Empty for units without casters.
  */
 export function casterPositions(unit: TotePlanUnit): number[] {
-  if (!unit.hasWheels) return [];
+  if (!unit.hasWheels || isMiniUnit(unit)) return [];
   const xs = unitUprightXs(unit);
   const first = xs[0];
   const last = xs[xs.length - 1];
@@ -658,7 +742,8 @@ export function fitTotePlanToWall(
   let cols = 0;
   while (cols < TOTE_PLAN_LIMITS.maxCols && unitOuterSize({ ...base, cols: cols + 1, rows: 1 }).widthIn <= wallWidthIn) cols++;
   let rows = 0;
-  while (rows < TOTE_PLAN_LIMITS.maxRows && unitOuterSize({ ...base, cols: 1, rows: rows + 1 }).heightIn <= wallHeightIn) rows++;
+  const maxRows = options.toteType === MINI_TOTE_TYPE ? TOTE_PLAN_LIMITS.maxRowsMini : TOTE_PLAN_LIMITS.maxRows;
+  while (rows < maxRows && unitOuterSize({ ...base, cols: 1, rows: rows + 1 }).heightIn <= wallHeightIn) rows++;
   if (cols < 1 || rows < 1) return null;
   return { cols, rows };
 }
@@ -766,8 +851,9 @@ export function designModules(design: TotePlanDesign): DesignModules {
   const letterByKey = new Map<string, string>();
 
   design.units.forEach((unit, unitIndex) => {
-    const widths = splitWidth(unit.cols, unit.sideways);
-    const tiers = splitHeight(unit.rows);
+    const mini = isMiniUnit(unit);
+    const widths = splitWidth(unit.cols, unit.sideways, mini);
+    const tiers = splitHeight(unit.rows, mini);
     const single = widths.length === 1 && tiers.length === 1;
     const letter = unitLetter(unitIndex);
     let moduleNumber = 0;
@@ -824,27 +910,27 @@ export function totePlanUnitLabel(unit: TotePlanUnit): string {
 
 export function totePlanName(design: TotePlanDesign): string {
   if (design.name) return design.name;
+  const product = isMiniDesign(design) ? MINI.name : "Tote Organizer";
   if (design.units.length === 1) {
     const u = design.units[0];
-    return `${u.cols}×${u.rows}${u.sideways ? " Sideways" : ""} Tote Organizer`;
+    return `${u.cols}×${u.rows}${u.sideways ? " Sideways" : ""} ${product}`;
   }
-  return `${design.units.length}-Unit Tote Organizer System`;
+  return `${design.units.length}-Unit ${product} System`;
 }
 
 export function totePlanSummary(design: TotePlanDesign): string {
   const totes = design.units.reduce((s, u) => s + u.cols * u.rows, 0);
   const brands = new Set(design.units.map((u) => u.toteType));
-  const parts = [
+  const parts: string[] = [
     design.units.length > 1
       ? `${design.units.map(totePlanUnitLabel).join(" + ")} · ${totes} totes`
       : `${totes} totes`,
-    brands.size > 1
-      ? "HDX + Greenmade totes"
-      : brands.has("HDX")
-        ? "HDX / Home Depot totes"
-        : "Greenmade / Costco totes",
+    // One universal 21" bay fits HDX, Greenmade and most other 27-gallon totes
+    brands.has(MINI_TOTE_TYPE) ? `${MINI.tote.name} totes` : "27-gallon totes",
   ];
-  if (design.units.length === 1 && design.units[0].sideways) parts.push("sideways (20\" deep)");
+  if (design.units.length === 1 && design.units[0].sideways) {
+    parts.push(`sideways (${unitDepthIn(true, isMiniUnit(design.units[0]))}" deep)`);
+  }
   if (design.units.some((u) => u.hasWheels)) parts.push("casters");
   if (design.units.some((u) => u.hasTop)) parts.push("plywood worktop");
   return parts.join(" · ");
@@ -1013,6 +1099,8 @@ export interface LayoutUnit {
   depthIn: number;
   /** Caster pair centerlines, inches from the left end of the design */
   casters: number[];
+  /** Mini Tote Rack unit (2×3 frame, plywood rails, 6.5 qt totes) */
+  mini?: boolean;
 }
 
 export interface DesignLayout {
@@ -1030,18 +1118,19 @@ export function designLayout(design: TotePlanDesign, unitGapIn = 8): DesignLayou
   let unitX = 0;
 
   design.units.forEach((unit, unitIndex) => {
-    const widths = splitWidth(unit.cols, unit.sideways);
-    const tiers = splitHeight(unit.rows);
+    const mini = isMiniUnit(unit);
+    const widths = splitWidth(unit.cols, unit.sideways, mini);
+    const tiers = splitHeight(unit.rows, mini);
     const base = unit.hasWheels ? CASTER_IN : 0;
     const colX: number[] = [];
     widths.reduce((x, c, i) => {
       colX[i] = x;
-      return x + moduleWidthIn(c, unit.sideways);
+      return x + moduleWidthIn(c, unit.sideways, mini);
     }, unitX);
     const tierY: number[] = [];
     tiers.reduce((y, r, i) => {
       tierY[i] = y;
-      return y + moduleFrameHeightIn(r);
+      return y + moduleFrameHeightIn(r, mini);
     }, base);
 
     for (const m of modules.filter((mm) => mm.unitIndex === unitIndex)) {
@@ -1055,8 +1144,8 @@ export function designLayout(design: TotePlanDesign, unitGapIn = 8): DesignLayou
         sideways: m.sideways,
         x: colX[m.widthIndex],
         y: tierY[m.tierIndex],
-        w: moduleWidthIn(m.cols, m.sideways),
-        h: moduleFrameHeightIn(m.rows),
+        w: moduleWidthIn(m.cols, m.sideways, mini),
+        h: moduleFrameHeightIn(m.rows, mini),
       });
     }
     const size = unitOuterSize(unit);
@@ -1069,6 +1158,7 @@ export function designLayout(design: TotePlanDesign, unitGapIn = 8): DesignLayou
       hasTop: unit.hasTop,
       depthIn: size.depthIn,
       casters: casterPositions(unit).map((c) => unitX + c),
+      ...(mini ? { mini: true } : {}),
     });
     unitX += size.widthIn + unitGapIn;
   });

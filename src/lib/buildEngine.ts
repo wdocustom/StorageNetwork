@@ -4,6 +4,7 @@
 // This file should ONLY be imported by server actions / server components.
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { MINI, miniMaxRowsPerTier, miniUpright } from "@/lib/mini-rack";
 import { splitModuleWidths } from "@/lib/module-split";
 import "server-only";
 
@@ -69,12 +70,13 @@ const STANDARD_DEPTH = 30;
 const SIDEWAYS_OPENING = 30.25; // Tote depth becomes slot width
 const SIDEWAYS_DEPTH = 20; // Tote width becomes unit depth
 
-// ── Mini Unit Constants ─────────────────────────────────────────────────
-const MINI_OPENING = 8.25; // 8" wide tote + clearance
-const MINI_GAP = 1.5; // same post width
-const MINI_TIER_HEIGHT = 7; // shorter vertical spacing
-const MINI_DEPTH = 12.75;
-const MINI_FIRST_RAIL_HEIGHT = 5.25;
+// ── Mini Unit Constants — measured from a built rack (@/lib/mini-rack) ──
+// 2×3 uprights + top/bottom plates, 1-1/4" plywood rails, rail tops at
+// 5-3/4" then every 6-1/2", upright = top rail + 2-1/2".
+const MINI_OPENING = MINI.opening;
+const MINI_GAP = MINI.postW; // 2×3 narrow face
+const MINI_TIER_HEIGHT = MINI.railPitch;
+const MINI_DEPTH = MINI.depth;
 
 // ── 2x4 Rail Construction Constants ────────────────────────────────────
 const RAILS_2X4_OPENING = 21;     // universal 21" opening
@@ -127,10 +129,8 @@ function getDepth(unitType: UnitType, orientation: Orientation): number {
 // Determines max rows per vertical tier so uprights fit in STOCK_LENGTH.
 function getMaxRowsPerTier(unitType: UnitType): number {
   if (unitType === "mini") {
-    // Mini: uprightH = MINI_FIRST_RAIL_HEIGHT + (rows-1)*MINI_TIER_HEIGHT + 2
-    // Solve: 5.25 + (rows-1)*7 + 2 <= 96  =>  rows <= 13.67  =>  13
-    // But mini is capped at 4 rows already, so this never triggers.
-    return 13;
+    // Mini: upright = 1-3/4" + 6-1/2" × rows ≤ 96" → 14 (installers cap minis at 4 rows anyway)
+    return miniMaxRowsPerTier();
   }
   // Standard: uprightH = rows * STANDARD_TIER_HEIGHT
   // Solve: rows * 16 <= 96  =>  rows <= 6
@@ -155,7 +155,7 @@ function splitHeightTiers(totalRows: number, unitType: UnitType): number[] {
 // Calculate upright height for a given number of rows
 function calcUprightHeight(rows: number, unitType: UnitType): number {
   if (unitType === "mini") {
-    return MINI_FIRST_RAIL_HEIGHT + (rows - 1) * MINI_TIER_HEIGHT + 2;
+    return miniUpright(rows);
   }
   return rows * getTierHeight(unitType);
 }
@@ -213,7 +213,7 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
 
   // modKey encodes: unitIdx, widthModIndex, heightTierIndex
   // This allows the bin packer to attribute boards correctly.
-  const allParts: (CutPart & { unitIdx: number; modKey: string })[] = [];
+  const allParts: (CutPart & { unitIdx: number; modKey: string; lumber?: "2x3" })[] = [];
   const moduleMetadata: {
     unitIdx: number;
     modKey: string;
@@ -397,6 +397,8 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
         // Where modules join, the abutting posts double up for structural strength.
         const postCount = (cols + 1) * 2;
         const tierSuffix = heightTiers.length > 1 ? ` T${heightTierIndex + 1}` : "";
+        // Mini racks are framed in 2×3s: packed onto their own boards
+        const lumber = unitType === "mini" ? "2x3" as const : undefined;
         for (let i = 0; i < postCount; i++) {
           allParts.push({
             len: uprightHeight,
@@ -404,13 +406,13 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
             type: "upright",
             unitIdx,
             modKey,
+            ...(lumber ? { lumber } : {}),
           });
         }
 
-        // Top & bottom plates for each tier
-        // 2x4 rail mode: 4 plates (top front, top back, bottom front, bottom back)
-        // Standard: 4 plates; Mini: 2 plates
-        const numRailSets = is2x4 ? 4 : (unitType === "mini" ? 2 : 4);
+        // Top & bottom plates for each tier: 4 (top front, top back, bottom
+        // front, bottom back) — mini racks have 2×3 top plates too
+        const numRailSets = 4;
         for (let k = 0; k < numRailSets; k++) {
           allParts.push({
             len: modWidth,
@@ -418,6 +420,7 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
             type: "rail",
             unitIdx,
             modKey,
+            ...(lumber ? { lumber } : {}),
           });
         }
 
@@ -549,11 +552,13 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
   // FFD sorts longest-first so tall uprights fill boards first, then shorter
   // rails/braces/plates fill the remaining offcuts — across unit types.
   allParts.sort((a, b) => b.len - a.len);
-  const globalBoards: { cuts: (CutPart & { modKey: string })[]; rem: number }[] = [];
+  const globalBoards: { cuts: (CutPart & { modKey: string })[]; rem: number; lumber?: "2x3" }[] = [];
 
   for (const p of allParts) {
     let placed = false;
     for (const b of globalBoards) {
+      // 2×4 and 2×3 parts never share a board
+      if (b.lumber !== p.lumber) continue;
       if (b.rem >= p.len + KERF) {
         b.cuts.push(p);
         b.rem -= p.len + KERF;
@@ -562,11 +567,12 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
       }
     }
     if (!placed) {
-      globalBoards.push({ cuts: [p], rem: STOCK_LENGTH - p.len });
+      globalBoards.push({ cuts: [p], rem: STOCK_LENGTH - p.len, ...(p.lumber ? { lumber: p.lumber } : {}) });
     }
   }
 
-  gBoards = globalBoards.length;
+  gBoards = globalBoards.filter((b) => !b.lumber).length;
+  const gBoards2x3 = globalBoards.filter((b) => b.lumber === "2x3").length;
 
   // ── PHASE 3: Unified per-module cut plans with offcut carry-forward ────
   // Process ALL modules (tote + shelving) in BUILD ORDER so offcuts from
@@ -736,9 +742,14 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
   const railBoards2x4 = Math.ceil(global2x4RailCount / yieldPerBoard);
 
   // ── Shopping List ─────────────────────────────────────────────────────
-  const shopping_list: ShoppingItem[] = [
-    { name: "2x4 Lumber", detail: "8 ft Standard (structural)", qty: gBoards },
-  ];
+  const shopping_list: ShoppingItem[] = [];
+  // An all-mini build has no 2×4 frame lumber
+  if (gBoards > 0 || gBoards2x3 === 0) {
+    shopping_list.push({ name: "2x4 Lumber", detail: "8 ft Standard (structural)", qty: gBoards });
+  }
+  if (gBoards2x3 > 0) {
+    shopping_list.push({ name: "2x3 Lumber", detail: "8 ft — mini rack uprights and plates", qty: gBoards2x3 });
+  }
 
   if (railBoards2x4 > 0) {
     shopping_list.push({

@@ -24,6 +24,7 @@ import {
 import { toFraction } from "@/lib/utils";
 import { railCenterFromBottom, railTopFromBottom } from "@/lib/rails2x4";
 import { useMeasure } from "@/lib/measure-units";
+import { MINI, miniDepth, miniOpening, miniPlateLength, miniRailTops, miniUpright } from "@/lib/mini-rack";
 import {
   ChevronRight,
   ChevronLeft,
@@ -41,7 +42,8 @@ import {
 // CONSTANTS — mirrors Rack3D.tsx exactly
 // ═══════════════════════════════════════════════════════════════════════════
 
-type ToteType = "HDX" | "GM";
+/** "MINI" = Mini Tote Rack (HDX 6.5 qt, 2×3 frame, 1-1/4" plywood rails — @/lib/mini-rack) */
+type ToteType = "HDX" | "GM" | "MINI";
 
 const POST_W = 1.5;
 const POST_D = 3.5;
@@ -84,9 +86,28 @@ interface FrameGeometry {
   railH: number;
   /** Front to back = rail length */
   depth: number;
+  /** Upright and plate depth front to back: 3-1/2" (2×4), 2-1/2" (mini 2×3) */
+  postD: number;
 }
 
 export function frameGeometry(cols: number, rows: number, toteType: ToteType, rails: RailStyle, sideways = false): FrameGeometry {
+  if (toteType === "MINI") {
+    // Mini Tote Rack: 2×3 frame, plywood strips ripped to 1-1/4", rails by top edge
+    const bayW = miniOpening(sideways);
+    const postH = miniUpright(rows);
+    return {
+      bayW,
+      totalW: miniPlateLength(cols, sideways),
+      plateLen: miniPlateLength(cols, sideways),
+      railCenters: miniRailTops(rows).map((t) => t - MINI.railH / 2),
+      postH,
+      frameH: PLATE_H + postH + PLATE_H,
+      railW: MINI.railT,
+      railH: MINI.railH,
+      depth: miniDepth(sideways),
+      postD: MINI.postD,
+    };
+  }
   if (rails === "2x4") {
     // Ripped 2×4 rails, universal 21" bays (30-1/4" × 20" deep sideways) — mirrors buildEngine / Rack3D
     const geo = rails2x4Geometry(sideways);
@@ -103,6 +124,7 @@ export function frameGeometry(cols: number, rows: number, toteType: ToteType, ra
       railW: RAILS_2X4.railW,
       railH: RAILS_2X4.railH,
       depth: geo.depth,
+      postD: POST_D,
     };
   }
   const bayW = getBayWidth(toteType);
@@ -123,6 +145,7 @@ export function frameGeometry(cols: number, rows: number, toteType: ToteType, ra
     railW: RAIL_THICKNESS,
     railH: RAIL_HEIGHT,
     depth: RACK_DEPTH,
+    postD: POST_D,
   };
 }
 
@@ -582,17 +605,20 @@ function PlywoodStrip({
   length,
   vis,
   label,
+  height = RAIL_HEIGHT,
 }: {
   position: [number, number, number];
   length: number;
   vis: PartVisibility;
   label?: string;
+  /** Strip height: 1-7/8" (installer plywood rails), 1-1/4" (mini) */
+  height?: number;
 }) {
   if (vis === "hidden") return null;
   const mat = vis === "ghosted" ? PLYWOOD_GHOST : PLYWOOD_MAT;
   const mesh = (
     <mesh position={position} material={mat} castShadow={vis === "visible"} receiveShadow={vis === "visible"}>
-      <boxGeometry args={[RAIL_THICKNESS, RAIL_HEIGHT, length]} />
+      <boxGeometry args={[RAIL_THICKNESS, height, length]} />
     </mesh>
   );
 
@@ -600,7 +626,7 @@ function PlywoodStrip({
     return (
       <HoverablePart label={label} position={position}>
         <mesh material={mat} castShadow receiveShadow>
-          <boxGeometry args={[RAIL_THICKNESS, RAIL_HEIGHT, length]} />
+          <boxGeometry args={[RAIL_THICKNESS, height, length]} />
         </mesh>
       </HoverablePart>
     );
@@ -671,8 +697,11 @@ function ExplodedAssembly({
   sideways = false,
   squareTapes,
 }: ExplodedAssemblyProps) {
-  const is2x4 = rails === "2x4";
-  const { bayW, totalW, plateLen, railCenters, postH, frameH, railW, railH, depth } = useMemo(
+  const isMini = toteType === "MINI";
+  const is2x4 = rails === "2x4" && !isMini;
+  /** Frame lumber in labels */
+  const stud = isMini ? "2×3" : "2×4";
+  const { bayW, totalW, plateLen, railCenters, postH, frameH, railW, railH, depth, postD } = useMemo(
     () => frameGeometry(cols, rows, toteType, rails, sideways),
     [cols, rows, toteType, rails, sideways],
   );
@@ -686,8 +715,10 @@ function ExplodedAssembly({
   const cz = RACK_DEPTH / 2;
 
   const railLen = RACK_DEPTH;
-  const railScrewLen = is2x4 ? 3.0 : 1.625;
-  const railScrewLabel = is2x4
+  const railScrewLen = isMini ? MINI.railScrewLength : is2x4 ? 3.0 : 1.625;
+  const railScrewLabel = isMini
+    ? '#8 × 1-1/4" Star Drive — through plywood rail into 2×3 upright'
+    : is2x4
     ? '#9 × 3" Star Drive — through 2×4 rail into upright'
     : '#9 × 1-5/8" Star Drive — through rail into post';
 
@@ -931,7 +962,7 @@ function ExplodedAssembly({
 
       if (showBottom) {
         // Bottom plate screws — 2 screws per post, spread along Z (parallel with post)
-        for (const zCenter of [POST_D / 2, RACK_DEPTH - POST_D / 2]) {
+        for (const zCenter of [postD / 2, RACK_DEPTH - postD / 2]) {
           screws.push({
             pos: [px, lift, zCenter - screwSpreadZ],
             rot: [Math.PI, 0, 0],
@@ -949,7 +980,7 @@ function ExplodedAssembly({
 
       if (showTop) {
         // Top plate screws — 2 screws per post, spread along Z (parallel with post)
-        for (const zCenter of [POST_D / 2, RACK_DEPTH - POST_D / 2]) {
+        for (const zCenter of [postD / 2, RACK_DEPTH - postD / 2]) {
           screws.push({
             pos: [px, frameH + lift, zCenter - screwSpreadZ],
             rot: [0, 0, 0],
@@ -981,16 +1012,16 @@ function ExplodedAssembly({
               targetPos={[0, bottomPlateExpY + (stepAnim.bp[1] as number), 0]}
             >
               <Lumber
-                position={[totalW / 2, PLATE_H / 2, POST_D / 2]}
-                size={[totalW, PLATE_H, POST_D]}
+                position={[totalW / 2, PLATE_H / 2, postD / 2]}
+                size={[totalW, PLATE_H, postD]}
                 vis={vis("bottomPlates")}
-                label={`2×4 Bottom Plate (front) — ${toFraction(plateLen)}" long, cut from 2×4×8' stock`}
+                label={`${stud} Bottom Plate (front) — ${toFraction(plateLen)}" long, cut from ${stud}×8' stock`}
               />
               <Lumber
-                position={[totalW / 2, PLATE_H / 2, RACK_DEPTH - POST_D / 2]}
-                size={[totalW, PLATE_H, POST_D]}
+                position={[totalW / 2, PLATE_H / 2, RACK_DEPTH - postD / 2]}
+                size={[totalW, PLATE_H, postD]}
                 vis={vis("bottomPlates")}
-                label={`2×4 Bottom Plate (back) — ${toFraction(plateLen)}" long, cut from 2×4×8' stock`}
+                label={`${stud} Bottom Plate (back) — ${toFraction(plateLen)}" long, cut from ${stud}×8' stock`}
               />
             </AnimatedGroup>
           </FadeGroup>
@@ -1001,20 +1032,20 @@ function ExplodedAssembly({
               targetPos={[0, topPlateExpY + (stepAnim.tp[1] as number), 0]}
             >
               <Lumber
-                position={[totalW / 2, frameH - PLATE_H / 2, POST_D / 2]}
-                size={[totalW, PLATE_H, POST_D]}
+                position={[totalW / 2, frameH - PLATE_H / 2, postD / 2]}
+                size={[totalW, PLATE_H, postD]}
                 vis={vis("topPlates")}
-                label={`2×4 Top Plate (front) — ${toFraction(plateLen)}" long, cut from 2×4×8' stock`}
+                label={`${stud} Top Plate (front) — ${toFraction(plateLen)}" long, cut from ${stud}×8' stock`}
               />
               <Lumber
                 position={[
                   totalW / 2,
                   frameH - PLATE_H / 2,
-                  RACK_DEPTH - POST_D / 2,
+                  RACK_DEPTH - postD / 2,
                 ]}
-                size={[totalW, PLATE_H, POST_D]}
+                size={[totalW, PLATE_H, postD]}
                 vis={vis("topPlates")}
-                label={`2×4 Top Plate (back) — ${toFraction(plateLen)}" long, cut from 2×4×8' stock`}
+                label={`${stud} Top Plate (back) — ${toFraction(plateLen)}" long, cut from ${stud}×8' stock`}
               />
             </AnimatedGroup>
           </FadeGroup>
@@ -1069,20 +1100,20 @@ function ExplodedAssembly({
                     ]}
                   >
                     <Lumber
-                      position={[px, PLATE_H + postH / 2, POST_D / 2]}
-                      size={[POST_W, postH, POST_D]}
+                      position={[px, PLATE_H + postH / 2, postD / 2]}
+                      size={[POST_W, postH, postD]}
                       vis={vis("posts")}
-                      label={`2×4 Upright (front) — ${toFraction(postH)}" tall, ${postH >= 96 ? "full 2×4×8' stud, no cut" : "cut from 2×4×8' stud"}`}
+                      label={`${stud} Upright (front) — ${toFraction(postH)}" tall, ${postH >= 96 ? `full ${stud}×8', no cut` : `cut from ${stud}×8'`}`}
                     />
                     <Lumber
                       position={[
                         px,
                         PLATE_H + postH / 2,
-                        RACK_DEPTH - POST_D / 2,
+                        RACK_DEPTH - postD / 2,
                       ]}
-                      size={[POST_W, postH, POST_D]}
+                      size={[POST_W, postH, postD]}
                       vis={vis("posts")}
-                      label={`2×4 Upright (back) — ${toFraction(postH)}" tall, ${postH >= 96 ? "full 2×4×8' stud, no cut" : "cut from 2×4×8' stud"}`}
+                      label={`${stud} Upright (back) — ${toFraction(postH)}" tall, ${postH >= 96 ? `full ${stud}×8', no cut` : `cut from ${stud}×8'`}`}
                     />
                   </AnimatedGroup>
                 </FadeGroup>
@@ -1112,8 +1143,9 @@ function ExplodedAssembly({
                             <PlywoodStrip
                               position={[railX, railY, RACK_DEPTH / 2]}
                               length={railLen}
+                              height={railH}
                               vis={vis("rails")}
-                              label={`3/4" Plywood Rail — 1-7/8" × ${railLen}" long, top edge ${toFraction(railFromBottom + railH / 2)}" from bottom of upright`}
+                              label={`3/4" Plywood Rail — ${isMini ? "1-1/4" : "1-7/8"}" × ${toFraction(railLen)}" long, top edge ${toFraction(railFromBottom + railH / 2)}" from bottom of upright`}
                             />
                           )}
                         </AnimatedGroup>
@@ -1146,8 +1178,9 @@ function ExplodedAssembly({
                             <PlywoodStrip
                               position={[railX, railY, RACK_DEPTH / 2]}
                               length={railLen}
+                              height={railH}
                               vis={vis("rails")}
-                              label={`3/4" Plywood Rail — 1-7/8" × ${railLen}" long, top edge ${toFraction(railFromBottom + railH / 2)}" from bottom of upright`}
+                              label={`3/4" Plywood Rail — ${isMini ? "1-1/4" : "1-7/8"}" × ${toFraction(railLen)}" long, top edge ${toFraction(railFromBottom + railH / 2)}" from bottom of upright`}
                             />
                           )}
                         </AnimatedGroup>
@@ -1174,10 +1207,10 @@ function ExplodedAssembly({
                     <>
                       {(
                         [
-                          [firstPostX, POST_D / 2],
-                          [lastPostX, POST_D / 2],
-                          [firstPostX, RACK_DEPTH - POST_D / 2],
-                          [lastPostX, RACK_DEPTH - POST_D / 2],
+                          [firstPostX, postD / 2],
+                          [lastPostX, postD / 2],
+                          [firstPostX, RACK_DEPTH - postD / 2],
+                          [lastPostX, RACK_DEPTH - postD / 2],
                         ] as [number, number][]
                       ).map(([x, z], i) => (
                         <mesh
@@ -1198,25 +1231,25 @@ function ExplodedAssembly({
                     <>
                       <HoverablePart
                         label='5" Heavy-Duty Swivel Caster — 4 lag screws per mount plate'
-                        position={[firstPostX, 0, POST_D / 2]}
+                        position={[firstPostX, 0, postD / 2]}
                       >
                         <IndustrialCaster position={[0, 0, 0]} />
                       </HoverablePart>
                       <HoverablePart
                         label='5" Heavy-Duty Swivel Caster — 4 lag screws per mount plate'
-                        position={[lastPostX, 0, POST_D / 2]}
+                        position={[lastPostX, 0, postD / 2]}
                       >
                         <IndustrialCaster position={[0, 0, 0]} />
                       </HoverablePart>
                       <HoverablePart
                         label='5" Heavy-Duty Swivel Caster — 4 lag screws per mount plate'
-                        position={[firstPostX, 0, RACK_DEPTH - POST_D / 2]}
+                        position={[firstPostX, 0, RACK_DEPTH - postD / 2]}
                       >
                         <IndustrialCaster position={[0, 0, 0]} />
                       </HoverablePart>
                       <HoverablePart
                         label='5" Heavy-Duty Swivel Caster — 4 lag screws per mount plate'
-                        position={[lastPostX, 0, RACK_DEPTH - POST_D / 2]}
+                        position={[lastPostX, 0, RACK_DEPTH - postD / 2]}
                       >
                         <IndustrialCaster position={[0, 0, 0]} />
                       </HoverablePart>
@@ -1242,10 +1275,12 @@ function ExplodedAssembly({
             ? bsVis === "ghosted" ? PINE_GHOST : PINE_MAT
             : bsVis === "ghosted" ? PLYWOOD_GHOST : PLYWOOD_MAT;
           // Plywood: 1-7/8" face × 3/4" thick. 2×4: 1-9/16" face × 1-1/2" thick.
-          const braceFace = is2x4 ? RAILS_2X4.railH : RAIL_HEIGHT;
+          const braceFace = isMini ? MINI.railH : is2x4 ? RAILS_2X4.railH : RAIL_HEIGHT;
           const braceThick = is2x4 ? RAILS_2X4.railW : RAIL_THICKNESS;
-          const braceScrewLen = is2x4 ? 3.0 : 1.625;
-          const braceScrewLabel = is2x4
+          const braceScrewLen = isMini ? MINI.railScrewLength : is2x4 ? 3.0 : 1.625;
+          const braceScrewLabel = isMini
+            ? '#8 × 1-1/4" — through plywood brace into 2×3 plate/upright'
+            : is2x4
             ? '#9 × 3" — through 2×4 brace into plate/upright'
             : '#9 × 1-5/8" — through brace into plate/post';
           const braceAngle = Math.PI / 4; // 45°
@@ -1267,7 +1302,8 @@ function ExplodedAssembly({
           ];
           // 2×4 frames: braces sized to the frame (short frames can't fit
           // 30" corner braces) — same layout the step text and counts use
-          const layout2x4 = is2x4 ? braceLayout2x4(cols, rows, sideways) : null;
+          // Minis: the same sized layout, from 1-1/4" plywood strips
+          const layout2x4 = is2x4 || isMini ? braceLayout2x4(cols, rows, sideways, isMini) : null;
           if (layout2x4) {
             const ox = firstPostX;
             const oy = lift + PLATE_H / 2; // bottom plate centerline
@@ -1820,7 +1856,7 @@ export default function AssemblyGuide({
   cols,
   rows,
   toteType,
-  hasWheels = true,
+  hasWheels: hasWheelsProp = true,
   hasTop = false,
   onClose,
   label,
@@ -1829,6 +1865,8 @@ export default function AssemblyGuide({
   sideways = false,
   onStep,
 }: AssemblyGuideProps) {
+  // Mini racks never roll (a 2×3 plate is narrower than a caster plate)
+  const hasWheels = toteType === "MINI" ? false : hasWheelsProp;
   const config: BuildConfig = { hasWheels, hasTop, toteType, rails, sideways };
   const steps = useMemo(() => getStepsForConfig(config), [hasWheels, hasTop, toteType, rails, sideways]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1992,7 +2030,7 @@ export default function AssemblyGuide({
                   Exploded View
                 </p>
                 <p className="mt-0.5 text-sm font-semibold text-white">
-                  {label ?? `${cols}×${rows} ${toteType} Storage Unit`}
+                  {label ?? (toteType === "MINI" ? `${cols}×${rows} Mini Tote Rack` : `${cols}×${rows} ${toteType} Storage Unit`)}
                 </p>
                 <p className="text-xs text-stone-400">
                   Tap any piece for dimensions
@@ -2031,7 +2069,7 @@ export default function AssemblyGuide({
               <div className="rounded-lg bg-slate-900/80 px-3 py-1.5 shadow-lg backdrop-blur">
                 <p className="text-[10px] font-bold text-stone-400">
                   {label ? `${label} · ` : ""}
-                  {cols}×{rows} {toteType}
+                  {cols}×{rows} {toteType === "MINI" ? "Mini" : toteType}
                   {hasWheels ? " + Wheels" : ""}
                   {hasTop ? " + Top" : ""}
                 </p>
@@ -2108,7 +2146,7 @@ export function AssemblyStepSnapshots({
   cols,
   rows,
   toteType,
-  hasWheels = true,
+  hasWheels: hasWheelsProp = true,
   hasTop = false,
   width = 1400,
   height = 1050,
@@ -2129,6 +2167,7 @@ export function AssemblyStepSnapshots({
   onProgress?: (done: number, total: number) => void;
   onComplete: (snapshots: AssemblyStepSnapshot[]) => void;
 }) {
+  const hasWheels = toteType === "MINI" ? false : hasWheelsProp;
   const steps = useMemo(
     () => getStepsForConfig({ hasWheels, hasTop, toteType, rails }),
     [hasWheels, hasTop, toteType, rails],

@@ -46,6 +46,9 @@ import { LADDER_JIG_PLAN_ID, ladderJigHref } from "@/lib/ladder-jig";
 import {
   TOTE_PLAN_ALL_ACCESS_TIER,
   TOTE_PLAN_ID,
+  TOTE_PLAN_MINI,
+  isTotePlanProduct,
+  planIdForDesign,
   TOTE_PLAN_LIMITS,
   decodeTotePlanDesign,
   encodeTotePlanDesign,
@@ -120,9 +123,11 @@ async function buildResult(
   // build_config is a design ({units, name}) or, for purchases made before
   // multi-unit plans, a single unit config — parseTotePlanDesign reads both.
   const design = parseTotePlanDesign(row.build_config);
-  if (row.plan_id !== TOTE_PLAN_ID || !design || !isTotePlanTier(row.tier)) {
+  if (!isTotePlanProduct(row.plan_id) || !design || !isTotePlanTier(row.tier)) {
     return { ok: false, error: "This link isn't for a tote organizer plan." };
   }
+  // Mini plans are their own product; the ladder jig marks 2×4 rails only.
+  const mini = row.plan_id === TOTE_PLAN_MINI.id;
   const plan = await generateDIYPlan(design);
   const { data: jigRow } = await getServiceClient()
     .from("public_plan_purchases")
@@ -142,9 +147,13 @@ async function buildResult(
     firstName: firstNameOf(row.customer_name),
     license: { email: row.email, order: orderRef(row.access_token) },
     access: "purchase",
-    jig: jigRow
-      ? { owned: true, href: `/plans/jig?token=${jigRow.access_token}` }
-      : { owned: false, href: ladderJigHref(row.access_token) },
+    ...(mini
+      ? {}
+      : {
+          jig: jigRow
+            ? { owned: true, href: `/plans/jig?token=${jigRow.access_token}` }
+            : { owned: false, href: ladderJigHref(row.access_token) },
+        }),
     ...extras,
   };
 }
@@ -220,7 +229,7 @@ async function openFromCheckout(sessionId: string): Promise<OpenTotePlanResult> 
     email = row.email;
   } else {
     const session = await getStripe().checkout.sessions.retrieve(sessionId);
-    if (session.payment_status !== "paid" || session.metadata?.type !== "diy_plan") {
+    if (session.payment_status !== "paid" || (session.metadata?.type !== "diy_plan" && session.metadata?.type !== "mini_plan")) {
       return { ok: false, error: "We couldn't confirm that payment." };
     }
     const done = await fulfilPlanSession(session);
@@ -314,33 +323,59 @@ async function applyUpgrade(row: PurchaseRow, upgradeSessionId: string): Promise
 
 export type AllAccessResult =
   | { ok: true; emailHint: string }
-  | { ok: false; error: string; verify?: { token: string; emailHint: string } };
+  | { ok: false; error: string; notOwned?: boolean; verify?: { token: string; emailHint: string } };
 
 function maskEmail(email: string): string {
   const [user, domain] = email.split("@");
   return domain ? `${user.slice(0, 2)}•••@${domain}` : "your email";
 }
 
-/** The tote purchase behind an access link, if it unlocks All-Access on this device. */
+/**
+ * The purchase behind an access link that unlocks `planId` (All-Access, or
+ * Mini Tote Rack Plans) on this device. The link may be for the other
+ * product: the same email's purchase of `planId` counts. `notOwned` = a
+ * real plan link whose email hasn't bought `planId`.
+ */
 async function allAccessRow(
-  token: string
-): Promise<{ row: PurchaseRow } | { error: string; verify?: { token: string; emailHint: string } }> {
-  const row = await findByToken(token);
-  if (!row || row.plan_id !== TOTE_PLAN_ID) return { error: "This link isn't for a tote organizer plan." };
-  const device = await checkPlanDevice(row.email);
+  token: string,
+  planId: string = TOTE_PLAN_ID,
+): Promise<{ row: PurchaseRow } | { error: string; notOwned?: boolean; verify?: { token: string; emailHint: string } }> {
+  const link = await findByToken(token);
+  if (!link || !isTotePlanProduct(link.plan_id)) return { error: "This link isn't for a tote organizer plan." };
+  const device = await checkPlanDevice(link.email);
   if (!device.ok) {
     return {
       error: "Confirm it's you to use your plans on this device.",
-      verify: { token: row.access_token, emailHint: device.emailHint },
+      verify: { token: link.access_token, emailHint: device.emailHint },
     };
   }
-  return { row };
+  if (link.plan_id === planId) return { row: link };
+  const { data } = await getServiceClient()
+    .from("public_plan_purchases")
+    .select(PURCHASE_COLUMNS)
+    .eq("email", link.email)
+    .eq("plan_id", planId)
+    .order("purchased_at", { ascending: true })
+    .limit(1);
+  const owned = ((data as PurchaseRow[] | null) ?? [])[0];
+  if (!owned) {
+    return {
+      error: planId === TOTE_PLAN_MINI.id ? "Your plans don't include Mini Tote Rack Plans yet." : "Your plans don't include the 27-gallon tote racks yet.",
+      notOwned: true,
+    };
+  }
+  return { row: owned };
 }
 
-/** Does this link unlock free plans? (The designer asks before showing "Generate — included".) */
-export async function checkAllAccess(token: string): Promise<AllAccessResult> {
+/**
+ * Does this link unlock free plans for this product? (The designer asks
+ * before showing "Generate — included".) `product: "mini"` asks about Mini
+ * Tote Rack Plans; `bigOwner` then says whether the link's email owns the
+ * 27-gal All-Access plans (the mini owner price).
+ */
+export async function checkAllAccess(token: string, product?: "mini"): Promise<AllAccessResult> {
   try {
-    const found = await allAccessRow(token);
+    const found = await allAccessRow(token, product === "mini" ? TOTE_PLAN_MINI.id : TOTE_PLAN_ID);
     if ("error" in found) return { ok: false, ...found };
     return { ok: true, emailHint: maskEmail(found.row.email) };
   } catch (err) {
@@ -380,8 +415,10 @@ export async function createIncludedPlan(token: string, rawDesign: unknown): Pro
         error: `Plans cover up to ${TOTE_PLAN_LIMITS.maxUnits} standard tote units, each up to ${TOTE_PLAN_LIMITS.maxCols} wide × ${TOTE_PLAN_LIMITS.maxRows} tall.`,
       };
     }
-    const found = await allAccessRow(token);
-    if ("error" in found) return { ok: false, ...found };
+    // A mini design needs Mini Tote Rack Plans; anything else needs All-Access.
+    const planId = planIdForDesign(design);
+    const found = await allAccessRow(token, planId);
+    if ("error" in found) return { ok: false, error: found.error, ...(found.verify ? { verify: found.verify } : {}) };
     const { row } = found;
     const db = getServiceClient();
 
@@ -391,7 +428,7 @@ export async function createIncludedPlan(token: string, rawDesign: unknown): Pro
       .from("public_plan_purchases")
       .select("access_token, build_config")
       .eq("email", row.email)
-      .eq("plan_id", TOTE_PLAN_ID);
+      .eq("plan_id", planId);
     for (const o of (owned ?? []) as { access_token: string; build_config: unknown }[]) {
       const d = parseTotePlanDesign(o.build_config);
       if (d && encodeTotePlanDesign(d) === wanted) return { ok: true, token: o.access_token };
@@ -401,7 +438,7 @@ export async function createIncludedPlan(token: string, rawDesign: unknown): Pro
       .from("public_plan_purchases")
       .insert({
         email: row.email,
-        plan_id: TOTE_PLAN_ID,
+        plan_id: planId,
         tier: TOTE_PLAN_ALL_ACCESS_TIER,
         build_config: design,
         // NOT NULL and unique; included plans have no Stripe session.
@@ -418,7 +455,7 @@ export async function createIncludedPlan(token: string, rawDesign: unknown): Pro
       return { ok: false, error: "We couldn't create that plan. Please try again." };
     }
     await recordPlanActivity(
-      { access_token: inserted.access_token as string, email: row.email, plan_id: TOTE_PLAN_ID },
+      { access_token: inserted.access_token as string, email: row.email, plan_id: planId },
       "included_plan",
       { detail: design.name ?? `${design.units.length} unit${design.units.length === 1 ? "" : "s"}` },
     );

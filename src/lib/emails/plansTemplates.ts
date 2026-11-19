@@ -5,6 +5,8 @@ import type { PublicPlan } from "@/lib/plans-config";
 import { LADDER_JIG_NAME, LADDER_JIG_TAGLINE } from "@/lib/ladder-jig";
 import {
   TOTE_PLAN_ALL_ACCESS,
+  TOTE_PLAN_MINI,
+  isMiniDesign,
   designFromItems,
   formatPlanPrice,
   totePlanDesignHref,
@@ -135,7 +137,9 @@ export async function sendTotePlanAccessEmail(
   const appUrl = getAppUrl();
   const accessUrl = `${appUrl}/plans/build?token=${accessToken}`;
   const name = totePlanName(design);
-  const info = TOTE_PLAN_ALL_ACCESS;
+  // Mini Tote Rack Plans are their own product, with the same lifetime model.
+  const mini = isMiniDesign(design);
+  const info = mini ? TOTE_PLAN_MINI : TOTE_PLAN_ALL_ACCESS;
   // Every tote plan opens with full access (All-Access); the tier is history.
   void tier;
   const buildAnotherUrl = `${appUrl}/plans/checkout?member=${accessToken}`;
@@ -166,7 +170,7 @@ export async function sendTotePlanAccessEmail(
 
     <div style="background:#06281e;border:1px solid #065f46;border-radius:8px;padding:16px 20px;margin-bottom:20px;text-align:center;">
       <p style="margin:0 0 4px;color:#6ee7b7;font-size:14px;font-weight:800;">Build another? It&rsquo;s included.</p>
-      <p style="margin:0 0 10px;color:#a7f3d0;font-size:12px;line-height:1.5;">All-Access covers every tote organizer you design, for life. New size, new plan, free.</p>
+      <p style="margin:0 0 10px;color:#a7f3d0;font-size:12px;line-height:1.5;">${mini ? "Your Mini Tote Rack Plans cover every mini rack you design, for life." : "All-Access covers every tote organizer you design, for life."} New size, new plan, free.</p>
       <a href="${buildAnotherUrl}" style="color:#6ee7b7;font-size:13px;font-weight:800;text-decoration:none;">Build another plan &rarr;</a>
     </div>
 
@@ -189,7 +193,7 @@ export async function sendTotePlanAccessEmail(
 
   return sendTransactionalEmail({
     to: email,
-    subject: `Your ${name} build plan — All-Access is yours`,
+    subject: mini ? `Your ${name} build plan — every mini size is yours` : `Your ${name} build plan — All-Access is yours`,
     html: masterEmailLayout(`${name} — ${info.name}`, body),
   });
 }
@@ -271,8 +275,11 @@ export async function sendPlanDesignSavedEmail(
   design: TotePlanDesign,
   link: string,
   priceLabel: string,
+  /** Mini designs: their regular price (no "was $19" strike-through) */
+  regularCents?: number,
 ): Promise<SendEmailResult> {
   const name = totePlanName(design);
+  const regular = formatPlanPrice(regularCents ?? TOTE_PLAN_ALL_ACCESS.price);
   const body = `
     <p style="margin:0 0 18px;color:#a3a3a3;font-size:15px;line-height:1.7;text-align:center;">
       Here&rsquo;s the tote rack you designed. Open it any time to tweak it or get the plans.
@@ -282,7 +289,7 @@ export async function sendPlanDesignSavedEmail(
       <p style="margin:0 0 16px;color:#888;font-size:13px;">${totePlanSummary(design)}</p>
       <p style="margin:0 0 4px;color:#facc15;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">Your price</p>
       <p style="margin:0 0 18px;color:#fff;font-size:30px;font-weight:900;">
-        ${usdMoney(priceLabel)}${priceLabel !== formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price) ? ` <span style="color:#666;font-size:16px;font-weight:600;text-decoration:line-through;">${usdMoney(formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price))}</span>` : ""}
+        ${usdMoney(priceLabel)}${priceLabel !== regular ? ` <span style="color:#666;font-size:16px;font-weight:600;text-decoration:line-through;">${usdMoney(regular)}</span>` : ""}
       </p>
       <a href="${link}" style="display:inline-block;background:#facc15;color:#000;font-size:15px;font-weight:800;padding:14px 28px;border-radius:10px;text-decoration:none;">
         Open my design &rarr;

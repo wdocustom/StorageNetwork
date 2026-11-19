@@ -11,7 +11,7 @@ import { trackPlanEvent } from "@/lib/plan-events";
 import { ChevronDown, Loader2, ShoppingCart } from "lucide-react";
 import { estimatePlanMaterials } from "@/app/actions/plan-materials";
 import { RETAIL_PRICES_CHECKED, type MaterialEstimate } from "@/lib/plan-retail-prices";
-import { TOTE_PLAN_ALL_ACCESS, encodeTotePlanDesign, formatPlanPrice, type TotePlanDesign } from "@/lib/tote-plans";
+import { TOTE_PLAN_ALL_ACCESS, TOTE_PLAN_MINI, encodeTotePlanDesign, formatPlanPrice, isMiniDesign, type TotePlanDesign } from "@/lib/tote-plans";
 
 const dollars = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
@@ -54,8 +54,10 @@ export default function MaterialCostCard({ design }: { design: TotePlanDesign })
           </p>
           {estimate && (
             <p className="text-[11px] text-stone-400">
-              DIY total ≈ {dollars(estimate.materialsTotal + TOTE_PLAN_ALL_ACCESS.price / 100)} with{" "}
-              {formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price)} All-Access plans
+              DIY total ≈ {dollars(estimate.materialsTotal + (isMiniDesign(design) ? TOTE_PLAN_MINI.price : TOTE_PLAN_ALL_ACCESS.price) / 100)} with{" "}
+              {isMiniDesign(design)
+                ? `${formatPlanPrice(TOTE_PLAN_MINI.price)} ${TOTE_PLAN_MINI.name}`
+                : `${formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price)} All-Access plans`}
             </p>
           )}
         </div>
@@ -88,8 +90,26 @@ export default function MaterialCostCard({ design }: { design: TotePlanDesign })
             <li className="flex items-center gap-2 px-3 py-2 text-stone-500">
               <span className="min-w-0 flex-1">
                 + {estimate.totes.count} totes, if you need them
+                {estimate.totes.url && (
+                  <a
+                    href={estimate.totes.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => trackPlanEvent("tote_link")}
+                    className="ml-1.5 font-semibold text-yellow-400 hover:underline"
+                  >
+                    {estimate.totes.deal ?? "Home Depot"} →
+                  </a>
+                )}
               </span>
-              <span className="w-16 text-right">${estimate.totes.total.toFixed(2)}</span>
+              <span className="w-24 text-right">
+                {estimate.totes.regularTotal !== undefined && (
+                  <span className="mr-1.5 text-stone-600 line-through">${estimate.totes.regularTotal.toFixed(2)}</span>
+                )}
+                <span className={estimate.totes.regularTotal !== undefined ? "font-bold text-emerald-300" : ""}>
+                  ${estimate.totes.total.toFixed(2)}
+                </span>
+              </span>
             </li>
           </ul>
           <p className="border-t border-slate-800 px-3 py-2 text-[10px] text-stone-600">

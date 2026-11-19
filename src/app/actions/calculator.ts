@@ -10,6 +10,7 @@ export type UnitType = "standard" | "mini";
 export type Orientation = "standard" | "sideways";
 
 import type { InstallerPricing, SectionAddon, AddonPricing } from "@/types/viewModels";
+import { MINI, miniFrameHeight } from "@/lib/mini-rack";
 import { PLATFORM_BESTSELLER_DEFAULTS, PLATFORM_SHELVING_DEFAULTS, ADDON_PLATFORM_DEFAULTS } from "@/lib/server/pricing-constants";
 
 interface CalculateBuildInput {
@@ -159,24 +160,25 @@ const SIDEWAYS_CONFIG: UnitDimensionConfig = {
 
 // ── Mini Unit (6.5 Quart Totes) ──────────────────────────────────────────
 const MINI_CONFIG: UnitDimensionConfig = {
-  slotWidth: 8.25,             // Fits 8" wide tote
-  verticalSpacing: 7,          // 7" rail-to-rail
-  firstRailHeight: 5.25,       // 5.25" from bottom plate
-  depth: 12.75,                // 12.75" deep
+  // Measured from a built rack — @/lib/mini-rack is the source of truth
+  slotWidth: MINI.opening,          // 8-1/4" between uprights
+  verticalSpacing: MINI.railPitch,  // 6-1/2" rail top to rail top
+  firstRailHeight: MINI.firstRailTop, // top of first rail 5-3/4" from bottom of upright
+  depth: MINI.depth,                // 12-3/4" deep
 
-  postWidth: 1.5,              // 2x4 narrow face (same as standard)
-  postDepth: 3.5,              // 2x4 wide face
-  plateHeight: 1.5,            // 2x4 bottom plate only
-  topGap: 0,                   // No top plate gap (solid plywood top)
+  postWidth: MINI.postW,            // 2×3 narrow face
+  postDepth: MINI.postD,            // 2×3 wide face
+  plateHeight: MINI.plateH,         // 2×3 plates, top and bottom
+  topGap: MINI.aboveTopRail,        // 2-1/2" above the top rail to the top plate
 
-  railWidth: 1.0,              // 1" wide plywood strips
-  railThickness: 0.75,         // 3/4" plywood
+  railWidth: MINI.railH,            // 3/4" plywood ripped to 1-1/4"
+  railThickness: MINI.railT,        // 3/4" plywood
 
-  toteWidth: 8,                // 8" wide shoebox tote
-  toteHeight: 6.25,            // Approx 6.25" tall
-  toteDepth: 12.75,            // Same as unit depth
+  toteWidth: MINI.tote.width,       // HDX 6.5 qt: 8" lid
+  toteHeight: MINI.tote.height,     // 6-1/4" tall
+  toteDepth: MINI.tote.length,      // 12-3/4"
 
-  hasTopPlate: false,          // No 2x4 top plates
+  hasTopPlate: true,                // 2×3 top plates
   topIsMandatory: true,        // Always has plywood top
 
   pricePerSlot: 15,            // Lower price for mini
@@ -307,6 +309,10 @@ export async function calculateBuild(
           break;
         }
       }
+    } else if (unitType === "mini") {
+      // Mini: as many rows as fit with both 2×3 plates and the plywood top
+      rows = 0;
+      while (miniFrameHeight(rows + 1) + 0.75 <= effectiveWallHeight && rows < MINI_MAX_TIERS) rows++;
     } else {
       const usableHeight = effectiveWallHeight - config.plateHeight - (config.hasTopPlate ? config.plateHeight : 0) - config.firstRailHeight;
       rows = Math.floor(usableHeight / config.verticalSpacing) + 1;
@@ -348,10 +354,8 @@ export async function calculateBuild(
     // Example: 4×2 = 1.5 + 31-1/2 + 1.5 = 34-1/2" total
     frameH = config.plateHeight * 2 + upright2x4Length(rows);
   } else if (unitType === "mini") {
-    // Mini: bottom plate + first rail height + (rows-1) * spacing + top plywood
-    // No top 2x4 plates, just plywood top
-    const lastRailHeight = config.firstRailHeight + (rows - 1) * config.verticalSpacing;
-    frameH = config.plateHeight + lastRailHeight + 2 + 0.75; // +2" clearance above last rail + 3/4" plywood top
+    // Mini: 2×3 bottom plate + upright (top rail + 2-1/2") + 2×3 top plate + 3/4" plywood top
+    frameH = miniFrameHeight(rows) + 0.75;
   } else {
     // Standard: bottom plate + top plate + rails + top gap
     frameH = rows * config.verticalSpacing + config.plateHeight * 2 + config.topGap;

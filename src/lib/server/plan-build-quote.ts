@@ -3,7 +3,7 @@ import "server-only";
 import { calculateBuild, calculateCompoundBuild } from "@/app/actions/calculator";
 import { expandPresetUnits } from "@/lib/buildEngine.types";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
-import { bestsellerInstances, type TotePlanDesign } from "@/lib/tote-plans";
+import { bestsellerInstances, isMiniUnit, type TotePlanDesign } from "@/lib/tote-plans";
 import type { InstallerPricing } from "@/types/viewModels";
 import type { QuoteUnit } from "@/app/actions/submit-lead";
 
@@ -35,6 +35,10 @@ export async function priceDesignForInstaller(
   includeTotes: boolean,
 ): Promise<PlanBuildQuote | null> {
   const totes = includeTotes && pricing?.totes_disabled !== true;
+  // Installers build minis up to 4 high (MINI_MAX_TIERS in the calculator):
+  // a taller mini design can't be quoted as designed.
+  // Installers have no sideways mini either.
+  if (design.units.some((u) => isMiniUnit(u) && (u.rows > 4 || u.sideways))) return null;
   const instances = bestsellerInstances(design.units).filter((i) => !bestsellerDisabled(pricing, i.presetId));
   const items: (QuoteUnit & Record<string, unknown>)[] = [];
 
@@ -76,11 +80,12 @@ export async function priceDesignForInstaller(
     }
 
     const u = design.units[i];
+    const mini = isMiniUnit(u);
     const res = await calculateBuild({
       cols: u.cols,
       rows: u.rows,
-      toteModel: u.toteType,
-      unitType: "standard",
+      toteModel: u.toteType === "GM" ? "GM" : "HDX",
+      unitType: mini ? "mini" : "standard",
       orientation: u.sideways ? "sideways" : "standard",
       addOns: { totes, wheels: u.hasWheels, top: u.hasTop },
       mode: "manual",
@@ -90,9 +95,9 @@ export async function priceDesignForInstaller(
     items.push({
       cols: res.cols,
       rows: res.rows,
-      toteType: u.toteType,
+      toteType: u.toteType === "GM" ? "GM" : "HDX",
       toteColor: "black",
-      unitType: "standard",
+      unitType: mini ? "mini" : "standard",
       orientation: u.sideways ? "sideways" : "standard",
       hasTotes: res.config.hasTotes,
       hasWheels: res.config.hasWheels,
@@ -101,7 +106,7 @@ export async function priceDesignForInstaller(
       totalW: res.dimensions.totalW,
       totalH: res.dimensions.totalH,
       depth: res.dimensions.depth,
-      desc: `${u.sideways ? "Standard (Sideways)" : "Standard"}: ${res.cols}W × ${res.rows}H`,
+      desc: mini ? `Mini: ${res.cols}W × ${res.rows}H` : `${u.sideways ? "Standard (Sideways)" : "Standard"}: ${res.cols}W × ${res.rows}H`,
       addons: [],
     });
     i += 1;

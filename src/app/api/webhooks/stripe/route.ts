@@ -420,6 +420,7 @@ const PLAN_PURCHASE_TYPES = new Set([
   "diy_plan_gift",
   "public_plan",
   "ladder_jig",
+  "mini_plan",
 ]);
 
 async function processPromoterCommission(session: Stripe.Checkout.Session) {
@@ -758,7 +759,7 @@ export async function POST(request: NextRequest) {
     // Tote plan / ladder jig: record the purchase and email the link here,
     // so a buyer who closes the tab after paying still gets their plans
     // (the return page and the hourly reconcile do the same, idempotently).
-    if (metadata.type === "diy_plan" || metadata.type === "ladder_jig") {
+    if (metadata.type === "diy_plan" || metadata.type === "ladder_jig" || metadata.type === "mini_plan") {
       try {
         const { fulfilPlanSession } = await import("@/lib/server/plan-fulfilment");
         const done = await fulfilPlanSession(session);
@@ -775,6 +776,8 @@ export async function POST(request: NextRequest) {
       });
       if (!metadata.promoter_id) return NextResponse.json({ received: true });
     }
+    // Mini plans: no installer splits; only a promoter link earns on them.
+    if (metadata.type === "mini_plan" && !metadata.promoter_id) return NextResponse.json({ received: true });
 
     // ═════════════════════════════════════════════════════════════════════
     // PROMOTER PROGRAM — individualized-cut commission on plan-purchase
