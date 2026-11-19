@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, ContactShadows, Html } from "@react-three/drei";
-import { Group, Vector3 } from "three";
+import { CanvasTexture, Group, Mesh, RepeatWrapping, SRGBColorSpace, Vector3 } from "three";
 import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
 import { createDougFirMaterial, createPlywoodMaterial } from "./woodTextures";
 import ConstructionScrew from "./ConstructionScrew";
@@ -34,6 +34,7 @@ import {
   Package,
   Lightbulb,
   Hammer,
+  Ruler,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -297,6 +298,250 @@ function HoverablePart({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// SQUARE CHECK — two tape measures across the back face's diagonals
+//
+// For the steps where the frame lies on its front and gets checked for
+// square (step.squareCheck). Real-world scale: a 3" case and a 1" blade, so
+// it reads as a tool next to a 6-foot rack. The hook stays on one corner and
+// the case pulls out to the opposite corner; then the second tape does the
+// other diagonal. Each shows its length when it lands, then a callout says
+// they should match within 1/8". Snapshots (PDF) draw both laid out, with
+// the callout painted into the image (no HTML in a captured frame).
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Seconds: wait for the step card to collapse, pull each tape, pause between. */
+const TAPE_DELAY = 0.45;
+const TAPE_PULL = 1.1;
+const TAPE_GAP = 0.3;
+
+const TAPE_BLADE_W = 1; // inches
+const TAPE_CASE = { len: 3, w: 3, h: 1.6 };
+
+function easeInOut(t: number): number {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+/** A 12" stretch of tape blade: red with white 1/8", 1/2" and inch ticks (reads on white and on pine, and in print). Repeats along the blade. */
+function makeBladeTexture(): CanvasTexture | null {
+  if (typeof document === "undefined") return null;
+  const c = document.createElement("canvas");
+  c.width = 768;
+  c.height = 64;
+  const g = c.getContext("2d");
+  if (!g) return null;
+  g.fillStyle = "#dc2626";
+  g.fillRect(0, 0, c.width, c.height);
+  g.fillStyle = "#ffffff";
+  const perIn = c.width / 12;
+  for (let i = 0; i < 96; i++) {
+    const x = (i / 8) * perIn;
+    const h = i % 8 === 0 ? 30 : i % 4 === 0 ? 20 : 11;
+    g.fillRect(x, 0, i % 8 === 0 ? 3 : 2, h);
+  }
+  g.font = "bold 22px sans-serif";
+  for (let i = 1; i < 12; i++) g.fillText(String(i), i * perIn + 5, 56);
+  const t = new CanvasTexture(c);
+  t.wrapS = RepeatWrapping;
+  t.colorSpace = SRGBColorSpace;
+  return t;
+}
+
+/** A label painted into the scene (for snapshots, where HTML isn't captured). */
+function makeLabelTexture(lines: string[]): { texture: CanvasTexture; aspect: number } | null {
+  if (typeof document === "undefined") return null;
+  const c = document.createElement("canvas");
+  const g = c.getContext("2d");
+  if (!g) return null;
+  const font = (bold: boolean) => `${bold ? 800 : 600} 44px sans-serif`;
+  g.font = font(true);
+  const w = Math.ceil(Math.max(...lines.map((l, i) => ((g.font = font(i === 0)), g.measureText(l).width)))) + 64;
+  const lineH = 58;
+  c.width = w;
+  c.height = lines.length * lineH + 36;
+  g.fillStyle = "rgba(15, 23, 42, 0.94)";
+  g.beginPath();
+  g.roundRect(0, 0, c.width, c.height, 22);
+  g.fill();
+  lines.forEach((l, i) => {
+    g.font = font(i === 0);
+    g.fillStyle = i === 0 ? "#fbbf24" : "#e5e7eb";
+    g.fillText(l, 32, 18 + lineH * (i + 1) - 14);
+  });
+  const t = new CanvasTexture(c);
+  t.colorSpace = SRGBColorSpace;
+  return { texture: t, aspect: c.width / c.height };
+}
+
+const tapeLabelStyle: React.CSSProperties = {
+  background: "rgba(15, 23, 42, 0.92)",
+  color: "#fbbf24",
+  padding: "3px 8px",
+  borderRadius: "8px",
+  fontSize: "11px",
+  fontWeight: 800,
+  whiteSpace: "nowrap",
+  border: "1px solid rgba(251, 191, 36, 0.35)",
+  boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
+};
+
+/** One tape: hook at `from`, the case pulled out to `to` (inches, on a face whose normal is +Z). */
+function TapeMeasure({
+  from,
+  to,
+  z,
+  progress,
+}: {
+  from: [number, number];
+  to: [number, number];
+  z: number;
+  /** 0…1 how far the case has been pulled (read every frame) */
+  progress: React.MutableRefObject<number>;
+}) {
+  const dx = to[0] - from[0];
+  const dy = to[1] - from[1];
+  const len = Math.hypot(dx, dy);
+  const angle = Math.atan2(dy, dx);
+  const blade = useRef<Mesh>(null);
+  const caseRef = useRef<Group>(null);
+  const texture = useMemo(() => makeBladeTexture(), []);
+  useEffect(() => () => texture?.dispose(), [texture]);
+
+  useFrame(() => {
+    const l = Math.max(0.001, len * progress.current);
+    if (blade.current) {
+      blade.current.scale.x = l;
+      blade.current.position.x = l / 2;
+      blade.current.visible = progress.current > 0.002;
+    }
+    if (texture) texture.repeat.x = l / 12;
+    if (caseRef.current) caseRef.current.position.x = l;
+  });
+
+  return (
+    <group position={[from[0], from[1], z]} rotation={[0, 0, angle]}>
+      {/* Hook, over the corner */}
+      <mesh position={[-0.12, 0, 0.12]}>
+        <boxGeometry args={[0.24, TAPE_BLADE_W + 0.2, 0.36]} />
+        <meshStandardMaterial color="#4b5563" metalness={0.6} roughness={0.4} />
+      </mesh>
+      {/* Blade */}
+      <mesh ref={blade} position={[0, 0, 0.03]} scale={[0.001, 1, 1]}>
+        <planeGeometry args={[1, TAPE_BLADE_W]} />
+        <meshStandardMaterial map={texture ?? undefined} color={texture ? "#ffffff" : "#dc2626"} roughness={0.6} />
+      </mesh>
+      {/* Case: red body, dark face, lying flat */}
+      <group ref={caseRef}>
+        <mesh position={[TAPE_CASE.len / 2, 0, TAPE_CASE.h / 2]} castShadow>
+          <boxGeometry args={[TAPE_CASE.len, TAPE_CASE.w, TAPE_CASE.h]} />
+          <meshStandardMaterial color="#b91c1c" roughness={0.45} />
+        </mesh>
+        <mesh position={[TAPE_CASE.len / 2 + 0.2, 0, TAPE_CASE.h + 0.01]}>
+          <boxGeometry args={[TAPE_CASE.len - 0.9, TAPE_CASE.w - 0.9, 0.04]} />
+          <meshStandardMaterial color="#111827" roughness={0.7} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+function SquareCheckTapes({
+  width,
+  height,
+  z,
+  y0,
+  realWidth,
+  runKey,
+  onLanded,
+}: {
+  /** Back face as drawn (inches): x 0…width, y y0…y0+height, at depth z */
+  width: number;
+  height: number;
+  z: number;
+  y0: number;
+  /** Real plate length, for the reading (plywood plates run a little longer than drawn) */
+  realWidth: number;
+  /** Changes each time the tapes are switched on: replays the pull */
+  runKey: number;
+  /** How many tapes have landed (0, 1, 2) — the guide shows the callout at 2 */
+  onLanded?: (n: number) => void;
+}) {
+  const snap = useContext(SnapContext);
+  const measure = useMeasure();
+  const p1 = useRef(snap ? 1 : 0);
+  const p2 = useRef(snap ? 1 : 0);
+  const started = useRef<number | null>(null);
+  const [landed, setLanded] = useState(snap ? 2 : 0);
+
+  useEffect(() => {
+    started.current = null;
+    p1.current = snap ? 1 : 0;
+    p2.current = snap ? 1 : 0;
+    setLanded(snap ? 2 : 0);
+  }, [runKey, snap]);
+
+  useFrame(({ clock }) => {
+    if (snap) return;
+    if (started.current == null) started.current = clock.elapsedTime;
+    const t = clock.elapsedTime - started.current - TAPE_DELAY;
+    p1.current = easeInOut(Math.min(1, Math.max(0, t / TAPE_PULL)));
+    p2.current = easeInOut(Math.min(1, Math.max(0, (t - TAPE_PULL - TAPE_GAP) / TAPE_PULL)));
+    const n = (p1.current >= 1 ? 1 : 0) + (p2.current >= 1 ? 1 : 0);
+    if (n !== landed) {
+      setLanded(n);
+      onLanded?.(n);
+    }
+  });
+
+  // Inset a hair so the hooks catch the corners, not the air beside them.
+  const i = 0.4;
+  const a: [number, number] = [i, y0 + i];
+  const b: [number, number] = [width - i, y0 + height - i];
+  const c: [number, number] = [width - i, y0 + i];
+  const d: [number, number] = [i, y0 + height - i];
+  const diagonal = `${toFraction(Math.hypot(realWidth, height))}"`;
+  const reading = measure(diagonal);
+  const callout = measure('Match within ±1/8" = square');
+
+  const snapLabel = useMemo(
+    () => (snap ? makeLabelTexture([measure(`Both diagonals ${diagonal}`), callout]) : null),
+    [snap, measure, diagonal, callout],
+  );
+  useEffect(() => () => snapLabel?.texture.dispose(), [snapLabel]);
+
+  const lift = 2.2; // labels float just above the tapes
+  const mid = (p: [number, number], q: [number, number], f: number): [number, number, number] => [
+    p[0] + (q[0] - p[0]) * f,
+    p[1] + (q[1] - p[1]) * f,
+    z + lift,
+  ];
+
+  return (
+    <group>
+      <TapeMeasure from={a} to={b} z={z} progress={p1} />
+      <TapeMeasure from={c} to={d} z={z + 0.05} progress={p2} />
+      {!snap && landed >= 1 && (
+        <Html position={mid(a, b, 0.22)} center style={{ pointerEvents: "none" }}>
+          <div style={tapeLabelStyle}>{reading}</div>
+        </Html>
+      )}
+      {!snap && landed >= 2 && (
+        <>
+          <Html position={mid(c, d, 0.22)} center style={{ pointerEvents: "none" }}>
+            <div style={tapeLabelStyle}>{reading}</div>
+          </Html>
+        </>
+      )}
+      {/* Faces the camera, upright, so it reads straight in the printed step */}
+      {snapLabel && (
+        <sprite position={[width / 2, y0 + height / 2, z + 6]} scale={[width * 0.62, (width * 0.62) / snapLabel.aspect, 1]}>
+          <spriteMaterial map={snapLabel.texture} transparent toneMapped={false} depthTest={false} />
+        </sprite>
+      )}
+    </group>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // PART PRIMITIVES — with visibility/ghost support + hover labels
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -409,6 +654,8 @@ interface ExplodedAssemblyProps {
   hasTop: boolean;
   rails: RailStyle;
   sideways?: boolean;
+  /** Square-check tape measures: shown while on; a new runKey replays the pull */
+  squareTapes?: { on: boolean; runKey: number; onLanded?: (n: number) => void };
 }
 
 function ExplodedAssembly({
@@ -422,6 +669,7 @@ function ExplodedAssembly({
   hasTop,
   rails,
   sideways = false,
+  squareTapes,
 }: ExplodedAssemblyProps) {
   const is2x4 = rails === "2x4";
   const { bayW, totalW, plateLen, railCenters, postH, frameH, railW, railH, depth } = useMemo(
@@ -1106,6 +1354,20 @@ function ExplodedAssembly({
             visible={true}
           />
         ))}
+        {/* Square check: tapes across the back face (it faces up, laid on its front) */}
+        {mode === "step" && step.squareCheck && squareTapes?.on && (
+          <SquareCheckTapes
+            key={squareTapes.runKey}
+            width={totalW}
+            height={frameH}
+            y0={lift}
+            // Over the corner braces once they're on (step 8), else on the bare face
+            z={RACK_DEPTH + (vis("backSupports") !== "hidden" ? (is2x4 ? RAILS_2X4.railW : RAIL_THICKNESS) : 0)}
+            realWidth={plateLen}
+            runKey={squareTapes.runKey}
+            onLanded={squareTapes.onLanded}
+          />
+        )}
       </group>
       </AnimatedRotation>
     </group>
@@ -1262,6 +1524,8 @@ function StepCard({
   onReset,
   expanded,
   onToggleExpanded,
+  squareTapesOn = false,
+  onToggleSquareTapes,
 }: {
   step: AssemblyStep;
   stepIndex: number;
@@ -1275,6 +1539,9 @@ function StepCard({
   /** Collapsed = compact bar (title, 2-line instruction, nav) so the 3D view stays usable */
   expanded: boolean;
   onToggleExpanded: () => void;
+  /** Square-check steps: the tape measures are showing in the 3D */
+  squareTapesOn?: boolean;
+  onToggleSquareTapes?: () => void;
 }) {
   const materials = computeMaterials(step, cols, rows, config);
   const isLast = stepIndex === totalSteps - 1;
@@ -1308,6 +1575,31 @@ function StepCard({
         {!expanded && (
           <button type="button" onClick={onToggleExpanded} className="mt-1 block text-left">
             <span className="line-clamp-2 text-xs leading-snug text-stone-400">{resolvedInstruction}</span>
+          </button>
+        )}
+        {/* Collapsed bar on a square-check step: the same switch as the Pro Tip */}
+        {!expanded && step.squareCheck && onToggleSquareTapes && (
+          <button
+            type="button"
+            onClick={onToggleSquareTapes}
+            aria-pressed={squareTapesOn}
+            className="mt-2 flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/20"
+          >
+            {squareTapesOn ? (
+              <>
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
+                Tape measures on · hide
+              </>
+            ) : (
+              <>
+                <span className="relative flex h-1.5 w-1.5" aria-hidden>
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                </span>
+                <Ruler className="h-3 w-3" aria-hidden />
+                Pro tip: check for square in 3D
+              </>
+            )}
           </button>
         )}
         {/* Progress bar */}
@@ -1401,22 +1693,56 @@ function StepCard({
           </ul>
         </div>
 
-        {/* Pro tip */}
+        {/* Pro tip — on square-check steps it also shows the tape measures in 3D */}
         {step.proTip && (
           <div className="px-5 pb-4">
-            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
-              <div className="flex items-start gap-2">
-                <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-                    Pro Tip
-                  </p>
-                  <p className="mt-0.5 text-[11px] leading-relaxed text-stone-400">
-                    {measure(step.proTip)}
-                  </p>
+            {step.squareCheck && onToggleSquareTapes ? (
+              <button
+                type="button"
+                onClick={onToggleSquareTapes}
+                aria-pressed={squareTapesOn}
+                className={`group w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                  squareTapesOn
+                    ? "border-emerald-400/50 bg-emerald-500/10"
+                    : "border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-400/40 hover:bg-emerald-500/10"
+                }`}
+              >
+                <div className="flex items-start gap-2">
+                  <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Pro Tip</p>
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-stone-400">{measure(step.proTip)}</p>
+                    <p className="mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-emerald-300">
+                      {squareTapesOn ? (
+                        <>
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
+                          Showing in 3D · tap to hide
+                        </>
+                      ) : (
+                        <>
+                          <span className="relative flex h-1.5 w-1.5" aria-hidden>
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                          </span>
+                          <Ruler className="h-3 w-3" aria-hidden />
+                          Tap to see it in 3D
+                        </>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            ) : (
+              <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
+                <div className="flex items-start gap-2">
+                  <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Pro Tip</p>
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-stone-400">{measure(step.proTip)}</p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>
@@ -1547,6 +1873,26 @@ export default function AssemblyGuide({
   // A label from one step shouldn't linger into the next.
   useEffect(() => setSelectedPart(null), [stepIndex]);
 
+  // Square-check tape measures (Pro Tip on steps that check for square).
+  // Turning them on folds the step card away first, so the 3D is in view
+  // when the tapes start pulling. They stay until the Pro Tip is tapped
+  // again, or the step changes.
+  const [squareTapes, setSquareTapes] = useState({ on: false, runKey: 0 });
+  const [tapesLanded, setTapesLanded] = useState(0);
+  const tapeProps = useMemo(() => ({ ...squareTapes, onLanded: setTapesLanded }), [squareTapes]);
+  const guideMeasure = useMeasure();
+  useEffect(() => setSquareTapes((t) => (t.on ? { ...t, on: false } : t)), [stepIndex, mode]);
+  const toggleSquareTapes = useCallback(() => {
+    if (squareTapes.on) {
+      setSquareTapes({ ...squareTapes, on: false });
+      return;
+    }
+    setDetailsOpen(false);
+    setSelectedPart(null);
+    setTapesLanded(0);
+    setSquareTapes({ on: true, runKey: squareTapes.runKey + 1 });
+  }, [squareTapes]);
+
   return (
     <div className="relative h-full w-full bg-slate-950">
       {/* ── Full-screen 3D Viewport ─────────────────────────────────── */}
@@ -1608,6 +1954,7 @@ export default function AssemblyGuide({
           hasTop={hasTop}
           rails={rails}
           sideways={sideways}
+          squareTapes={tapeProps}
         />
       </Canvas>
       </PartLabelContext.Provider>
@@ -1671,6 +2018,14 @@ export default function AssemblyGuide({
         {/* Step mode — floating step card (bottom-left) + config badge (top-left) */}
         {mode === "step" && currentStep && (
           <>
+            {/* Square check: once both tapes land, what "square" means */}
+            {currentStep.squareCheck && squareTapes.on && tapesLanded >= 2 && (
+              <div className="pointer-events-none absolute inset-x-4 top-16 flex justify-center sm:top-4">
+                <p className="rounded-xl border border-yellow-400/35 bg-slate-900/90 px-3 py-1.5 text-center text-xs font-bold text-stone-100 shadow-lg backdrop-blur">
+                  <span className="text-emerald-400">✓</span> {guideMeasure('Diagonals match within ±1/8" = square')}
+                </p>
+              </div>
+            )}
             {/* Config badge — top left */}
             <div className="pointer-events-none absolute left-4 top-4 max-w-[calc(100%-5.5rem)]">
               <div className="rounded-lg bg-slate-900/80 px-3 py-1.5 shadow-lg backdrop-blur">
@@ -1704,6 +2059,8 @@ export default function AssemblyGuide({
                   onReset={handleReset}
                   expanded={detailsOpen}
                   onToggleExpanded={() => setDetailsOpen((v) => !v)}
+                  squareTapesOn={squareTapes.on}
+                  onToggleSquareTapes={toggleSquareTapes}
                 />
               </div>
             </div>
@@ -1855,6 +2212,8 @@ export function AssemblyStepSnapshots({
             hasTop={hasTop}
             rails={rails}
             sideways={sideways}
+            // Square-check steps print with the tapes laid across the diagonals
+            squareTapes={{ on: true, runKey: 0 }}
           />
           <FrameCapture onCapture={handleCapture} />
         </Canvas>
