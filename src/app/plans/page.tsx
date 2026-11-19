@@ -11,10 +11,11 @@ import {
   MODULE_MAX_COLS,
   MODULE_MAX_ROWS,
   TOTE_PLAN_LIMITS,
-  TOTE_PLAN_ALL_ACCESS,
   DEFAULT_TOTE_PLAN_DESIGN,
   UNIT_DEPTH_IN,
+  decodeTotePlanDesign,
 } from "@/lib/tote-plans";
+import { MINI } from "@/lib/mini-rack";
 import { LADDER_JIG_NAME } from "@/lib/ladder-jig";
 import { generateBreadcrumbJsonLd } from "@/lib/schema/breadcrumb";
 import { planPageHref } from "@/lib/plan-pages";
@@ -22,6 +23,7 @@ import {
   PLANS_FAQS,
   PLANS_PRICES,
   ladderJigProductJsonLd,
+  miniPlansProductJsonLd,
   PLANS_UPDATED,
   plansFaqJsonLd,
   plansWebPageJsonLd,
@@ -36,18 +38,21 @@ import { GIFT_FLAT_EACH, GIFT_FLAT_FROM, giftPriceLabel, giftTotalCents } from "
 // DIY PLANS STOREFRONT — /plans
 //
 // The landing page for plan ads (≈90% phones, mostly Facebook). Its one
-// job: a tap on "Design your rack". (Not "…free": with $19 on the page that
-// reads as a bait-and-switch. The line under the button says it plainly.) Calm and short on purpose: a two-line
-// promise, the photo and the button; how it works in three lines; the
-// offer with the lumber-cost anchor; the samples; four questions; a close.
-// No competing choices (bestsellers live inside the designer), boxes kept
-// to a minimum, one type scale, lots of space. A sticky bar keeps the
-// button in reach once the hero's scrolls away. Server-rendered for SEO;
-// every FAQ stays on the page and in the structured data.
+// job: a tap into a designer. Two products, one page:
+//   • Full-size Tote Rack Plans — 27-gallon totes, 2×4 frame ($19)
+//   • Mini Tote Rack Plans — HDX 6.5 qt totes, 2×3 + plywood ($12)
+// "Every size, for life" is a promise PER SYSTEM (each covers every size of
+// its own rack), so the page leads with "plans from $12", lets the visitor
+// pick their tote in one glance (two cards), and states each product's
+// price and coverage right on its card. Then how it works, what every plan
+// includes (with a lumber-cost anchor for each), samples, gift, questions,
+// a close. Calm and short: one type scale, lots of space. A sticky bar
+// keeps a button in reach. Server-rendered for SEO; every FAQ stays on the
+// page and in the structured data.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const TITLE = "DIY Tote Rack Plans for 27-Gal HDX & Greenmade Totes | Storage Network";
-const DESCRIPTION = `Tote rack plans sized to your wall: a 2×4 build for 27-gallon HDX and Greenmade totes with a cut list, shopping list and every step in 3D. ${PLANS_PRICES.allAccess} once for unlimited plans, every size you design, for life: 3D guide + printable PDF.`;
+const TITLE = "DIY Tote Rack Plans for 27-Gallon & 6.5 Qt Mini Totes | Storage Network";
+const DESCRIPTION = `Tote rack plans sized to your wall, from ${PLANS_PRICES.from}: full-size 2×4 racks for 27-gallon totes (${PLANS_PRICES.allAccess}) and Mini racks for HDX 6.5 qt totes (${PLANS_PRICES.mini}). Cut list, shopping list and every step in 3D, plus a printable PDF. Pay once: every size of your rack, for life.`;
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -67,6 +72,9 @@ export const metadata: Metadata = {
     "tote organizer plans",
     "tote rack cut list",
     "garage storage shelf plans",
+    "mini tote rack plans",
+    "6.5 qt tote rack plans",
+    "shoebox tote storage rack",
   ],
   openGraph: {
     title: "DIY Tote Rack Plans, Sized to Your Wall",
@@ -87,6 +95,7 @@ const jsonLd = [
   plansWebPageJsonLd(DESCRIPTION),
   generateBreadcrumbJsonLd([{ name: "DIY Build Plans", path: "/plans" }]),
   totePlansProductJsonLd(),
+  miniPlansProductJsonLd(),
   ladderJigProductJsonLd(),
   ...publicPlanProductsJsonLd(),
   plansFaqJsonLd(),
@@ -103,41 +112,70 @@ const PRO_INSTALLS = "70+";
 // collapsed under the FAQ.
 
 const AT_A_GLANCE: [string, string][] = [
-  ["Totes", "27-gal HDX (Home Depot) or Greenmade (Costco)"],
-  ["Build", `2×4s · ${BAY_OPENING_IN}" bays · ${UNIT_DEPTH_IN}" deep`],
-  ["Size", `Up to ${TOTE_PLAN_LIMITS.maxCols} wide × ${TOTE_PLAN_LIMITS.maxRows} high, ${TOTE_PLAN_LIMITS.maxUnits} units; split into ${MODULE_MAX_COLS}×${MODULE_MAX_ROWS} modules`],
-  ["Options", "Casters · plywood worktop"],
-  ["Includes", "Cut list · shopping list · every step in 3D"],
+  ["Full-size", `27-gallon totes · 2×4s · ${BAY_OPENING_IN}" bays · ${UNIT_DEPTH_IN}" deep · casters, worktop, sideways · ${PLANS_PRICES.allAccess}`],
+  ["Mini", `HDX 6.5 qt totes · 2×3s + plywood · ${MINI.opening}" bays · ${MINI.depth}" deep · top, sideways · ${PLANS_PRICES.mini}`],
+  ["Size", `Full-size up to ${TOTE_PLAN_LIMITS.maxCols} wide × ${TOTE_PLAN_LIMITS.maxRows} high, ${TOTE_PLAN_LIMITS.maxUnits} units (${MODULE_MAX_COLS}×${MODULE_MAX_ROWS} modules); mini up to ${TOTE_PLAN_LIMITS.maxRowsMini} high`],
+  ["Includes", "Cut list · shopping list · every step in 3D · printable PDF"],
 ];
 
 // The questions buyers actually hesitate on, shown open to read; the rest
 // (still in the FAQ structured data) sit under "More questions".
 const TOP_FAQ_QUESTIONS = [
+  "What's the difference between the full-size and Mini plans?",
   "Can I make plans for more than one size?",
   "What totes do these tote rack plans fit?",
-  "What tools do I need to build it?",
   "How do I get my plans after I buy?",
 ];
 
 const STEPS = [
-  { title: "Design it", text: "Set the size, totes and options. Free, in 3D." },
+  { title: "Design it", text: "Pick your totes, set the size and options. Free, in 3D." },
   { title: "Get the plan", text: "Cut list, shopping list and every step. Instantly." },
   { title: "Build it", text: "Follow the 3D guide on your phone, or print the PDF." },
 ];
 
 const INCLUDED = [
-  "Plans for every size you design",
+  "A plan for every size of your rack, for life",
   "Interactive 3D build guide",
-  "Printable PDF with cut list",
-  "Lifetime access, no subscription",
+  "Printable PDF with cut list & shopping list",
+  "One payment, no subscription",
 ];
+
+/** The two products, as the "Pick your rack" cards show them. */
+const PRODUCTS = [
+  {
+    key: "full",
+    name: "Full-size Tote Rack",
+    totes: "27-gallon totes",
+    fit: "HDX, Greenmade & most brands",
+    price: PLANS_PRICES.allAccess,
+    priceNote: "once, every full-size rack",
+    points: ["2×4 frame for garages, sheds & basements", "Casters, worktop or a shallow sideways build"],
+    href: "/plans/checkout",
+    cta: "Design a full-size rack",
+  },
+  {
+    key: "mini",
+    name: "Mini Tote Rack",
+    totes: "6.5 qt mini totes",
+    fit: "HDX 6.5 qt clear totes",
+    price: PLANS_PRICES.mini,
+    priceNote: `once, every mini rack · ${PLANS_PRICES.miniOwner} for full-size owners`,
+    points: ["2×3 & plywood frame for closets, craft rooms & shops", "Wall-height or tabletop, with an optional top"],
+    href: "/plans/mini?utm_source=plans_card",
+    cta: "Design a mini rack",
+  },
+] as const;
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function PlansPage() {
-  // What lumber for the default 4×4 costs at retail: the price anchor.
-  const materials = await estimatePlanMaterials(DEFAULT_TOTE_PLAN_DESIGN).catch(() => null);
+  // What lumber for a 4×4 of each costs at retail: the price anchors.
+  const [materials, miniMaterials] = await Promise.all([
+    estimatePlanMaterials(DEFAULT_TOTE_PLAN_DESIGN).catch(() => null),
+    estimatePlanMaterials(decodeTotePlanDesign("M4x4t")).catch(() => null),
+  ]);
   const lumber = materials ? `$${Math.round(materials.materialsTotal / 10) * 10}` : null;
+  const miniLumber = miniMaterials ? `$${Math.round(miniMaterials.materialsTotal / 10) * 10}` : null;
 
   const otherPlans = [
     { href: "/plans/jig", title: `${LADDER_JIG_NAME} Plans` },
@@ -185,17 +223,15 @@ export default async function PlansPage() {
 
       <main className="mx-auto max-w-xl px-5">
         {/* ── Hero ───────────────────────────────────────────────── */}
-        <section className="pb-14 pt-8">
+        <section className="pb-12 pt-8">
           <h1 className="text-[34px] font-extrabold leading-[1.08] tracking-tight text-white sm:text-5xl">
-            Any size tote rack.
+            Tote racks, sized
+            <br className="sm:hidden" /> to your wall.
             <br />
-            <span className="text-yellow-400">
-              Every plan, <br className="sm:hidden" />
-              {PLANS_PRICES.allAccess} for life.
-            </span>
+            <span className="text-yellow-400">Plans from {PLANS_PRICES.from}.</span>
           </h1>
           <p className="mt-4 text-lg leading-relaxed text-stone-400">
-            Size it to your wall. Build it with a step-by-step 3D guide.
+            Design it free in 3D, then build it step by step. Pay once and every size of your rack is yours for life.
           </p>
 
           <div className="relative mt-7 aspect-[4/3] w-full overflow-hidden rounded-3xl">
@@ -214,12 +250,63 @@ export default async function PlansPage() {
               Design your rack <ArrowRight className="h-5 w-5" aria-hidden />
             </Link>
             <p className="mt-3 text-center text-sm text-stone-400">
-              Free to design. {PLANS_PRICES.allAccess} for the plans, for life.
+              Free to design · {PLANS_PRICES.allAccess} for 27-gallon totes · {PRO_INSTALLS} pro installs
             </p>
-            <p className="mt-1 text-center text-xs text-stone-500">
-              For 27-gallon HDX &amp; Greenmade totes · {PRO_INSTALLS} pro installs
+            <p className="mt-1.5 text-center text-sm">
+              <Link href="/plans/mini?utm_source=plans_hero" className="font-semibold text-yellow-300 hover:underline">
+                Smaller totes? Mini racks for 6.5 qt, {PLANS_PRICES.mini} →
+              </Link>
             </p>
           </div>
+        </section>
+
+        {/* ── Pick your rack: the two products ───────────────────────── */}
+        <section id="pick" className="scroll-mt-4 border-t border-white/5 py-14">
+          <p className={eyebrow}>Pick your rack</p>
+          <h2 className={h2}>Two sizes of totes. One way to build.</h2>
+          <p className="mt-2 text-[15px] text-stone-400">
+            Each plan covers every size of its rack, for life. Buy the one that fits your totes.
+          </p>
+          <div className="mt-7 grid gap-4">
+            {PRODUCTS.map((p) => (
+              <article key={p.key} className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+                <div className="p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <h3 className="text-xl font-extrabold tracking-tight text-white">{p.name}</h3>
+                      <p className="mt-0.5 text-sm font-semibold text-yellow-400">{p.totes}</p>
+                      <p className="text-xs text-stone-500">{p.fit}</p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-3xl font-extrabold leading-none text-white">{p.price}</p>
+                    </div>
+                  </div>
+                  <p className="mt-1 text-right text-[11px] text-stone-500">{p.priceNote}</p>
+                  <ul className="mt-4 space-y-2">
+                    {p.points.map((pt) => (
+                      <li key={pt} className="flex items-start gap-2.5 text-[15px] text-stone-300">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-yellow-400" strokeWidth={3} aria-hidden />
+                        {pt}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link
+                    href={p.href}
+                    className={
+                      p.key === "full"
+                        ? `${cta} mt-5`
+                        : "mt-5 flex w-full items-center justify-center gap-2 rounded-2xl border border-yellow-400/50 py-4 text-base font-extrabold text-yellow-300 transition hover:bg-yellow-400/10 active:scale-[0.99]"
+                    }
+                  >
+                    {p.cta} <ArrowRight className="h-5 w-5" aria-hidden />
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
+          <p className="mt-4 text-center text-xs text-stone-500">
+            Bays are universal for their tote size. Double-check your totes&apos; measurements before you build.
+          </p>
         </section>
 
         {/* ── How it works ─────────────────────────────────────────── */}
@@ -239,13 +326,10 @@ export default async function PlansPage() {
           </ol>
         </section>
 
-        {/* ── The offer ────────────────────────────────────────────── */}
+        {/* ── What you get (both plans) ───────────────────────────── */}
         <section className="border-t border-white/5 py-14">
-          <p className={eyebrow}>{TOTE_PLAN_ALL_ACCESS.name}</p>
-          <div className="mt-2 flex items-baseline gap-3">
-            <span className="text-6xl font-extrabold tracking-tight text-white">{PLANS_PRICES.allAccess}</span>
-            <span className="text-base text-stone-400">once, for life</span>
-          </div>
+          <p className={eyebrow}>Every plan includes</p>
+          <h2 className={h2}>Everything to build it right the first time.</h2>
           <ul className="mt-7 space-y-3.5">
             {INCLUDED.map((item) => (
               <li key={item} className="flex items-center gap-3 text-base text-stone-200">
@@ -254,14 +338,17 @@ export default async function PlansPage() {
               </li>
             ))}
           </ul>
-          <p className="mt-7 text-[15px] leading-relaxed text-stone-400">
-            {lumber ? <>The lumber for a 4×4 rack is about {lumber}. </> : null}
-            The plan that gets every cut right is {PLANS_PRICES.allAccess}, and it covers every rack you build
-            after it.
-          </p>
-          <Link href="/plans/checkout" className={`${cta} mt-8`}>
-            Design your rack <ArrowRight className="h-5 w-5" aria-hidden />
-          </Link>
+          {(lumber || miniLumber) && (
+            <p className="mt-7 text-[15px] leading-relaxed text-stone-400">
+              The lumber for a 4×4 {lumber ? <>full-size rack is about {lumber}</> : null}
+              {lumber && miniLumber ? "; for a 4×4 mini, about " : miniLumber ? "mini rack is about " : ""}
+              {miniLumber}. The plan that gets every cut right is a one-time {PLANS_PRICES.allAccess} ({PLANS_PRICES.mini} for mini),
+              and it covers every rack of that kind you build after it.
+            </p>
+          )}
+          <a href="#pick" className={`${cta} mt-8`}>
+            Pick your rack <ArrowRight className="h-5 w-5" aria-hidden />
+          </a>
         </section>
 
         {/* ── See it ───────────────────────────────────────────────── */}
@@ -277,8 +364,8 @@ export default async function PlansPage() {
           <p className={eyebrow}>Give it as a gift</p>
           <h2 className={h2}>Know someone with a garage full of piles?</h2>
           <p className="mt-3 text-[15px] leading-relaxed text-stone-400">
-            Send All-Access plans to one person or a whole crew. Each gets their own email, their own link and lifetime
-            access: every rack they design, the 3D guide and the printable PDF.
+            Send the full-size (27-gallon) plans to one person or a whole crew. Each gets their own email, their own link
+            and lifetime access: every full-size rack they design, the 3D guide and the printable PDF.
           </p>
           <p className="mt-3 text-[15px] leading-relaxed text-stone-300">
             <span className="font-bold text-emerald-300">Volume discounts:</span> {PLANS_PRICES.allAccess} for one, 3 for{" "}
@@ -331,9 +418,14 @@ export default async function PlansPage() {
         {/* ── Close ────────────────────────────────────────────────── */}
         <section className="border-t border-white/5 py-16 text-center">
           <h2 className="text-3xl font-extrabold tracking-tight text-white">Build it right the first time.</h2>
-          <p className="mt-3 text-[15px] text-stone-400">Free to design. {PLANS_PRICES.allAccess} for every plan you&apos;ll ever need.</p>
+          <p className="mt-3 text-[15px] text-stone-400">
+            Free to design. Plans from {PLANS_PRICES.from}, every size of your rack for life.
+          </p>
           <Link href="/plans/checkout" className={`${cta} mt-8`}>
-            Design your rack <ArrowRight className="h-5 w-5" aria-hidden />
+            Design a full-size rack <ArrowRight className="h-5 w-5" aria-hidden />
+          </Link>
+          <Link href="/plans/mini?utm_source=plans_close" className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-yellow-300 hover:underline">
+            Or a mini rack for 6.5 qt totes, {PLANS_PRICES.mini} <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
         </section>
 
@@ -371,10 +463,10 @@ export default async function PlansPage() {
       <StickyPlanCta
         watchId="hero-cta"
         quietId="gift"
-        price={`${PLANS_PRICES.allAccess} for life`}
-        note="Free to design"
-        label="Start designing"
-        href="/plans/checkout"
+        price={`From ${PLANS_PRICES.from}`}
+        note="Free to design · every size, for life"
+        label="Pick your rack"
+        href="#pick"
       />
     </div>
   );
