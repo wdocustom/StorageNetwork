@@ -14,8 +14,10 @@ import {
   MODULE_MAX_ROWS,
   TOTE_PLAN_LIMITS,
   TOTE_PLAN_ALL_ACCESS,
+  TOTE_PLAN_MINI,
   formatPlanPrice,
 } from "@/lib/tote-plans";
+import { MINI, miniMaxModuleCols, miniMaxRowsPerTier } from "@/lib/mini-rack";
 import {
   LADDER_JIG_NAME,
   LADDER_JIG_OWNER_PRICE,
@@ -29,6 +31,11 @@ const ORGANIZATION_ID = `${BASE}/#organization`;
 export const PLANS_PRICES = {
   /** All-Access tote plans: one payment, unlimited plans, for life */
   allAccess: formatPlanPrice(TOTE_PLAN_ALL_ACCESS.price),
+  /** Mini Tote Rack Plans (6.5 qt): one payment, every mini size, for life */
+  mini: formatPlanPrice(TOTE_PLAN_MINI.price),
+  miniOwner: formatPlanPrice(TOTE_PLAN_MINI.ownerPrice),
+  /** The lowest price on the page */
+  from: formatPlanPrice(Math.min(TOTE_PLAN_MINI.price, TOTE_PLAN_ALL_ACCESS.price)),
   jig: formatPlanPrice(LADDER_JIG_PRICE),
   jigOwner: formatPlanPrice(LADDER_JIG_OWNER_PRICE),
 };
@@ -41,7 +48,11 @@ export interface PlansFaq {
 export const PLANS_FAQS: PlansFaq[] = [
   {
     question: "What totes do these tote rack plans fit?",
-    answer: `27-gallon HDX totes from Home Depot and 27-gallon Greenmade totes from Costco. Every bay is a ${BAY_OPENING_IN}" opening between 2×4 uprights, which fits both brands, and each tote hangs by its rim on a pair of 2×4 rails so it slides in and out like a drawer.`,
+    answer: `Two sizes. Full-size racks take 27-gallon totes: every bay is a universal ${BAY_OPENING_IN}" opening between 2×4 uprights that should fit most brands (HDX, Greenmade and others), with each tote hanging by its rim on two rails so it slides out like a drawer. Mini racks take HDX 6.5 qt totes in ${MINI.opening}" bays. Either way, double-check your totes' measurements before you build.`,
+  },
+  {
+    question: "What's the difference between the full-size and Mini plans?",
+    answer: `They're two separate systems. Full-size plans (${PLANS_PRICES.allAccess}) are for 27-gallon totes: a 2×4 frame for garages, sheds and basements, with casters, a worktop and a sideways option. Mini Tote Rack Plans (${PLANS_PRICES.mini}, or ${PLANS_PRICES.miniOwner} if you own the full-size plans) are for 6.5 qt totes: a lighter 2×3 and plywood frame for closets, craft rooms, workshops and shelves. Each one covers every size of its own rack, for life.`,
   },
   {
     question: "What does All-Access include?",
@@ -49,11 +60,11 @@ export const PLANS_FAQS: PlansFaq[] = [
   },
   {
     question: "Can I make plans for more than one size?",
-    answer: `Yes, as many as you like. After your first plan, open it and tap "Build another plan": design a new size and its plan is generated at no charge. Your garage, your shed, a friend's basement: every tote organizer you design is included, for life.`,
+    answer: `Yes, as many as you like, within the system you bought. After your first plan, open it and tap "Build another plan": design a new size and its plan is generated at no charge. Full-size plans cover every 27-gallon rack you design; Mini plans cover every 6.5 qt mini rack. Your garage, your shed, a craft-room closet: every size is included, for life.`,
   },
   {
     question: "How big a tote rack can I build?",
-    answer: `Any size from 1×1 up to ${TOTE_PLAN_LIMITS.maxCols} totes wide by ${TOTE_PLAN_LIMITS.maxRows} totes high per unit, and up to ${TOTE_PLAN_LIMITS.maxUnits} units in one plan. Big walls are split into self-contained modules (up to ${MODULE_MAX_COLS} totes wide and ${MODULE_MAX_ROWS} high) so every part comes out of standard 8' 2×4s. Identical modules share a type, so you learn each one once and repeat it.`,
+    answer: `Full-size: any size from 1×1 up to ${TOTE_PLAN_LIMITS.maxCols} totes wide by ${TOTE_PLAN_LIMITS.maxRows} high per unit, and up to ${TOTE_PLAN_LIMITS.maxUnits} units in one plan. Mini: up to ${TOTE_PLAN_LIMITS.maxRowsMini} totes high. Big walls are split into self-contained modules (full-size up to ${MODULE_MAX_COLS} wide and ${MODULE_MAX_ROWS} high; mini up to ${miniMaxModuleCols()} wide and ${miniMaxRowsPerTier()} high) so every part comes out of a standard 8' board. Identical modules share a type, so you learn each one once and repeat it.`,
   },
   {
     question: "Do the plans include a cut list and shopping list?",
@@ -85,7 +96,7 @@ export const PLANS_FAQS: PlansFaq[] = [
   },
   {
     question: "Are these tote rack plans free?",
-    answer: `Sizing your build and previewing it in 3D is free. Plans are ${PLANS_PRICES.allAccess} once, for life, with no subscription: that covers the plan for the size you designed and every tote organizer you design after it, each with the 3D guide and the PDF.`,
+    answer: `Sizing your build and previewing it in 3D is free. Plans are a one-time payment with no subscription: ${PLANS_PRICES.mini} for Mini racks (6.5 qt totes) or ${PLANS_PRICES.allAccess} for full-size racks (27-gallon totes). Each covers the size you designed and every rack of that system you design after it, with the 3D guide and the PDF.`,
   },
 ];
 
@@ -127,6 +138,20 @@ export function totePlansProductJsonLd() {
     offers: [
       offer(TOTE_PLAN_ALL_ACCESS.name, TOTE_PLAN_ALL_ACCESS.price, `${BASE}/plans/checkout`),
     ],
+  };
+}
+
+export function miniPlansProductJsonLd() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "@id": `${BASE}/plans#mini-tote-rack-plans`,
+    name: "DIY Mini Tote Rack Plans for 6.5 Qt Totes",
+    description: `Build plans for mini tote racks sized to your space, for HDX 6.5 qt totes: a 2×3 and plywood frame with ${MINI.opening}" bays, cut list, shopping list and every step in 3D, plus a printable PDF. ${PLANS_PRICES.mini} once for every mini size you design, for life (${PLANS_PRICES.miniOwner} for full-size plan owners).`,
+    category: "DIY Woodworking Plans",
+    brand: { "@id": ORGANIZATION_ID },
+    url: `${BASE}/plans/mini`,
+    offers: [offer(TOTE_PLAN_MINI.name, TOTE_PLAN_MINI.price, `${BASE}/plans/mini`)],
   };
 }
 
