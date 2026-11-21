@@ -17,6 +17,10 @@ import { sendPlanDeviceCodeEmail } from "@/lib/emails/plansTemplates";
 //     links (purchases made before this gate), is remembered by a cookie.
 //   • Any other device gets "confirm it's you" and a 6-digit code emailed to
 //     the buyer — a friend with the link doesn't have the buyer's inbox.
+//   • Except another browser on the SAME phone/computer: same IP and same OS
+//     (+ version) as a device of theirs seen in the last SAME_NETWORK_WINDOW.
+//     Most buyers pay inside Facebook's in-app browser, then open the email
+//     link in Chrome/Safari — a separate cookie jar, but not a new person.
 //   • Up to MAX_DEVICES active per buyer email; verifying another retires the
 //     least recently used, so the buyer is never locked out.
 //
@@ -31,6 +35,7 @@ const CODE_MAX_ATTEMPTS = 5;
 const RESEND_AFTER_MS = 60 * 1000;
 const MAX_CODES_PER_HOUR = 5;
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 400; // browsers cap at ~400 days
+const SAME_NETWORK_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export type DeviceCheck = { ok: true } | { ok: false; emailHint: string };
 
@@ -72,7 +77,41 @@ async function requestMeta(): Promise<{ ip: string | null; userAgent: string | n
   };
 }
 
-async function registerDevice(email: string, deviceId: string, via: "first" | "checkout" | "code"): Promise<void> {
+/**
+ * The OS a user agent runs on, specific enough that two browsers on one
+ * phone match and a friend's phone usually doesn't: "ios-26_6_1",
+ * "android-10", "windows", "mac". Null when unrecognised (never matches).
+ * In-app browsers (Facebook, Instagram) carry the same OS string.
+ */
+export function platformKey(userAgent: string | null | undefined): string | null {
+  if (!userAgent) return null;
+  const ios = /\((?:iPhone|iPad|iPod)[^)]*?OS (\d+(?:_\d+)*)/.exec(userAgent);
+  if (ios) return `ios-${ios[1]}`;
+  const android = /Android (\d+)/.exec(userAgent);
+  if (android) return `android-${android[1]}`;
+  if (/Windows NT/.test(userAgent)) return "windows";
+  if (/Macintosh/.test(userAgent)) return "mac";
+  if (/CrOS/.test(userAgent)) return "chromeos";
+  return null;
+}
+
+/** Another browser on a device the buyer already uses: same IP + OS, seen recently. */
+async function sameDeviceAsKnown(email: string): Promise<boolean> {
+  const { ip, userAgent } = await requestMeta();
+  const platform = platformKey(userAgent);
+  if (!ip || !platform) return false;
+  const since = new Date(Date.now() - SAME_NETWORK_WINDOW_MS).toISOString();
+  const { data } = await getServiceClient()
+    .from("plan_buyer_devices")
+    .select("user_agent")
+    .eq("email", email)
+    .eq("ip", ip)
+    .is("revoked_at", null)
+    .gte("last_seen_at", since);
+  return (data ?? []).some((r) => platformKey(r.user_agent as string | null) === platform);
+}
+
+async function registerDevice(email: string, deviceId: string, via: "first" | "checkout" | "code" | "network"): Promise<void> {
   const db = getServiceClient();
   const meta = await requestMeta();
   const now = new Date().toISOString();
@@ -128,6 +167,11 @@ export async function checkPlanDevice(rawEmail: string, opts: { trusted?: boolea
 
   if (opts.trusted) {
     await registerDevice(email, await ensureDeviceId(), "checkout");
+    return { ok: true };
+  }
+
+  if (await sameDeviceAsKnown(email)) {
+    await registerDevice(email, await ensureDeviceId(), "network");
     return { ok: true };
   }
 
