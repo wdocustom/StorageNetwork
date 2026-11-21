@@ -4,12 +4,13 @@ vi.mock("server-only", () => ({}));
 
 // ── Cookie jar + request headers ─────────────────────────────────────────
 const jar = new Map<string, string>();
+const req = { ua: "test-agent", ip: "1.2.3.4" };
 vi.mock("next/headers", () => ({
   cookies: async () => ({
     get: (k: string) => (jar.has(k) ? { value: jar.get(k)! } : undefined),
     set: (k: string, v: string) => void jar.set(k, v),
   }),
-  headers: async () => new Headers({ "user-agent": "test-agent", "x-forwarded-for": "1.2.3.4" }),
+  headers: async () => new Headers({ "user-agent": req.ua, "x-forwarded-for": req.ip }),
 }));
 
 const sentCodes: { email: string; code: string }[] = [];
@@ -83,6 +84,7 @@ import {
   checkPlanDevice,
   isKnownPlanDevice,
   maskEmail,
+  platformKey,
   sendPlanDeviceCode,
   verifyPlanDeviceCode,
 } from "./plan-device";
@@ -94,7 +96,72 @@ beforeEach(() => {
   for (const k of Object.keys(tables)) delete tables[k];
   jar.clear();
   sentCodes.length = 0;
+  req.ua = "test-agent";
+  req.ip = "1.2.3.4";
   vi.useRealTimers();
+});
+
+const FB_IPHONE =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 26_6_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/23G83 Safari/604.1 [FBAN/FBIOS;FBAV/587.0.0.31.71;FBDV/iPhone17,3]";
+const CHROME_IPHONE =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 26_6_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/157.0.8103.37 Mobile/15E148 Safari/604.1";
+const WINDOWS = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36";
+
+describe("platformKey", () => {
+  it("matches browsers on one phone, not across OSes", () => {
+    expect(platformKey(FB_IPHONE)).toBe("ios-26_6_1");
+    expect(platformKey(CHROME_IPHONE)).toBe("ios-26_6_1");
+    expect(platformKey("Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 [FB_IAB/FB4A;FBAV/587.0.0.39.55;]")).toBe("android-10");
+    expect(platformKey(WINDOWS)).toBe("windows");
+    expect(platformKey("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15")).toBe("mac");
+    expect(platformKey("test-agent")).toBeNull();
+    expect(platformKey(null)).toBeNull();
+  });
+});
+
+describe("another browser on the same device", () => {
+  async function paidInFacebook() {
+    req.ua = FB_IPHONE;
+    expect(await checkPlanDevice("judy@gmail.com", { trusted: true })).toEqual({ ok: true });
+    newDevice();
+  }
+
+  it("lets Chrome on the same phone and network in without a code", async () => {
+    await paidInFacebook();
+    req.ua = CHROME_IPHONE;
+    expect(await checkPlanDevice("judy@gmail.com")).toEqual({ ok: true });
+    expect(tables.plan_buyer_devices.at(-1)).toMatchObject({ verified_by: "network" });
+    expect(sentCodes).toHaveLength(0);
+    // Remembered from then on
+    expect(await isKnownPlanDevice("judy@gmail.com")).toBe(true);
+  });
+
+  it("still asks a friend on another network for a code", async () => {
+    await paidInFacebook();
+    req.ua = CHROME_IPHONE;
+    req.ip = "5.6.7.8";
+    expect((await checkPlanDevice("judy@gmail.com")).ok).toBe(false);
+  });
+
+  it("still asks a different OS on the same network for a code", async () => {
+    await paidInFacebook();
+    req.ua = WINDOWS;
+    expect((await checkPlanDevice("judy@gmail.com")).ok).toBe(false);
+  });
+
+  it("only within a day of the known device being seen", async () => {
+    await paidInFacebook();
+    tables.plan_buyer_devices[0].last_seen_at = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+    req.ua = CHROME_IPHONE;
+    expect((await checkPlanDevice("judy@gmail.com")).ok).toBe(false);
+  });
+
+  it("not from a retired device", async () => {
+    await paidInFacebook();
+    tables.plan_buyer_devices[0].revoked_at = new Date().toISOString();
+    req.ua = CHROME_IPHONE;
+    expect((await checkPlanDevice("judy@gmail.com")).ok).toBe(false);
+  });
 });
 
 describe("checkPlanDevice", () => {
