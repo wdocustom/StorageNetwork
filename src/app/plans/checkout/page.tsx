@@ -81,6 +81,7 @@ import {
   TOTE_PLAN_EXIT_OFFER,
   TOTE_PLAN_LAST_CHANCE,
   isRetentionOffer,
+  normalizePromoCode,
   offerIncludesInventory,
   offerIncludesLadderJig,
   offerOffLabel,
@@ -250,6 +251,8 @@ function PlansDesigner() {
   // A promo code (FRIDAY), checked server-side against the buyer's email.
   // Replaces the retention offer for this checkout: never combined.
   const [promo, setPromo] = useState<AppliedPromo | null>(null);
+  // A code from a promo link (/go/friday) with no email yet: typed in for them.
+  const [prefillPromo, setPrefillPromo] = useState<string | undefined>(undefined);
   useEffect(() => {
     const linkOffer = searchParams.get("offer");
     if (isRetentionOffer(linkOffer)) setOffer(activateOffer(linkOffer));
@@ -263,6 +266,8 @@ function PlansDesigner() {
         if (r.ok) setPromo(rememberPromo(r));
         else forgetPromo();
       });
+    } else if (code) {
+      setPrefillPromo(normalizePromoCode(code).toUpperCase() || undefined);
     }
     // Read once on load; the URL is rewritten as the design changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -824,6 +829,7 @@ function PlansDesigner() {
               promo={isMini ? null : promo}
               onApplyPromo={isMini ? undefined : applyPromo}
               onRemovePromo={isMini ? undefined : removePromo}
+              prefillPromo={isMini ? undefined : prefillPromo}
               retentionActive={!!offer && !isMini}
             />
             <EmailDesignLink

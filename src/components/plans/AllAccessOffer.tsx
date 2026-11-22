@@ -9,7 +9,7 @@
 //   BuildForALiving — the side-income invitation shown after purchase
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Box, CheckCircle, FileText, Hammer, Infinity as InfinityIcon, Loader2, Sparkles, Tag, X } from "lucide-react";
 import type { AppliedPromo } from "@/lib/plan-offer";
@@ -27,15 +27,24 @@ function PromoCode({
   retentionActive,
   onApply,
   onRemove,
+  prefillCode,
 }: {
   promo: AppliedPromo | null;
   retentionActive: boolean;
   onApply: (code: string, email: string) => Promise<PromoCheck>;
   onRemove: () => void;
+  /** From a promo link (/go/friday): the form starts open with the code typed in */
+  prefillCode?: string;
 }) {
   const uid = useId();
-  const [open, setOpen] = useState(false);
-  const [code, setCode] = useState("");
+  const [open, setOpen] = useState(!!prefillCode);
+  const [code, setCode] = useState(prefillCode ?? "");
+  // The link's code is read after first render: open the form with it then.
+  useEffect(() => {
+    if (!prefillCode) return;
+    setOpen(true);
+    setCode(prefillCode);
+  }, [prefillCode]);
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ text: string; field: "code" | "email" } | null>(null);
@@ -175,6 +184,7 @@ export function AllAccessOffer({
   retentionActive = false,
   onApplyPromo,
   onRemovePromo,
+  prefillPromo,
   giveaway = false,
   mini = false,
 }: {
@@ -193,6 +203,8 @@ export function AllAccessOffer({
   retentionActive?: boolean;
   onApplyPromo?: (code: string, email: string) => Promise<PromoCheck>;
   onRemovePromo?: () => void;
+  /** A code from the link, waiting for the buyer's email */
+  prefillPromo?: string;
   /** The Holiday Full Refund Giveaway is running: a reminder just above the buy button */
   giveaway?: boolean;
   /** A Mini Tote Rack design: the separate Mini Tote Rack Plans product */
@@ -266,7 +278,13 @@ export function AllAccessOffer({
         Instant access · link by email · all sales final
       </p>
       {onApplyPromo && onRemovePromo && (
-        <PromoCode promo={promo} retentionActive={retentionActive} onApply={onApplyPromo} onRemove={onRemovePromo} />
+        <PromoCode
+          promo={promo}
+          retentionActive={retentionActive}
+          onApply={onApplyPromo}
+          onRemove={onRemovePromo}
+          prefillCode={prefillPromo}
+        />
       )}
       <p className="mt-2 flex items-center justify-center gap-3 text-xs text-stone-400">
         See a sample:
