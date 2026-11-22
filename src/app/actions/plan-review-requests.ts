@@ -2,8 +2,8 @@
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Ask DIY plan buyers for a review: one email PLAN_REVIEW_REQUEST_AFTER_DAYS
-// after they bought — and only once they've actually used their plans
-// (hasUsedPlans: came back after checkout, or used the guide/PDF) — one
+// after they bought — and only once they've actually opened their plans
+// (planUsage: device records, activity and page views agree) — one
 // reminder PLAN_REVIEW_REMINDER_AFTER_DAYS later, then never again. Each
 // email carries their share link ($3 off for friends and family). Per buyer email per product (27-gal / Mini), for their newest
 // purchase of it; skipped once they've reviewed. Buyers older than
@@ -16,8 +16,8 @@ import { getServiceClient } from "@/lib/supabase-server";
 import { sendPlanReviewRequestEmail } from "@/lib/emails/planReviewTemplates";
 import { TOTE_PLAN_ID, TOTE_PLAN_MINI, parseTotePlanDesign, totePlanName } from "@/lib/tote-plans";
 import { getOrCreateFriendCode } from "@/lib/server/plan-friend";
+import { plansOpenedBy } from "@/lib/server/plan-usage";
 import {
-  hasUsedPlans,
   PLAN_REVIEW_REMINDER_AFTER_DAYS,
   PLAN_REVIEW_REQUEST_AFTER_DAYS,
   PLAN_REVIEW_REQUEST_MAX_AGE_DAYS,
@@ -80,33 +80,20 @@ export async function processPlanReviewRequests(now = Date.now()): Promise<Revie
   const { data: reviewed } = await db.from("plan_reviews").select("email, product");
   const done = new Set((reviewed ?? []).map((r) => `${String(r.email).toLowerCase()}|${r.product}`));
 
-  // Only buyers who've used their plans (see hasUsedPlans).
-  const emails = [...new Set([...groups.keys()].map((k) => k.split("|")[0]))];
-  const [activityRes, devicesRes] = await Promise.all([
-    db.from("plan_buyer_activity").select("email, event, detail").in("email", emails).limit(50000),
-    db.from("plan_buyer_devices").select("email, verified_by, created_at, last_seen_at").in("email", emails).limit(10000),
-  ]);
-  if (activityRes.error || devicesRes.error) {
-    result.errors.push(`Usage lookup failed: ${activityRes.error?.message ?? devicesRes.error?.message}`);
+  // Only buyers who've opened their plans (see planUsage). A failed lookup
+  // stops the run: never guess.
+  let usage: Map<string, { opened: boolean }>;
+  try {
+    usage = await plansOpenedBy([...groups.entries()].map(([k, g]) => ({ email: k.split("|")[0], purchasedAt: g.newest.purchased_at })));
+  } catch (err) {
+    result.errors.push(`Usage lookup failed: ${err instanceof Error ? err.message : String(err)}`);
     return result;
   }
-  const used = new Set(
-    emails.filter((e) =>
-      hasUsedPlans(
-        (activityRes.data ?? []).filter((a) => String(a.email).toLowerCase() === e) as { event: string; detail: string | null }[],
-        (devicesRes.data ?? []).filter((d) => String(d.email).toLowerCase() === e) as {
-          verified_by: string;
-          created_at: string;
-          last_seen_at: string | null;
-        }[],
-      ),
-    ),
-  );
 
   for (const [key, g] of groups) {
     if (done.has(key)) continue;
     const email = key.split("|")[0];
-    if (!used.has(email)) {
+    if (!usage.get(email)?.opened) {
       result.notUsedYet++;
       continue;
     }

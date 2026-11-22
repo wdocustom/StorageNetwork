@@ -11,6 +11,7 @@ import { ArrowLeft } from "lucide-react";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import PlanReviewsAdmin from "./PlanReviewsAdmin";
+import NotOpenedBuyers from "./NotOpenedBuyers";
 
 export default async function PlanReviewsAdminPage() {
   const user = await getAuthenticatedUser();
@@ -35,6 +36,11 @@ export default async function PlanReviewsAdminPage() {
         </p>
         <div className="mt-8">
           <PlanReviewsAdmin />
+        </div>
+
+        <h2 className="mt-14 text-2xl font-black">Haven&apos;t opened their plans</h2>
+        <div className="mt-4">
+          <NotOpenedBuyers />
         </div>
       </div>
     </div>
