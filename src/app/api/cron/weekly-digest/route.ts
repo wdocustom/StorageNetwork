@@ -13,12 +13,34 @@ export const maxDuration = 60;
 // Called every Monday at 9am UTC via Vercel Cron.
 //
 // Per-installer content:
-//   - Activity stats from installer_activity_log (last 7 days)
+//   - Customer-facing stats for the last 7 days:
+//       page views  → page_views (public visits to the installer's links)
+//       quotes      → leads the installer sent (source = installer_manual)
+//       leads       → leads a customer started (every other source)
+//       jobs        → any lead paid out
+//     NOT installer_activity_log — that table records the installer's own
+//     dashboard clicks, which made every scorecard count their own usage.
 //   - Contextual CTA based on behavior gaps
 //   - Top 3 leaderboard names for social proof
 // ═══════════════════════════════════════════════════════════════════════════
 
 const db = () => getServiceClient();
+
+// PostgREST caps every response at the project's max-rows (1000 by default)
+// regardless of .limit(), so a single query silently drops rows once the
+// whole network has more than that in a week. Page through instead.
+const PAGE_SIZE = 1000;
+async function fetchAll<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await page(from, from + PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    rows.push(...((data ?? []) as T[]));
+    if (!data || data.length < PAGE_SIZE) return rows;
+  }
+}
 
 interface InstallerRow {
   id: string;
@@ -66,21 +88,43 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, sent: 0, message: "No eligible installers" });
     }
 
-    // Fetch all activity in the last 7 days for all installers
     const installerIds = installers.map((i) => i.id as string);
-    const { data: allActivity } = await db()
-      .from("installer_activity_log")
-      .select("installer_id, action, page_path")
-      .in("installer_id", installerIds)
-      .gte("created_at", sinceStr)
-      .limit(10000);
 
-    // Fetch lead counts per installer in the last 7 days
-    const { data: recentLeads } = await db()
-      .from("leads")
-      .select("installer_id, payout_status")
-      .in("installer_id", installerIds)
-      .gte("created_at", sinceStr);
+    // Public visits to installers' pages (same source as the Analytics page).
+    const recentViews = await fetchAll<{ installer_id: string }>((from, to) =>
+      db()
+        .from("page_views")
+        .select("installer_id")
+        .in("installer_id", installerIds)
+        .gte("created_at", sinceStr)
+        .order("id")
+        .range(from, to)
+    );
+
+    // Leads created in the window — split into quotes sent vs customer leads below.
+    const recentLeads = await fetchAll<{ installer_id: string; source: string | null; payout_status: string | null }>(
+      (from, to) =>
+        db()
+          .from("leads")
+          .select("installer_id, source, payout_status")
+          .in("installer_id", installerIds)
+          .gte("created_at", sinceStr)
+          .order("id")
+          .range(from, to)
+    );
+
+    // Social posts only (drives the CTA). The activity log is fine here: this
+    // is genuinely the installer's own action.
+    const socialActivity = await fetchAll<{ installer_id: string }>((from, to) =>
+      db()
+        .from("installer_activity_log")
+        .select("installer_id")
+        .in("installer_id", installerIds)
+        .in("action", ["social_generate", "social_share"])
+        .gte("created_at", sinceStr)
+        .order("id")
+        .range(from, to)
+    );
 
     // Build per-installer stats
     type Stats = {
@@ -96,29 +140,21 @@ export async function POST(req: NextRequest) {
       statsMap.set(id, { pageViews: 0, quotesCreated: 0, socialShares: 0, leadsReceived: 0, jobsCompleted: 0 });
     }
 
-    for (const a of allActivity || []) {
-      const id = a.installer_id as string;
-      const s = statsMap.get(id);
-      if (!s) continue;
-      const action = a.action as string;
-      const path = a.page_path as string | null;
-
-      if (action === "page_view") {
-        s.pageViews++;
-        if (path === "/dashboard/build" || path === "/build") {
-          s.quotesCreated++;
-        }
-      }
-      if (action === "social_generate" || action === "social_share") {
-        s.socialShares++;
-      }
+    for (const v of recentViews) {
+      const s = statsMap.get(v.installer_id);
+      if (s) s.pageViews++;
     }
 
-    for (const lead of recentLeads || []) {
-      const id = lead.installer_id as string;
-      const s = statsMap.get(id);
+    for (const a of socialActivity) {
+      const s = statsMap.get(a.installer_id);
+      if (s) s.socialShares++;
+    }
+
+    for (const lead of recentLeads) {
+      const s = statsMap.get(lead.installer_id);
       if (!s) continue;
-      s.leadsReceived++;
+      if (lead.source === "installer_manual") s.quotesCreated++;
+      else s.leadsReceived++;
       if (lead.payout_status === "paid") s.jobsCompleted++;
     }
 
