@@ -2,6 +2,8 @@ import { sendTransactionalEmail, type SendEmailResult } from "./core";
 import { masterEmailLayout } from "./components/masterEmailLayout";
 import { getAppUrl } from "@/lib/url-helper";
 import { CONTACT_EMAIL } from "@/lib/plan-library";
+import { FRIEND_DISCOUNT_CENTS, friendPath } from "@/lib/plan-friend";
+import { formatPlanPrice } from "@/lib/tote-plans";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DIY plan review emails: the ask (7 days after purchase), one reminder, and
@@ -14,10 +16,42 @@ export function planReviewUrl(accessToken: string): string {
   return `${getAppUrl()}/plans/build?token=${encodeURIComponent(accessToken)}&review=1`;
 }
 
-export async function sendPlanReviewRequestEmail(
-  email: string,
-  data: { accessToken: string; designName: string; customerName?: string | null; reminder?: boolean },
-): Promise<SendEmailResult> {
+export interface PlanReviewRequestData {
+  accessToken: string;
+  designName: string;
+  customerName?: string | null;
+  reminder?: boolean;
+  /** Their share code: friends and family get $3 off through it */
+  friendCode?: string | null;
+}
+
+/** "Share your plans" block: their link, plus text / email / Facebook buttons. */
+function shareBlock(friendCode: string): string {
+  const link = `${getAppUrl()}${friendPath(friendCode)}`;
+  const off = formatPlanPrice(FRIEND_DISCOUNT_CENTS);
+  const message = `I built my tote rack with these plans. Use my link for ${off} off yours: ${link}`;
+  const btn = (href: string, label: string) =>
+    `<a href="${href}" style="display:inline-block;margin:4px;background:#1f1f1f;border:1px solid #333;color:#fff;font-weight:700;font-size:13px;text-decoration:none;padding:10px 16px;border-radius:999px;">${label}</a>`;
+  return `
+    <div style="background:#0f1a12;border-radius:12px;padding:24px;margin-bottom:20px;border:1px solid #1f3a26;text-align:center;">
+      <p style="margin:0 0 6px;color:#4ade80;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">Share your plans</p>
+      <h2 style="margin:0 0 8px;color:#fff;font-size:19px;font-weight:800;">Know someone who needs one? They get ${off} off.</h2>
+      <p style="margin:0 0 16px;color:#a3a3a3;font-size:14px;line-height:1.6;">
+        Send friends and family your link. They design their own rack and get ${off} off their plans.
+      </p>
+      <div style="margin:0 auto 14px;max-width:420px;background:#000;border:1px dashed #3f6b4a;border-radius:10px;padding:12px 14px;">
+        <a href="${link}" style="color:#facc15;font-size:15px;font-weight:700;text-decoration:none;word-break:break-all;">${link.replace(/^https?:\/\//, "")}</a>
+      </div>
+      <div>
+        ${btn(`sms:?&body=${encodeURIComponent(message)}`, "Text it")}
+        ${btn(`mailto:?subject=${encodeURIComponent(`${off} off tote rack plans`)}&body=${encodeURIComponent(message)}`, "Email it")}
+        ${btn(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(link)}`, "Share on Facebook")}
+      </div>
+    </div>`;
+}
+
+/** The review ask (and its reminder), as HTML. Exported for previews. */
+export function planReviewRequestHtml(data: PlanReviewRequestData): string {
   const url = planReviewUrl(data.accessToken);
   const first = esc((data.customerName ?? "").trim().split(/\s+/)[0] || "there");
   const design = esc(data.designName);
@@ -43,16 +77,21 @@ export async function sendPlanReviewRequestEmail(
       <p style="margin:14px 0 0;color:#888;font-size:12px;">Takes about a minute. A photo of your finished rack helps other builders most.</p>
     </div>
 
+    ${data.friendCode ? shareBlock(data.friendCode) : ""}
+
     <p style="margin:0;color:#777;font-size:12px;line-height:1.6;text-align:center;">
       Something not right with your plans? Reply to this email or write to
       <a href="mailto:${CONTACT_EMAIL}" style="color:#facc15;">${CONTACT_EMAIL}</a> and we&rsquo;ll help.
     </p>
   `;
+  return masterEmailLayout("How did your build go?", body);
+}
 
+export async function sendPlanReviewRequestEmail(email: string, data: PlanReviewRequestData): Promise<SendEmailResult> {
   return sendTransactionalEmail({
     to: email,
     subject: data.reminder ? `How did your ${data.designName} turn out?` : `How did your ${data.designName} build go?`,
-    html: masterEmailLayout("How did your build go?", body),
+    html: planReviewRequestHtml(data),
   });
 }
 

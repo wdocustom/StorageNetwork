@@ -15,6 +15,8 @@
 //      shares $5 equally — per installer, so Indiana Joe + Long Ranger
 //      (both Elite) + Rack City Roller is Elite $2.50 / Rack City Totes $2.50.
 //   3. Neither: no split.
+//   4. Bought through another plan buyer's share link (friend_code): no
+//      bestseller shares at all — only an installer referral, if any, is paid.
 //
 // A bestseller counts only while it's still the bestseller's sizes (see
 // bestsellerInstances in tote-plans.ts). Paid out by the Stripe webhook
@@ -83,9 +85,12 @@ function shareEqually(owners: [string, string[]][], total: number): PlanSplitSha
 export function planSplitShares({
   referralInstallerId,
   design,
+  viaBuyerReferral = false,
 }: {
   referralInstallerId?: string | null;
   design: TotePlanDesign;
+  /** Bought through a plan buyer's share link: no bestseller shares */
+  viaBuyerReferral?: boolean;
 }): PlanSplitShare[] {
   // Installers in order of their first bestseller in the plan
   const owners = new Map<string, string[]>();
@@ -98,6 +103,10 @@ export function planSplitShares({
   }
 
   const referral = cleanReferralId(referralInstallerId);
+  if (viaBuyerReferral) {
+    if (!referral) return [];
+    return [{ recipientId: referral, cents: PLAN_REFERRAL_CENTS, reason: "referral" as const, bestsellers: [] }];
+  }
   if (!referral) return shareEqually([...owners.entries()], PLAN_SPLIT_TOTAL_CENTS);
 
   const own = owners.get(referral);

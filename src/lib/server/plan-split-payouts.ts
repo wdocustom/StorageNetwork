@@ -92,7 +92,11 @@ export async function processPlanSplits(
 
   const design = decodeTotePlanDesign(metadata.design, metadata.design_name);
   if (!design) return [];
-  const shares = planSplitShares({ referralInstallerId: metadata.referral_installer_id, design });
+  const shares = planSplitShares({
+    referralInstallerId: metadata.referral_installer_id,
+    design,
+    viaBuyerReferral: !!metadata.friend_code,
+  });
   if (shares.length === 0) return [];
 
   const chargeId = await chargeIdFor(stripe, session);
