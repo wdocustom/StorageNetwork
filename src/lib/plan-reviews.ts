@@ -64,3 +64,42 @@ export function cleanBuildHours(value: unknown): number | null {
   if (!Number.isFinite(n) || n <= 0 || n > 200) return null;
   return Math.round(n * 2) / 2 || null;
 }
+
+// ── Has the buyer actually used their plans? ─────────────────────────────
+// Time alone isn't enough to ask for a review: they must have come back to
+// their plans after the checkout page, or used the guide/PDF. Evidence:
+//   • plan_buyer_activity (from Nov 16, 2026): guide/PDF/library use, or an
+//     open that wasn't the checkout return;
+//   • plan_buyer_devices (from Oct 31, 2026, so older buyers count too): a
+//     device confirmed after checkout (first open, emailed code, same
+//     network), or the checkout device seen again RETURN_VISIT_MINUTES+ later.
+
+export const RETURN_VISIT_MINUTES = 30;
+
+const USE_EVENTS = new Set([
+  "guide_open",
+  "guide_step",
+  "guide_section",
+  "pdf_start",
+  "pdf_download",
+  "library_open",
+  "shop_progress",
+  "tools_progress",
+  "jig_open",
+  "buy_link",
+]);
+
+export function hasUsedPlans(
+  activity: { event: string; detail: string | null }[],
+  devices: { verified_by: string; created_at: string; last_seen_at: string | null }[],
+): boolean {
+  for (const a of activity) {
+    if (USE_EVENTS.has(a.event)) return true;
+    if (a.event === "open" && a.detail !== "checkout" && a.detail !== "checkout_reload") return true;
+  }
+  for (const d of devices) {
+    if (d.verified_by !== "checkout") return true;
+    if (d.last_seen_at && Date.parse(d.last_seen_at) - Date.parse(d.created_at) >= RETURN_VISIT_MINUTES * 60_000) return true;
+  }
+  return false;
+}

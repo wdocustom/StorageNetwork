@@ -16,13 +16,21 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { getPlanRatingSummary } from "@/app/actions/plan-reviews";
+import {
+  FRIEND_DISCOUNT_CENTS,
+  cleanFriendCode,
+  forgetFriendCode,
+  friendPrice,
+  readFriendCode,
+  rememberFriendCode,
+} from "@/lib/plan-friend";
 import { useSearchParams } from "next/navigation";
 import { useState, useMemo, useEffect, useCallback, useRef, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Crown, Gift, Layers, Loader2, Plus, Ruler, Trash2 } from "lucide-react";
 import { DIY_INVENTORY } from "@/lib/diy-inventory";
-import { createDIYPlanCheckout, checkDIYPlanAccess, checkPlanPromo, getMiniPlanPrice } from "@/app/actions/diy-plan-checkout";
+import { createDIYPlanCheckout, checkDIYPlanAccess, checkPlanPromo, checkFriendCode, getMiniPlanPrice } from "@/app/actions/diy-plan-checkout";
 import SystemMap from "@/components/plans/SystemMap";
 import UnitsToggle from "@/components/plans/UnitsToggle";
 import { formatLengthIn, useUnits } from "@/lib/measure-units";
@@ -254,6 +262,22 @@ function PlansDesigner() {
   const [promo, setPromo] = useState<AppliedPromo | null>(null);
   // A code from a promo link (/go/friday) with no email yet: typed in for them.
   const [prefillPromo, setPrefillPromo] = useState<string | undefined>(undefined);
+  // A plan buyer's share link (/plans/friend/<code>): $3 off, checked server-side.
+  const [friend, setFriend] = useState<{ code: string; name: string } | null>(null);
+  useEffect(() => {
+    const code = cleanFriendCode(searchParams.get("friend")) ?? readFriendCode();
+    if (!code) return;
+    checkFriendCode(code)
+      .then((r) => {
+        if (r.ok) {
+          rememberFriendCode(r.code);
+          setFriend({ code: r.code, name: r.name });
+        } else forgetFriendCode();
+      })
+      .catch(() => undefined);
+    // Read once on load; the URL is rewritten as the design changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Verified plan reviews, per product (27-gal / Mini), for the line under the buy button.
   const [ratings, setRatings] = useState<{ tote: { average: number; total: number }; mini: { average: number; total: number } } | null>(null);
   useEffect(() => {
@@ -300,7 +324,17 @@ function PlansDesigner() {
     setPromo(null);
   };
   // What this checkout costs: the promo, else a retention offer, else $19.
-  const priceCents = isMini ? miniPrice.price : promo ? promo.price : offer ? totePlanOfferPrice(offer.code) : TOTE_PLAN_ALL_ACCESS.price;
+  // One discount per checkout, the best one (the server prices it the same way).
+  const toteOfferCents = offer ? totePlanOfferPrice(offer.code) : TOTE_PLAN_ALL_ACCESS.price;
+  const toteFriendCents = friend ? friendPrice(TOTE_PLAN_ALL_ACCESS.price) : Infinity;
+  const miniFriendCents = friend ? friendPrice(miniPrice.regularPrice) : Infinity;
+  /** The friend's $3 is what's being applied (not a better offer) */
+  const friendApplied = !!friend && (isMini ? miniFriendCents < miniPrice.price : !promo && toteFriendCents < toteOfferCents);
+  const priceCents = isMini
+    ? Math.min(miniPrice.price, miniFriendCents)
+    : promo
+      ? promo.price
+      : Math.min(toteOfferCents, toteFriendCents);
 
   useEffect(() => {
     checkDIYPlanAccess().then(setFreeAccess);
@@ -453,10 +487,10 @@ function PlansDesigner() {
     // One offer per checkout: the promo code if applied, else a retention offer.
     const result = await (isMini
       ? // Mini: one price, no offers or codes; the plan link earns the owner price
-        createDIYPlanCheckout(design, source, ref, visitorId, undefined, undefined, memberTokenRef.current)
+        createDIYPlanCheckout(design, source, ref, visitorId, undefined, undefined, memberTokenRef.current, friend?.code)
       : promo
-        ? createDIYPlanCheckout(design, source, ref, visitorId, promo.code, promo.email)
-        : createDIYPlanCheckout(design, source, ref, visitorId, readOffer()?.code)
+        ? createDIYPlanCheckout(design, source, ref, visitorId, promo.code, promo.email, undefined, friend?.code)
+        : createDIYPlanCheckout(design, source, ref, visitorId, readOffer()?.code, undefined, undefined, friend?.code)
     ).catch(() => ({
       success: false as const,
       clientSecret: undefined,
@@ -812,15 +846,17 @@ function PlansDesigner() {
               mini={isMini}
               offerPrice={
                 isMini
-                  ? miniPrice.ownerDiscount
-                    ? formatPlanPrice(miniPrice.price)
+                  ? priceCents < miniPrice.regularPrice
+                    ? formatPlanPrice(priceCents)
                     : undefined
                   : priceCents < TOTE_PLAN_ALL_ACCESS.price
                     ? formatPlanPrice(priceCents)
                     : undefined
               }
               offerTag={
-                isMini
+                friendApplied
+                  ? `From ${friend!.name} · ${formatPlanPrice(FRIEND_DISCOUNT_CENTS)} off`
+                  : isMini
                   ? miniPrice.ownerDiscount
                     ? "All-Access owner price"
                     : undefined

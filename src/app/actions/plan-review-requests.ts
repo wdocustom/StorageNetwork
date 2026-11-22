@@ -2,8 +2,10 @@
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Ask DIY plan buyers for a review: one email PLAN_REVIEW_REQUEST_AFTER_DAYS
-// after they bought, one reminder PLAN_REVIEW_REMINDER_AFTER_DAYS later, then
-// never again. Per buyer email per product (27-gal / Mini), for their newest
+// after they bought — and only once they've actually used their plans
+// (hasUsedPlans: came back after checkout, or used the guide/PDF) — one
+// reminder PLAN_REVIEW_REMINDER_AFTER_DAYS later, then never again. Each
+// email carries their share link ($3 off for friends and family). Per buyer email per product (27-gal / Mini), for their newest
 // purchase of it; skipped once they've reviewed. Buyers older than
 // PLAN_REVIEW_REQUEST_MAX_AGE_DAYS when this launched aren't asked.
 // Called daily by /api/cron/plan-review-requests. Safe to re-run: each send
@@ -13,7 +15,9 @@
 import { getServiceClient } from "@/lib/supabase-server";
 import { sendPlanReviewRequestEmail } from "@/lib/emails/planReviewTemplates";
 import { TOTE_PLAN_ID, TOTE_PLAN_MINI, parseTotePlanDesign, totePlanName } from "@/lib/tote-plans";
+import { getOrCreateFriendCode } from "@/lib/server/plan-friend";
 import {
+  hasUsedPlans,
   PLAN_REVIEW_REMINDER_AFTER_DAYS,
   PLAN_REVIEW_REQUEST_AFTER_DAYS,
   PLAN_REVIEW_REQUEST_MAX_AGE_DAYS,
@@ -25,6 +29,8 @@ const DAY = 24 * 60 * 60 * 1000;
 export interface ReviewRequestResult {
   requests: number;
   reminders: number;
+  /** Due by date, skipped: haven't used their plans yet */
+  notUsedYet: number;
   errors: string[];
 }
 
@@ -43,7 +49,7 @@ interface Row {
 const productOf = (planId: string): PlanReviewProduct => (planId === TOTE_PLAN_MINI.id ? "mini" : "tote");
 
 export async function processPlanReviewRequests(now = Date.now()): Promise<ReviewRequestResult> {
-  const result: ReviewRequestResult = { requests: 0, reminders: 0, errors: [] };
+  const result: ReviewRequestResult = { requests: 0, reminders: 0, notUsedYet: 0, errors: [] };
   const db = getServiceClient();
 
   const { data, error } = await db
@@ -74,9 +80,36 @@ export async function processPlanReviewRequests(now = Date.now()): Promise<Revie
   const { data: reviewed } = await db.from("plan_reviews").select("email, product");
   const done = new Set((reviewed ?? []).map((r) => `${String(r.email).toLowerCase()}|${r.product}`));
 
+  // Only buyers who've used their plans (see hasUsedPlans).
+  const emails = [...new Set([...groups.keys()].map((k) => k.split("|")[0]))];
+  const [activityRes, devicesRes] = await Promise.all([
+    db.from("plan_buyer_activity").select("email, event, detail").in("email", emails).limit(50000),
+    db.from("plan_buyer_devices").select("email, verified_by, created_at, last_seen_at").in("email", emails).limit(10000),
+  ]);
+  if (activityRes.error || devicesRes.error) {
+    result.errors.push(`Usage lookup failed: ${activityRes.error?.message ?? devicesRes.error?.message}`);
+    return result;
+  }
+  const used = new Set(
+    emails.filter((e) =>
+      hasUsedPlans(
+        (activityRes.data ?? []).filter((a) => String(a.email).toLowerCase() === e) as { event: string; detail: string | null }[],
+        (devicesRes.data ?? []).filter((d) => String(d.email).toLowerCase() === e) as {
+          verified_by: string;
+          created_at: string;
+          last_seen_at: string | null;
+        }[],
+      ),
+    ),
+  );
+
   for (const [key, g] of groups) {
     if (done.has(key)) continue;
     const email = key.split("|")[0];
+    if (!used.has(email)) {
+      result.notUsedYet++;
+      continue;
+    }
     let row: Row;
     let column: "review_request_sent_at" | "review_reminder_sent_at";
     if (!g.asked) {
@@ -96,6 +129,8 @@ export async function processPlanReviewRequests(now = Date.now()): Promise<Revie
     if (!claimed?.length) continue;
 
     const design = parseTotePlanDesign(row.build_config);
+    // Their share link: friends and family get $3 off (made once per email)
+    const friendCode = await getOrCreateFriendCode(email, row.id).catch(() => null);
     let sent = false;
     let lastError = "";
     for (let attempt = 0; attempt < 3 && !sent; attempt++) {
@@ -104,6 +139,7 @@ export async function processPlanReviewRequests(now = Date.now()): Promise<Revie
         designName: design ? totePlanName(design) : "tote rack",
         customerName: row.customer_name,
         reminder: column === "review_reminder_sent_at",
+        friendCode,
       });
       if (r.success) sent = true;
       else {
@@ -122,6 +158,11 @@ export async function processPlanReviewRequests(now = Date.now()): Promise<Revie
     }
     await new Promise((res) => setTimeout(res, 600)); // stay under the email rate limit
   }
-  console.log("[PlanReviewRequests]", { requests: result.requests, reminders: result.reminders, errors: result.errors.length });
+  console.log("[PlanReviewRequests]", {
+    requests: result.requests,
+    reminders: result.reminders,
+    notUsedYet: result.notUsedYet,
+    errors: result.errors.length,
+  });
   return result;
 }

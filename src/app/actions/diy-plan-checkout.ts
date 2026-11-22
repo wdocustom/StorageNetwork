@@ -1,5 +1,7 @@
 "use server";
 
+import { resolveFriendCode } from "@/lib/server/plan-friend";
+import { friendPrice } from "@/lib/plan-friend";
 import Stripe from "stripe";
 import { stripeConfig } from "@/lib/stripe/http";
 import { LADDER_JIG_NAME } from "@/lib/ladder-jig";
@@ -109,6 +111,19 @@ async function resolvePlanReferral(rawRef: unknown): Promise<string | null> {
   return data && data.is_realtor !== true ? data.id : null;
 }
 
+// ── Share-with-a-friend links ───────────────────────────────────────────────
+
+/** For the checkout banner: who shared it (first name + initial), if the code is real. */
+export async function checkFriendCode(raw: unknown): Promise<{ ok: true; code: string; name: string } | { ok: false }> {
+  try {
+    await enforceActionRateLimit({ action: "plan-friend-check", limit: 30, window: "10 m", identify: "ip" });
+  } catch {
+    return { ok: false };
+  }
+  const friend = await resolveFriendCode(raw).catch(() => null);
+  return friend ? { ok: true, code: friend.code, name: friend.name } : { ok: false };
+}
+
 // ── Promo codes (FRIDAY) ────────────────────────────────────────────────────
 
 const FINAL_SALE_MESSAGE =
@@ -213,6 +228,8 @@ export async function createDIYPlanCheckout(
   rawPromoEmail?: unknown,
   /** Mini designs: a plan link, for the 27-gal owner price (verified here) */
   rawOwnerToken?: unknown,
+  /** A plan buyer's share code (/plans/friend/<code>): $3 off */
+  rawFriend?: unknown,
 ): Promise<{ success: boolean; clientSecret?: string; error?: string }> {
   // SECURITY (H-3): each call provisions a Stripe Checkout Session. Cap
   // per identity to prevent scripted abuse of Stripe's session API.
@@ -237,7 +254,12 @@ export async function createDIYPlanCheckout(
       error: `Plans cover up to ${TOTE_PLAN_LIMITS.maxUnits} standard tote units, each up to ${TOTE_PLAN_LIMITS.maxCols} wide × ${TOTE_PLAN_LIMITS.maxRows} tall.`,
     };
   }
-  if (isMiniDesign(design)) return createMiniPlanCheckout(design, source, rawRef, rawVisitorId, rawOwnerToken);
+  // A buyer's share link: checked here, never trusted from the browser.
+  const friend = await resolveFriendCode(rawFriend).catch((err) => {
+    console.error("[DIYPlanCheckout] friend code lookup failed:", err);
+    return null;
+  });
+  if (isMiniDesign(design)) return createMiniPlanCheckout(design, source, rawRef, rawVisitorId, rawOwnerToken, friend?.code ?? null);
   const product = TOTE_PLAN_ALL_ACCESS;
   // Exactly one offer: the promo code if they entered one, else a retention
   // offer, else the regular price.
@@ -256,6 +278,11 @@ export async function createDIYPlanCheckout(
   } else if (isRetentionOffer(rawOffer)) {
     offer = rawOffer;
     price = totePlanOfferPrice(rawOffer);
+  }
+  // Friend's link: $3 off, unless the offer above already beats it.
+  if (friend && !lockedEmail && friendPrice(TOTE_PLAN_ALL_ACCESS.price) < price) {
+    offer = "friend";
+    price = friendPrice(TOTE_PLAN_ALL_ACCESS.price);
   }
   const sourceTag = typeof source === "string" ? source.replace(/[^a-z0-9_-]/gi, "").slice(0, 40) : "";
 
@@ -314,6 +341,8 @@ export async function createDIYPlanCheckout(
         ...(design.name ? { design_name: design.name } : {}),
         ...(sourceTag ? { source: sourceTag } : {}),
         ...(referralInstallerId ? { referral_installer_id: referralInstallerId } : {}),
+        // Recorded on the purchase; also means no bestseller split (plan-splits.ts)
+        ...(friend ? { friend_code: friend.code } : {}),
         ...(attribution
           ? { promoter_id: attribution.promoterId, promoter_referral_code: attribution.code }
           : {}),
@@ -356,9 +385,14 @@ async function createMiniPlanCheckout(
   rawRef: unknown,
   rawVisitorId: unknown,
   rawOwnerToken: unknown,
+  friendCode: string | null,
 ): Promise<{ success: boolean; clientSecret?: string; error?: string }> {
   const owner = await bigRackOwnerFor(rawOwnerToken).catch(() => null);
-  const price = owner ? TOTE_PLAN_MINI.ownerPrice : TOTE_PLAN_MINI.price;
+  // Owner price or a friend's $3 off, whichever is lower (never both)
+  const friendCents = friendCode ? friendPrice(TOTE_PLAN_MINI.price) : Infinity;
+  const ownerCents = owner ? TOTE_PLAN_MINI.ownerPrice : Infinity;
+  const price = Math.min(TOTE_PLAN_MINI.price, friendCents, ownerCents);
+  const viaFriend = friendCode !== null && price === friendCents && friendCents < ownerCents;
   const sourceTag = typeof source === "string" ? source.replace(/[^a-z0-9_-]/gi, "").slice(0, 40) : "";
   try {
     const baseUrl = siteConfig.baseUrl;
@@ -368,7 +402,7 @@ async function createMiniPlanCheckout(
     const session = await createEmbeddedCheckoutSession(stripe, {
       mode: "payment",
       // Owner price: pay with the email that owns the 27-gal plans
-      ...(owner ? { customer_email: owner.email } : {}),
+      ...(owner && !viaFriend ? { customer_email: owner.email } : {}),
       custom_text: FINAL_SALE_TEXT,
       line_items: [
         {
@@ -389,7 +423,8 @@ async function createMiniPlanCheckout(
         plan_id: TOTE_PLAN_MINI.id,
         tier: TOTE_PLAN_ALL_ACCESS_TIER,
         product: "mini",
-        ...(owner ? { offer: "owner" } : {}),
+        ...(viaFriend ? { offer: "friend" } : owner ? { offer: "owner" } : {}),
+        ...(friendCode ? { friend_code: friendCode } : {}),
         design: encodeTotePlanDesign(design),
         ...(design.name ? { design_name: design.name } : {}),
         ...(sourceTag ? { source: sourceTag } : {}),
