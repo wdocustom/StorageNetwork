@@ -140,7 +140,7 @@ export default function PortfolioShowcase({ photos, reviews, businessName }: Pro
                 </span>
               )}
               {featuredReview.tags.length > 0 && (
-                <div className="flex gap-1.5">
+                <div className="flex flex-wrap gap-1.5">
                   {featuredReview.tags.slice(0, 3).map((tagId) => {
                     const tag = tagMap[tagId];
                     return (
@@ -155,6 +155,12 @@ export default function PortfolioShowcase({ photos, reviews, businessName }: Pro
                 </div>
               )}
             </div>
+            {featuredReview.reply && (
+              <div className="mt-4 rounded-xl border-l-2 border-yellow-400/50 bg-slate-900/60 px-3 py-2">
+                <p className="text-[11px] font-bold text-yellow-300">Reply from {businessName}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-stone-300 line-clamp-3">{featuredReview.reply}</p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -255,6 +261,11 @@ export default function PortfolioShowcase({ photos, reviews, businessName }: Pro
               </div>
 
               <div className="mt-auto pt-2">
+                {review.reply && (
+                  <p className="mb-1.5 text-[10px] leading-snug text-stone-400 line-clamp-2">
+                    <span className="font-bold text-yellow-300/80">↩ {businessName}:</span> {review.reply}
+                  </p>
+                )}
                 {review.tags.length > 0 && (
                   <div className="mb-2 flex flex-wrap gap-1">
                     {review.tags.slice(0, 2).map((tagId) => {

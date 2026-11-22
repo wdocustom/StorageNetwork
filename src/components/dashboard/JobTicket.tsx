@@ -1,5 +1,6 @@
 "use client";
 
+import InstallerReviewReply from "@/components/dashboard/InstallerReviewReply";
 import { useEffect, useMemo, useRef, useState } from "react";
 import NextImage from "next/image";
 import {
@@ -1074,16 +1075,8 @@ export default function JobTicket({
             </div>
 
             {reviewDone ? (
-              /* Review submitted */
-              <div className="flex items-center gap-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-4 py-3">
-                <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
-                <div>
-                  <p className="text-xs font-bold text-emerald-400">Review Received</p>
-                  <p className="text-[10px] text-stone-500 mt-0.5">
-                    This customer has submitted a verified review. It will appear on your portfolio page.
-                  </p>
-                </div>
-              </div>
+              /* Review submitted: show it, and let the installer reply publicly */
+              <InstallerReviewReply leadId={leadId} />
             ) : (
               <div className="space-y-3">
                 {/* Status badge */}
@@ -1123,7 +1116,7 @@ export default function JobTicket({
                         setReviewEmailing(true);
                         try {
                           const { requestReview } = await import("@/app/actions/reviews");
-                          const result = await requestReview({ leadId, installerId });
+                          const result = await requestReview({ leadId });
                           if (result.success) {
                             setReviewRequested(true);
                             setReviewSendSuccess(true);

@@ -10,6 +10,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useId, useState } from "react";
+import Stars from "@/components/reviews/Stars";
 import Link from "next/link";
 import { ArrowRight, Box, CheckCircle, FileText, Hammer, Infinity as InfinityIcon, Loader2, Sparkles, Tag, X } from "lucide-react";
 import type { AppliedPromo } from "@/lib/plan-offer";
@@ -185,6 +186,7 @@ export function AllAccessOffer({
   onApplyPromo,
   onRemovePromo,
   prefillPromo,
+  rating,
   giveaway = false,
   mini = false,
 }: {
@@ -205,6 +207,8 @@ export function AllAccessOffer({
   onRemovePromo?: () => void;
   /** A code from the link, waiting for the buyer's email */
   prefillPromo?: string;
+  /** Published plan reviews for this product (shown from 3 up) */
+  rating?: { average: number; total: number } | null;
   /** The Holiday Full Refund Giveaway is running: a reminder just above the buy button */
   giveaway?: boolean;
   /** A Mini Tote Rack design: the separate Mini Tote Rack Plans product */
@@ -277,6 +281,14 @@ export function AllAccessOffer({
       <p className="mt-2 text-center text-[11px] text-stone-500">
         Instant access · link by email · all sales final
       </p>
+      {rating && rating.total >= 3 && (
+        <a href="/plans#reviews" target="_blank" className="mt-2 flex items-center justify-center gap-1.5 text-xs text-stone-400 hover:text-white">
+          <Stars rating={rating.average} size="xs" />
+          <span>
+            <strong className="text-stone-200">{rating.average.toFixed(1)}</strong> from {rating.total} verified builders
+          </span>
+        </a>
+      )}
       {onApplyPromo && onRemovePromo && (
         <PromoCode
           promo={promo}

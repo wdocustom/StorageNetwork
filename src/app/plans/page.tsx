@@ -1,3 +1,6 @@
+import PlanReviewsSection, { PlanRatingLine } from "@/components/plans/PlanReviewsSection";
+import { getPlanReviews, type PlanReviewsData } from "@/app/actions/plan-reviews";
+import { summarizeRatings } from "@/lib/reviews";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -91,15 +94,10 @@ export const metadata: Metadata = {
   },
 };
 
-const jsonLd = [
-  plansWebPageJsonLd(DESCRIPTION),
-  generateBreadcrumbJsonLd([{ name: "DIY Build Plans", path: "/plans" }]),
-  totePlansProductJsonLd(),
-  miniPlansProductJsonLd(),
-  ladderJigProductJsonLd(),
-  ...publicPlanProductsJsonLd(),
-  plansFaqJsonLd(),
-];
+// Reviews are re-read at most hourly (ISR).
+export const revalidate = 3600;
+
+const EMPTY_REVIEWS: PlanReviewsData = { summary: summarizeRatings([]), reviews: [] };
 
 // ── Proof ────────────────────────────────────────────────────────────────────
 // Paid jobs completed by Storage Network installers with the same build
@@ -170,10 +168,22 @@ const PRODUCTS = [
 
 export default async function PlansPage() {
   // What lumber for a 4×4 of each costs at retail: the price anchors.
-  const [materials, miniMaterials] = await Promise.all([
+  const [materials, miniMaterials, reviews, toteReviews, miniReviews] = await Promise.all([
     estimatePlanMaterials(DEFAULT_TOTE_PLAN_DESIGN).catch(() => null),
     estimatePlanMaterials(decodeTotePlanDesign("M4x4t")).catch(() => null),
+    getPlanReviews({ limit: 24 }).catch(() => EMPTY_REVIEWS),
+    getPlanReviews({ product: "tote", limit: 5 }).catch(() => EMPTY_REVIEWS),
+    getPlanReviews({ product: "mini", limit: 5 }).catch(() => EMPTY_REVIEWS),
   ]);
+  const jsonLd = [
+    plansWebPageJsonLd(DESCRIPTION),
+    generateBreadcrumbJsonLd([{ name: "DIY Build Plans", path: "/plans" }]),
+    totePlansProductJsonLd(toteReviews),
+    miniPlansProductJsonLd(miniReviews),
+    ladderJigProductJsonLd(),
+    ...publicPlanProductsJsonLd(),
+    plansFaqJsonLd(),
+  ];
   const lumber = materials ? `$${Math.round(materials.materialsTotal / 10) * 10}` : null;
   const miniLumber = miniMaterials ? `$${Math.round(miniMaterials.materialsTotal / 10) * 10}` : null;
 
@@ -251,6 +261,9 @@ export default async function PlansPage() {
             </Link>
             <p className="mt-3 text-center text-sm text-stone-400">
               Free to design · {PLANS_PRICES.allAccess} for 27-gallon totes · {PRO_INSTALLS} pro installs
+            </p>
+            <p className="mt-1.5 text-center">
+              <PlanRatingLine data={reviews} href="#reviews" />
             </p>
             <p className="mt-1.5 text-center text-sm">
               <Link href="/plans/mini?utm_source=plans_hero" className="font-semibold text-yellow-300 hover:underline">
@@ -358,6 +371,9 @@ export default async function PlansPage() {
           <p className="mb-6 mt-2 text-[15px] text-stone-400">Tap a sample to look inside.</p>
           <PlanSamplesRow />
         </section>
+
+        {/* ── Reviews (verified buyers) ────────────────────────────── */}
+        <PlanReviewsSection data={reviews} eyebrow={eyebrow} h2={h2} />
 
         {/* ── Gift it ──────────────────────────────────────────────── */}
         <GiftSection>

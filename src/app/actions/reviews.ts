@@ -2,11 +2,19 @@
 
 import { getServiceClient } from "@/lib/supabase-server";
 import { requestQuoteUrl } from "@/lib/server/request-link";
+import { getAuthenticatedUser, verifyLeadOwnership } from "@/lib/auth";
+import { ensureLeadReviewToken } from "@/lib/server/review-token";
+import { photoFiles, uploadReviewPhotos } from "@/lib/server/review-photos";
+import { enforceActionRateLimit, RateLimitError } from "@/lib/server/action-rate-limit";
+import { REVIEW_TAGS } from "@/config/review-tags";
+import { REVIEW_LIMITS, cleanTags, cleanText, publicName, summarizeRatings, timeAgo } from "@/lib/reviews";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Customer Reviews — Server Actions
 //
 // Token-based review system. No customer login required.
+// Writes go through the service role only (migration 166 removed the open
+// INSERT policy); installer-side actions use the signed-in session.
 // Each completed job gets a unique review_token embedded in the receipt
 // email. Customer clicks the link, lands on /review/[token], writes
 // their review. One review per job, verified by token.
@@ -14,46 +22,14 @@ import { requestQuoteUrl } from "@/lib/server/request-link";
 
 const db = () => getServiceClient();
 
-// ── Generate review token for a completed job ────────────────────────────
+// ── Review link for a job (installer "copy link") ───────────────────────
+// Only the signed-in installer who owns the job. Job completion and the
+// Stripe webhook use ensureLeadReviewToken directly.
 
 export async function generateReviewToken(leadId: string): Promise<string | null> {
-  try {
-    // Check if token already exists
-    const { data: existing, error: fetchErr } = await db()
-      .from("leads")
-      .select("review_token")
-      .eq("id", leadId)
-      .maybeSingle();
-
-    if (fetchErr) {
-      console.error("[Reviews] Failed to fetch lead:", fetchErr.message);
-      return null;
-    }
-
-    if (existing?.review_token) {
-      return existing.review_token as string;
-    }
-
-    // Generate a 32-char hex token without requiring Node crypto
-    const bytes = new Uint8Array(16);
-    crypto.getRandomValues(bytes);
-    const token = Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
-
-    const { error } = await db()
-      .from("leads")
-      .update({ review_token: token })
-      .eq("id", leadId);
-
-    if (error) {
-      console.error("[Reviews] Failed to update lead with token:", error.message);
-      return null;
-    }
-
-    return token;
-  } catch (err) {
-    console.error("[Reviews] generateReviewToken crashed:", err);
-    return null;
-  }
+  if (typeof leadId !== "string" || !leadId) return null;
+  if (!(await verifyLeadOwnership(leadId))) return null;
+  return ensureLeadReviewToken(leadId);
 }
 
 // ── Get review page data (validates token, returns job context) ──────────
@@ -136,20 +112,22 @@ export async function getReviewPageData(token: string): Promise<{
 }
 
 // ── Submit a review ──────────────────────────────────────────────────────
+// FormData: token, rating, headline, comment, tags (JSON array), photos (JPEGs).
+// The one-time link is the proof: the job's customer got it by email.
 
-export async function submitReview(input: {
-  token: string;
-  rating: number;
-  headline?: string;
-  comment?: string;
-  tags: string[];
-}): Promise<{ success: boolean; error?: string }> {
-  const { token, rating, headline, comment, tags } = input;
+export async function submitReview(form: FormData): Promise<{ success: boolean; error?: string }> {
+  try {
+    await enforceActionRateLimit({ action: "reviews.submitReview", limit: 10, window: "10 m", identify: "ip" });
+  } catch (err) {
+    if (err instanceof RateLimitError) return { success: false, error: err.message };
+    throw err;
+  }
 
-  if (!token || token.length < 16) return { success: false, error: "Invalid token" };
-  if (rating < 1 || rating > 5) return { success: false, error: "Rating must be 1-5" };
+  const token = form.get("token");
+  const rating = Number(form.get("rating"));
+  if (typeof token !== "string" || token.length < 16) return { success: false, error: "Invalid token" };
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) return { success: false, error: "Rating must be 1-5" };
 
-  // Look up the lead
   const { data: lead } = await db()
     .from("leads")
     .select("id, installer_id, customer_name, review_submitted")
@@ -160,7 +138,16 @@ export async function submitReview(input: {
   if (lead.review_submitted) return { success: false, error: "You already submitted a review for this job" };
   if (!lead.installer_id) return { success: false, error: "No installer associated with this job" };
 
-  // Insert the review
+  let tags: unknown = [];
+  try {
+    tags = JSON.parse(String(form.get("tags") ?? "[]"));
+  } catch {
+    tags = [];
+  }
+
+  const photos = await uploadReviewPhotos(`installer/${lead.installer_id}/${lead.id}`, photoFiles(form));
+  if (!photos.ok) return { success: false, error: photos.error };
+
   const { error: insertError } = await db()
     .from("installer_reviews")
     .insert({
@@ -169,9 +156,10 @@ export async function submitReview(input: {
       review_token: token,
       customer_name: lead.customer_name || "Customer",
       rating,
-      headline: headline?.trim() || null,
-      comment: comment?.trim() || null,
-      tags: tags.filter(Boolean),
+      headline: cleanText(form.get("headline"), REVIEW_LIMITS.headline),
+      comment: cleanText(form.get("comment"), REVIEW_LIMITS.comment),
+      tags: cleanTags(tags, REVIEW_TAGS),
+      photos: photos.urls,
       is_verified: true,
       is_published: true,
     });
@@ -184,12 +172,7 @@ export async function submitReview(input: {
     return { success: false, error: "Failed to submit review" };
   }
 
-  // Mark lead as reviewed
-  await db()
-    .from("leads")
-    .update({ review_submitted: true })
-    .eq("id", lead.id);
-
+  await db().from("leads").update({ review_submitted: true }).eq("id", lead.id);
   return { success: true };
 }
 
@@ -202,6 +185,8 @@ export interface PublicReview {
   headline: string | null;
   comment: string | null;
   tags: string[];
+  photos: string[];
+  reply: string | null;
   isVerified: boolean;
   createdAt: string;
   timeAgo: string;
@@ -216,97 +201,50 @@ export interface ReviewSummary {
 }
 
 export async function getInstallerReviews(installerId: string): Promise<ReviewSummary> {
-  const { data: reviews } = await db()
-    .from("installer_reviews")
-    .select("id, customer_name, rating, headline, comment, tags, is_verified, created_at")
-    .eq("installer_id", installerId)
-    .eq("is_published", true)
-    .order("created_at", { ascending: false })
-    .limit(50);
+  // Stats over every published review; the list is the latest 50.
+  const [{ data: all }, { data: reviews }] = await Promise.all([
+    db().from("installer_reviews").select("rating, tags").eq("installer_id", installerId).eq("is_published", true).limit(10000),
+    db()
+      .from("installer_reviews")
+      .select("id, customer_name, rating, headline, comment, tags, photos, reply, is_verified, created_at")
+      .eq("installer_id", installerId)
+      .eq("is_published", true)
+      .order("created_at", { ascending: false })
+      .limit(50),
+  ]);
 
-  if (!reviews || reviews.length === 0) {
-    return {
-      averageRating: 0,
-      totalReviews: 0,
-      ratingDistribution: [5, 4, 3, 2, 1].map((stars) => ({ stars, count: 0, pct: 0 })),
-      topTags: [],
-      reviews: [],
-    };
-  }
-
-  // Calculate stats
-  const totalReviews = reviews.length;
-  const sumRatings = reviews.reduce((sum, r) => sum + (r.rating as number), 0);
-  const averageRating = Math.round((sumRatings / totalReviews) * 10) / 10;
-
-  // Rating distribution
-  const ratingCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-  for (const r of reviews) ratingCounts[r.rating as number]++;
-  const ratingDistribution = [5, 4, 3, 2, 1].map((stars) => ({
-    stars,
-    count: ratingCounts[stars],
-    pct: totalReviews > 0 ? Math.round((ratingCounts[stars] / totalReviews) * 100) : 0,
-  }));
-
-  // Top tags
-  const tagCounts: Record<string, number> = {};
-  for (const r of reviews) {
-    const tags = (r.tags as string[]) || [];
-    for (const t of tags) tagCounts[t] = (tagCounts[t] || 0) + 1;
-  }
-  const topTags = Object.entries(tagCounts)
-    .map(([tag, count]) => ({ tag, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 8);
-
-  // Format time ago
-  const now = Date.now();
-  const formatTimeAgo = (dateStr: string) => {
-    const diff = now - new Date(dateStr).getTime();
-    const days = Math.floor(diff / 86400000);
-    if (days < 1) return "Today";
-    if (days === 1) return "Yesterday";
-    if (days < 7) return `${days} days ago`;
-    if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
-    if (days < 365) return `${Math.floor(days / 30)} months ago`;
-    return `${Math.floor(days / 365)} years ago`;
-  };
-
+  const summary = summarizeRatings((all ?? []) as { rating: number; tags: string[] | null }[]);
   return {
-    averageRating,
-    totalReviews,
-    ratingDistribution,
-    topTags,
-    reviews: reviews.map((r) => ({
+    averageRating: summary.average,
+    totalReviews: summary.total,
+    ratingDistribution: summary.distribution,
+    topTags: summary.topTags,
+    reviews: (reviews ?? []).map((r) => ({
       id: r.id as string,
-      customerName: (r.customer_name as string).split(" ")[0] + " " +
-        ((r.customer_name as string).split(" ")[1]?.charAt(0) || "") + ".",
+      customerName: publicName(r.customer_name as string, "Customer"),
       rating: r.rating as number,
       headline: r.headline as string | null,
       comment: r.comment as string | null,
       tags: (r.tags as string[]) || [],
+      photos: (r.photos as string[]) || [],
+      reply: (r.reply as string | null) ?? null,
       isVerified: r.is_verified as boolean,
       createdAt: new Date(r.created_at as string).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
       }),
-      timeAgo: formatTimeAgo(r.created_at as string),
+      timeAgo: timeAgo(r.created_at as string),
     })),
   };
 }
 
-// ── Toggle show_reviews on profile ───────────────────────────────────────
+// ── Toggle show_reviews on the signed-in installer's profile ─────────────
 
-export async function toggleShowReviews(
-  installerId: string,
-  show: boolean
-): Promise<{ success: boolean }> {
-  const { error } = await db()
-    .from("profiles")
-    .update({ show_reviews: show })
-    .eq("id", installerId);
-
+export async function toggleShowReviews(show: boolean): Promise<{ success: boolean }> {
+  const user = await getAuthenticatedUser();
+  if (!user) return { success: false };
+  const { error } = await db().from("profiles").update({ show_reviews: !!show }).eq("id", user.id);
   if (error) {
     console.error("[Reviews] Toggle error:", error.message);
     return { success: false };
@@ -314,13 +252,68 @@ export async function toggleShowReviews(
   return { success: true };
 }
 
+// ── The review on one of the signed-in installer's jobs, and their reply ──
+
+export interface MyLeadReview {
+  id: string;
+  rating: number;
+  headline: string | null;
+  comment: string | null;
+  tags: string[];
+  photos: string[];
+  reply: string | null;
+  createdAt: string;
+}
+
+export async function getMyLeadReview(leadId: string): Promise<MyLeadReview | null> {
+  if (typeof leadId !== "string" || !leadId) return null;
+  const installerId = await verifyLeadOwnership(leadId);
+  if (!installerId) return null;
+  const { data } = await db()
+    .from("installer_reviews")
+    .select("id, rating, headline, comment, tags, photos, reply, created_at")
+    .eq("lead_id", leadId)
+    .eq("installer_id", installerId)
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    id: data.id as string,
+    rating: data.rating as number,
+    headline: (data.headline as string | null) ?? null,
+    comment: (data.comment as string | null) ?? null,
+    tags: (data.tags as string[]) || [],
+    photos: (data.photos as string[]) || [],
+    reply: (data.reply as string | null) ?? null,
+    createdAt: data.created_at as string,
+  };
+}
+
+/** Post, edit or (empty text) remove the installer's public reply. */
+export async function replyToReview(leadId: string, text: string): Promise<{ success: boolean; error?: string }> {
+  if (typeof leadId !== "string" || !leadId) return { success: false, error: "Job not found" };
+  const installerId = await verifyLeadOwnership(leadId);
+  if (!installerId) return { success: false, error: "Job not found" };
+  const reply = cleanText(text, REVIEW_LIMITS.reply);
+  const { error } = await db()
+    .from("installer_reviews")
+    .update({ reply, reply_at: reply ? new Date().toISOString() : null })
+    .eq("lead_id", leadId)
+    .eq("installer_id", installerId);
+  if (error) {
+    console.error("[Reviews] Reply error:", error.message);
+    return { success: false, error: "Couldn't save your reply" };
+  }
+  return { success: true };
+}
+
 // ── Request a review (installer-initiated for past jobs) ─────────────────
 
-export async function requestReview(input: {
-  leadId: string;
-  installerId: string;
-}): Promise<{ success: boolean; error?: string }> {
-  const { leadId, installerId } = input;
+export async function requestReview(input: { leadId: string }): Promise<{ success: boolean; error?: string }> {
+  const leadId = input?.leadId;
+  if (typeof leadId !== "string" || !leadId) return { success: false, error: "Job not found" };
+  // The installer is whoever is signed in, never a value from the browser.
+  const installerId = await verifyLeadOwnership(leadId);
+  if (!installerId) return { success: false, error: "Job not found" };
 
   // Verify the lead belongs to this installer and is paid
   const { data: lead } = await db()
@@ -446,7 +439,10 @@ export interface InstallerReviewStats {
   pendingRequests: number;
 }
 
-export async function getInstallerReviewStats(installerId: string): Promise<InstallerReviewStats> {
+export async function getInstallerReviewStats(): Promise<InstallerReviewStats> {
+  const user = await getAuthenticatedUser();
+  if (!user) return { averageRating: 0, totalReviews: 0, pendingRequests: 0 };
+  const installerId = user.id;
   const { data: reviews } = await db()
     .from("installer_reviews")
     .select("rating")

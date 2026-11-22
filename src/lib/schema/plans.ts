@@ -6,6 +6,7 @@
 // actually charges and what the plans actually build.
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { aggregateRatingJsonLd } from "@/lib/reviews";
 import { PUBLIC_PLANS, type PublicPlan } from "@/lib/plans-config";
 import { planPageHref, type PlanPageContent } from "@/lib/plan-pages";
 import {
@@ -124,8 +125,32 @@ function offer(name: string, cents: number, url: string) {
   };
 }
 
-export function totePlansProductJsonLd() {
+/** Product.aggregateRating + a few Product.review entries, from published plan reviews. */
+export interface ProductReviewsLd {
+  summary: { average: number; total: number };
+  reviews: { name: string; rating: number; headline: string | null; comment: string | null }[];
+}
+
+function reviewsLd(r?: ProductReviewsLd) {
+  if (!r || !r.summary.total) return {};
   return {
+    aggregateRating: aggregateRatingJsonLd(r.summary),
+    review: r.reviews
+      .filter((x) => x.comment || x.headline)
+      .slice(0, 5)
+      .map((x) => ({
+        "@type": "Review",
+        author: { "@type": "Person", name: x.name },
+        reviewRating: { "@type": "Rating", ratingValue: x.rating, bestRating: 5, worstRating: 1 },
+        ...(x.headline ? { name: x.headline } : {}),
+        ...(x.comment ? { reviewBody: x.comment } : {}),
+      })),
+  };
+}
+
+export function totePlansProductJsonLd(reviews?: ProductReviewsLd) {
+  return {
+    ...reviewsLd(reviews),
     "@context": "https://schema.org",
     "@type": "Product",
     "@id": `${BASE}/plans#tote-organizer-plans`,
@@ -141,8 +166,9 @@ export function totePlansProductJsonLd() {
   };
 }
 
-export function miniPlansProductJsonLd() {
+export function miniPlansProductJsonLd(reviews?: ProductReviewsLd) {
   return {
+    ...reviewsLd(reviews),
     "@context": "https://schema.org",
     "@type": "Product",
     "@id": `${BASE}/plans#mini-tote-rack-plans`,

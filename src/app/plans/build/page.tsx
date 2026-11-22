@@ -66,6 +66,7 @@ import SystemMap from "@/components/plans/SystemMap";
 import { CONTACT_EMAIL, libraryHref } from "@/lib/plan-library";
 import { AFFILIATE_DISCLOSURE } from "@/lib/plan-product-links";
 import DeviceVerify from "@/components/plans/DeviceVerify";
+import PlanReviewCard from "@/components/plans/PlanReviewCard";
 import UnitsToggle from "@/components/plans/UnitsToggle";
 import { currentUnits, useMeasure } from "@/lib/measure-units";
 import { trackPlanActivity } from "@/lib/plan-activity";
@@ -540,6 +541,13 @@ function BuildPlanInner() {
   const router = useRouter();
   const [result, setResult] = useState<OpenTotePlanResult | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
+  // Review prompt: from the review email (?review=1&stars=N), or after the
+  // buyer reaches the last step of the guide's last section and closes it.
+  const fromReviewEmail = searchParams.get("review") === "1";
+  const emailStars = Number(searchParams.get("stars")) || 0;
+  const finishedGuide = useRef(false);
+  const [reviewNudge, setReviewNudge] = useState(0);
+  const lastSection = useRef<{ index: number; total: number }>({ index: 0, total: 0 });
   /** How the guide was opened, for plan activity: the page button or a ?guide=1 link. */
   const guideVia = useRef<"button" | "link">("button");
   const measure = useMeasure();
@@ -619,8 +627,11 @@ function BuildPlanInner() {
   const handleGuideActivity = useCallback(
     (a: GuideActivity) => {
       if (a.kind === "section") {
+        lastSection.current = { index: a.index, total: a.total };
         trackPlanActivity(planToken, "guide_section", { detail: a.label, value: a.index, total: a.total });
       } else {
+        const s = lastSection.current;
+        if (a.step === a.total && s.total > 0 && s.index === s.total) finishedGuide.current = true;
         trackPlanActivity(planToken, "guide_step", { detail: a.label, value: a.step, total: a.total });
         if (a.step === a.total) trackPlanActivity(planToken, "guide_section_done", { detail: a.label, total: a.total });
       }
@@ -680,7 +691,13 @@ function BuildPlanInner() {
         <div className="fixed inset-0 z-50">
           <ModularBuildGuide
             plan={plan}
-            onClose={() => setGuideOpen(false)}
+            onClose={() => {
+              setGuideOpen(false);
+              if (finishedGuide.current) {
+                finishedGuide.current = false;
+                setReviewNudge((n) => n + 1);
+              }
+            }}
             onActivity={handleGuideActivity}
             links={{ homeHref: result.token ? libraryHref(result.token) : "/plans", jig: result.jig }}
           />
@@ -783,6 +800,10 @@ function BuildPlanInner() {
             </div>
             <ChevronRight className="h-5 w-5 shrink-0 text-emerald-400" />
           </Link>
+        )}
+
+        {result.access === "purchase" && result.token && (
+          <PlanReviewCard token={result.token} autoOpen={fromReviewEmail} initialRating={emailStars} nudge={reviewNudge} />
         )}
 
         {result.access === "purchase" && result.token && <BuildAnotherCard token={result.token} mini={isMiniDesign(result.design)} />}
