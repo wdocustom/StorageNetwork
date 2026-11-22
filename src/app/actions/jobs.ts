@@ -272,9 +272,9 @@ export async function markJobPaidManual(
 
       if (updated.customer_email) {
         // Generate review token for this job
-        const { generateReviewToken } = await import("@/app/actions/reviews");
+        const { ensureLeadReviewToken } = await import("@/lib/server/review-token");
         const { getAppUrl } = await import("@/lib/url-helper");
-        const reviewToken = await generateReviewToken(leadId);
+        const reviewToken = await ensureLeadReviewToken(leadId);
         const reviewUrl = reviewToken ? `${getAppUrl()}/review/${reviewToken}` : undefined;
 
         await sendJobReceipt(updated.customer_email, {

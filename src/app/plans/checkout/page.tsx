@@ -15,6 +15,7 @@
 // Pro subscribers and admins skip Stripe; /plans/build re-verifies them.
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { getPlanRatingSummary } from "@/app/actions/plan-reviews";
 import { useSearchParams } from "next/navigation";
 import { useState, useMemo, useEffect, useCallback, useRef, Suspense } from "react";
 import Image from "next/image";
@@ -253,6 +254,13 @@ function PlansDesigner() {
   const [promo, setPromo] = useState<AppliedPromo | null>(null);
   // A code from a promo link (/go/friday) with no email yet: typed in for them.
   const [prefillPromo, setPrefillPromo] = useState<string | undefined>(undefined);
+  // Verified plan reviews, per product (27-gal / Mini), for the line under the buy button.
+  const [ratings, setRatings] = useState<{ tote: { average: number; total: number }; mini: { average: number; total: number } } | null>(null);
+  useEffect(() => {
+    Promise.all([getPlanRatingSummary("tote"), getPlanRatingSummary("mini")])
+      .then(([tote, mini]) => setRatings({ tote, mini }))
+      .catch(() => undefined);
+  }, []);
   useEffect(() => {
     const linkOffer = searchParams.get("offer");
     if (isRetentionOffer(linkOffer)) setOffer(activateOffer(linkOffer));
@@ -830,6 +838,7 @@ function PlansDesigner() {
               onApplyPromo={isMini ? undefined : applyPromo}
               onRemovePromo={isMini ? undefined : removePromo}
               prefillPromo={isMini ? undefined : prefillPromo}
+              rating={ratings ? (isMini ? ratings.mini : ratings.tote) : null}
               retentionActive={!!offer && !isMini}
             />
             <EmailDesignLink

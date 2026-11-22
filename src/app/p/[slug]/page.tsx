@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { getFullProfileBySlug } from "@/app/actions/profile";
 import { getInstallerReviews } from "@/app/actions/reviews";
+import { aggregateRatingJsonLd } from "@/lib/reviews";
 import { DEFAULT_SERVICES, type ServiceOffering } from "@/config/services";
 import PortfolioShowcase from "./PortfolioShowcase";
 import PortfolioContact from "./PortfolioContact";
@@ -196,6 +197,21 @@ export default async function InstallerPortfolioPage({ params }: PageProps) {
             url: p.url,
             ...(p.caption ? { caption: p.caption } : {}),
           })),
+        }
+      : {}),
+    ...(reviewData && reviewData.totalReviews > 0
+      ? {
+          aggregateRating: aggregateRatingJsonLd({ average: reviewData.averageRating, total: reviewData.totalReviews }),
+          review: reviewData.reviews
+            .filter((r) => r.comment)
+            .slice(0, 5)
+            .map((r) => ({
+              "@type": "Review",
+              author: { "@type": "Person", name: r.customerName },
+              reviewRating: { "@type": "Rating", ratingValue: r.rating, bestRating: 5, worstRating: 1 },
+              ...(r.headline ? { name: r.headline } : {}),
+              reviewBody: r.comment,
+            })),
         }
       : {}),
     priceRange: "$$",
@@ -480,7 +496,13 @@ export default async function InstallerPortfolioPage({ params }: PageProps) {
 
       {/* ── Portfolio Showcase (Photos + Reviews Interleaved) ──────────── */}
       <PortfolioShowcase
-        photos={photos}
+        photos={[
+          ...photos,
+          // Customers' review photos join the mosaic, credited to the review
+          ...(reviewData?.reviews ?? []).flatMap((r) =>
+            r.photos.map((url) => ({ url, caption: `From ${r.customerName}'s ${r.rating}★ review` })),
+          ),
+        ]}
         reviews={reviewData}
         businessName={displayName}
       />

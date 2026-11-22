@@ -1706,7 +1706,7 @@ function ProfilePageInner({
                         if (!profile) return;
                         const newValue = !(profile.show_reviews ?? true);
                         const { toggleShowReviews } = await import("@/app/actions/reviews");
-                        await toggleShowReviews(profile.id, newValue);
+                        await toggleShowReviews(newValue);
                         setProfile({ ...profile, show_reviews: newValue });
                       }}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser";
@@ -74,6 +75,13 @@ export default function PlansAnalyticsTab({ range }: { range: number }) {
   return (
     <div className="space-y-5">
       <RefundGiveawayAdmin />
+      <Link
+        href="/dashboard/admin/plan-reviews"
+        className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm font-semibold text-stone-200 transition hover:border-yellow-400/40"
+      >
+        <span>Plan reviews: approve, hide or reply</span>
+        <span className="text-yellow-400">Open →</span>
+      </Link>
       <PlansAnalyticsView data={data} />
       <PlanBuyerActivity range={range} />
     </div>

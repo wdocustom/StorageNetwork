@@ -8,7 +8,8 @@ import {
   type ReviewPageData,
 } from "@/app/actions/reviews";
 import { REVIEW_TAGS } from "@/config/review-tags";
-import { Star, CheckCircle2, Loader2, Shield } from "lucide-react";
+import { Star, CheckCircle2, Loader2 } from "lucide-react";
+import ReviewForm from "@/components/reviews/ReviewForm";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Customer Review Page — /review/[token]
@@ -16,8 +17,6 @@ import { Star, CheckCircle2, Loader2, Shield } from "lucide-react";
 // One-time review submission. Token-based, no login required.
 // Accessible from the receipt email after job completion.
 // ═══════════════════════════════════════════════════════════════════════════
-
-const RATING_LABELS = ["", "Poor", "Fair", "Good", "Great", "Excellent"];
 
 export default function ReviewPage() {
   const params = useParams();
@@ -27,13 +26,7 @@ export default function ReviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Form state
   const [rating, setRating] = useState(0);
-  const [hoverRating, setHoverRating] = useState(0);
-  const [headline, setHeadline] = useState("");
-  const [comment, setComment] = useState("");
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
@@ -47,32 +40,6 @@ export default function ReviewPage() {
       setLoading(false);
     });
   }, [token]);
-
-  const handleSubmit = async () => {
-    if (rating === 0) return;
-    setSubmitting(true);
-
-    const result = await submitReview({
-      token,
-      rating,
-      headline: headline.trim() || undefined,
-      comment: comment.trim() || undefined,
-      tags: selectedTags,
-    });
-
-    if (result.success) {
-      setSubmitted(true);
-    } else {
-      setError(result.error || "Failed to submit review");
-    }
-    setSubmitting(false);
-  };
-
-  const toggleTag = (tagId: string) => {
-    setSelectedTags((prev) =>
-      prev.includes(tagId) ? prev.filter((t) => t !== tagId) : [...prev, tagId]
-    );
-  };
 
   if (loading) {
     return (
@@ -143,9 +110,6 @@ export default function ReviewPage() {
     );
   }
 
-  // ── Review Form ────────────────────────────────────────────────────
-  const displayRating = hoverRating || rating;
-
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       {/* Header */}
@@ -182,125 +146,21 @@ export default function ReviewPage() {
       </header>
 
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        {/* Star Rating */}
-        <div className="text-center">
-          <p className="text-sm font-semibold text-slate-300 mb-3">
-            How was your experience?
-          </p>
-          <div className="flex justify-center gap-2 mb-2">
-            {[1, 2, 3, 4, 5].map((s) => (
-              <button
-                key={s}
-                onMouseEnter={() => setHoverRating(s)}
-                onMouseLeave={() => setHoverRating(0)}
-                onClick={() => setRating(s)}
-                className="transition-transform hover:scale-110 active:scale-95"
-              >
-                <Star
-                  className={`w-10 h-10 transition-colors ${
-                    s <= displayRating
-                      ? "text-yellow-400 fill-yellow-400"
-                      : "text-slate-700 hover:text-slate-600"
-                  }`}
-                />
-              </button>
-            ))}
-          </div>
-          {displayRating > 0 && (
-            <p className={`text-sm font-bold transition-colors ${
-              displayRating >= 4 ? "text-yellow-400" : displayRating >= 3 ? "text-slate-300" : "text-orange-400"
-            }`}>
-              {RATING_LABELS[displayRating]}
-            </p>
-          )}
-        </div>
-
-        {/* Tag Badges — only show after rating */}
-        {rating > 0 && (
-          <div>
-            <p className="text-xs text-slate-400 uppercase tracking-wider font-bold mb-2">
-              What stood out? <span className="text-slate-600 normal-case font-normal">(optional)</span>
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {REVIEW_TAGS.map((tag) => (
-                <button
-                  key={tag.id}
-                  onClick={() => toggleTag(tag.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                    selectedTags.includes(tag.id)
-                      ? "bg-yellow-400/20 border border-yellow-400/50 text-yellow-400"
-                      : "bg-slate-800 border border-slate-700 text-slate-400 hover:border-slate-600"
-                  }`}
-                >
-                  <span>{tag.emoji}</span>
-                  {tag.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Written Review — only show after rating */}
-        {rating > 0 && (
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wider font-bold">
-                Headline <span className="text-slate-600 normal-case font-normal">(optional)</span>
-              </label>
-              <input
-                type="text"
-                value={headline}
-                onChange={(e) => setHeadline(e.target.value)}
-                placeholder="Summarize your experience in a few words"
-                maxLength={100}
-                className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-yellow-400"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wider font-bold">
-                Your Review <span className="text-slate-600 normal-case font-normal">(optional)</span>
-              </label>
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Tell other homeowners about your experience..."
-                rows={4}
-                maxLength={1000}
-                className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-yellow-400 resize-none"
-              />
-              <p className="text-[10px] text-slate-600 text-right mt-1">
-                {comment.length}/1000
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Submit */}
-        {rating > 0 && (
-          <div className="space-y-3">
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="w-full bg-yellow-400 text-slate-900 font-bold text-sm py-3.5 rounded-xl hover:bg-yellow-300 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
-            >
-              {submitting ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Star className="w-5 h-5" />
-              )}
-              Submit Review
-            </button>
-
-            {error && (
-              <p className="text-xs text-red-400 text-center">{error}</p>
-            )}
-
-            <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-600">
-              <Shield className="w-3 h-3" />
-              Verified purchase &bull; Your review will be public
-            </div>
-          </div>
-        )}
+        <ReviewForm
+          question="How was your experience?"
+          tags={REVIEW_TAGS}
+          commentPlaceholder="Tell other homeowners about your experience..."
+          photoPrompt="Photos of your new storage"
+          publicNote="Verified customer · Your review and photos will be public"
+          onSubmit={async (form) => {
+            form.set("token", token);
+            const res = await submitReview(form);
+            if (!res.success) return { ok: false, error: res.error || "Failed to submit review" };
+            setRating(Number(form.get("rating")));
+            setSubmitted(true);
+            return { ok: true };
+          }}
+        />
 
         {/* Footer */}
         <div className="text-center pt-4 pb-8">

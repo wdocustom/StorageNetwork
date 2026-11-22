@@ -22,6 +22,7 @@ export const PLAN_ACTIVITY = {
   included_plan: { label: "Built another plan (included)", client: false },
   jig_open: { label: "Opened ladder jig plans", client: false },
   gift_open: { label: "Opened their gift page", client: false },
+  review_submitted: { label: "Left a review", client: false },
   // ── Using the plan (browser) ───────────────────────────────────────────
   guide_open: { label: "Opened the 3D build guide", client: true },
   guide_section: { label: "Moved to a guide section", client: true },
@@ -35,6 +36,7 @@ export const PLAN_ACTIVITY = {
   tools_progress: { label: "Ticked off the tools list", client: true },
   buy_link: { label: "Tapped a buy link", client: true },
   build_another: { label: "Tapped build another plan", client: true },
+  review_prompt: { label: "Saw the review prompt", client: true },
 } as const;
 
 export type PlanActivityEvent = keyof typeof PLAN_ACTIVITY;
