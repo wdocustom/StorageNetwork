@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 import { cleanFriendCode, friendPath, friendPrice } from "./plan-friend";
-import { hasUsedPlans } from "./plan-reviews";
+import { hasUsedPlans, planUsage } from "./plan-reviews";
 import { planSplitShares } from "./plan-splits";
 import { decodeTotePlanDesign } from "./tote-plans";
 
@@ -29,6 +29,42 @@ describe("hasUsedPlans", () => {
     expect(hasUsedPlans([{ event: "guide_open", detail: null }], [])).toBe(true);
     expect(hasUsedPlans([{ event: "pdf_download", detail: "imperial" }], [])).toBe(true);
     expect(hasUsedPlans([{ event: "open", detail: "link" }], [])).toBe(true);
+  });
+});
+
+describe("planUsage (all three records)", () => {
+  const bought = "2026-11-14T12:55:32Z";
+  const checkout = [{ verified_by: "checkout", created_at: bought, last_seen_at: bought }];
+  it("is 'not opened' only when nothing shows past the checkout visit", () => {
+    const u = planUsage({
+      purchasedAt: bought,
+      activity: [],
+      devices: checkout,
+      // The checkout visit itself, then the home page and designer the next day
+      pageViews: [
+        { page_path: "/plans/build", created_at: "2026-11-14T12:55:32Z" },
+        { page_path: "/", created_at: "2026-11-15T17:57:15Z" },
+        { page_path: "/design", created_at: "2026-11-15T17:57:44Z" },
+      ],
+    });
+    expect(u.opened).toBe(false);
+    expect(u.reason).toMatch(/Only saw their plans while paying/);
+  });
+  it("counts a later visit to the plans page from their connection", () => {
+    const u = planUsage({
+      purchasedAt: bought,
+      activity: [],
+      devices: checkout,
+      pageViews: [{ page_path: "/plans/library", created_at: "2026-11-16T10:00:00Z" }],
+    });
+    expect(u).toMatchObject({ opened: true });
+    expect(u.reason).toMatch(/Viewed their plans page/);
+  });
+  it("explains why someone counts as opened", () => {
+    expect(planUsage({ purchasedAt: bought, activity: [{ event: "pdf_download", detail: null }], devices: [] }).reason).toBe("Downloaded the PDF");
+    expect(
+      planUsage({ purchasedAt: bought, activity: [], devices: [{ verified_by: "code", created_at: "2026-11-15T10:00:00Z", last_seen_at: null }] }).reason,
+    ).toMatch(/Opened on another device/);
   });
 });
 
