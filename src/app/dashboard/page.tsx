@@ -97,6 +97,7 @@ export default async function TodayPage() {
             )}
             <Link
               href="/dashboard/profile"
+              data-tour="settings"
               className="rounded-lg p-2 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
               title="Settings"
             >
@@ -156,7 +157,11 @@ export default async function TodayPage() {
           </Suspense>
 
           {/* ── Onboarding, then coaching once onboarding is done ── */}
-          {profile && <SetupChecklist userId={profile.id} bookingLink={leadLink} initialStatus={setup} />}
+          {profile && (
+            <div data-tour="setup-checklist" className="empty:hidden">
+              <SetupChecklist userId={profile.id} bookingLink={leadLink} initialStatus={setup} />
+            </div>
+          )}
           {profile && (!setup || setup.allComplete || setup.dismissed) && <ActionNudge userId={profile.id} initialNudge={nudge} />}
 
           {/* ── Network ── */}

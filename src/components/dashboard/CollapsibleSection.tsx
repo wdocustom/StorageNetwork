@@ -24,6 +24,8 @@ interface CollapsibleSectionProps {
   badge?: string;
   /** Badge color class */
   badgeColor?: string;
+  /** data-tour target for the dashboard tour (components/dashboard/tour) */
+  tourId?: string;
 }
 
 export default function CollapsibleSection({
@@ -38,12 +40,13 @@ export default function CollapsibleSection({
   iconColor = "text-yellow-400",
   badge,
   badgeColor = "bg-yellow-400/10 text-yellow-400",
+  tourId,
 }: CollapsibleSectionProps) {
   const [internalOpen, setInternalOpen] = useState(defaultOpen);
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
 
   return (
-    <section className={`rounded-2xl border ${borderClass} bg-slate-900 overflow-hidden`}>
+    <section data-tour={tourId} className={`rounded-2xl border ${borderClass} bg-slate-900 overflow-hidden`}>
       {/* Header / Toggle */}
       <button
         type="button"

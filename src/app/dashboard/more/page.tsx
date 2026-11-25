@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PRO_FREE_PROMO } from "@/config/pro-pricing";
 import { redirect } from "next/navigation";
-import { Activity, BarChart3, BookOpen, Building2, CalendarOff, ChevronRight, DollarSign, Gift, Package, Settings, Share2, Users, Zap, type LucideIcon } from "lucide-react";
+import { Activity, BarChart3, BookOpen, Building2, CalendarOff, ChevronRight, Compass, DollarSign, Gift, Package, Settings, Share2, Users, Zap, type LucideIcon } from "lucide-react";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import SignOutButton from "@/components/dashboard/SignOutButton";
@@ -16,6 +16,8 @@ interface Item {
   label: string;
   icon: LucideIcon;
   dot?: boolean;
+  /** data-tour target for the dashboard tour */
+  tour?: string;
 }
 
 const ROW = "flex w-full items-center gap-3 px-4 py-3.5 transition hover:bg-slate-800/60 active:bg-slate-800";
@@ -54,6 +56,8 @@ export default async function MorePage() {
       title: "Account",
       items: [
         { href: "/dashboard/profile", label: "Settings", icon: Settings },
+        // Restarts the dashboard tour (components/dashboard/tour), which also ends here.
+        { href: "/dashboard?tour=1", label: "Take the tour", icon: Compass, tour: "tour-retake" },
         ...(profile && !profile.is_pro ? [{ href: "/upgrade", label: PRO_FREE_PROMO ? "Get Pro Free" : "Go Pro", icon: Zap }] : []),
         ...(profile?.is_realtor ? [{ href: "/realtors/dashboard", label: "Realtor portal", icon: Building2 }] : []),
       ],
@@ -72,9 +76,9 @@ export default async function MorePage() {
             <section key={g.title}>
               <h2 className="mb-2 px-1 text-[10px] font-bold uppercase tracking-widest text-stone-500">{g.title}</h2>
               <ul className="divide-y divide-slate-800 overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
-                {g.items.map(({ href, label, icon: Icon, dot }) => (
+                {g.items.map(({ href, label, icon: Icon, dot, tour }) => (
                   <li key={href}>
-                    <Link href={href} className={ROW}>
+                    <Link href={href} data-tour={tour} className={ROW}>
                       <span className="relative">
                         <Icon className="h-5 w-5 text-stone-400" />
                         {dot && <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500" />}

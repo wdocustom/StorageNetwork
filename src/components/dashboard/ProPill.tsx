@@ -35,6 +35,7 @@ export default function ProPill({ link }: { link?: string }) {
     <button
       type="button"
       onClick={handleClick}
+      data-tour="share-link"
       className="rounded-full bg-yellow-400/20 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-yellow-400 transition-all hover:bg-yellow-400/30 active:scale-95"
       title="Copy your portfolio link"
     >
