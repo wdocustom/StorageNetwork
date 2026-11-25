@@ -7,6 +7,7 @@ import DashboardShell from "@/components/dashboard/DashboardShell";
 import { CurrencyProvider } from "@/components/currency/CurrencyContext";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { currencyForInstaller } from "@/lib/server/currency-lookup";
+import { shouldAutoStartDashboardTour } from "@/lib/server/dashboard-tour";
 
 export default async function DashboardLayout({
   children,
@@ -16,12 +17,16 @@ export default async function DashboardLayout({
   // Everything on an installer's dashboard is in their own currency — CA$
   // for Canadian installers, plain "$" (unchanged) for everyone else.
   const user = await getAuthenticatedUser().catch(() => null);
-  const currency = await currencyForInstaller(user?.id);
+  const [currency, autoStartTour] = await Promise.all([
+    currencyForInstaller(user?.id),
+    // The dashboard tour starts on its own once per installer (components/dashboard/tour).
+    shouldAutoStartDashboardTour(user?.id),
+  ]);
 
   return (
     <CurrencyProvider currency={currency}>
       <InstallerActivityTracker />
-      <DashboardShell>{children}</DashboardShell>
+      <DashboardShell autoStartTour={autoStartTour}>{children}</DashboardShell>
     </CurrencyProvider>
   );
 }

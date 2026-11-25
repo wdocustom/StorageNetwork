@@ -16,39 +16,44 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Briefcase, HardHat, House, LayoutGrid, Megaphone } from "lucide-react";
 import { siteConfig } from "@/config/site";
+import DashboardTour from "@/components/dashboard/tour/DashboardTour";
 
 const TABS = [
-  { href: "/dashboard", label: "Today", icon: House, match: (p: string) => p === "/dashboard" },
+  { href: "/dashboard", label: "Today", icon: House, tour: "nav-today", match: (p: string) => p === "/dashboard" },
   {
     href: "/dashboard/leads",
     label: "Jobs",
+    tour: "nav-jobs",
     icon: Briefcase,
     match: (p: string) => p.startsWith("/dashboard/leads") || p.startsWith("/dashboard/sales"),
   },
-  { href: "/dashboard/build", label: "Quote", icon: HardHat, match: (p: string) => p.startsWith("/dashboard/build") },
+  { href: "/dashboard/build", label: "Quote", icon: HardHat, tour: "nav-quote", match: (p: string) => p.startsWith("/dashboard/build") },
   {
     href: "/dashboard/marketing",
     label: "Marketing",
     icon: Megaphone,
+    tour: "nav-marketing",
     match: (p: string) => p.startsWith("/dashboard/marketing"),
   },
 ] as const;
 
 const NO_SHELL = ["/dashboard/affiliate", "/dashboard/promoter"];
 
-export default function DashboardShell({ children }: { children: React.ReactNode }) {
+export default function DashboardShell({ children, autoStartTour = false }: { children: React.ReactNode; autoStartTour?: boolean }) {
   const pathname = usePathname() ?? "";
   if (NO_SHELL.some((p) => pathname.startsWith(p))) return <>{children}</>;
 
   const activeTab = TABS.find((t) => t.match(pathname));
   const tabs = [
     ...TABS.map((t) => ({ ...t, active: t === activeTab })),
-    { href: "/dashboard/more", label: "More", icon: LayoutGrid, active: !activeTab },
+    { href: "/dashboard/more", label: "More", icon: LayoutGrid, tour: "nav-more", active: !activeTab },
   ];
 
   return (
     <div className="min-h-screen bg-slate-950 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-56">
       {children}
+
+      <DashboardTour autoStart={autoStartTour} />
 
       {/* ── Desktop sidebar ── */}
       <nav
@@ -59,10 +64,11 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           <Image src={siteConfig.logoPath} alt={siteConfig.name} width={160} height={64} className="h-12 w-auto object-contain" />
         </Link>
         <ul className="space-y-1 px-3">
-          {tabs.map(({ href, label, icon: Icon, active }) => (
+          {tabs.map(({ href, label, icon: Icon, tour, active }) => (
             <li key={href}>
               <Link
                 href={href}
+                data-tour={tour}
                 aria-current={active ? "page" : undefined}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
                   active ? "bg-yellow-400/10 text-yellow-400" : "text-stone-400 hover:bg-slate-800 hover:text-white"
@@ -82,11 +88,12 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-slate-900/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
       >
         <ul className="grid h-16 grid-cols-5">
-          {[tabs[1], tabs[2], tabs[0], tabs[3], tabs[4]].map(({ href, label, icon: Icon, active }) =>
+          {[tabs[1], tabs[2], tabs[0], tabs[3], tabs[4]].map(({ href, label, icon: Icon, tour, active }) =>
             href === "/dashboard" ? (
               <li key={href} className="flex justify-center">
                 <Link
                   href={href}
+                  data-tour={tour}
                   aria-current={active ? "page" : undefined}
                   className="-mt-5 flex flex-col items-center gap-1 text-[10px] font-black uppercase tracking-wider text-yellow-400"
                 >
@@ -104,6 +111,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
               <li key={href}>
                 <Link
                   href={href}
+                  data-tour={tour}
                   aria-current={active ? "page" : undefined}
                   className={`flex h-full flex-col items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${
                     active ? "text-yellow-400" : "text-stone-500 active:text-white"

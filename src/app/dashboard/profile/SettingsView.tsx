@@ -799,12 +799,13 @@ function ProfilePageInner({
               <span className="text-[10px] font-bold uppercase tracking-wider">Portfolio</span>
             </a>
             {stripeChecking ? (
-              <div className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 p-3 text-stone-500">
+              <div data-tour="payouts" className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 p-3 text-stone-500">
                 <Loader2 className="h-5 w-5 animate-spin" />
                 <span className="text-[10px] font-bold uppercase tracking-wider">Stripe</span>
               </div>
             ) : stripeStatus?.charges_enabled ? (
               <button
+                data-tour="payouts"
                 onClick={handleStripeDashboard}
                 disabled={stripeLoading}
                 className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 p-3 text-stone-400 transition-all hover:border-yellow-400/40 hover:text-yellow-400 disabled:opacity-50"
@@ -820,6 +821,7 @@ function ProfilePageInner({
               </button>
             ) : (
               <button
+                data-tour="payouts"
                 onClick={handleStripeConnect}
                 disabled={stripeLoading}
                 className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 p-3 text-stone-400 transition-all hover:border-yellow-400/40 hover:text-yellow-400 disabled:opacity-50"
@@ -851,7 +853,7 @@ function ProfilePageInner({
           {(["business", "pricing", "portfolio", "account"] as const).map((tab) => {
             const labels = { business: "Business", pricing: "Pricing", portfolio: "Portfolio", account: "Account" };
             return (
-              <button key={tab} onClick={() => selectTab(tab)} className={`flex-1 whitespace-nowrap rounded-lg px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === tab ? "bg-yellow-400 text-gray-950" : "text-stone-500 hover:text-white"}`}>
+              <button key={tab} data-tour={`settings-tab-${tab}`} onClick={() => selectTab(tab)} className={`flex-1 whitespace-nowrap rounded-lg px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === tab ? "bg-yellow-400 text-gray-950" : "text-stone-500 hover:text-white"}`}>
                 {labels[tab]}
               </button>
             );
@@ -870,7 +872,7 @@ function ProfilePageInner({
             <h2 className="text-sm font-bold uppercase tracking-wider text-white">Personal & Business Info</h2>
           </div>
           {/* Avatar with Upload */}
-          <div className="mb-5 flex items-center gap-4">
+          <div data-tour="profile-photo" className="mb-5 flex items-center gap-4">
             <div className="relative">
               {/* Hidden file input */}
               <input
@@ -924,7 +926,7 @@ function ProfilePageInner({
           </div>
 
           {/* Form Fields */}
-          <div className="space-y-3">
+          <div data-tour="profile-details" className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
@@ -1082,7 +1084,7 @@ function ProfilePageInner({
         </div>
 
         {/* ── Service Area ─────────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+        <div data-tour="service-area" className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
           <div className="mb-4 flex items-center gap-2">
             <Target className="h-4 w-4 text-yellow-400" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-white">Service Area</h2>
@@ -1487,8 +1489,11 @@ function ProfilePageInner({
           icon={DollarSign}
           title="Custom Pricing"
           description="Override platform default prices for your customers"
+          tourId="custom-pricing"
         >
-          <PricingSettings userId={profile.id} embedded />
+          <div data-tour="custom-pricing-body">
+            <PricingSettings userId={profile.id} embedded />
+          </div>
         </CollapsibleSection>
 
         {/* ── Material Costs ──────────────────────────────────────── */}
