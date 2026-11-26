@@ -19,8 +19,13 @@ import { sendPartnerCommissionEmail } from "@/lib/emails/referralPartnerTemplate
 //   settleReferralCommission when the deposit is confirmed (webhook, or the
 //                            verifyAndConfirmDeposit fallback, or cash): one
 //                            commission row per lead, idempotent
-//   payHeldCommission        sends a collected cut to the partner's Stripe
-//   releaseHeldCommissions   retries everything held for a partner (called
+//   processDueCommissions    the payout pass (daily cron + partner portal):
+//                            a held cut is paid once its deposit has cleared
+//                            (PAYOUT_HOLD_DAYS), voided and handed back to
+//                            the installer if the job was cancelled or the
+//                            deposit refunded, left held while disputed
+//   payHeldCommission        sends one collected cut to the partner's Stripe
+//   releaseHeldCommissions   the payout pass for one partner (called
 //                            when they open their portal / finish Stripe)
 //
 // Every function here swallows its own errors. A partner payout problem must
@@ -182,7 +187,9 @@ export async function settleReferralCommission(params: {
 
     console.log(`[ReferralPartners] Lead ${leadId}: ${inserted.status} ${cutCents}¢ for partner ${lead.referral_partner_id}`);
     notifyPartner(lead.referral_partner_id, cutCents, inserted.status as string, lead.customer_name as string | null).catch(() => {});
-    if (inserted.status === "held") await payHeldCommission(inserted.id as string);
+    // Held cuts are paid by processDueCommissions once the deposit has
+    // cleared, not now: the transfer comes out of the platform's available
+    // balance, and this deposit's fee is still pending in it.
   } catch (err) {
     console.warn("[ReferralPartners] settle threw:", err instanceof Error ? err.message : err);
   }
@@ -266,19 +273,180 @@ export async function payHeldCommission(commissionId: string): Promise<"paid" | 
   }
 }
 
-/** Retry every held cut for the partner logged in as `userId`. */
+/** The payout pass for the partner logged in as `userId` (their portal calls this). */
 export async function releaseHeldCommissions(userId: string): Promise<number> {
   try {
     const { data: partners } = await db().from("referral_partners").select("id").eq("user_id", userId);
     const ids = (partners ?? []).map((p) => p.id as string);
     if (!ids.length) return 0;
-    const { data: held } = await db().from("referral_commissions").select("id").in("partner_id", ids).eq("status", "held").limit(50);
-    let paid = 0;
-    for (const c of held ?? []) if ((await payHeldCommission(c.id as string)) === "paid") paid++;
-    return paid;
+    return (await processDueCommissions({ partnerIds: ids })).paid;
   } catch {
     return 0;
   }
+}
+
+/**
+ * Days a collected cut waits before it's paid out. Card money reaches the
+ * platform's Stripe balance as "pending" and turns "available" about two
+ * business days later; a transfer can only spend available money. Three
+ * days clears that, and gives a cancelled job time to show up before the
+ * partner is paid.
+ */
+export const PAYOUT_HOLD_DAYS = 3;
+
+/** How long an owed cut keeps being checked for a cancelled job. */
+const OWED_RECHECK_DAYS = 60;
+
+/** Lead statuses that mean the job is off: the partner's cut is voided. */
+const CANCELLED_LEAD_STATUSES = new Set(["cancelled", "canceled"]);
+
+export interface PayoutPassResult {
+  checked: number;
+  paid: number;
+  voided: number;
+  waiting: number;
+}
+
+interface CommissionRow {
+  id: string;
+  lead_id: string;
+  installer_id: string;
+  status: string;
+  collected_cents: number;
+  payment_intent_id: string | null;
+  created_at: string;
+}
+
+type DepositState =
+  | { kind: "ok" }
+  | { kind: "cancelled"; reason: string; applicationFeeId: string | null }
+  | { kind: "disputed" };
+
+/**
+ * Is the deposit behind this commission still good? Reads the lead's status
+ * and, when there is one, the deposit charge on the installer's account.
+ * A Stripe lookup failure is "ok" for the lead check only — it throws so the
+ * caller leaves the cut held and tries again next pass.
+ */
+async function depositState(c: CommissionRow): Promise<DepositState> {
+  const { data: lead } = await db().from("leads").select("status").eq("id", c.lead_id).maybeSingle();
+  const leadCancelled = !!lead && CANCELLED_LEAD_STATUSES.has(String(lead.status));
+
+  const s = stripe();
+  let applicationFeeId: string | null = null;
+  if (s && c.payment_intent_id) {
+    const { data: installer } = await db().from("profiles").select("stripe_account_id").eq("id", c.installer_id).maybeSingle();
+    const account = installer?.stripe_account_id as string | undefined;
+    if (account) {
+      const pi = await s.paymentIntents.retrieve(c.payment_intent_id, { expand: ["latest_charge"] }, { stripeAccount: account });
+      const charge = typeof pi.latest_charge === "object" ? pi.latest_charge : null;
+      if (charge) {
+        applicationFeeId = typeof charge.application_fee === "string" ? charge.application_fee : (charge.application_fee?.id ?? null);
+        if ((charge.amount_refunded ?? 0) > 0) return { kind: "cancelled", reason: "deposit refunded", applicationFeeId };
+        if (charge.disputed) return { kind: "disputed" };
+      }
+    }
+  }
+  if (leadCancelled) return { kind: "cancelled", reason: "job cancelled", applicationFeeId };
+  return { kind: "ok" };
+}
+
+/**
+ * Void a commission. A cut that was collected from the deposit goes back to
+ * the installer by refunding that part of the platform's application fee;
+ * an owed one simply stops being owed.
+ */
+async function voidCommission(c: CommissionRow, reason: string, applicationFeeId: string | null): Promise<boolean> {
+  const fromStatus = c.status;
+  const { data: claimed } = await db()
+    .from("referral_commissions")
+    .update({ status: "processing", updated_at: new Date().toISOString() })
+    .eq("id", c.id)
+    .eq("status", fromStatus)
+    .select("id")
+    .maybeSingle();
+  if (!claimed) return false;
+  try {
+    if (fromStatus === "held" && c.collected_cents > 0) {
+      const s = stripe();
+      if (!s || !applicationFeeId) throw new Error("can't find the deposit's platform fee to hand the cut back");
+      await s.applicationFees.createRefund(
+        applicationFeeId,
+        { amount: c.collected_cents, metadata: { referral_commission_id: c.id, reason } },
+        { idempotencyKey: `referral-commission-void-${c.id}` },
+      );
+    }
+    await db()
+      .from("referral_commissions")
+      .update({ status: "void", last_error: reason, updated_at: new Date().toISOString() })
+      .eq("id", c.id);
+    console.log(`[ReferralPartners] Voided commission ${c.id} (${reason})`);
+    return true;
+  } catch (err) {
+    await db()
+      .from("referral_commissions")
+      .update({ status: fromStatus, last_error: `void failed: ${err instanceof Error ? err.message : "unknown"}`.slice(0, 300), updated_at: new Date().toISOString() })
+      .eq("id", c.id);
+    return false;
+  }
+}
+
+/**
+ * The payout pass. For every held cut whose deposit is at least
+ * PAYOUT_HOLD_DAYS old: void it if the job was cancelled or the deposit
+ * refunded, leave it while the deposit is disputed, otherwise send it.
+ * Also voids owed cuts on cancelled jobs, so the installer isn't told to pay
+ * for a job that fell through. `partnerIds` limits the pass to one partner.
+ */
+export async function processDueCommissions(opts: { partnerIds?: string[]; now?: Date; limit?: number } = {}): Promise<PayoutPassResult> {
+  const now = opts.now ?? new Date();
+  const cutoff = new Date(now.getTime() - PAYOUT_HOLD_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const result: PayoutPassResult = { checked: 0, paid: 0, voided: 0, waiting: 0 };
+
+  // Held and owed are fetched separately so a backlog of one can't crowd out the other.
+  // Owed cuts are re-checked for cancellation for OWED_RECHECK_DAYS, then left alone.
+  const owedSince = new Date(now.getTime() - OWED_RECHECK_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const columns = "id, lead_id, installer_id, status, collected_cents, payment_intent_id, created_at";
+  const limit = opts.limit ?? 200;
+  const heldQ = db().from("referral_commissions").select(columns).eq("status", "held").lte("created_at", cutoff).order("created_at", { ascending: true }).limit(limit);
+  const owedQ = db().from("referral_commissions").select(columns).eq("status", "owed").gte("created_at", owedSince).order("created_at", { ascending: true }).limit(limit);
+  const [held, owed] = await Promise.all([
+    opts.partnerIds ? heldQ.in("partner_id", opts.partnerIds) : heldQ,
+    opts.partnerIds ? owedQ.in("partner_id", opts.partnerIds) : owedQ,
+  ]);
+  if (held.error || owed.error) {
+    console.warn("[ReferralPartners] payout pass query failed:", (held.error ?? owed.error)?.message);
+    return result;
+  }
+  const data = [...(held.data ?? []), ...(owed.data ?? [])];
+
+  for (const c of (data ?? []) as CommissionRow[]) {
+    result.checked++;
+    let state: DepositState;
+    try {
+      state = await depositState(c);
+    } catch (err) {
+      console.warn(`[ReferralPartners] deposit check failed for ${c.id}:`, err instanceof Error ? err.message : err);
+      result.waiting++;
+      continue;
+    }
+    if (state.kind === "cancelled") {
+      if (await voidCommission(c, state.reason, state.applicationFeeId)) result.voided++;
+      continue;
+    }
+    if (c.status !== "held") continue;
+    if (state.kind === "disputed") {
+      await db()
+        .from("referral_commissions")
+        .update({ last_error: "deposit disputed — paid out once the dispute is settled", updated_at: now.toISOString() })
+        .eq("id", c.id);
+      result.waiting++;
+      continue;
+    }
+    if ((await payHeldCommission(c.id)) === "paid") result.paid++;
+    else result.waiting++;
+  }
+  return result;
 }
 
 /** Re-read the partner's Stripe account and record whether it can receive payouts. */

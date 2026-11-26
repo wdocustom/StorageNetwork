@@ -81,7 +81,9 @@ export function describeDiscount(type: PartnerDiscountType | null, value: number
 /** Labels for each side. The partner never sees "owed by the installer" wording as a debt they chase. */
 export const STATUS_LABEL: Record<CommissionStatus, { installer: string; partner: string; tone: "amber" | "blue" | "green" | "stone" }> = {
   owed: { installer: "You owe — pay directly", partner: "Earned — paid by the installer", tone: "amber" },
-  held: { installer: "Collected — waiting on their Stripe", partner: "Ready — connect Stripe to receive", tone: "blue" },
+  // Held = collected from the deposit. Paid out by the daily payout pass once
+  // the deposit has cleared (about 3 days) and the partner has Stripe connected.
+  held: { installer: "Collected — pays out once it clears", partner: "Clearing — pays out in a few days", tone: "blue" },
   processing: { installer: "Sending", partner: "Sending", tone: "blue" },
   paid: { installer: "Paid to their Stripe", partner: "Paid to your Stripe", tone: "green" },
   manual_paid: { installer: "Marked paid", partner: "Paid", tone: "green" },
