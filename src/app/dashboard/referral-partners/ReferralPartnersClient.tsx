@@ -82,7 +82,7 @@ function HowItWorks() {
         <li>• Each partner gets a link. Customers who use it land on your page with the partner&apos;s discount already applied, and the booking is counted as your own lead (3% platform fee).</li>
         <li>• When the customer&apos;s deposit is paid, the partner earns their cut of the job total after the discount.</li>
         <li>• <strong className="text-stone-200">Without portal access</strong>, you pay the partner yourself. Their cut shows here as owed until you tap Mark paid.</li>
-        <li>• <strong className="text-stone-200">With portal access</strong>, the partner gets a login to see their referrals and email clients. Once they connect Stripe, their cut comes out of the deposit and is sent to them automatically. If it doesn&apos;t fit in the deposit, or the customer pays you in cash, it shows as owed instead.</li>
+        <li>• <strong className="text-stone-200">With portal access</strong>, the partner gets a login to see their referrals and email clients. Once they connect Stripe, their cut comes out of the deposit and is sent to them automatically a few days later, once the deposit clears. If the job is cancelled or the deposit refunded before then, the cut comes back to you. If it doesn&apos;t fit in the deposit, or the customer pays you in cash, it shows as owed instead.</li>
       </ul>
     </details>
   );
@@ -318,7 +318,7 @@ function PartnerCard({ partner: p, onChanged }: { partner: ReferralPartnerView; 
       <div className="mt-4 grid grid-cols-3 divide-x divide-slate-800 rounded-xl border border-slate-800 text-center">
         <Stat label="Referred" value={String(p.referred)} />
         <Stat label="You owe" value={money(p.owedCents)} tone={p.owedCents ? "text-amber-300" : undefined} />
-        <Stat label="Paid out" value={money(p.paidCents)} hint={p.heldCents ? `+${money(p.heldCents)} waiting on their Stripe` : undefined} />
+        <Stat label="Paid out" value={money(p.paidCents)} hint={p.heldCents ? `+${money(p.heldCents)} clearing` : undefined} />
       </div>
 
       {/* Portal */}

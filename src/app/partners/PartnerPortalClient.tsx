@@ -44,7 +44,7 @@ export default function PartnerPortalClient({ data, stripeReturn }: { data: Part
       <main className="mx-auto max-w-3xl space-y-5 px-4 py-6">
         <StripeCard stripe={data.stripe} justReturned={stripeReturn} />
         {data.programs.map((p) => (
-          <Program key={p.partnerId} program={p} multiple={data.programs.length > 1} />
+          <Program key={p.partnerId} program={p} multiple={data.programs.length > 1} stripeReady={data.stripe.ready} />
         ))}
       </main>
     </div>
@@ -59,7 +59,7 @@ function StripeCard({ stripe, justReturned }: { stripe: PartnerPortalData["strip
       <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
         <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />
         <p className="text-sm text-stone-300">
-          <strong className="text-white">Stripe connected.</strong> Your cut is sent to your bank when a referred customer&apos;s deposit is paid.
+          <strong className="text-white">Stripe connected.</strong> Your cut is sent a few days after a referred customer&apos;s deposit is paid, once it clears.
         </p>
       </div>
     );
@@ -97,7 +97,7 @@ function StripeCard({ stripe, justReturned }: { stripe: PartnerPortalData["strip
   );
 }
 
-function Program({ program: p, multiple }: { program: PartnerProgram; multiple: boolean }) {
+function Program({ program: p, multiple, stripeReady }: { program: PartnerProgram; multiple: boolean; stripeReady: boolean }) {
   const [copied, setCopied] = useState(false);
   return (
     <section className="space-y-4">
@@ -141,7 +141,7 @@ function Program({ program: p, multiple }: { program: PartnerProgram; multiple: 
         ) : (
           <ul className="divide-y divide-slate-800">
             {p.referrals.map((r) => (
-              <ReferralRow key={r.leadId} r={r} />
+              <ReferralRow key={r.leadId} r={r} stripeReady={stripeReady} />
             ))}
           </ul>
         )}
@@ -150,8 +150,10 @@ function Program({ program: p, multiple }: { program: PartnerProgram; multiple: 
   );
 }
 
-function ReferralRow({ r }: { r: PartnerReferral }) {
+function ReferralRow({ r, stripeReady }: { r: PartnerReferral; stripeReady: boolean }) {
   const label = r.commissionStatus ? STATUS_LABEL[r.commissionStatus] : null;
+  // A held cut waits for the deposit to clear; without Stripe it also waits for them.
+  const text = r.commissionStatus === "held" && !stripeReady ? "Ready — connect Stripe to receive" : label?.partner;
   const tone = label?.tone ?? "stone";
   const pill = {
     amber: "bg-amber-400/15 text-amber-300",
@@ -169,7 +171,7 @@ function ReferralRow({ r }: { r: PartnerReferral }) {
       </div>
       <div className="text-right">
         <p className="text-sm font-bold text-white">{r.cutCents ? money(r.cutCents) : "—"}</p>
-        <span className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${pill}`}>{label ? label.partner : "Pending deposit"}</span>
+        <span className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${pill}`}>{text ?? "Pending deposit"}</span>
       </div>
     </li>
   );

@@ -131,7 +131,7 @@ export async function sendPartnerCommissionEmail(
       You earned <strong style="color:#facc15;">${money(data.amountCents)}</strong>.
       ${
         data.collected
-          ? "It's sent to your connected Stripe account. If you haven't connected Stripe yet, it's waiting for you in your dashboard."
+          ? "It's sent to your Stripe account in a few days, once the deposit clears. If you haven't connected Stripe yet, connect it from your dashboard and it goes out then."
           : `${escapeHtml(data.installerName)} pays this to you directly.`
       }
     </p>
