@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse, after } from "next/server";
+import { settleReferralCommission } from "@/lib/server/referral-partners";
 import Stripe from "stripe";
 import { stripeConfig } from "@/lib/stripe/http";
 import { summarizeDispute } from "@/lib/stripe/disputes";
@@ -1114,6 +1115,17 @@ export async function POST(request: NextRequest) {
       // Fires for every deposit-paid event; the RPC is a no-op when the
       // lead has no realtor attribution.
       after(processRealtorReferralCredit(leadId));
+
+      // ── Referral partner commission (non-blocking, idempotent) ───────
+      // partner_cut_cents is the cut that rode on this deposit's
+      // application fee (0 = installer pays the partner directly).
+      after(
+        settleReferralCommission({
+          leadId,
+          collectedCents: Number(session.metadata?.partner_cut_cents) || 0,
+          paymentIntentId: piId || null,
+        })
+      );
     } catch (dbError) {
       console.error("[Webhook] CRITICAL: DB update threw!", dbError);
       // Return 500 so Stripe retries. Reset key with short TTL to allow retry.
@@ -1834,6 +1846,15 @@ export async function POST(request: NextRequest) {
 
             // ── Realtor Referral Credit (non-blocking, idempotent) ─────
             after(processRealtorReferralCredit(leadId));
+
+            // ── Referral partner commission (non-blocking, idempotent) ─
+            after(
+              settleReferralCommission({
+                leadId,
+                collectedCents: Number(paymentIntent.metadata?.partner_cut_cents) || 0,
+                paymentIntentId: paymentIntent.id,
+              })
+            );
 
             // ── Mirror saved card onto the persistent customer record ──
             // (non-blocking) so it's reusable on this person's other quotes,
