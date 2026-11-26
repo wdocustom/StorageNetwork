@@ -274,12 +274,6 @@ export default function LandingPage() {
             >
               Become a Builder
             </a>
-            <a
-              href="/refund-rules"
-              className="text-[11px] font-semibold text-stone-600 transition-colors hover:text-yellow-400"
-            >
-              Holiday refund giveaway &ndash; Official Rules
-            </a>
           </div>
         </div>
       </footer>

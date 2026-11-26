@@ -1,9 +1,7 @@
 import { sendTransactionalEmail, type SendEmailResult } from "./core";
 import { masterEmailLayout } from "./components/masterEmailLayout";
 import { escapeHtml } from "./giftTemplates";
-import { getAppUrl } from "@/lib/url-helper";
 import { LADDER_JIG_NAME, LADDER_JIG_PRICE } from "@/lib/ladder-jig";
-import { REFUND_GIVEAWAY, giveawayStatus } from "@/lib/refund-giveaway";
 import {
   TOTE_PLAN_ALL_ACCESS,
   formatPlanPrice,
@@ -15,9 +13,7 @@ import {
 // ═══════════════════════════════════════════════════════════════════════════
 // Come-back email to people who emailed themselves a design but never
 // bought: their design, the price they saved it at ($14 or $16), and the
-// Ladder Building Jig plans free with it. While the Holiday Full Refund
-// Giveaway runs, a short note about it (with "No purchase necessary" and the
-// rules link, as the rules require). One button, back to their design.
+// Ladder Building Jig plans free with it. One button, back to their design.
 // ═══════════════════════════════════════════════════════════════════════════
 
 export interface DesignComebackEmail {
@@ -47,25 +43,11 @@ const check = (text: string) => `
     <span style="color:#ccc;font-size:13px;margin-left:6px;">${escapeHtml(text)}</span>
   </div>`;
 
-export function designComebackEmailContent(p: DesignComebackEmail, now: Date = new Date()): { subject: string; html: string } {
-  const appUrl = getAppUrl();
+export function designComebackEmailContent(p: DesignComebackEmail): { subject: string; html: string } {
   const name = totePlanName(p.design);
   const price = money(p.priceCents);
   const regular = money(TOTE_PLAN_ALL_ACCESS.price);
   const jigValue = money(LADDER_JIG_PRICE);
-  const holiday = giveawayStatus(now) === "active";
-
-  const holidayNote = holiday
-    ? `
-    <div style="background:#1a1606;border:1px solid #3d3410;border-radius:10px;padding:16px 18px;margin-bottom:20px;">
-      <p style="margin:0 0 4px;color:#facc15;font-size:13px;font-weight:800;">&#127873; Holiday surprise</p>
-      <p style="margin:0;color:#d4d4d4;font-size:13px;line-height:1.6;">
-        Several random buyers get a <strong style="color:#fff;">full refund</strong>, every day, and they keep their plans.
-        <span style="color:#888;">No purchase necessary.</span>
-        <a href="${appUrl}${REFUND_GIVEAWAY.rulesPath}" style="color:#facc15;">Official Rules</a>
-      </p>
-    </div>`
-    : "";
 
   const body = `
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;font-size:1px;line-height:1px;">${escapeHtml(
@@ -105,8 +87,6 @@ export function designComebackEmailContent(p: DesignComebackEmail, now: Date = n
       <p style="margin:6px 0 0;color:#777;font-size:12px;line-height:1.5;">Printable step-by-step PDF. Its link arrives in its own email when you buy.</p>
     </div>
 
-    ${holidayNote}
-
     <p style="margin:0;color:#555;font-size:11px;line-height:1.6;text-align:center;">
       You&rsquo;re getting this because you emailed yourself a design at storage-network.app. This is the only reminder
       we&rsquo;ll send about it. Questions? Just reply.<br />
@@ -126,6 +106,6 @@ export async function sendDesignComebackEmail(to: string, p: DesignComebackEmail
     to,
     subject,
     html,
-    replyTo: REFUND_GIVEAWAY.contactEmail ?? undefined,
+    replyTo: "contact@storage-network.app",
   });
 }

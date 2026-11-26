@@ -14,7 +14,6 @@ import Stars from "@/components/reviews/Stars";
 import Link from "next/link";
 import { ArrowRight, Box, CheckCircle, FileText, Hammer, Infinity as InfinityIcon, Loader2, Sparkles, Tag, X } from "lucide-react";
 import type { AppliedPromo } from "@/lib/plan-offer";
-import GiveawayNote from "@/components/plans/GiveawayNote";
 
 import { TOTE_PLAN_ALL_ACCESS, TOTE_PLAN_MINI, formatPlanPrice, type TotePlanTier } from "@/lib/tote-plans";
 
@@ -187,7 +186,6 @@ export function AllAccessOffer({
   onRemovePromo,
   prefillPromo,
   rating,
-  giveaway = false,
   mini = false,
 }: {
   loading: boolean;
@@ -209,8 +207,6 @@ export function AllAccessOffer({
   prefillPromo?: string;
   /** Published plan reviews for this product (shown from 3 up) */
   rating?: { average: number; total: number } | null;
-  /** The Holiday Full Refund Giveaway is running: a reminder just above the buy button */
-  giveaway?: boolean;
   /** A Mini Tote Rack design: the separate Mini Tote Rack Plans product */
   mini?: boolean;
 }) {
@@ -261,7 +257,6 @@ export function AllAccessOffer({
         )}
       </ul>
 
-      {giveaway && <GiveawayNote className="mt-4" />}
       {wallet && (
         <div className="mt-4">
           {wallet}

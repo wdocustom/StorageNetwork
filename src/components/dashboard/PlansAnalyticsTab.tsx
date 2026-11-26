@@ -7,7 +7,6 @@ import { getSessionUser, getSupabaseBrowserClient } from "@/lib/supabase-browser
 import { getAdminPlansAnalytics } from "@/app/actions/plans-analytics";
 import type { PlansAnalytics, PlansPageKind } from "@/lib/plans-analytics";
 import PlanBuyerActivity from "@/components/dashboard/PlanBuyerActivity";
-import RefundGiveawayAdmin from "@/components/dashboard/RefundGiveawayAdmin";
 
 /** Day the "clicked buy" step started being recorded (migration 153). */
 const CHECKOUT_TRACKING_SINCE = "Nov 7, 2026";
@@ -74,7 +73,6 @@ export default function PlansAnalyticsTab({ range }: { range: number }) {
 
   return (
     <div className="space-y-5">
-      <RefundGiveawayAdmin />
       <Link
         href="/dashboard/admin/plan-reviews"
         className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm font-semibold text-stone-200 transition hover:border-yellow-400/40"
