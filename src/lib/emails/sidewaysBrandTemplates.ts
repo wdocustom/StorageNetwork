@@ -25,6 +25,10 @@ function escapeHtml(s: string): string {
 }
 const inches = (n: number) => `${toFraction(n)}"`;
 
+/** HDX 27 gal. Tough Storage Tote (black/red), Home Depot — the tote the sideways bays are sized for. */
+export const HDX_TOTE_URL =
+  "https://www.homedepot.com/p/HDX-27-Gal-Tough-Storage-Bin-Tote-in-Black-and-Red-999-27G-HDX-RED/327528714";
+
 /** The buyer's design with every sideways 27-gal unit switched to Greenmade-size. */
 export function greenmadeVersion(design: TotePlanDesign): TotePlanDesign {
   return { ...design, units: design.units.map((u) => (u.sideways && u.toteType === "HDX" ? { ...u, toteType: "GM" } : u)) };
@@ -62,8 +66,8 @@ export function renderSidewaysBrandNotice(data: { firstName: string | null; plan
     .map(
       (p) => `
       <tr><td style="padding:10px 0;border-bottom:1px solid #222;">
-        <p style="margin:0 0 10px;color:#ffffff;font-size:14px;font-weight:600;">${escapeHtml(p.name)}</p>
-        ${ctaButton(p.url, "Get the Greenmade-size version")}
+        <p style="margin:0 0 8px;color:#ffffff;font-size:13px;font-weight:600;">${escapeHtml(p.name)}</p>
+        <a href="${p.url}" style="display:inline-block;border:1px solid #facc15;color:#facc15;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:13px;">Get the Greenmade-size version</a>
       </td></tr>`,
     )
     .join("");
@@ -87,17 +91,19 @@ export function renderSidewaysBrandNotice(data: { firstName: string | null; plan
       <p style="margin:0 0 6px;color:#facc15;font-size:14px;font-weight:700;">Using Greenmade, Project Source or Hyper Tough totes?</p>
       <p style="margin:0 0 14px;color:#a3a3a3;font-size:14px;line-height:1.6;">
         Those totes (Costco, Lowe's, Walmart) are longer, and they likely won't drop into ${hdxBay} sideways bays.
-        We now make sideways plans sized for them, with ${gmBay} bays. The corrected plan is free with your
-        All-Access plans: tap below and choose <strong style="color:#ffffff;">Generate</strong>.
+        For the best fit, use <strong style="color:#ffffff;">HDX 27-gallon totes</strong> in your sideways units. That works
+        whether you've built yet or not, with no changes to your rack, and they're on sale at Home Depot right now.
+      </p>
+      ${ctaButton(HDX_TOTE_URL, "Shop HDX 27-gallon totes")}
+      <p style="margin:18px 0 10px;color:#a3a3a3;font-size:13px;line-height:1.6;">
+        Haven't built yet and want to keep your Greenmade-size totes? Get a version of your plan with ${gmBay} sideways bays,
+        free with your All-Access plans: tap below and choose <strong style="color:#ffffff;">Generate</strong>.
       </p>
       <table style="width:100%;border-collapse:collapse;">${buttons}</table>
     </div>
 
-    <p style="margin:0 0 10px;color:#a3a3a3;font-size:14px;line-height:1.6;">
-      Units in your plan that face the standard direction aren't affected: their 21" bays fit both kinds of tote.
-    </p>
     <p style="margin:0 0 22px;color:#a3a3a3;font-size:14px;line-height:1.6;">
-      Already built your sideways units with Greenmade-size totes and they're tight? Reply to this email and we'll help you sort it out.
+      Units in your plan that face the standard direction aren't affected: their 21" bays fit both kinds of tote.
     </p>
     <p style="margin:0;color:#555;font-size:12px;">Storage Network · DIY Build Plans</p>
     `,
