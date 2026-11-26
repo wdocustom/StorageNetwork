@@ -391,3 +391,22 @@ describe("offer pricing", () => {
     expect(offerIncludesInventory("friday")).toBe(false);
   });
 });
+
+describe("sideways bays follow the tote brand (2×4 rails)", () => {
+  it("sizes HDX-size sideways units for 30-1/4\" bays and Greenmade-size for 32\"", async () => {
+    const { bayOpeningIn, moduleWidthIn, unitOuterSize } = await import("./tote-plans");
+    expect(bayOpeningIn(true, false, "HDX")).toBe(30.25);
+    expect(bayOpeningIn(true, false, "GM")).toBe(32);
+    expect(moduleWidthIn(2, true, false, "GM")).toBe(68.5);
+    const base = { cols: 2, rows: 3, hasWheels: false, hasTop: false, sideways: true } as const;
+    expect(unitOuterSize({ ...base, toteType: "HDX" }).widthIn).toBe(65);
+    expect(unitOuterSize({ ...base, toteType: "GM" }).widthIn).toBe(68.5);
+  });
+
+  it("keeps the universal 21\" upright bay for both brands", async () => {
+    const { bayOpeningIn } = await import("./tote-plans");
+    expect(bayOpeningIn(false, false, "HDX")).toBe(21);
+    expect(bayOpeningIn(false, false, "GM")).toBe(21);
+  });
+});
+

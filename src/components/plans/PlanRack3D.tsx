@@ -32,6 +32,7 @@ export function planModules3D(design: TotePlanDesign): StackedModule3D[] {
       hasWheels: unit.hasWheels && y === 0,
       hasTop: unit.hasTop && m.y === topY,
       sideways: m.sideways,
+      toteType: unit.toteType,
       ...(isMiniUnit(unit) ? { mini: true } : {}),
     };
   });

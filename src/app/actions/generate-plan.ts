@@ -37,9 +37,10 @@ import {
 } from "@/components/visualizer/assemblySteps";
 import { toFraction } from "@/lib/utils";
 import { productLinkFor, type ProductStore } from "@/lib/plan-product-links";
+import { TOTE_27GAL, toteSizeClass } from "@/lib/rails2x4";
 import {
   BAY_OPENING_IN,
-  BAY_OPENING_SIDEWAYS_IN,
+  bayOpeningSidewaysIn,
   MODULE_MAX_COLS,
   MODULE_MAX_COLS_SIDEWAYS,
   UNIT_DEPTH_IN,
@@ -118,7 +119,7 @@ export interface PlanUnit {
   cols: number;
   rows: number;
   toteType: TotePlanToteType;
-  /** Totes turned 90°: 30-1/4" bays, 20" deep */
+  /** Totes turned 90°: 30-1/4" bays (32" Greenmade-size), 20" deep */
   sideways: boolean;
   hasWheels: boolean;
   hasTop: boolean;
@@ -193,15 +194,37 @@ const BUILD_CONFIG_BASE = { rails: "2x4" } as const;
 
 const inches = (n: number) => `${toFraction(n)}"`;
 
+/**
+ * Sideways bays are cut for one tote brand (@/lib/rails2x4): the tote's long
+ * side spans the bay, and HDX- and Greenmade-size totes differ there by more
+ * than the rails can absorb. Say which brand this plan is cut for, loudly.
+ */
+function sidewaysBrandNote(toteTypes: string[]): string {
+  const classes = [...new Set(toteTypes.map((t) => toteSizeClass(t)))];
+  const sized = classes
+    .map((c) => `${inches(bayOpeningSidewaysIn(c))} for ${TOTE_27GAL[c].label} totes (${TOTE_27GAL[c].brands})`)
+    .join("; ");
+  const other = classes.length === 1 ? (classes[0] === "HDX" ? "GM" : "HDX") : null;
+  return (
+    `IMPORTANT — sideways bays are cut for your tote brand: ${sized}. ` +
+    (other
+      ? `Use only ${TOTE_27GAL[classes[0]].label} totes in the sideways units: ${
+          other === "GM" ? "a Greenmade-size tote's body won't drop between the rails" : "an HDX-size tote's rim won't reach the rails and it will fall through"
+        }.`
+      : "Keep each brand in the units cut for it.") +
+    " Upright units take either brand."
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Module type → parts + steps
 // ═══════════════════════════════════════════════════════════════════════════
 
 function moduleParts(t: PlanModuleType): PlanCutPart[] {
-  const width = moduleWidthIn(t.cols, t.sideways);
+  const width = moduleWidthIn(t.cols, t.sideways, false, t.toteType);
   const depth = unitDepthIn(t.sideways);
   const upright = upright2x4(t.rows);
-  const braces = braceLayout2x4(t.cols, t.rows, t.sideways);
+  const braces = braceLayout2x4(t.cols, t.rows, t.sideways, false, t.toteType);
   const parts: PlanCutPart[] = [
     {
       name: "Upright",
@@ -318,7 +341,7 @@ function unitSteps(unit: PlanUnit): PlanAssemblyStep[] {
   }
 
   for (let tier = 1; tier < tiers.length; tier++) {
-    const perModulePlate = widths.map((c) => moduleWidthIn(c, unit.sideways));
+    const perModulePlate = widths.map((c) => moduleWidthIn(c, unit.sideways, false, unit.toteType));
     const screws = perModulePlate.reduce((s, w) => s + Math.max(2, Math.ceil(w / 12)) * 2, 0);
     steps.push({
       id: `stack-tier-${tier + 1}`,
@@ -455,7 +478,7 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
       const ms = modules.filter((m) => m.sideways === sideways);
       const geo = rails2x4Geometry(sideways);
       const rails = ms.reduce((s, m) => s + m.cols * m.rows * 2, 0);
-      const braces = ms.reduce((s, m) => s + braceLayout2x4(m.cols, m.rows, sideways).segments.length, 0);
+      const braces = ms.reduce((s, m) => s + braceLayout2x4(m.cols, m.rows, sideways, false, m.toteType).segments.length, 0);
       return { sideways, geo, rails, braces, boards: Math.ceil((rails + braces) / geo.railsPerBoard) };
     })
     .filter((g) => g.rails > 0);
@@ -475,7 +498,7 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
   // ── Module types ─────────────────────────────────────────────────────
   const moduleTypes: PlanModuleTypeBuild[] = types.map((t) => ({
     ...t,
-    widthIn: moduleWidthIn(t.cols, t.sideways),
+    widthIn: moduleWidthIn(t.cols, t.sideways, false, t.toteType),
     frameHeightIn: moduleFrameHeightIn(t.rows),
     parts: moduleParts(t),
     steps: moduleSteps(t),
@@ -583,7 +606,7 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
   const topSheets = units.reduce((s, u) => s + (u.hasTop ? topSheetsFor(u.widthIn) : 0), 0);
   // One entry per module type: "A1, A2: 4 at 30\" (no cut)" / "B1: 4 cut to 21-1/2\""
   const braceNotes = moduleTypes.map((t) => {
-    const b = braceLayout2x4(t.cols, t.rows, t.sideways);
+    const b = braceLayout2x4(t.cols, t.rows, t.sideways, false, t.toteType);
     const depth = unitDepthIn(t.sideways);
     const n = b.segments.length * t.count;
     const how = b.length >= depth ? `at ${inches(depth)} (no cut)` : `cut to ${inches(b.length)}`;
@@ -637,7 +660,8 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
     generalNotes.splice(
       1,
       0,
-      `${design.units.length > 1 ? "Sideways units turn" : "Sideways turns"} each tote 90° so its long side faces out: bays are ${inches(BAY_OPENING_SIDEWAYS_IN)} wide and the rack is only ${inches(UNIT_DEPTH_SIDEWAYS_IN)} deep (${inches(UNIT_DEPTH_IN - UNIT_DEPTH_SIDEWAYS_IN)} shallower than standard), for narrow garages and walkways. Sideways modules are at most ${MODULE_MAX_COLS_SIDEWAYS} totes wide so every plate still comes out of an 8' 2×4.`,
+      `${design.units.length > 1 ? "Sideways units turn" : "Sideways turns"} each tote 90° so its long side faces out, and the rack is only ${inches(UNIT_DEPTH_SIDEWAYS_IN)} deep (${inches(UNIT_DEPTH_IN - UNIT_DEPTH_SIDEWAYS_IN)} shallower than standard), for narrow garages and walkways. Sideways modules are at most ${MODULE_MAX_COLS_SIDEWAYS} totes wide so every plate still comes out of an 8' 2×4.`,
+      sidewaysBrandNote(design.units.filter((u) => u.sideways).map((u) => u.toteType)),
     );
   }
   if (modules.length > 1) {

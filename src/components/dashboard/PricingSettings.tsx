@@ -781,7 +781,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
               2x4 Rail Construction
             </p>
             <p className="text-[10px] text-stone-600">
-              {use2x4Rails ? "Using ripped 2x4 rails. 21\" universal openings. Tote type is not relevant." : "Toggle on to use ripped 2x4 rails instead of plywood strips."}
+              {use2x4Rails ? "Using ripped 2x4 rails. 21\" universal openings; sideways bays are sized for the tote brand you pick on the unit." : "Toggle on to use ripped 2x4 rails instead of plywood strips."}
             </p>
           </div>
           <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${use2x4Rails ? "bg-yellow-500" : "bg-slate-600"}`}>

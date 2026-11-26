@@ -109,8 +109,8 @@ export function frameGeometry(cols: number, rows: number, toteType: ToteType, ra
     };
   }
   if (rails === "2x4") {
-    // Ripped 2×4 rails, universal 21" bays (30-1/4" × 20" deep sideways) — mirrors buildEngine / Rack3D
-    const geo = rails2x4Geometry(sideways);
+    // Ripped 2×4 rails: universal 21" bays; sideways bays follow the tote brand (@/lib/rails2x4)
+    const geo = rails2x4Geometry(sideways, toteType);
     const bayW = geo.opening;
     const totalW = cols * bayW + (cols + 1) * POST_W;
     const postH = upright2x4(rows);
@@ -1303,7 +1303,7 @@ function ExplodedAssembly({
           // 2×4 frames: braces sized to the frame (short frames can't fit
           // 30" corner braces) — same layout the step text and counts use
           // Minis: the same sized layout, from 1-1/4" plywood strips
-          const layout2x4 = is2x4 || isMini ? braceLayout2x4(cols, rows, sideways, isMini) : null;
+          const layout2x4 = is2x4 || isMini ? braceLayout2x4(cols, rows, sideways, isMini, toteType) : null;
           if (layout2x4) {
             const ox = firstPostX;
             const oy = lift + PLATE_H / 2; // bottom plate centerline
@@ -1846,7 +1846,7 @@ interface AssemblyGuideProps {
   hud?: React.ReactNode;
   /** Rail construction — installers default to plywood; DIY plans use 2×4 */
   rails?: RailStyle;
-  /** 2×4 rails only: totes turned 90° (30-1/4" bays, 20" deep) */
+  /** 2×4 rails only: totes turned 90° (30-1/4" bays, 32" for Greenmade-size; 20" deep) */
   sideways?: boolean;
   /** Called with the step shown (1-based) and the step count, in step mode */
   onStep?: (step: number, total: number) => void;

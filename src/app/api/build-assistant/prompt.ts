@@ -14,7 +14,7 @@ const PRODUCT_KNOWLEDGE = `
 - HDX totes (19-3/4" opening) — Home Depot, Menards
 - GreenMade/Wide totes (20-3/4" opening) — Costco, Lowe's, Walmart
 - Standard orientation: 30" deep, 16" vertical spacing between tiers
-- Sideways orientation: 20" deep, 30.25" slot width (totes rotated 90 degrees)
+- Sideways orientation: 20" deep, totes rotated 90 degrees. With ripped 2x4 rails the slot depends on the tote brand: 30.25" for HDX-size totes (HDX, Performax), 32" for Greenmade-size totes (Greenmade, Lowe's Project Source, Walmart Hyper Tough). A sideways bay fits only the brand it was built for. With plywood rails it is 30.25".
 - Max 4 columns per width module (auto-splits wider units)
 - Max 6 rows per height tier (auto-splits taller units to fit 8ft lumber)
 - Plywood top: 1 sheet up to 96" wide, 2 sheets up to 192", 3 sheets above 192"
@@ -27,7 +27,7 @@ const PRODUCT_KNOWLEDGE = `
 
 ### 2x4 Rail Construction Mode
 - Alternative build method using ripped 2x4 lumber rails instead of plywood strips
-- Universal 21" openings (tote type is irrelevant — no totes included)
+- Universal 21" upright openings (fit HDX and Greenmade-size totes). Sideways bays depend on the tote brand: 30.25" HDX-size, 32" Greenmade-size
 - Rails are ripped 2x4s: 1.5" wide × 1.75" tall, same orientation as posts (narrow face)
 - Fixed rail heights from bottom of vertical posts: 13-3/4", 29-1/2", 45-1/4", 61", 76-3/4", 92-1/2"
 - Max 6 rows (each row corresponds to a fixed rail position)

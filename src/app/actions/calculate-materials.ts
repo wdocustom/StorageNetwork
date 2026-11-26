@@ -28,7 +28,7 @@ import {
   fillPartsFromOffcuts,
 } from "@/utils/inventoryManager";
 import { roundMoney } from "@/utils/mathHelpers";
-import { RAIL_2X4_MAX_ROWS, upright2x4Length } from "@/lib/rails2x4";
+import { RAIL_2X4_MAX_ROWS, rails2x4Bay, upright2x4Length } from "@/lib/rails2x4";
 
 // ── Constants (protected — never sent to browser) ────────────────────────
 
@@ -50,10 +50,9 @@ const MINI_GAP = MINI.postW;
 const MINI_MAX_ROWS_PER_TIER = miniMaxRowsPerTier(); // installers cap minis at 4 anyway
 
 // ── Sideways Orientation Constants ─────────────────────────────────────
-const SIDEWAYS_OPENING = 30.25;          // Tote depth becomes slot width
+const SIDEWAYS_OPENING = 30.25;          // Plywood-strip sideways bay (2×4 rails: rails2x4Bay)
 
 // ── 2x4 Rail Construction Constants ────────────────────────────────────
-const RAILS_2X4_OPENING = 21;           // 21" universal opening
 const RAILS_2X4_GAP = 1.5;              // 2x4 post width
 const RAILS_2X4_DEPTH_STANDARD = 30;    // 30" rail depth (standard orientation)
 const RAILS_2X4_DEPTH_SIDEWAYS = 20;    // 20" rail depth (sideways orientation)
@@ -233,7 +232,7 @@ export async function calculateMaterialCostServer(
     for (let modIdx = 0; modIdx < widthModules.length; modIdx++) {
       const cols = widthModules[modIdx];
       const opening = is2x4Rails
-        ? (orientation === "sideways" ? SIDEWAYS_OPENING : RAILS_2X4_OPENING)
+        ? rails2x4Bay(orientation === "sideways", toteType) // sideways bay follows the tote brand
         : (isMini ? MINI_OPENING : (orientation === "sideways" ? SIDEWAYS_OPENING : (toteType === "HDX" ? OPENING_HDX : OPENING_GM)));
       const gap = is2x4Rails ? RAILS_2X4_GAP : (isMini ? MINI_GAP : GAP);
       const modWidth = cols * opening + (cols + 1) * gap;

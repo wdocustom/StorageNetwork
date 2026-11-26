@@ -76,3 +76,90 @@ export function upright2x4Length(rows: number): number {
   const r = Math.max(1, Math.min(rows, RAIL_2X4_MAX_ROWS));
   return r >= RAIL_2X4_MAX_ROWS ? RAIL_2X4_STOCK : RAIL_2X4_TOPS[r - 1] + RAIL_2X4_ABOVE_TOP;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BAY OPENINGS — the clear width between two uprights, by tote brand.
+//
+// Each rail sticks 1-1/2" into the bay from the upright's side face, so the
+// gap a tote drops into is the bay minus 3". The tote has to HANG BY ITS RIM
+// on both rails (rim wider than the gap) and its BODY has to drop between
+// them (body narrower than the gap).
+//
+// Measured 27-gallon totes (long × short side):
+//   HDX / Performax size     rim 28-1/2 × 19-5/8   body 26 × 17-1/8 (measured)
+//   Greenmade / Project Source / Hyper Tough size
+//                            rim 30-1/8 × 20-1/8   body ≈ 27-5/8 × 17-5/8
+//                            (rim measured; body = rim − the same 1-1/4" lip
+//                             HDX has — the conservative estimate)
+//
+// Upright: one 21" bay (18" gap) holds both — HDX rests 13/16" per side with
+//   7/16" body clearance, Greenmade 1-1/16" with ~3/16".
+// Sideways: no single bay fits both. A Greenmade body needs a gap over ~28",
+//   an HDX rim falls through anything over ~27-1/2". So sideways bays follow
+//   the brand:
+//     HDX size        30-1/4" bay (27-1/4" gap): 5/8" rim on each rail, 5/8" clearance
+//     Greenmade size  32" bay     (29" gap):     9/16" rim on each rail, ~11/16" clearance
+//   A rack built for one brand does NOT take the other sideways — the plans
+//   and quotes say so.
+// tote-fit.test.ts checks every combination against these numbers.
+// (Plywood-strip racks have their own openings in buildEngine — not these.)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** 27-gallon tote size class used for 2×4-rail bays. Unknown → HDX (the original sizing). */
+export type ToteSizeClass = "HDX" | "GM";
+
+export interface ToteRimBody {
+  label: string;
+  brands: string;
+  rimLong: number;
+  rimShort: number;
+  bodyLong: number;
+  bodyShort: number;
+}
+
+export const TOTE_27GAL: Record<ToteSizeClass, ToteRimBody> = {
+  HDX: { label: "HDX-size", brands: "HDX (Home Depot), Performax (Menards)", rimLong: 28.5, rimShort: 19.625, bodyLong: 26, bodyShort: 17.125 },
+  GM: {
+    label: "Greenmade-size",
+    brands: "Greenmade (Costco), Project Source (Lowe's), Hyper Tough (Walmart)",
+    rimLong: 30.125,
+    rimShort: 20.125,
+    bodyLong: 27.625,
+    bodyShort: 17.625,
+  },
+};
+
+/** Upright bay: one size fits both brands. */
+export const RAIL_2X4_BAY = 21;
+/** Sideways bays by tote size class. */
+export const RAIL_2X4_BAY_SIDEWAYS: Record<ToteSizeClass, number> = { HDX: 30.25, GM: 32 };
+/** Rack depth (= rail length): 30" upright, 20" sideways. */
+export const RAIL_2X4_DEPTH_UPRIGHT = 30;
+export const RAIL_2X4_DEPTH_SIDEWAYS = 20;
+
+/** "GM" for a Greenmade-size tote, otherwise "HDX" (including unknown / legacy designs). */
+export function toteSizeClass(toteType: string | null | undefined): ToteSizeClass {
+  return toteType === "GM" ? "GM" : "HDX";
+}
+
+/** Clear width between two uprights of a 2×4-rail rack. */
+export function rails2x4Bay(sideways: boolean | undefined, toteType?: string | null): number {
+  return sideways ? RAIL_2X4_BAY_SIDEWAYS[toteSizeClass(toteType)] : RAIL_2X4_BAY;
+}
+
+/** Rack depth for a 2×4-rail rack. */
+export function rails2x4Depth(sideways: boolean | undefined): number {
+  return sideways ? RAIL_2X4_DEPTH_SIDEWAYS : RAIL_2X4_DEPTH_UPRIGHT;
+}
+
+/**
+ * How a tote sits in a 2×4-rail bay: rim resting on each rail (must be > 0)
+ * and body clearance per side (must be > 0). Inches.
+ */
+export function toteFit2x4(toteType: string | null | undefined, sideways: boolean, bay = rails2x4Bay(sideways, toteType)) {
+  const t = TOTE_27GAL[toteSizeClass(toteType)];
+  const gap = bay - 2 * RAIL_2X4_W;
+  const rim = sideways ? t.rimLong : t.rimShort;
+  const body = sideways ? t.bodyLong : t.bodyShort;
+  return { gap, rimBearing: (rim - gap) / 2, bodyClearance: (gap - body) / 2 };
+}

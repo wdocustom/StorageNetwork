@@ -47,3 +47,29 @@ describe("installer cut list — sideways racks", () => {
     expect(longestCut(unit({ cols: 4, use2x4Rails: true }))).toBe(91.5);
   });
 });
+
+describe("2×4-rail sideways bays follow the tote brand", () => {
+  const plates = (q: QuoteUnit) =>
+    (generateBuildManifest([q]).stock_boards ?? []).flatMap((b) => b.cuts.filter((c) => /Plate/.test(c.name)).map((c) => c.len));
+
+  it("cuts HDX-size sideways plates for 30-1/4\" bays (2 wide = 65\")", () => {
+    expect(Math.max(...plates(unit({ cols: 2, orientation: "sideways", depth: 20, use2x4Rails: true, toteType: "HDX" })))).toBe(65);
+  });
+
+  it("cuts Greenmade-size sideways plates for 32\" bays (2 wide = 68-1/2\")", () => {
+    expect(Math.max(...plates(unit({ cols: 2, orientation: "sideways", depth: 20, use2x4Rails: true, toteType: "GM" })))).toBe(68.5);
+  });
+
+  it("keeps the universal 21\" upright bay for both brands", () => {
+    for (const toteType of ["HDX", "GM"] as const) {
+      expect(longestCut(unit({ cols: 4, use2x4Rails: true, toteType }))).toBe(91.5);
+    }
+  });
+
+  it("leaves plywood-strip sideways racks alone (30-1/4\" for both)", () => {
+    for (const toteType of ["HDX", "GM"] as const) {
+      expect(Math.max(...plates(unit({ cols: 2, orientation: "sideways", depth: 20, use2x4Rails: false, toteType })))).toBe(65);
+    }
+  });
+});
+

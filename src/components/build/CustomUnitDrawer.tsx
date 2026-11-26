@@ -3,6 +3,7 @@
 import { Loader2, Maximize2, Grid3X3, HardHat, Plus } from "lucide-react";
 import BottomDrawer from "./BottomDrawer";
 import { toFraction } from "@/lib/utils";
+import { rails2x4Bay } from "@/lib/rails2x4";
 import type { InstallerPricing } from "@/types/viewModels";
 import type { IndoorDeliveryConfig } from "@/app/actions/delivery-fee";
 import { CurrencySymbol } from "@/components/currency/CurrencyContext";
@@ -300,11 +301,13 @@ export default function CustomUnitDrawer({
         </div>
       )}
 
-      {/* Tote Size — Standard units only, hidden in 2x4 rail mode */}
-      {!use2x4Rails && unitType === "standard" ? (
+      {/* Tote Size — plywood standard units, and 2x4 SIDEWAYS units (the
+          sideways bay follows the brand — @/lib/rails2x4). 2x4 upright bays
+          are a universal 21", so no choice there. */}
+      {unitType === "standard" && (!use2x4Rails || orientation === "sideways") ? (
         <div className="mt-3">
           <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-            Tote Size
+            {use2x4Rails ? "Tote Brand (sideways bay)" : "Tote Size"}
           </label>
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -316,7 +319,7 @@ export default function CustomUnitDrawer({
               }`}
             >
               <div className="text-[9px] font-bold uppercase tracking-wide text-stone-500">
-                19-3/4&quot; Opening
+                {use2x4Rails ? `${toFraction(rails2x4Bay(true, "HDX"))}" Opening` : "19-3/4\" Opening"}
               </div>
               <div className="text-sm font-bold text-stone-200">Standard</div>
               <div className="mt-1.5 flex flex-wrap gap-1">
@@ -338,7 +341,7 @@ export default function CustomUnitDrawer({
               }`}
             >
               <div className="text-[9px] font-bold uppercase tracking-wide text-stone-500">
-                20-3/4&quot; Opening
+                {use2x4Rails ? `${toFraction(rails2x4Bay(true, "GM"))}" Opening` : "20-3/4\" Opening"}
               </div>
               <div className="text-sm font-bold text-stone-200">Wide</div>
               <div className="mt-1.5 flex flex-wrap gap-1">
@@ -354,6 +357,11 @@ export default function CustomUnitDrawer({
               </div>
             </button>
           </div>
+          {use2x4Rails && (
+            <p className="mt-1.5 text-[10px] leading-snug text-amber-300/80">
+              Sideways bays fit one brand only: Greenmade-size totes jam in an HDX bay, HDX totes fall through a Greenmade bay.
+            </p>
+          )}
         </div>
       ) : !use2x4Rails ? (
         <div className="mt-3 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5">

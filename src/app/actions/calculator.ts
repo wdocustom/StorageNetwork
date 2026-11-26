@@ -129,7 +129,8 @@ const STANDARD_CONFIG: UnitDimensionConfig = {
 };
 
 // ── Standard Unit SIDEWAYS Orientation (27 Gallon Totes rotated 90°) ─────
-// Totes are placed sideways: width becomes 30.25", depth becomes 20"
+// Plywood-strip racks: totes placed sideways, width 30.25", depth 20".
+// (2×4-rail sideways slots follow the tote brand — rails2x4Bay.)
 const SIDEWAYS_CONFIG: UnitDimensionConfig = {
   slotWidth: 30.25,              // Tote placed sideways (30.25" wide slot)
   verticalSpacing: 16,           // Same vertical spacing as standard
@@ -192,7 +193,7 @@ const MINI_CONFIG: UnitDimensionConfig = {
 // Fixed rail positions, 21" universal openings, max 6 rows.
 // 6 rails per 2x4x8' piece (ripped in half → 2 strips × 3 cuts at 30" depth).
 const RAILS_2X4_CONFIG: UnitDimensionConfig = {
-  slotWidth: 21,                 // 21" universal opening (tote type irrelevant)
+  slotWidth: 21,                 // 21" universal upright opening (sideways: rails2x4Bay by brand)
   verticalSpacing: RAIL_2X4_PITCH,       // 16" between consecutive rail tops
   firstRailHeight: RAIL_2X4_FIRST_TOP,   // Top of first rail from bottom of upright = 14"
   depth: 30,                     // 30" deep (same as standard)
@@ -222,10 +223,11 @@ const RAILS_2X4_CONFIG: UnitDimensionConfig = {
 const RAILS_2X4_MAX_ROWS = RAIL_2X4_MAX_ROWS;
 
 // ── Config getter ────────────────────────────────────────────────────────
-function getUnitConfig(unitType: UnitType, orientation: Orientation = "standard", use2x4Rails = false): UnitDimensionConfig {
+function getUnitConfig(unitType: UnitType, orientation: Orientation = "standard", use2x4Rails = false, model?: ToteModel): UnitDimensionConfig {
   if (use2x4Rails) {
-    // Sideways orientation = shallower depth (20" instead of 30") + wider slots (30.25")
-    if (orientation === "sideways") return { ...RAILS_2X4_CONFIG, depth: 20, slotWidth: SIDEWAYS_CONFIG.slotWidth };
+    // Sideways = shallower (20" instead of 30") with wider slots that follow
+    // the tote brand: 30-1/4" HDX-size, 32" Greenmade-size (@/lib/rails2x4)
+    if (orientation === "sideways") return { ...RAILS_2X4_CONFIG, depth: 20, slotWidth: rails2x4Bay(true, model) };
     return RAILS_2X4_CONFIG;
   }
   if (unitType === "mini") return MINI_CONFIG;
@@ -246,8 +248,8 @@ const OPENING_GM = 20.75;
 
 function getOpening(model: ToteModel, unitType: UnitType, orientation: Orientation = "standard", use2x4Rails = false): number {
   if (use2x4Rails) {
-    // Sideways 2x4: wider slots (30.25") to accommodate rotated totes
-    if (orientation === "sideways") return SIDEWAYS_CONFIG.slotWidth;
+    // Sideways 2x4: wider slots that follow the tote brand (@/lib/rails2x4)
+    if (orientation === "sideways") return rails2x4Bay(true, model);
     return RAILS_2X4_CONFIG.slotWidth; // 21" universal
   }
   if (unitType === "mini") {
@@ -272,7 +274,7 @@ export async function calculateBuild(
   const toteColor: ToteColor = (toteModel === "HDX" && unitType === "standard" && addOns.totes)
     ? (input.toteColor ?? "black")
     : "black";
-  const config = getUnitConfig(unitType, orientation, use2x4Rails);
+  const config = getUnitConfig(unitType, orientation, use2x4Rails, toteModel);
   const opening = getOpening(toteModel, unitType, orientation, use2x4Rails);
 
   const effectiveAddOns = addOns;
@@ -709,7 +711,7 @@ import {
   type OverheadStorageResult,
   type OverheadToteType,
 } from "@/lib/overhead-storage";
-import { RAIL_2X4_ABOVE_TOP, RAIL_2X4_FIRST_TOP, RAIL_2X4_H, RAIL_2X4_MAX_ROWS, RAIL_2X4_PITCH, upright2x4Length } from "@/lib/rails2x4";
+import { RAIL_2X4_ABOVE_TOP, RAIL_2X4_FIRST_TOP, RAIL_2X4_H, RAIL_2X4_MAX_ROWS, RAIL_2X4_PITCH, rails2x4Bay, upright2x4Length } from "@/lib/rails2x4";
 
 export type { OverheadStorageConfig, OverheadStorageResult, OverheadToteType };
 
