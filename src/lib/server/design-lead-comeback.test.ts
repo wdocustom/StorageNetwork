@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 
-// ── A small in-memory Supabase: enough of the query builder for the giveaway ──
+// ── A small in-memory Supabase: enough of the query builder for these tests ──
 type Row = Record<string, unknown>;
 const tables: Record<string, Row[]> = {};
 const UNIQUE: Record<string, string[]> = {
@@ -202,15 +202,13 @@ describe("comebackRecipients", () => {
 });
 
 describe("the email", () => {
-  it("shows their price, the free jig and (during the promotion) the holiday refund note", () => {
+  it("shows their price and the free jig, with no giveaway note", () => {
     const design = decodeTotePlanDesign("H5x4")!;
-    const during = designComebackEmailContent({ design, link: "https://app.test/x", priceCents: 1400 }, new Date("2026-11-19T18:00:00Z"));
-    expect(during.subject).toBe("Your 5×4 Tote Organizer design: still $14, plus free jig plans");
-    expect(during.html).toContain("Ladder Building Jig plans free ($9 value)");
-    expect(during.html).toContain("No purchase necessary");
-    expect(during.html).toContain("https://app.test/refund-rules");
-    const after = designComebackEmailContent({ design, link: "https://app.test/x", priceCents: 1600 }, new Date("2027-02-05T18:00:00Z"));
-    expect(after.html).not.toContain("Holiday surprise");
+    const email = designComebackEmailContent({ design, link: "https://app.test/x", priceCents: 1400 });
+    expect(email.subject).toBe("Your 5×4 Tote Organizer design: still $14, plus free jig plans");
+    expect(email.html).toContain("Ladder Building Jig plans free ($9 value)");
+    expect(email.html).not.toContain("Holiday surprise");
+    expect(email.html).not.toContain("refund-rules");
   });
 });
 
