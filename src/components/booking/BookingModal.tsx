@@ -134,6 +134,22 @@ export default function BookingModal({
   const [discountLoading, setDiscountLoading] = useState(false);
   const [discountError, setDiscountError] = useState("");
 
+  // Referral partner link (/r/<code>): pre-apply that partner's discount once.
+  // validateDiscountCode is scoped to this installer, so a cookie from another
+  // installer's partner simply doesn't apply.
+  const partnerCodeTried = useRef(false);
+  useEffect(() => {
+    if (!isOpen || !installerId || discountApplied || partnerCodeTried.current) return;
+    const match = typeof document !== "undefined" ? document.cookie.match(/(?:^|;\s*)sn_partner_ref=([A-Z0-9]{4,20})/) : null;
+    if (!match) return;
+    partnerCodeTried.current = true;
+    validateDiscountCode(match[1], installerId, totalPrice, { unitCount }).then((result) => {
+      if (!result.valid) return;
+      setDiscountInput(result.code!);
+      setDiscountApplied({ code: result.code!, amount: result.discountAmount, discountType: result.discountType, discountValue: result.discountValue });
+    }).catch(() => {});
+  }, [isOpen, installerId, discountApplied, totalPrice, unitCount]);
+
   // Facebook share discount (platform-funded, reduces platform fee not installer revenue)
   const [fbShareDiscount, setFbShareDiscount] = useState(0);
 

@@ -1,6 +1,7 @@
 "use server";
 
 import Stripe from "stripe";
+import { cookies } from "next/headers";
 import { stripeConfig } from "@/lib/stripe/http";
 import { getServiceClient } from "@/lib/supabase-server";
 import { siteConfig } from "@/config/site";
@@ -103,6 +104,8 @@ import {
 import type { QuoteUnit } from "@/lib/buildEngine.types";
 import { roundMoney } from "@/utils/mathHelpers";
 import { isDirectLeadSource, isLockedPlatformSource, platformFeeRateForSource, type LeadSource } from "@/lib/lead-source";
+import { collectibleCutCents, PARTNER_REF_COOKIE } from "@/lib/referral-partners";
+import { attributeLeadToPartner, settleReferralCommission } from "@/lib/server/referral-partners";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   ...stripeConfig(),
@@ -690,7 +693,7 @@ export async function createDepositCheckoutSession(
 
   const { data: lead } = await supabase
     .from("leads")
-    .select("estimated_price, deposit_paid, status, payout_status, source, installer_id")
+    .select("estimated_price, deposit_paid, status, payout_status, source, installer_id, discount_code, discount_amount, customer_email")
     .eq("id", leadId)
     .single();
 
@@ -709,11 +712,21 @@ export async function createDepositCheckoutSession(
     const depositAmountCents = Math.round(depositAmount * 100);
     const totalPriceCents = Math.round(totalPrice * 100);
     const source = (lead.source as LeadSource | null) || "platform";
+    const partner = await attributeLeadToPartner({
+      leadId,
+      installerId: lead.installer_id,
+      discountCode: lead.discount_code,
+      customerEmail: customerEmail || lead.customer_email,
+      totalPriceCents,
+      discountCents: Math.round((Number(lead.discount_amount) || 0) * 100),
+    });
     const split = await resolveDepositFeeSplit({
       installerId: lead.installer_id,
       totalPriceCents,
       depositAmountCents,
       source,
+      partnerCutCents: partner?.collectCents,
+      referralPartnerId: partner?.partnerId,
     });
 
     const baseUrl = siteConfig.baseUrl;
@@ -745,7 +758,7 @@ export async function createDepositCheckoutSession(
         ],
         payment_intent_data: {
           ...(split.installerStripeId && {
-            application_fee_amount: split.platformFeeCents,
+            application_fee_amount: split.applicationFeeCents,
           }),
         },
         customer_email: customerEmail || undefined,
@@ -917,12 +930,26 @@ export async function markLeadAsPaid(leadId: string): Promise<{ success: boolean
   // idempotency guard: if this lead is already "paid", skip re-invoicing.
   const { data: preLead } = await supabase
     .from("leads")
-    .select("status, deposit_paid, estimated_price, source")
+    .select("status, deposit_paid, estimated_price, source, installer_id, discount_code, discount_amount, customer_email")
     .eq("id", leadId)
     .single();
 
   if (preLead?.status === "paid") {
     return { success: true };
+  }
+
+  // Referral partner: attribute before the update below sets deposit_paid
+  // (attribution only touches unpaid leads). Paid off-platform, so nothing is
+  // collected — the commission is settled as owed by the installer.
+  if (preLead && !preLead.deposit_paid) {
+    await attributeLeadToPartner({
+      leadId,
+      installerId: preLead.installer_id,
+      discountCode: preLead.discount_code,
+      customerEmail: preLead.customer_email,
+      totalPriceCents: Math.round((preLead.estimated_price || 0) * 100),
+      discountCents: Math.round((Number(preLead.discount_amount) || 0) * 100),
+    });
   }
 
   const { error } = await supabase
@@ -940,6 +967,9 @@ export async function markLeadAsPaid(leadId: string): Promise<{ success: boolean
   if (error) {
     return { success: false, error: "Failed to update payment status." };
   }
+
+  // Referral partner commission (no-op if none, or if a deposit already settled it).
+  await settleReferralCommission({ leadId, collectedCents: 0 });
 
   // ── Off-platform payment: invoice the installer directly for the fee ───
   // No Stripe transaction ever ran for this job, so the platform's cut
@@ -1500,7 +1530,7 @@ export async function chargeDepositOffSession(
   const { data: lead, error: leadError } = await supabase
     .from("leads")
     .select(
-      "installer_id, customer_id, estimated_price, deposit_paid, status, payout_status, source, customer_email, customer_name, stripe_customer_id, stripe_payment_method_id, stripe_customer_account_id"
+      "installer_id, customer_id, estimated_price, deposit_paid, status, payout_status, source, customer_email, customer_name, stripe_customer_id, stripe_payment_method_id, stripe_customer_account_id, discount_code, discount_amount"
     )
     .eq("id", leadId)
     .single();
@@ -1533,11 +1563,21 @@ export async function chargeDepositOffSession(
   const depositAmountCents = Math.round(depositAmount * 100);
   const totalPriceCents = Math.round(totalPrice * 100);
   const source = (lead.source as LeadSource | null) || "platform";
+  const partner = await attributeLeadToPartner({
+    leadId,
+    installerId: lead.installer_id,
+    discountCode: lead.discount_code,
+    customerEmail: lead.customer_email,
+    totalPriceCents,
+    discountCents: Math.round((Number(lead.discount_amount) || 0) * 100),
+  });
   const split = await resolveDepositFeeSplit({
     installerId: lead.installer_id,
     totalPriceCents,
     depositAmountCents,
     source,
+    partnerCutCents: partner?.collectCents,
+    referralPartnerId: partner?.partnerId,
   });
 
   if (!split.installerStripeId) {
@@ -1569,7 +1609,7 @@ export async function chargeDepositOffSession(
         payment_method: scopedCard.paymentMethodId,
         off_session: true,
         confirm: true,
-        application_fee_amount: split.platformFeeCents,
+        application_fee_amount: split.applicationFeeCents,
         receipt_email: lead.customer_email || undefined,
         metadata: {
           lead_id: leadId,
@@ -1583,7 +1623,8 @@ export async function chargeDepositOffSession(
         },
       },
       onAccount(split.installerStripeId, {
-        idempotencyKey: `deposit-offsession-${leadId}`,
+        // The partner cut changes the request body, so it's part of the key.
+        idempotencyKey: `deposit-offsession-${leadId}${split.partnerCollectedCents ? `-p${split.partnerCollectedCents}` : ""}`,
       })
     );
 
@@ -1713,6 +1754,14 @@ interface DepositFeeSplit {
   /** Currency of the deposit charge (and so of every amount here). */
   currency: CurrencyCode;
   platformFeeCents: number;
+  /**
+   * What to send as application_fee_amount: the platform fee plus a referral
+   * partner's cut when one rides on this deposit (see @/lib/referral-partners).
+   * platformFeeCents stays the platform's own revenue.
+   */
+  applicationFeeCents: number;
+  /** Referral partner cut included in applicationFeeCents (0 = none). */
+  partnerCollectedCents: number;
   installerReceivesCents: number;
   installerStripeId: string | null;
   isPro: boolean;
@@ -1721,13 +1770,44 @@ interface DepositFeeSplit {
   logLabel: string;
 }
 
-async function resolveDepositFeeSplit(params: {
+// Referral partner cut on top of the platform's split. Collected only on a
+// direct charge (there's a connected account to take it from) and only if
+// platform fee + cut fit inside the deposit — all or nothing. Anything not
+// collected here is recorded as owed by the installer when the deposit lands.
+async function resolveDepositFeeSplit(
+  params: Parameters<typeof resolveBaseDepositFeeSplit>[0] & {
+    partnerCutCents?: number;
+    referralPartnerId?: string | null;
+  },
+): Promise<DepositFeeSplit> {
+  const { partnerCutCents = 0, referralPartnerId = null, ...base } = params;
+  const split = await resolveBaseDepositFeeSplit(base);
+  const collected = split.installerStripeId
+    ? collectibleCutCents({ depositCents: base.depositAmountCents, platformFeeCents: split.platformFeeCents, cutCents: partnerCutCents })
+    : 0;
+  return {
+    ...split,
+    applicationFeeCents: split.platformFeeCents + collected,
+    partnerCollectedCents: collected,
+    installerReceivesCents: split.installerReceivesCents - collected,
+    metadataFields: {
+      ...split.metadataFields,
+      ...(referralPartnerId && {
+        referral_partner_id: referralPartnerId,
+        partner_cut_cents: String(collected),
+        installer_receives_cents: String(split.installerReceivesCents - collected),
+      }),
+    },
+  };
+}
+
+async function resolveBaseDepositFeeSplit(params: {
   installerId: string;
   totalPriceCents: number;
   depositAmountCents: number;
   source: LeadSource;
   fbShareDiscountCents?: number;
-}): Promise<DepositFeeSplit> {
+}): Promise<Omit<DepositFeeSplit, "applicationFeeCents" | "partnerCollectedCents">> {
   const { installerId, totalPriceCents, depositAmountCents, source, fbShareDiscountCents = 0 } = params;
 
   const installerProfile = await getInstallerProfile(installerId);
@@ -1910,12 +1990,25 @@ export async function createDepositIntent(
     //   - Network lead + Stripe:     15% → Platform, 0% via Stripe Connect upfront
     //                                (installer collects balance at install)
     //
+    // Referral partner: from the /r/<code> cookie this customer arrived with,
+    // or the partner's code typed as the discount code.
+    const partner = await attributeLeadToPartner({
+      leadId,
+      installerId,
+      refCode: (await cookies()).get(PARTNER_REF_COOKIE)?.value ?? null,
+      discountCode,
+      customerEmail,
+      totalPriceCents,
+      discountCents: promoCodeCents,
+    });
     const split = await resolveDepositFeeSplit({
       installerId,
       totalPriceCents,
       depositAmountCents,
       source,
       fbShareDiscountCents,
+      partnerCutCents: partner?.collectCents,
+      referralPartnerId: partner?.partnerId,
     });
 
     // ── Direct charge routing ──────────────────────────────────────────
@@ -1954,7 +2047,9 @@ export async function createDepositIntent(
     const offerPad = await canAcceptPad(stripe, chargeAccountId, split.currency);
     // The idempotency key covers the request body, so the PAD variant needs
     // its own key or a retry after the capability changes would be rejected.
-    const depositIdempotencyKey = offerPad ? `deposit-${leadId}-pad` : `deposit-${leadId}`;
+    // A referral partner's cut changes the body too, so it's part of the key.
+    const partnerKey = split.partnerCollectedCents ? `-p${split.partnerCollectedCents}` : "";
+    const depositIdempotencyKey = offerPad ? `deposit-${leadId}-pad${partnerKey}` : `deposit-${leadId}${partnerKey}`;
 
     const depositParams: Stripe.PaymentIntentCreateParams = {
       amount: depositAmountCents,
@@ -1962,7 +2057,7 @@ export async function createDepositIntent(
       ...(stripeCustomerId && { customer: stripeCustomerId }),
       setup_future_usage: "off_session",
       ...(chargeAccountId && {
-        application_fee_amount: split.platformFeeCents,
+        application_fee_amount: split.applicationFeeCents,
       }),
       receipt_email: customerEmail || undefined,
       metadata: {
@@ -2192,6 +2287,14 @@ export async function verifyAndConfirmDeposit(
     } catch (creditErr) {
       console.warn("[VerifyDeposit] Realtor credit RPC failed (non-fatal):", creditErr);
     }
+
+    // Referral partner commission (idempotent; no-op without a partner or if
+    // the webhook already settled it). Never throws.
+    await settleReferralCommission({
+      leadId,
+      collectedCents: Number(pi.metadata?.partner_cut_cents) || 0,
+      paymentIntentId: pi.id,
+    });
 
     // NOTE: Emails are sent by the webhook (payment_intent.succeeded).
     // This fallback only updates the DB if webhook missed it.

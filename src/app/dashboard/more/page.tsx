@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PRO_FREE_PROMO } from "@/config/pro-pricing";
 import { redirect } from "next/navigation";
-import { Activity, BarChart3, BookOpen, Building2, CalendarOff, ChevronRight, Compass, DollarSign, Gift, Package, Settings, Share2, Users, Zap, type LucideIcon } from "lucide-react";
+import { Activity, BarChart3, BookOpen, Building2, CalendarOff, ChevronRight, Compass, Handshake, DollarSign, Gift, Package, Settings, Share2, Users, Zap, type LucideIcon } from "lucide-react";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import SignOutButton from "@/components/dashboard/SignOutButton";
@@ -50,6 +50,7 @@ export default async function MorePage() {
         { href: "/community", label: "Community", icon: Users, dot: (recentPosts ?? 0) > 0 },
         { href: "/dashboard/guides", label: "Guides & plans", icon: BookOpen },
         { href: "/dashboard/referrals", label: "Referrals", icon: Share2 },
+        { href: "/dashboard/referral-partners", label: "Referral partners", icon: Handshake },
       ],
     },
     {
