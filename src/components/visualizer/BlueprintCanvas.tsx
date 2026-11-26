@@ -4,7 +4,7 @@ import { MINI, miniFrameHeight } from "@/lib/mini-rack";
 import { useCallback, useEffect, useRef } from "react";
 import { create2DWoodPattern, create2DPlywoodPattern } from "./woodCanvas";
 import type { SectionAddon } from "@/types/viewModels";
-import { RAIL_2X4_CENTERS, RAIL_2X4_H, railTopFromBottom, upright2x4Length } from "@/lib/rails2x4";
+import { RAIL_2X4_CENTERS, RAIL_2X4_H, railTopFromBottom, rails2x4Bay, upright2x4Length } from "@/lib/rails2x4";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BlueprintCanvas — 2D visual-only rendering (dimensions from server)
@@ -106,12 +106,13 @@ export default function BlueprintCanvas({
   // Mini: first rail CENTER from the bottom of the upright (its top edge is 5-3/4" — @/lib/mini-rack)
   const RENDER_FIRST_RAIL = isMini ? MINI.firstRailTop - MINI.railH / 2 : 13;
   const PLY_TOP_H = 0.75; // Plywood top thickness
-  // Opening width: 2x4 rails use universal 21" (sideways still 30.25");
-  // standard mini/HDX/GM still tote-width based.
+  // Opening width: 2x4 rails use universal 21" upright and a brand-sized
+  // sideways bay (@/lib/rails2x4); plywood sideways is 30.25"; plywood
+  // upright mini/HDX/GM still tote-width based.
   const opening = isMini
     ? MINI.opening
     : isSideways
-      ? 30.25
+      ? (is2x4 ? rails2x4Bay(true, toteType) : 30.25)
       : is2x4
         ? 21
         : toteType === "HDX" ? 19.75 : 20.75;

@@ -86,6 +86,7 @@ import {
   isMiniDesign,
   isMiniUnit,
   unitDepthIn,
+  bayOpeningSidewaysIn,
   type TotePlanToteType,
   TOTE_PLAN_EXIT_OFFER,
   TOTE_PLAN_LAST_CHANCE,
@@ -752,7 +753,9 @@ function PlansDesigner() {
             <p className="-mt-1 text-[11px] leading-snug text-stone-500">
               {isMiniUnit(unit)
                 ? `Bays are ${toFraction(MINI.opening)}" between uprights, sized for HDX 6.5 qt totes (8" × 12-3/4" lid). Measure yours before you build.`
-                : 'The 21" opening between uprights is universal: it should fit most brands of 27-gallon totes (HDX, Greenmade and others). Double-check your totes\' measurements before you build.'}
+                : unit.sideways
+                  ? "Sideways bays are sized to your tote brand: pick it below. (Standard-direction racks use a universal 21\" opening that fits most 27-gallon brands.)"
+                  : 'The 21" opening between uprights is universal: it should fit most brands of 27-gallon totes (HDX, Greenmade and others). Double-check your totes\' measurements before you build.'}
             </p>
             <Segmented
               label="Tote direction"
@@ -763,6 +766,25 @@ function PlansDesigner() {
                 { value: true, label: "Sideways", hint: `Long side out · ${unitDepthIn(true, isMiniUnit(unit))}" deep` },
               ]}
             />
+            {!isMiniUnit(unit) && unit.sideways && (
+              <>
+                {/* Sideways bays span the tote's long side, which differs by brand
+                    more than the rails absorb — the plan is cut for one (@/lib/rails2x4). */}
+                <Segmented
+                  label="Tote brand (sideways)"
+                  value={unit.toteType === "GM" ? "GM" : "HDX"}
+                  onChange={(toteType) => updateUnit({ toteType })}
+                  options={[
+                    { value: "HDX", label: "HDX size", hint: `HDX · Performax · ${toFraction(bayOpeningSidewaysIn("HDX"))}" bays` },
+                    { value: "GM", label: "Greenmade size", hint: `Greenmade · Lowe's Project Source · Hyper Tough · ${toFraction(bayOpeningSidewaysIn("GM"))}" bays` },
+                  ]}
+                />
+                <p className="-mt-1 rounded-xl bg-amber-400/10 px-3 py-2 text-[11px] leading-snug text-amber-200/90">
+                  Sideways bays are cut for one brand. A Greenmade-size tote won&apos;t drop into an HDX bay, and an HDX tote falls
+                  through a Greenmade bay. Pick the totes you&apos;ll actually use, and use only those in sideways units.
+                </p>
+              </>
+            )}
             <div className={`grid grid-cols-1 gap-4 ${isMiniUnit(unit) ? "" : "sm:grid-cols-2"}`}>
               {!isMiniUnit(unit) && (
               <Segmented

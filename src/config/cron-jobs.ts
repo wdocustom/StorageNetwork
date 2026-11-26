@@ -40,6 +40,9 @@ export const CRON_JOBS: CronJob[] = [
   { path: "/api/cron/plan-check-ins", schedule: "0 16 * * *" },
   // Referral partner payouts: pays cuts whose deposit has cleared (3+ days).
   { path: "/api/cron/referral-payouts", schedule: "0 16 * * *" },
+  // One-time: tells past sideways DIY plan buyers about Greenmade-size bays.
+  // Emails each person once (stamped), then is a no-op — remove after it runs.
+  { path: "/api/cron/sideways-brand-notice", schedule: "20 * * * *" },
 ];
 
 export function jobsForSchedule(cron: string): CronJob[] {

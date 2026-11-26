@@ -3,8 +3,9 @@
 //
 // Every module's front and back plates must come out of one 8' (96") 2×4.
 // A standard bay is ~21" (4 wide → 91-1/2" plate). A sideways bay is
-// 30-1/4" because the tote's long side faces out: 2 wide is a 65" plate,
-// 3 wide (96-3/4") would no longer fit. Shared by the build engine (cut
+// 30-1/4" (HDX-size) or 32" (Greenmade-size) because the tote's long side
+// faces out: 2 wide is a 65" / 68-1/2" plate, 3 wide (96-3/4" / 102") would
+// no longer fit. Shared by the build engine (cut
 // lists), the materials calculator, the job ticket diagram and DIY plans.
 // ═══════════════════════════════════════════════════════════════════════════
 

@@ -42,7 +42,7 @@ import {
   type LayoutModule,
 } from "@/lib/tote-plans";
 import { railTopMarks2x4 } from "@/components/visualizer/assemblySteps";
-import { RAIL_2X4_H, RAIL_2X4_PLATE_H } from "@/lib/rails2x4";
+import { RAIL_2X4_H, RAIL_2X4_PLATE_H, RAIL_2X4_BAY, rails2x4Bay } from "@/lib/rails2x4";
 import { MINI, miniRailTops } from "@/lib/mini-rack";
 
 /** Rail top edges (from the bottom of the upright), post depth, rail and tote sizes for a unit. */
@@ -908,11 +908,7 @@ function renderDesign(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan, layout: De
           : plan.design.units.some((u) => u.sideways)
             ? `${formatInches(MINI.opening)} (${formatInches(MINI.openingSideways)} sideways)`
             : formatInches(MINI.opening)
-        : plan.design.units.every((u) => u.sideways)
-          ? '30-1/4" (sideways)'
-          : plan.design.units.some((u) => u.sideways)
-            ? '21" (30-1/4" sideways)'
-            : '21"',
+        : sidewaysBayLabel(plan.design.units),
     ],
     ["First rail, top edge (from upright bottom)", formatInches(Math.min(...railTops))],
     ["Rail spacing", `${formatInches(plan.kind === "mini" ? MINI.railPitch : 16)} top to top`],
@@ -1759,3 +1755,15 @@ export const pdfKit = {
 } as const;
 export type PdfCursor = Cursor;
 export type PdfRGB = RGB;
+
+
+/**
+ * "21\"", "30-1/4\" (sideways)", "21\" (32\" sideways)"… Sideways bays follow
+ * the tote brand (@/lib/rails2x4); upright bays are a universal 21".
+ */
+function sidewaysBayLabel(units: { sideways?: boolean; toteType?: string }[]): string {
+  const sidewaysBays = [...new Set(units.filter((u) => u.sideways).map((u) => rails2x4Bay(true, u.toteType)))];
+  const sw = sidewaysBays.map((b) => formatInches(b)).join(" / ");
+  if (!sidewaysBays.length) return formatInches(RAIL_2X4_BAY);
+  return units.every((u) => u.sideways) ? `${sw} (sideways)` : `${formatInches(RAIL_2X4_BAY)} (${sw} sideways)`;
+}

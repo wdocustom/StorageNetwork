@@ -29,6 +29,10 @@ import {
   RAIL_2X4_RIP_FENCE,
   RAIL_2X4_STOCK,
   RAIL_2X4_W,
+  RAIL_2X4_BAY,
+  RAIL_2X4_DEPTH_UPRIGHT,
+  rails2x4Bay,
+  rails2x4Depth,
   railTops2x4,
   upright2x4Length,
 } from "@/lib/rails2x4";
@@ -108,8 +112,8 @@ export interface BuildConfig {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const RAILS_2X4 = {
-  /** Universal bay opening between uprights — fits HDX and Greenmade totes */
-  opening: 21,
+  /** Universal upright bay between uprights — fits HDX and Greenmade totes */
+  opening: RAIL_2X4_BAY,
   /** Rail CENTER heights, measured up from the bottom end of the upright (@/lib/rails2x4) */
   positions: RAIL_2X4_CENTERS,
   /** At 6 high the upright is a full, uncut 8' stud */
@@ -124,14 +128,8 @@ export const RAILS_2X4 = {
   railsPerBoard: 6,
 } as const;
 
-/**
- * Sideways 2×4-rail racks: the tote turns 90°, so its long side faces out.
- * The bay widens to 30-1/4" and the rack is only 20" deep (rails are 20").
- * Same numbers as buildEngine / calculate-materials / Rack3D.
- */
-export const RAILS_2X4_SIDEWAYS = { opening: 30.25, depth: 20 } as const;
 /** Standard 2×4-rail rack depth = rail length */
-export const RAILS_2X4_DEPTH = 30;
+export const RAILS_2X4_DEPTH = RAIL_2X4_DEPTH_UPRIGHT;
 
 export interface Rails2x4Geometry {
   /** Clear bay between uprights */
@@ -144,10 +142,14 @@ export interface Rails2x4Geometry {
   railsPerBoard: number;
 }
 
-/** Bay, depth and rail yield for a 2×4-rail module, standard or sideways. */
-export function rails2x4Geometry(sideways = false): Rails2x4Geometry {
-  const opening = sideways ? RAILS_2X4_SIDEWAYS.opening : RAILS_2X4.opening;
-  const depth = sideways ? RAILS_2X4_SIDEWAYS.depth : RAILS_2X4_DEPTH;
+/**
+ * Bay, depth and rail yield for a 2×4-rail module, standard or sideways.
+ * Sideways racks turn the tote 90° (long side out, 20" deep) and their bay
+ * depends on the tote brand — see rails2x4Bay in @/lib/rails2x4.
+ */
+export function rails2x4Geometry(sideways = false, toteType?: string | null): Rails2x4Geometry {
+  const opening = rails2x4Bay(sideways, toteType);
+  const depth = rails2x4Depth(sideways);
   const railsPerStrip = Math.floor(96 / (depth + 0.125));
   return { opening, depth, railsPerStrip, railsPerBoard: railsPerStrip * 2 };
 }
@@ -187,9 +189,9 @@ const floorQuarter = (n: number) => Math.floor(n * 4 + 1e-9) / 4;
  * 2-high frames take shorter corner braces; 1-high frames take one diagonal
  * per end bay running from the bottom plate to the top plate.
  */
-export function braceLayout2x4(cols: number, rows: number, sideways = false, mini = false): BraceLayout2x4 {
+export function braceLayout2x4(cols: number, rows: number, sideways = false, mini = false, toteType?: string | null): BraceLayout2x4 {
   // Mini racks: braces are the same 1-1/4" plywood strip as a rail, at most a rail long.
-  const opening = mini ? miniOpening(sideways) : rails2x4Geometry(sideways).opening;
+  const opening = mini ? miniOpening(sideways) : rails2x4Geometry(sideways, toteType).opening;
   const pitch = opening + 1.5;
   const w = cols * pitch; // first to last upright, center to center
   const upright = mini ? miniUpright(rows) : upright2x4(Math.min(rows, RAILS_2X4.maxRows));
@@ -920,7 +922,7 @@ function miniTokenValues(cols: number, rows: number, config: BuildConfig): Recor
 function tokenValues(cols: number, rows: number, config: BuildConfig): Record<string, string> {
   if (config.toteType === "MINI") return miniTokenValues(cols, rows, config);
   const is2x4 = config.rails === "2x4";
-  const geo = rails2x4Geometry(is2x4 && config.sideways === true);
+  const geo = rails2x4Geometry(is2x4 && config.sideways === true, config.toteType);
   const opening = is2x4 ? geo.opening : config.toteType === "GM" ? 20.75 : 19.75;
   const depthStr = `${toFraction(is2x4 ? geo.depth : 30)}"`;
   const openingStr = `${toFraction(opening)}"`;
@@ -933,7 +935,7 @@ function tokenValues(cols: number, rows: number, config: BuildConfig): Record<st
   const railScrews = numRails * 4; // 2 screws per rail end × 2 ends
   // 2 screws per connection × 2 plates (front+back) × (cols+1) posts
   const perPlateScrews = (cols + 1) * 2 * 2;
-  const braces = braceLayout2x4(cols, rows, is2x4 && config.sideways === true);
+  const braces = braceLayout2x4(cols, rows, is2x4 && config.sideways === true, false, config.toteType);
   const backSupports = is2x4 ? braces.segments.length : backSupportsFor(cols);
   const braceLen = braces.length >= geo.depth ? `${depthStr} (no cut)` : `cut to ${toFraction(braces.length)}"`;
   const braceCut =

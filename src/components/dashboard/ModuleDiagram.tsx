@@ -3,7 +3,7 @@
 import { splitModuleWidths } from "@/lib/module-split";
 import { useCallback, useMemo } from "react";
 import type { CutPlanModule } from "@/lib/buildEngine.types";
-import { RAIL_2X4_ABOVE_TOP, RAIL_2X4_MAX_ROWS, RAIL_2X4_TOPS, upright2x4Length } from "@/lib/rails2x4";
+import { RAIL_2X4_ABOVE_TOP, RAIL_2X4_MAX_ROWS, RAIL_2X4_TOPS, rails2x4Bay, upright2x4Length } from "@/lib/rails2x4";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ModuleDiagram — 2D front-facing SVG diagram of the built storage unit
@@ -113,8 +113,9 @@ export default function ModuleDiagram({
     for (let ui = 0; ui < units.length; ui++) {
       const unit = units[ui];
       const sideways = unit.orientation === "sideways";
+      // 2×4 rails: sideways bay follows the tote brand (@/lib/rails2x4)
       const opening = sideways
-        ? SIDEWAYS_OPENING
+        ? (use2x4Rails ? rails2x4Bay(true, unit.toteType) : SIDEWAYS_OPENING)
         : use2x4Rails ? RAILS_2X4_OPENING : ((unit.toteType ?? "HDX") === "GM" ? OPENING_GM : OPENING_HDX);
       const topGap = use2x4Rails ? RAILS_2X4_TOP_GAP : TOP_GAP;
       const maxRowsPerTier = use2x4Rails ? RAILS_2X4_MAX_ROWS : MAX_ROWS_PER_TIER;

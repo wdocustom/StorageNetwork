@@ -31,7 +31,7 @@ import { PAINT_COLORS } from "@/types/viewModels";
 // ═══════════════════════════════════════════════════════════════════════════
 
 import type { SectionAddon } from "@/types/viewModels";
-import { RAIL_2X4_CENTERS, RAIL_2X4_H, RAIL_2X4_PITCH, RAIL_2X4_W, railCenterFromBottom, upright2x4Length } from "@/lib/rails2x4";
+import { RAIL_2X4_CENTERS, RAIL_2X4_H, RAIL_2X4_PITCH, RAIL_2X4_W, railCenterFromBottom, rails2x4Bay, upright2x4Length } from "@/lib/rails2x4";
 import { MINI, miniDepth, miniFrameHeight, miniOpening, miniPlateLength, miniUpright } from "@/lib/mini-rack";
 
 type ToteType = "HDX" | "GM";
@@ -112,16 +112,18 @@ export interface StackedModule3D {
   rolling: boolean;
   hasWheels: boolean;
   hasTop: boolean;
-  /** Totes turned 90°: 30-1/4" bays, 20" deep */
+  /** Totes turned 90°: 20" deep, bays follow the tote brand (@/lib/rails2x4) */
   sideways?: boolean;
   /** Mini Tote Rack module (@/lib/mini-rack): 2×3 frame, plywood rails */
   mini?: boolean;
+  /** 27-gal tote brand — sets the sideways bay ("GM" = Greenmade-size) */
+  toteType?: string;
 }
 
 /** Outside width of a stacked module (inches). */
 function stackedModuleW(m: StackedModule3D): number {
   if (m.mini) return miniPlateLength(m.cols, m.sideways === true);
-  return m.cols * (m.sideways ? SIDEWAYS_SLOT_W : RAILS_2X4_OPENING) + (m.cols + 1) * POST_W;
+  return m.cols * rails2x4Bay(m.sideways, m.toteType) + (m.cols + 1) * POST_W;
 }
 
 /** Frame height of a stacked module, without casters (inches). */
@@ -202,7 +204,7 @@ const TOTE_DEPTH = 28.6;       // Tote lid depth — slightly less than 30" for 
 
 // ── Sideways Orientation Constants (27 Gallon rotated 90°) ───────────────
 
-const SIDEWAYS_SLOT_W = 30.25;   // Tote placed sideways (wider slot)
+const SIDEWAYS_SLOT_W = 30.25;   // Plywood-strip sideways slot (2×4 rails: rails2x4Bay)
 const SIDEWAYS_DEPTH = 20;       // Shallower depth
 
 // ── Mini Unit Constants (6.5 Quart) ──────────────────────────────────────
@@ -219,7 +221,6 @@ const MINI_TOTE_D = MINI.tote.length;
 const MINI_TOTE_RIM_H = MINI.tote.height - MINI.tote.lipFromBottom;
 
 // ── 2x4 Rail Construction Constants ──────────────────────────────────────
-const RAILS_2X4_OPENING = 21;       // Universal 21" bay width
 const RAILS_2X4_RAIL_W = RAIL_2X4_W; // Ripped 2x4: 1-1/2" thick
 const RAILS_2X4_RAIL_H = RAIL_2X4_H; // Ripped 2x4: 1-9/16" tall
 /** Rail CENTER Y positions from the bottom of the uprights (@/lib/rails2x4). */
@@ -234,7 +235,7 @@ function getBayWidth(toteType: ToteType, unitType: UnitType, orientation: Orient
   if (unitType === "mini") {
     return miniOpening(orientation === "sideways");
   }
-  // Sideways orientation uses fixed 30.25" slot width
+  // Plywood-strip sideways racks use a fixed 30.25" slot (2×4 rails: rails2x4Bay)
   if (orientation === "sideways") {
     return SIDEWAYS_SLOT_W;
   }
@@ -623,7 +624,7 @@ function RackAssembly({
   // Rails: 2x4 mode uses lumber material, standard mode uses plywood (or frame paint)
   const railMat = is2x4 ? frameMat : frameMat;
   const standardBayW = is2x4
-    ? (orientation === "sideways" ? SIDEWAYS_SLOT_W : RAILS_2X4_OPENING)
+    ? rails2x4Bay(orientation === "sideways", toteType)
     : getBayWidth(toteType, unitType, orientation);
   // Drawer columns are 1" wider (0.5" per side for slide hardware)
   const DRAWER_SLIDE_EXTRA = 1.0;
@@ -1084,7 +1085,7 @@ function CameraRig({ cols, rows, toteType, unitType, orientation, hasWheels, use
   const isMini = unitType === "mini";
   const is2x4 = use2x4Rails === true;
   const bayW = is2x4
-    ? (orientation === "sideways" ? SIDEWAYS_SLOT_W : RAILS_2X4_OPENING)
+    ? rails2x4Bay(orientation === "sideways", toteType)
     : getBayWidth(toteType, unitType, orientation);
   const totalW = cols * bayW + (cols + 1) * POST_W;
   const unitDepth = is2x4 ? (orientation === "sideways" ? SIDEWAYS_DEPTH : RACK_DEPTH) : getUnitDepth(unitType, orientation);
@@ -1193,7 +1194,7 @@ function StackedModulesAssembly({ modules, toteType, toteColor, hasTotes }: {
               <RackAssembly
                 cols={m.cols}
                 rows={m.rows}
-                toteType={toteType}
+                toteType={m.toteType === "GM" ? "GM" : m.toteType === "HDX" ? "HDX" : toteType}
                 toteColor={toteColor}
                 unitType={m.mini ? "mini" : "standard"}
                 orientation={m.sideways ? "sideways" : "standard"}
@@ -1270,7 +1271,7 @@ function CompoundRackAssembly({ presetUnits, toteType, toteColor, unitType, orie
   const isMini = unitType === "mini";
   const is2x4 = use2x4Rails === true;
   const bayW = is2x4
-    ? (orientation === "sideways" ? SIDEWAYS_SLOT_W : RAILS_2X4_OPENING)
+    ? rails2x4Bay(orientation === "sideways", toteType)
     : getBayWidth(toteType, unitType, orientation);
   const GAP_INCHES = 1; // 1" gap between sub-units
 
@@ -1352,7 +1353,7 @@ function CompoundCameraRig({ presetUnits, toteType, unitType, orientation, use2x
 
   const is2x4 = use2x4Rails === true;
   const bayW = is2x4
-    ? (orientation === "sideways" ? SIDEWAYS_SLOT_W : RAILS_2X4_OPENING)
+    ? rails2x4Bay(orientation === "sideways", toteType)
     : getBayWidth(toteType, unitType, orientation);
   const unitDepth = is2x4
     ? (orientation === "sideways" ? SIDEWAYS_DEPTH : RACK_DEPTH)

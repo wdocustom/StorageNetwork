@@ -73,7 +73,7 @@ export const PLANS_FAQS: PlansFaq[] = [
   },
   {
     question: "Can I build a tote rack for a shallow wall?",
-    answer: `Yes. Choose Sideways in the designer: each tote turns 90° so its long side faces out, and the rack is only 20" deep instead of 30". Bays widen to 30-1/4", so a sideways rack is wider for the same number of totes, and it's built in modules up to 2 totes wide so every plate still comes out of an 8' 2×4. The 3D guide, cut list and PDF all follow the sideways build.`,
+    answer: `Yes. Choose Sideways in the designer: each tote turns 90° so its long side faces out, and the rack is only 20" deep instead of 30". Bays widen to fit the tote's long side (30-1/4" for HDX-size totes, 32" for Greenmade-size), so pick your tote brand: a sideways rack is cut for one brand and is wider for the same number of totes, and it's built in modules up to 2 totes wide so every plate still comes out of an 8' 2×4. The 3D guide, cut list and PDF all follow the sideways build.`,
   },
   {
     question: "Can I put my tote rack on casters?",

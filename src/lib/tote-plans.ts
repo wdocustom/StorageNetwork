@@ -332,7 +332,8 @@ export interface TotePlanUnit {
   hasWheels: boolean;
   hasTop: boolean;
   /**
-   * Totes turned 90°, long side facing out: 30-1/4" bays, 20" deep. For
+   * Totes turned 90°, long side facing out: 30-1/4" bays (32" for
+   * Greenmade-size totes — @/lib/rails2x4), 20" deep. For
    * shallow walls. Omitted (not false) on standard units, so old designs
    * and their encodings are unchanged.
    */
@@ -360,8 +361,8 @@ export const TOTE_PLAN_LIMITS = {
 /** Build-engine split points (must match buildEngine.ts): plates fit an
  *  8' board up to 4 wide; a 2×4-rail upright is a full 8' stud at 6 high. */
 export const MODULE_MAX_COLS = MAX_MODULE_COLS;
-/** Sideways bays are 30-1/4": 2 wide is a 65" plate, 3 wide (96-3/4")
- *  would no longer come out of an 8' board. */
+/** Sideways bays are 30-1/4" (32" Greenmade-size): 2 wide is a 65" / 68-1/2"
+ *  plate, 3 wide would no longer come out of an 8' board. */
 export const MODULE_MAX_COLS_SIDEWAYS = MAX_MODULE_COLS_SIDEWAYS;
 export const MODULE_MAX_ROWS = RAILS_2X4.maxRows;
 
@@ -583,8 +584,13 @@ function safeDecode(value: string): string | null {
 
 /** Universal 21" bay between uprights — fits HDX and Greenmade 27-gal totes */
 export const BAY_OPENING_IN = RAILS_2X4.opening;
-/** Sideways bay: the tote's 30-1/4" length spans it */
-export const BAY_OPENING_SIDEWAYS_IN = rails2x4Geometry(true).opening;
+/**
+ * Sideways bay: the tote's long side spans it, so it depends on the brand —
+ * 30-1/4" for HDX-size totes, 32" for Greenmade-size (@/lib/rails2x4).
+ */
+export function bayOpeningSidewaysIn(toteType?: string | null): number {
+  return rails2x4Geometry(true, toteType).opening;
+}
 export const POST_IN = 1.5;
 /** Bottom plate + top plate, 1-1/2" each */
 export const PLATES_H_IN = 3;
@@ -597,10 +603,10 @@ export const UNIT_DEPTH_SIDEWAYS_IN = rails2x4Geometry(true).depth;
 // have 8-1/4" bays (13" sideways), 12-3/4" depth (8" sideways), 2×3 frames,
 // and modules up to 9 wide (6 sideways) × 14 tall.
 
-/** Bay opening for a unit, standard or sideways. */
-export function bayOpeningIn(sideways?: boolean, mini = false): number {
+/** Bay opening for a unit, standard or sideways (sideways depends on the tote brand). */
+export function bayOpeningIn(sideways?: boolean, mini = false, toteType?: string | null): number {
   if (mini) return miniOpening(sideways === true);
-  return sideways ? BAY_OPENING_SIDEWAYS_IN : BAY_OPENING_IN;
+  return sideways ? bayOpeningSidewaysIn(toteType) : BAY_OPENING_IN;
 }
 
 /** Rack depth (= rail length) for a unit, standard or sideways. */
@@ -646,10 +652,10 @@ export function splitHeight(rows: number, mini = false): number[] {
   return tiers;
 }
 
-/** Outside width of one module. Tote brand doesn't matter: the 21" bay fits both. */
-export function moduleWidthIn(cols: number, sideways = false, mini = false): number {
+/** Outside width of one module. Upright bays fit both brands; sideways bays follow the brand. */
+export function moduleWidthIn(cols: number, sideways = false, mini = false, toteType?: string | null): number {
   if (mini) return miniPlateLength(cols, sideways);
-  return cols * bayOpeningIn(sideways) + (cols + 1) * POST_IN;
+  return cols * bayOpeningIn(sideways, false, toteType) + (cols + 1) * POST_IN;
 }
 
 /** Frame height of one module (plates + upright), without casters. */
@@ -661,7 +667,7 @@ export function moduleFrameHeightIn(rows: number, mini = false): number {
 export function unitOuterSize(unit: TotePlanUnit): { widthIn: number; heightIn: number; depthIn: number } {
   const mini = isMiniUnit(unit);
   return {
-    widthIn: splitWidth(unit.cols, unit.sideways, mini).reduce((s, c) => s + moduleWidthIn(c, unit.sideways, mini), 0),
+    widthIn: splitWidth(unit.cols, unit.sideways, mini).reduce((s, c) => s + moduleWidthIn(c, unit.sideways, mini, unit.toteType), 0),
     heightIn:
       splitHeight(unit.rows, mini).reduce((s, r) => s + moduleFrameHeightIn(r, mini), 0) + (unit.hasWheels ? CASTER_IN : 0),
     depthIn: unitDepthIn(unit.sideways, mini),
@@ -683,15 +689,16 @@ export function unitUprightXs(unit: Pick<TotePlanUnit, "cols" | "sideways"> & Pa
   const xs: number[] = [];
   let offset = 0;
   for (const cols of splitWidth(unit.cols, unit.sideways, mini)) {
-    for (let i = 0; i <= cols; i++) xs.push(offset + POST_IN / 2 + i * (bayOpeningIn(unit.sideways, mini) + POST_IN));
-    offset += moduleWidthIn(cols, unit.sideways, mini);
+    for (let i = 0; i <= cols; i++) xs.push(offset + POST_IN / 2 + i * (bayOpeningIn(unit.sideways, mini, unit.toteType) + POST_IN));
+    offset += moduleWidthIn(cols, unit.sideways, mini, unit.toteType);
   }
   return xs;
 }
 
 /** Number of caster PAIRS (front + back) a rolling unit gets. */
-export function casterPairCount(unit: Pick<TotePlanUnit, "cols" | "sideways">): number {
-  const width = unitOuterSize({ cols: unit.cols, rows: 1, toteType: "HDX", hasWheels: false, hasTop: false, sideways: unit.sideways }).widthIn;
+export function casterPairCount(unit: Pick<TotePlanUnit, "cols" | "sideways"> & Partial<Pick<TotePlanUnit, "toteType">>): number {
+  const toteType = unit.toteType === "GM" ? "GM" : "HDX";
+  const width = unitOuterSize({ cols: unit.cols, rows: 1, toteType, hasWheels: false, hasTop: false, sideways: unit.sideways }).widthIn;
   if (width <= CASTER_BASE_LENGTH_IN) return 2;
   return 2 + Math.ceil((width - CASTER_BASE_LENGTH_IN) / CASTER_EXTRA_PAIR_EVERY_IN);
 }
@@ -1125,7 +1132,7 @@ export function designLayout(design: TotePlanDesign, unitGapIn = 8): DesignLayou
     const colX: number[] = [];
     widths.reduce((x, c, i) => {
       colX[i] = x;
-      return x + moduleWidthIn(c, unit.sideways, mini);
+      return x + moduleWidthIn(c, unit.sideways, mini, unit.toteType);
     }, unitX);
     const tierY: number[] = [];
     tiers.reduce((y, r, i) => {
@@ -1144,7 +1151,7 @@ export function designLayout(design: TotePlanDesign, unitGapIn = 8): DesignLayou
         sideways: m.sideways,
         x: colX[m.widthIndex],
         y: tierY[m.tierIndex],
-        w: moduleWidthIn(m.cols, m.sideways, mini),
+        w: moduleWidthIn(m.cols, m.sideways, mini, m.toteType),
         h: moduleFrameHeightIn(m.rows, mini),
       });
     }

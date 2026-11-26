@@ -51,7 +51,7 @@ import {
   calculateOverheadStorage,
   type OverheadStorageConfig,
 } from "@/lib/overhead-storage";
-import { RAIL_2X4_MAX_ROWS, upright2x4Length } from "@/lib/rails2x4";
+import { RAIL_2X4_MAX_ROWS, rails2x4Bay, upright2x4Length } from "@/lib/rails2x4";
 
 // ── Constants (PROPRIETARY — never exposed to client) ────────────────────
 
@@ -67,7 +67,7 @@ const STANDARD_TIER_HEIGHT = 16;
 const STANDARD_DEPTH = 30;
 
 // ── Sideways Orientation Constants (27-gal totes rotated 90°) ───────────
-const SIDEWAYS_OPENING = 30.25; // Tote depth becomes slot width
+const SIDEWAYS_OPENING = 30.25; // Plywood-strip sideways bay (2×4 rails: rails2x4Bay)
 const SIDEWAYS_DEPTH = 20; // Tote width becomes unit depth
 
 // ── Mini Unit Constants — measured from a built rack (@/lib/mini-rack) ──
@@ -79,7 +79,6 @@ const MINI_TIER_HEIGHT = MINI.railPitch;
 const MINI_DEPTH = MINI.depth;
 
 // ── 2x4 Rail Construction Constants ────────────────────────────────────
-const RAILS_2X4_OPENING = 21;     // universal 21" opening
 const RAILS_2X4_GAP = 1.5;       // post width (same 2x4)
 const RAILS_2X4_DEPTH_STANDARD = 30;
 const RAILS_2X4_DEPTH_SIDEWAYS = 20;
@@ -339,8 +338,10 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
     if (totalCols < 1 || totalRows < 1) return;
 
     // Get config based on unit type, orientation, and 2x4 rail mode
+    // 2×4 rails: universal 21" upright bay; sideways bays follow the tote
+    // brand (@/lib/rails2x4). Plywood strips keep their own openings.
     const opening = is2x4
-      ? (orientation === "sideways" ? SIDEWAYS_OPENING : RAILS_2X4_OPENING)
+      ? rails2x4Bay(orientation === "sideways", toteType)
       : getOpening(toteType, unitType, orientation);
     const gap = is2x4 ? RAILS_2X4_GAP : getGap(unitType);
     // 2x4 rail depth depends on orientation — affects rail piece length and yield per board

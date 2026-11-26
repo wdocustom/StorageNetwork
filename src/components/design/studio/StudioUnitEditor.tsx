@@ -369,16 +369,26 @@ function ToteOptions({
       <WallFit onFit={onFitToWall} />
       {measureSlot}
 
-      {!mini && !rules.totesDisabled && !rules.use2x4Rails && (
-        <Segmented
-          label="Tote size"
-          value={o.toteType}
-          onChange={(toteType) => onUpdate({ toteType, ...(toteType === "GM" ? { toteColor: "black" as const } : {}) })}
-          options={[
-            { value: "HDX", label: "Standard totes", hint: "Home Depot, Menards" },
-            { value: "GM", label: "Wider totes", hint: "Costco, Lowe's, Walmart" },
-          ]}
-        />
+      {/* Plywood racks: tote size sets the bay. 2×4-rail racks: upright bays are
+          universal, but a SIDEWAYS bay fits one brand only (@/lib/rails2x4) — so
+          ask even when the customer supplies their own totes. */}
+      {!mini && (rules.use2x4Rails ? o.orientation === "sideways" : !rules.totesDisabled) && (
+        <>
+          <Segmented
+            label={rules.use2x4Rails ? "Your tote brand (sideways)" : "Tote size"}
+            value={o.toteType}
+            onChange={(toteType) => onUpdate({ toteType, ...(toteType === "GM" ? { toteColor: "black" as const } : {}) })}
+            options={[
+              { value: "HDX", label: "Standard totes", hint: "HDX · Home Depot, Menards" },
+              { value: "GM", label: "Wider totes", hint: "Greenmade, Project Source · Costco, Lowe's, Walmart" },
+            ]}
+          />
+          {rules.use2x4Rails && (
+            <p className="-mt-2 text-[11px] leading-snug text-stone-500">
+              Sideways bays are sized for one brand, so pick the totes you&apos;ll use in this rack.
+            </p>
+          )}
+        </>
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
