@@ -1140,7 +1140,7 @@ export async function POST(request: NextRequest) {
     try {
       const { data: lead } = await getDb()
         .from("leads")
-        .select("customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at, booking_email_sent, dimensions")
+        .select("customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at, booking_email_sent, dimensions, source, balance_due")
         .eq("id", leadId)
         .single();
 
@@ -1218,6 +1218,10 @@ export async function POST(request: NextRequest) {
                   totalPrice: lead.estimated_price ?? amountPaid,
                   leadId,
                   buildSnapshotUrl: snapshotUrl,
+                  depositPaid: amountPaid,
+                  balanceDue: lead.balance_due,
+                  source: lead.source,
+                  depositMetadata: metadata,
                 }, await currencyForLead(leadId));
                 console.log("[Webhook] Installer booking alert sent for lead:", leadId);
               }
@@ -1914,7 +1918,7 @@ export async function POST(request: NextRequest) {
         try {
           const { data: lead } = await getDb()
             .from("leads")
-            .select("customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at, booking_email_sent, dimensions")
+            .select("customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at, booking_email_sent, dimensions, source, balance_due")
             .eq("id", leadId)
             .single();
 
@@ -1976,6 +1980,10 @@ export async function POST(request: NextRequest) {
                   totalPrice: lead.estimated_price ?? amountPaidPI,
                   leadId,
                   buildSnapshotUrl: piSnapshotUrl,
+                  depositPaid: amountPaidPI,
+                  balanceDue: lead.balance_due,
+                  source: lead.source,
+                  depositMetadata: metadata,
                 }, await currencyForLead(leadId));
                 console.log("[Webhook] Installer alert sent (PI flow)");
               }
