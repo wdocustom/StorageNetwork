@@ -4,6 +4,7 @@ import { getAppUrl } from "@/lib/url-helper";
 import { maskEmail, maskPhone, maskName } from "@/lib/mask";
 import { getDepositLabel } from "@/app/actions/fee-engine";
 import { pushToEmail } from "@/lib/server/push";
+import { computeBookingTakeHome, type BookingTakeHomeInput } from "./bookingTakeHome";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Shared style primitives — mirrored from customerTemplates so installer
@@ -43,6 +44,14 @@ export async function sendNewBookingAlert(
     totalPrice: number;
     leadId: string;
     buildSnapshotUrl?: string;
+    /** Deposit the customer just paid. */
+    depositPaid?: number;
+    /** leads.balance_due after the deposit landed. */
+    balanceDue?: number | null;
+    /** leads.source — decides direct (3%) vs network (15%) fee. */
+    source?: string | null;
+    /** Stripe metadata from the deposit payment (the actual fee split). */
+    depositMetadata?: BookingTakeHomeInput["metadata"];
   },
   /** "usd" | "cad" — money in this email renders as CA$ for CAD jobs. */
   currency?: string
@@ -55,7 +64,30 @@ export async function sendNewBookingAlert(
     tag: `booking-${leadDetails.leadId}`,
   });
   const jobUrl = `${getAppUrl()}/dashboard/leads/${leadDetails.leadId}`;
-  const profitEstimate = Math.round(leadDetails.totalPrice * 0.85);
+  const pay = computeBookingTakeHome({
+    totalPrice: leadDetails.totalPrice,
+    depositPaid: leadDetails.depositPaid ?? 0,
+    balanceDue: leadDetails.balanceDue,
+    source: leadDetails.source,
+    metadata: leadDetails.depositMetadata,
+  });
+  const money = (n: number) =>
+    `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const feeLine = pay.feeWaived
+    ? "$0.00 (first jobs free)"
+    : `&minus;${money(pay.platformFee)}${pay.feeRateLabel ? ` (${pay.feeRateLabel} ${pay.isDirect ? "direct" : "network"} lead)` : ""}`;
+  const payRows = [
+    detailRow("Order total", money(leadDetails.totalPrice)),
+    detailRow("Platform fee", feeLine, { topBorder: true }),
+    pay.partnerCut > 0 ? detailRow("Referral partner", `&minus;${money(pay.partnerCut)}`, { topBorder: true }) : "",
+    pay.fromDeposit !== null ? detailRow("Already sent from deposit", money(pay.fromDeposit), { topBorder: true }) : "",
+    detailRow("Collect at install", money(pay.balanceToCollect), { topBorder: true }),
+  ].join("");
+  const payFootnote = pay.fromDeposit !== null
+    ? "Your share of the deposit is already in your Stripe account. The rest comes when the customer pays the balance."
+    : "Estimate. The rest comes when the customer pays the balance.";
+  const heading = pay.isDirect ? "New Booking" : "New Pre-Sold Job";
+  const eyebrowLabel = pay.isDirect ? "Direct Booking" : "Auto-Routed Lead";
 
   const unitsLabel = `${leadDetails.unitCount} unit${leadDetails.unitCount !== 1 ? "s" : ""}`;
 
@@ -64,9 +96,9 @@ export async function sendNewBookingAlert(
     : "";
 
   const html = masterEmailLayout(
-    "New Pre-Sold Job",
+    heading,
     `
-    ${eyebrow("Auto-Routed Lead")}
+    ${eyebrow(eyebrowLabel)}
     <p style="margin:0 0 6px;color:#ffffff;font-size:18px;font-weight:700;line-height:1.4;">
       ${leadDetails.customerName} &middot; ${city}
     </p>
@@ -77,11 +109,14 @@ export async function sendNewBookingAlert(
     <div style="border-top:1px solid #222;border-bottom:1px solid #222;padding:24px 0;margin:0 0 28px;">
       <table style="width:100%;">
         <tr>
-          <td style="color:#a3a3a3;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;vertical-align:bottom;">Estimated Take-Home</td>
-          <td style="text-align:right;color:#facc15;font-size:36px;font-weight:900;line-height:1;">$${profitEstimate.toLocaleString()}</td>
+          <td style="color:#a3a3a3;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;vertical-align:bottom;">Your Take-Home</td>
+          <td style="text-align:right;color:#facc15;font-size:36px;font-weight:900;line-height:1;">${money(pay.takeHome)}</td>
         </tr>
       </table>
-      <p style="margin:8px 0 0;color:#555;font-size:11px;font-style:italic;">After platform fee. Paid via Instant Stripe Payout once the install is marked complete.</p>
+      <table style="width:100%;border-collapse:collapse;margin:12px 0 0;">
+        ${payRows}
+      </table>
+      <p style="margin:8px 0 0;color:#555;font-size:11px;font-style:italic;">${payFootnote}</p>
     </div>
 
     ${eyebrow("Job Details")}
@@ -90,7 +125,6 @@ export async function sendNewBookingAlert(
       ${leadDetails.customerEmail ? detailRow("Email", leadDetails.customerEmail, { topBorder: true }) : ""}
       ${detailRow("ZIP / Address", leadDetails.address || city, { topBorder: true })}
       ${detailRow("Build", `${unitsLabel} &middot; Heavy-Duty Tote System`, { topBorder: true })}
-      ${detailRow("Order Total", `$${leadDetails.totalPrice.toLocaleString()}`, { highlight: true, topBorder: true })}
     </table>
 
     ${snapshotHtml}
@@ -109,7 +143,7 @@ export async function sendNewBookingAlert(
 
   return sendTransactionalEmail({
     to: installerEmail,
-    subject: `New job in ${city} — $${profitEstimate.toLocaleString()} take-home`,
+    subject: `New ${pay.isDirect ? "booking" : "job"} in ${city} — $${Math.round(pay.takeHome).toLocaleString()} take-home`,
     html,
     currency,
   });
